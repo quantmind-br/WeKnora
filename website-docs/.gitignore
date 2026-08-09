@@ -1,4 +1,4 @@
-# 仓库根 .gitignore 忽略了所有隐藏目录，这里把站点源码目录放回来
+# Repo-root .gitignore ignores all hidden directories, so bring the site source directory back here
 !.vitepress/
 .vitepress/cache/
 .vitepress/dist/

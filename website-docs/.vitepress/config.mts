@@ -8,20 +8,20 @@ import { repoVersionLabel } from './version'
 const root = resolve(import.meta.dirname, '..')
 
 const sections: { dir: string; label: string }[] = [
-  { dir: '01-getting-started', label: '快速开始' },
-  { dir: '02-architecture', label: '架构' },
-  { dir: '03-features', label: '功能模块' },
-  { dir: '04-api', label: 'API 参考' },
-  { dir: '05-clients', label: '客户端' },
-  { dir: '06-development', label: '开发指南' },
+  { dir: '01-getting-started', label: 'Quick Start' },
+  { dir: '02-architecture', label: 'Architecture' },
+  { dir: '03-features', label: 'Features' },
+  { dir: '04-api', label: 'API Reference' },
+  { dir: '05-clients', label: 'Clients' },
+  { dir: '06-development', label: 'Developer Guide' },
 ]
 
-/** 侧边栏条目文字：取正文一级标题，去掉冗余前后缀 */
+/** Sidebar item text: take the body H1 and strip redundant prefixes/suffixes */
 function itemText(dir: string, file: string): string {
   const raw = readFileSync(resolve(root, dir, file), 'utf-8')
   const heading = raw.match(/^#\s+(.+)$/m)?.[1] ?? file.replace(/\.md$/, '')
   return heading
-    .replace(/^API 参考[:：]\s*/, '')
+    .replace(/^API Reference[:：]\s*/, '')
     .replace(/\s*[（(][^（()）]*[)）]\s*/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim()
@@ -43,7 +43,7 @@ const sidebar: DefaultTheme.SidebarItem[] = sections.map((s) => ({
   items: itemsOf(s.dir),
 }))
 
-/** 本地搜索默认按空白分词，中文整段会被当作一个词，这里退化为字粒度切分 */
+/** Local search tokenizes by whitespace by default; a whole CJK run would be treated as one word, so degrade to per-character splitting here */
 function tokenize(text: string): string[] {
   const tokens: string[] = []
   for (const part of text.split(/[\s\n\r#%*,=/:;?[\]{}()&+\-!'"$·、，。：；？！（）【】《》…—]+/)) {
@@ -63,8 +63,8 @@ const site = 'https://weknora.weixin.qq.com'
 export default withMermaid(
   defineConfig({
     title: 'WeKnora',
-    titleTemplate: ':title · WeKnora 文档',
-    description: 'WeKnora（维娜拉）官方文档：部署、配置、功能说明、API 参考与二次开发',
+    titleTemplate: ':title · WeKnora Docs',
+    description: 'Official WeKnora documentation: deployment, configuration, feature guides, API reference and development',
     lang: 'zh-CN',
     base: '/docs/',
     cleanUrls: true,
@@ -76,12 +76,12 @@ export default withMermaid(
       ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
       ['meta', { name: 'theme-color', content: '#101f38' }],
       ['meta', { property: 'og:type', content: 'website' }],
-      ['meta', { property: 'og:title', content: 'WeKnora 文档' }],
+      ['meta', { property: 'og:title', content: 'WeKnora Docs' }],
       [
         'meta',
         {
           property: 'og:description',
-          content: '把 PDF、Word、网页与飞书 / Notion / 语雀的资料收进知识库，做成答案带出处的问答系统',
+          content: 'Turn PDFs, Word docs, web pages and Feishu / Notion / Yuque materials into a knowledge base with cited answers',
         },
       ],
     ],
@@ -91,9 +91,9 @@ export default withMermaid(
       lineNumbers: false,
       toc: { level: [2, 3] },
       config(md) {
-        // 表格外面包一层滚动容器。默认主题把 <table> 本身设成 display:block 来做
-        // 横向滚动，副作用是表格按内容收缩——列少的表比正文列窄一截，页面里宽窄不一。
-        // 把滚动交给包裹层后，表格可以恢复 display:table + width:100%，统一撑满正文列。
+        // Wrap tables in a scroll container. The default theme sets <table> itself to display:block
+        // for horizontal scrolling; the side effect is tables shrink to their content, so narrow tables
+        // end up slimmer than the prose column. Moving the scroll to the wrapper lets tables use display:table + width:100% and fill the prose column uniformly.
         md.renderer.rules.table_open = () => '<div class="wk-table">\n<table>\n'
         md.renderer.rules.table_close = () => '</table>\n</div>\n'
       },
@@ -104,13 +104,13 @@ export default withMermaid(
       siteTitle: 'WeKnora',
 
       nav: [
-        { text: '快速开始', link: '/01-getting-started/01-introduction', activeMatch: '/01-getting-started/' },
-        { text: '架构', link: '/02-architecture/01-overview', activeMatch: '/02-architecture/' },
-        { text: '功能', link: '/03-features/01-tenant-auth', activeMatch: '/03-features/' },
+        { text: 'Quick Start', link: '/01-getting-started/01-introduction', activeMatch: '/01-getting-started/' },
+        { text: 'Architecture', link: '/02-architecture/01-overview', activeMatch: '/02-architecture/' },
+        { text: 'Features', link: '/03-features/01-tenant-auth', activeMatch: '/03-features/' },
         { text: 'API', link: '/04-api/01-api-overview', activeMatch: '/04-api/' },
-        { text: '客户端', link: '/05-clients/01-frontend', activeMatch: '/05-clients/' },
-        { text: '开发', link: '/06-development/01-dev-guide', activeMatch: '/06-development/' },
-        { text: '官网', link: site },
+        { text: 'Clients', link: '/05-clients/01-frontend', activeMatch: '/05-clients/' },
+        { text: 'Developer', link: '/06-development/01-dev-guide', activeMatch: '/06-development/' },
+        { text: 'Website', link: site },
       ],
 
       weknoraVersion: repoVersionLabel,
@@ -119,39 +119,39 @@ export default withMermaid(
 
       socialLinks: [{ icon: 'github', link: repo }],
 
-      outline: { level: [2, 3], label: '本页目录' },
+      outline: { level: [2, 3], label: 'On This Page' },
 
-      docFooter: { prev: '上一篇', next: '下一篇' },
-      returnToTopLabel: '回到顶部',
-      sidebarMenuLabel: '目录',
-      darkModeSwitchLabel: '外观',
-      lightModeSwitchTitle: '切换到浅色',
-      darkModeSwitchTitle: '切换到深色',
+      docFooter: { prev: 'Previous', next: 'Next' },
+      returnToTopLabel: 'Back to top',
+      sidebarMenuLabel: 'Contents',
+      darkModeSwitchLabel: 'Appearance',
+      lightModeSwitchTitle: 'Switch to light mode',
+      darkModeSwitchTitle: 'Switch to dark mode',
 
       lastUpdated: {
-        text: '最后更新',
+        text: 'Last updated',
         formatOptions: { dateStyle: 'medium', timeStyle: undefined },
       },
 
       editLink: {
         pattern: `${repo}/edit/main/website-docs/:path`,
-        text: '在 GitHub 上编辑此页',
+        text: 'Edit this page on GitHub',
       },
 
       search: {
         provider: 'local',
         options: {
           translations: {
-            button: { buttonText: '搜索文档', buttonAriaLabel: '搜索文档' },
+            button: { buttonText: 'Search docs', buttonAriaLabel: 'Search docs' },
             modal: {
-              displayDetails: '展开详情',
-              resetButtonTitle: '清除',
-              backButtonTitle: '返回',
-              noResultsText: '没有找到结果',
+              displayDetails: 'Expand details',
+              resetButtonTitle: 'Clear',
+              backButtonTitle: 'Back',
+              noResultsText: 'No results found',
               footer: {
-                selectText: '选择',
-                navigateText: '切换',
-                closeText: '关闭',
+                selectText: 'Select',
+                navigateText: 'Navigate',
+                closeText: 'Close',
               },
             },
           },
@@ -167,7 +167,7 @@ export default withMermaid(
       },
 
       footer: {
-        message: `基于 WeKnora ${repoVersionLabel} 源码整理 · MIT License`,
+        message: `Built from the WeKnora ${repoVersionLabel} source · MIT License`,
         copyright: '© Tencent WeKnora',
       },
     },

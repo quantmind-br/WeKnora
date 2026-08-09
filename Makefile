@@ -2,67 +2,67 @@
 
 # Show help
 help:
-	@echo "WeKnora Makefile 帮助"
+	@echo "WeKnora Makefile Help"
 	@echo ""
-	@echo "基础命令:"
-	@echo "  build             构建应用"
-	@echo "  run               运行应用"
-	@echo "  test              运行测试"
-	@echo "  clean             清理构建文件"
+	@echo "Basic commands:"
+	@echo "  build             Build the application"
+	@echo "  run               Run the application"
+	@echo "  test              Run tests"
+	@echo "  clean             Clean build files"
 	@echo ""
-	@echo "Docker 命令:"
-	@echo "  docker-build-app       构建应用 Docker 镜像 (wechatopenai/weknora-app)"
-	@echo "  docker-build-docreader 构建文档读取器镜像 (wechatopenai/weknora-docreader)"
-	@echo "  docker-build-frontend  构建前端镜像 (wechatopenai/weknora-ui)"
-	@echo "  docker-build-all       构建所有 Docker 镜像"
-	@echo "  docker-run            运行 Docker 容器"
-	@echo "  docker-stop           停止 Docker 容器"
-	@echo "  docker-restart        重启 Docker 容器"
+	@echo "Docker commands:"
+	@echo "  docker-build-app       Build application Docker image (wechatopenai/weknora-app)"
+	@echo "  docker-build-docreader Build document reader image (wechatopenai/weknora-docreader)"
+	@echo "  docker-build-frontend  Build frontend image (wechatopenai/weknora-ui)"
+	@echo "  docker-build-all       Build all Docker images"
+	@echo "  docker-run            Run Docker container"
+	@echo "  docker-stop           Stop Docker container"
+	@echo "  docker-restart        Restart Docker container"
 	@echo ""
-	@echo "服务管理:"
-	@echo "  start-all         启动所有服务"
-	@echo "  stop-all          停止所有服务"
-	@echo "  start-ollama      仅启动 Ollama 服务"
+	@echo "Service management:"
+	@echo "  start-all         Start all services"
+	@echo "  stop-all          Stop all services"
+	@echo "  start-ollama      Start only the Ollama service"
 	@echo ""
-	@echo "镜像构建:"
-	@echo "  build-images      从源码构建所有镜像"
-	@echo "  build-images-app  从源码构建应用镜像"
-	@echo "  build-images-docreader 从源码构建文档读取器镜像"
-	@echo "  build-images-frontend  从源码构建前端镜像"
-	@echo "  clean-images      清理本地镜像"
+	@echo "Image build:"
+	@echo "  build-images      Build all images from source"
+	@echo "  build-images-app  Build application image from source"
+	@echo "  build-images-docreader Build document reader image from source"
+	@echo "  build-images-frontend  Build frontend image from source"
+	@echo "  clean-images      Clean local images"
 	@echo ""
-	@echo "数据库:"
-	@echo "  migrate-up        执行数据库迁移"
-	@echo "  migrate-down      回滚数据库迁移"
+	@echo "Database:"
+	@echo "  migrate-up        Run database migrations"
+	@echo "  migrate-down      Roll back database migrations"
 	@echo ""
-	@echo "开发工具:"
-	@echo "  fmt               格式化代码"
-	@echo "  lint              代码检查"
-	@echo "  deps              安装依赖"
-	@echo "  docs              生成 Swagger API 文档"
-	@echo "  install-swagger   安装 swag 工具"
+	@echo "Development tools:"
+	@echo "  fmt               Format code"
+	@echo "  lint              Lint code"
+	@echo "  deps              Install dependencies"
+	@echo "  docs              Generate Swagger API documentation"
+	@echo "  install-swagger   Install swag tool"
 	@echo ""
-	@echo "环境检查:"
-	@echo "  check-env         检查环境配置"
-	@echo "  list-containers   列出运行中的容器"
-	@echo "  pull-images       拉取最新镜像"
-	@echo "  show-platform     显示当前构建平台"
+	@echo "Environment check:"
+	@echo "  check-env         Check environment configuration"
+	@echo "  list-containers   List running containers"
+	@echo "  pull-images       Pull latest images"
+	@echo "  show-platform     Show current build platform"
 	@echo ""
-	@echo "开发模式（推荐）:"
-	@echo "  dev-start         启动开发环境基础设施（仅启动依赖服务）"
-	@echo "                    可选: make dev-start DEV_ARGS=--odl-hybrid"
-	@echo "  dev-stop          停止开发环境"
-	@echo "  dev-restart       重启开发环境"
-	@echo "  dev-logs          查看开发环境日志"
-	@echo "  dev-status        查看开发环境状态"
-	@echo "  dev-app           启动后端应用（本地运行，需先运行 dev-start）"
-	@echo "  dev-frontend      启动前端（本地运行，需先运行 dev-start）"
+	@echo "Development mode (recommended):"
+	@echo "  dev-start         Start development environment infrastructure (only starts dependent services)"
+	@echo "                    Optional: make dev-start DEV_ARGS=--odl-hybrid"
+	@echo "  dev-stop          Stop development environment"
+	@echo "  dev-restart       Restart development environment"
+	@echo "  dev-logs          View development environment logs"
+	@echo "  dev-status        View development environment status"
+	@echo "  dev-app           Start backend application (runs locally, requires dev-start first)"
+	@echo "  dev-frontend      Start frontend (runs locally, requires dev-start first)"
 	@echo ""
-	@echo "Lite 模式（零外部依赖）:"
-	@echo "  build-lite        构建 Lite 版本（先构建前端到 web/，再构建 Go；SKIP_FRONTEND=1 跳过前端）"
-	@echo "  run-lite          构建并启动 Lite 版本"
-	@echo "  package-lite      构建并打包 Lite 发行包（tarball）"
-	@echo "  package-mac-app   构建并打包 macOS 桌面应用 (.app)"
+	@echo "Lite mode (zero external dependencies):"
+	@echo "  build-lite        Build the Lite version (builds frontend to web/ first, then Go; SKIP_FRONTEND=1 skips frontend)"
+	@echo "  run-lite          Build and start the Lite version"
+	@echo "  package-lite      Build and package the Lite distribution (tarball)"
+	@echo "  package-mac-app   Build and package the macOS desktop app (.app)"
 
 # Go related variables
 BINARY_NAME=WeKnora
@@ -102,7 +102,7 @@ clean:
 
 # Build Docker image
 docker-build-app:
-	@echo "获取版本信息..."
+	@echo "Getting version information..."
 	@eval $$(./scripts/get_version.sh env); \
 	./scripts/get_version.sh info; \
 	docker build --platform $(PLATFORM) \
@@ -124,7 +124,7 @@ docker-build-frontend:
 # Build all Docker images
 docker-build-all: docker-build-app docker-build-docreader docker-build-frontend
 
-# Run Docker container (传统方式)
+# Run Docker container (traditional method)
 # Touch .env if missing — docker-compose.yml's `env_file: [.env]` is required
 # for ${ENV} interpolation in builtin_models.yaml and would otherwise refuse
 # to parse on fresh clones. `start-all` handles this via check_env_file; this
@@ -133,27 +133,27 @@ docker-run:
 	@[ -f .env ] || ([ -f .env.example ] && cp .env.example .env || touch .env)
 	docker-compose up
 
-# 使用新脚本启动所有服务
+# Start all services using the new script
 start-all:
 	./scripts/start_all.sh
 
-# 使用新脚本仅启动Ollama服务
+# Start only the Ollama service using the new script
 start-ollama:
 	./scripts/start_all.sh --ollama
 
-# 使用新脚本仅启动Docker容器
+# Start only the Docker containers using the new script
 start-docker:
 	./scripts/start_all.sh --docker
 
-# 使用新脚本停止所有服务
+# Stop all services using the new script
 stop-all:
 	./scripts/start_all.sh --stop
 
-# Stop Docker container (传统方式)
+# Stop Docker container (traditional method)
 docker-stop:
 	docker-compose down
 
-# 从源码构建镜像相关命令
+# Build images from source related commands
 build-images:
 	./scripts/build_images.sh
 
@@ -211,10 +211,10 @@ migrate-goto:
 
 # Generate API documentation (Swagger)
 docs:
-	@echo "生成 Swagger API 文档..."
+	@echo "Generating Swagger API documentation..."
 	swag init -g $(MAIN_PATH)/main.go -o ./docs --parseDependency --parseInternal
-	@echo "文档已生成到 ./docs 目录"
-	@echo "启动服务后访问 http://localhost:8080/swagger/index.html 查看文档"
+	@echo "Documentation generated to ./docs directory"
+	@echo "Start the service and visit http://localhost:8080/swagger/index.html to view the documentation"
 
 # Install swagger tool
 install-swagger:
@@ -246,7 +246,7 @@ build-prod:
 	go build -ldflags="-w -s $$LDFLAGS" -o $(BINARY_NAME) $(MAIN_PATH)
 
 # Build Lite version (single binary, SQLite + in-memory queue)
-# 会先构建前端到 web/，再构建 Go 二进制；SKIP_FRONTEND=1 可跳过前端
+# Builds frontend to web/ first, then builds Go binary; SKIP_FRONTEND=1 skips the frontend
 build-lite:
 	@if [ -f frontend/package.json ] && [ "$${SKIP_FRONTEND:-}" != "1" ]; then \
 		echo ">> Building frontend for Lite..."; \
@@ -307,8 +307,8 @@ pull-images:
 
 # Show current platform
 show-platform:
-	@echo "当前系统架构: $(shell uname -m)"
-	@echo "Docker构建平台: $(PLATFORM)"
+	@echo "Current system architecture: $(shell uname -m)"
+	@echo "Docker build platform: $(PLATFORM)"
 
 # Development mode commands
 dev-start:
@@ -331,5 +331,3 @@ dev-app:
 
 dev-frontend:
 	./scripts/dev.sh frontend
-
-

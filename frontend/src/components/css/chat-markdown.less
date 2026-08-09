@@ -60,7 +60,7 @@
     margin-top: 0.5em;
   }
 
-  // Models often emit standalone **小节标题：** paragraphs instead of headings.
+  // Models often emit standalone **section headings:** paragraphs instead of headings.
   // Tagged at render time (markStandaloneStrongParagraphs) rather than via
   // `p:has(> strong:only-child)`: CSS `:only-child` ignores text nodes, so the
   // selector matched any paragraph whose only *element* child was a <strong>,

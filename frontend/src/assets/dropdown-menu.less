@@ -1,18 +1,18 @@
 /**
- * 全局统一下拉菜单样式
+ * Global unified dropdown menu styles
  * 
- * 适用于所有场景的 popup/dropdown 菜单，包括：
- * - 卡片操作菜单（知识库、智能体、组织）
- * - 文档操作菜单
- * - 对话会话菜单
- * - 上传操作菜单
+ * Applies to popup/dropdown menus in all scenarios, including:
+ * - Card action menus (knowledge base, agent, organization)
+ * - Document action menu
+ * - Conversation session menu
+ * - Upload action menu
  * 
- * 使用方式：
- * 1. <t-popup> + .popup-menu 自定义内容模式: overlayClassName="card-more-popup"
- * 2. <t-dropdown> TDesign 下拉模式: 自动匹配全局样式
+ * Usage:
+ * 1. <t-popup> + .popup-menu custom content mode: overlayClassName="card-more-popup"
+ * 2. <t-dropdown> TDesign dropdown mode: automatically matches global styles
  */
 
-/* 弹出动画 */
+/* Popup animation */
 @keyframes dropdownSlideIn {
   from {
     opacity: 0;
@@ -36,7 +36,7 @@
 }
 
 /* ============================================
-   一、Popup 容器统一样式（<t-popup> 模式）
+   1. Popup container unified style (<t-popup> mode)
    ============================================ */
 .card-more-popup {
   z-index: 99 !important;
@@ -60,7 +60,7 @@
 }
 
 /* ============================================
-   二、自定义菜单项统一样式（.popup-menu 模式）
+   2. Custom menu item unified style (.popup-menu mode)
    ============================================ */
 .popup-menu {
   display: flex;
@@ -139,7 +139,7 @@
 }
 
 /* ============================================
-   三、文档操作菜单统一样式（.card-more 容器）
+   3. Document action menu unified style (.card-more container)
    ============================================ */
 .card-more {
   z-index: 99 !important;
@@ -348,8 +348,8 @@
 }
 
 /* ============================================
-   四、TDesign Dropdown 统一样式
-   适用于 <t-dropdown> 组件（挂载到 body 上）
+   4. TDesign Dropdown unified style
+   Applies to the <t-dropdown> component (mounted to body)
    ============================================ */
 .t-popup__content {
   .t-dropdown__menu {
@@ -452,7 +452,7 @@
       display: block;
     }
 
-    /* TDesign error 主题项（删除操作） */
+    /* TDesign error theme item (delete action) */
     &.t-dropdown__item--theme-error {
       color: var(--td-error-color-6) !important;
       margin-top: 4px;
@@ -488,7 +488,7 @@
   }
 }
 
-/* tag 更多弹窗 */
+/* Tag "more" popup */
 .tag-more-popup {
   z-index: 99 !important;
 
@@ -510,7 +510,7 @@
   }
 }
 
-/* 文档卡片标签选择弹窗 */
+/* Document card tag selection popup */
 .card-tag-popup {
   z-index: 99 !important;
 
@@ -610,7 +610,7 @@
 }
 
 /* ============================================
-   五、锚定表单/确认弹层（成员邀请、Wiki 移动/删除等）
+   5. Anchored form/confirmation popup (member invite, wiki move/delete, etc.)
    ============================================ */
 .anchored-form-popup-overlay {
   z-index: 3500 !important;
@@ -675,7 +675,7 @@
 }
 
 /* ============================================
-   六、暗色模式增强
+   6. Dark mode enhancements
    ============================================ */
 :root[theme-mode="dark"] {
   .card-more-popup .t-popup__content,
@@ -721,3 +721,4 @@
     }
   }
 }
+```

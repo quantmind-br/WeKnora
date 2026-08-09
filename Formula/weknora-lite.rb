@@ -55,8 +55,8 @@ class WeknoraLite < Formula
         sed -i '' "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$DATA_DIR/files|" "$CONFIG_DIR/.env.lite"
         rm -f "$CONFIG_DIR/.env.lite-e"
         echo ""
-        echo "已创建配置文件: $CONFIG_DIR/.env.lite"
-        echo "请根据需要编辑（如修改 LLM 地址、安全密钥等）。"
+        echo "Config file created: $CONFIG_DIR/.env.lite"
+        echo "Please edit as needed (e.g. modify LLM address, security keys, etc.)."
         echo ""
       fi
 
@@ -88,25 +88,25 @@ class WeknoraLite < Formula
 
   def caveats
     <<~EOS
-      前台运行:
+      Run in foreground:
         weknora-lite
 
-      后台服务（推荐）:
-        brew services start weknora-lite   # 启动并开机自启
-        brew services stop weknora-lite    # 停止
-        brew services restart weknora-lite # 重启
-        brew services info weknora-lite    # 查看状态
+      Background service (recommended):
+        brew services start weknora-lite   # Start and enable auto-start on boot
+        brew services stop weknora-lite    # Stop
+        brew services restart weknora-lite # Restart
+        brew services info weknora-lite    # View status
 
-      日志:
+      Logs:
         #{var}/log/weknora-lite.log
 
-      首次运行会自动创建配置文件:
+      The config file is created automatically on first run:
         ~/.config/weknora/.env.lite
 
-      数据存储在:
+      Data is stored in:
         ~/.local/share/weknora/
 
-      如需修改配置（LLM 服务地址、安全密钥等）:
+      To modify the configuration (LLM service address, security keys, etc.):
         $EDITOR ~/.config/weknora/.env.lite
         brew services restart weknora-lite
     EOS
