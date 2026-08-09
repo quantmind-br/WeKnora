@@ -112,7 +112,7 @@ const scrollRef = ref<HTMLElement | null>(null)
 // user explicitly hid stay hidden across polls, instead of being
 // reopened by the next fetch's re-evaluation pass.
 const userToggledRows = ref<Set<string>>(new Set())
-// Tracks consecutive fetch failures so the "更新于" caption can surface
+// Tracks consecutive fetch failures so the "Updated at" caption can surface
 // staleness. When the parse_status is mid-flight but every fetch is
 // hitting an error, the loop keeps going silently — without this
 // indicator the user sees a spinning auto-refresh icon while the
@@ -394,7 +394,7 @@ async function fetchSpans(opts: { manual?: boolean } = {}) {
     emit('update:hasSpans', false)
   } finally {
     // Track every attempt, not just successful ones — otherwise a
-    // failing endpoint would leave "更新于 X 秒前" frozen forever while
+    // failing endpoint would leave "Updated at X seconds ago" frozen forever while
     // the spinner spins. Pair with failedAttempts to render a "fetch
     // failed" hint when consecutive errors pile up.
     lastFetchedAt.value = Date.now()
