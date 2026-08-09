@@ -97,7 +97,7 @@ CREATE TABLE sessions (
     max_rounds INT NOT NULL DEFAULT 5,
     enable_rewrite BOOLEAN NOT NULL DEFAULT TRUE,
     fallback_strategy VARCHAR(255) NOT NULL DEFAULT 'fixed',
-    fallback_response VARCHAR(255) NOT NULL DEFAULT 'I'm sorry, I am unable to answer that question right now.',
+    fallback_response VARCHAR(255) NOT NULL DEFAULT 'I''m sorry, I am unable to answer that question right now.',
     keyword_threshold FLOAT NOT NULL DEFAULT 0.5,
     vector_threshold FLOAT NOT NULL DEFAULT 0.5,
     rerank_model_id VARCHAR(64),
