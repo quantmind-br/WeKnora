@@ -1,7 +1,3 @@
-Segue a tradução completa do documento para inglês, com toda a estrutura markdown preservada.
-
----
-
 # Model Management API
 
 [Back to directory](./README.md)

@@ -1,7 +1,3 @@
-Aqui está o documento traduzido, completo, com estrutura markdown preservada:
-
----
-
 # MCP (Model Context Protocol) Integration
 
 WeKnora's support for MCP is **bidirectional**:
@@ -550,5 +546,3 @@ As an aside: the main WeKnora application (Part 1) can also connect as an MCP cl
 | Consumer | The WeKnora Agent (called automatically during conversations) | Any external MCP client such as Claude Desktop / VS Code Copilot |
 
 ---
-
-Tradução completa, estrutura intacta — código, URLs e identificadores mantidos como estavam.

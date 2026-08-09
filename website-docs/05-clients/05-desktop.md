@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # Desktop Client (WeKnora Lite Desktop)
 
 ::: warning Not Yet Officially Released
@@ -171,5 +170,3 @@ Script flow:
 3. **Assembling the Output**: Copies `cmd/desktop/build/bin/WeKnora Lite.app` into `dist/`, and places `.env` (from `.env.lite.example`), `config/`, `migrations/sqlite/`, and the `web/` frontend assets into `.app/Contents/Resources/`.
 
 The final output is `dist/WeKnora Lite.app`, which runs by double-clicking. Windows/Linux builds can also be produced using `wails build` under `cmd/desktop` (the update mechanism has already been adapted for `.exe` / `xdg-open` on those platforms), but the repository currently only provides the macOS packaging script and `build/darwin` assets.
-
---- DOCUMENT END ---

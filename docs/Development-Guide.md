@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # WeKnora Development Guide
 
 ## Fast Development Mode (Recommended)
@@ -220,5 +219,3 @@ make dev-restart
 - **Day-to-day development**: use the `make dev-*` commands for fast iteration
 - **Integration testing**: use `sh scripts/start_all.sh --no-pull` to test the full environment
 - **Production deployment**: use `sh scripts/build_images.sh` + `sh scripts/start_all.sh`
-
---- DOCUMENT END ---

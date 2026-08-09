@@ -11,5 +11,3 @@ footer: false
 <Landing />
 
 ---
-
-Tradução concluída. O documento é bem curto — só o frontmatter e o componente `<Landing />`, sem prosa adicional para traduzir.

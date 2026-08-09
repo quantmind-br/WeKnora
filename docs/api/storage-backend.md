@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # Storage Backend API
 
 [Back to Table of Contents](./README.md)
@@ -340,5 +339,3 @@ Storage configured via environment variables such as `STORAGE_TYPE` participates
 | 403         | Insufficient permissions (requires Admin+ or the API Key `manage_storage_backends` capability) |
 | 404         | Storage instance not found                                                   |
 | 409         | A storage instance with the same name already exists                                             |
-
---- DOCUMENT END ---

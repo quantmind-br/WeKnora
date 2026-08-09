@@ -1,6 +1,3 @@
-Vou traduzir o documento mantendo toda a estrutura markdown, código, URLs e identificadores técnicos intactos.
-
---- DOCUMENT START ---
 # API Reference: IM, Embed, and File Services
 
 Route registration: `RegisterIMRoutes`, `RegisterIMChannelRoutes`, `RegisterEmbedChannelRoutes`, `RegisterEmbedPublicRoutes`, `serveFilesWithResources`, `servePresignedFiles`, `servePresignedPreview`, `serveResourceGrants` in `internal/router/router.go`. Handlers: `internal/handler/im.go`, `internal/handler/wechat_qrcode.go`, `internal/handler/embed_channel.go`.
@@ -444,5 +441,3 @@ Response: 200 file stream (`Cache-Control: private, max-age=300`).
 ```bash
 curl $BASE/r/abc123 -o file.png
 ```
-
---- DOCUMENT END ---

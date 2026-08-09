@@ -1,7 +1,3 @@
-Vou traduzir o documento diretamente, mantendo toda a estrutura markdown.
-
----
-
 # WeChat Mini Program Client
 
 WeKnora provides a lightweight WeChat Mini Program client under the repository's `miniprogram/` directory, serving as a quick mobile entry point. It does not attempt to replicate the full functionality of the Web frontend, but instead focuses on three things:

@@ -1,5 +1,3 @@
-Vou traduzir o documento diretamente, preservando toda a estrutura markdown.
-
 ---
 title: Agent Skills System
 tags: [Core Features, Agent, Skills, Sandbox]
@@ -112,5 +110,3 @@ Configured via the `WEKNORA_SANDBOX_MODE` environment variable.
 - [Version Roadmap](../Project-Overview/Version-Roadmap.md) — Skills community extension direction in the roadmap
 
 ---
-
-Tradução completa entregue acima, com toda a estrutura markdown preservada (frontmatter, tabelas, blocos de código, links).

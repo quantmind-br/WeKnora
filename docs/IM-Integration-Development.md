@@ -1699,5 +1699,3 @@ Add the platform name translation to the i18n files.
 The Service layer (`im.Service`) needs no modification at all — channel management, command dispatch, message orchestration, session management, QA scheduling, rate limiting, and streaming control are all handled uniformly by the Service.
 
 ---
-
-Feito. Traduzido doc IM inteiro, estrutura markdown intacta, code/URLs/paths não tocados.

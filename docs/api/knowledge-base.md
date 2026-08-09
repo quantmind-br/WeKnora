@@ -1,7 +1,3 @@
-Traduzo doc agora. Saída abaixo, inglês natural, markdown intacto.
-
----
-
 # Knowledge Base Management API
 
 [Back to index](./README.md)
@@ -722,5 +718,3 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/move-t
 ```
 
 ---
-
-Doc completo, estrutura md intacta, exemplos JSON/curl não tocados (só chaves texto traduzidas).

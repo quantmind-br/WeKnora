@@ -1,7 +1,3 @@
-Vou traduzir agora. Documento grande, formatação markdown mantida.
-
----
-
 # WeKnora Documentation
 
 WeKnora is Tencent's open-source enterprise-grade knowledge base and RAG (Retrieval-Augmented Generation) system: a Go monolithic backend + Vue 3 frontend + Python document parsing microservice (docreader), supporting multi-tenancy, multiple knowledge bases, hybrid retrieval, Agent capabilities, knowledge graphs, Wiki generation, MCP integration, multi-platform IM access, and web embedding, among other capabilities.

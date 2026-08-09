@@ -1,6 +1,3 @@
-Vou traduzir o documento diretamente, mantendo toda a estrutura markdown.
-
---- DOCUMENT START ---
 # Quick Start
 
 Follow this guide through and you'll end up with a knowledge base that can answer questions about your own documents: sign up → create a knowledge base and pick a model → upload documents → ask a question and see an answer with citations. Everything happens in the web UI; if things go smoothly it takes about ten to fifteen minutes, most of which is spent waiting for document parsing.
@@ -74,7 +71,7 @@ After uploading, documents are parsed asynchronously, moving through the states 
 <Screenshot
   src="/screenshots/quickstart-document-list.png"
   caption="Document list: three documents finished parsing"
-  hint="Show columns for document name, type, parsing status as \"Completed\", chunk count, etc." />
+  hint="Show columns for document name, type, parsing status as “Completed”, chunk count, etc." />
 
 ## 5. Ask a question
 
@@ -220,5 +217,3 @@ sequenceDiagram
 | API Key request returns 403 | The key's capabilities don't include what's needed, or `knowledge_base_ids` whitelist doesn't include the target knowledge base |
 
 Next steps: for detailed configuration options see [Configuration Reference](./04-configuration.md); to understand how the system works overall see [Architecture Overview](../02-architecture/01-overview.md).
-
---- DOCUMENT END ---

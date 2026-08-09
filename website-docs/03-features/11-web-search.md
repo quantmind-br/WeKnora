@@ -1,7 +1,3 @@
-Segue a tradução completa do documento para inglês, preservando toda a estrutura markdown.
-
----
-
 # Web Search and Web Scraping
 
 When knowledge base retrieval isn't enough to answer a question, WeKnora's Agent can rely on two tools — `web_search` (internet search) and `web_fetch` (web scraping + LLM analysis) — to get real-time information. The underlying implementation is spread across `internal/infrastructure/web_search` (search engine adapter layer), `internal/infrastructure/web_fetch` (lightweight fetcher), and `internal/agent/tools` (Agent tool layer), with `docker/searxng` providing an optional self-hosted meta search engine.

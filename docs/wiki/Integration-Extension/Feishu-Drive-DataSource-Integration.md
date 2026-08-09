@@ -1,5 +1,3 @@
-Aqui está a tradução completa do documento para inglês, com toda a estrutura markdown preservada:
-
 ---
 
 # Feishu Drive Data Source Guide

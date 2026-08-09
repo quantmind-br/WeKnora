@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # Sessions and Conversation Experience
 
 The previous chapters covered "how knowledge gets in, how it gets retrieved" — this chapter covers **the chat box itself**: what the user sees and can do during a round of questions and answers. These capabilities are spread across the session, message, attachment, and suggested-question interfaces; this chapter brings them together.
@@ -83,5 +82,3 @@ Chat history can be indexed and searched across sessions:
 - How images and files in answers get sent to the client: the "File Reference Formats" section of [API Overview](../04-api/01-api-overview.md)
 - Session models for IM and web widgets: [IM Integration](12-im-integration.md), [Web Embed](13-embed-channel.md)
 - Full session and message interfaces: [API Reference: Sessions and Chat](../04-api/02-api-chat.md)
-
---- DOCUMENT END ---

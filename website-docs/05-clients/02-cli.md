@@ -1,7 +1,3 @@
-Traduzido documento completo abaixo. Markdown, code fences, mermaid, tabelas e links preservados; só prosa traduzida.
-
----
-
 # WeKnora CLI (`weknora` Command-Line Tool)
 
 The WeKnora CLI (binary name `weknora`) is the official command-line client for the WeKnora RAG service, with source code located in the repository's `cli/` directory (a standalone Go module: `github.com/Tencent/WeKnora/cli`, requiring Go 1.26+). It targets two kinds of users:
@@ -534,5 +530,3 @@ weknora chat "Summarize this design document" --kb docs
 ```
 
 ---
-
-Doc traduzido completo, tudo preservado (frontmatter, headings, code fences, mermaid, tabelas, links). Precisa mais alguma coisa?

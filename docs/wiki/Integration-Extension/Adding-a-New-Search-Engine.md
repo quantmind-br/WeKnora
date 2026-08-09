@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 ---
 title: Adding a Web Search Engine
 tags: [Integration Extensions, Search, Web Search, Provider]
@@ -101,5 +100,3 @@ If the new engine requires parameters beyond an API key:
 - [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md) — Similar extension development pattern
 - [MCP Feature Usage Guide](../Core-Features/MCP-Usage-Guide.md) — MCP search tools complement web search engines
 - [Roadmap](../Project-Overview/Version-Roadmap.md) — Community component extension direction in the roadmap
-
---- DOCUMENT END ---

@@ -1,7 +1,3 @@
-Vou traduzir o documento diretamente.
-
----
-
 # Message Management API
 
 [Back to index](./README.md)
@@ -272,4 +268,4 @@ curl --location 'http://localhost:8080/api/v1/messages/chat-history-stats' \
 
 ---
 
-Note: example field values (such as Chinese message content and summaries in the JSON blocks) are kept as-is., pois são dados de amostra/identificadores, não prosa estrutural do documento — traduzi-los alteraria o valor literal do JSON de exemplo. Se preferir que eu traduza também esses valores de amostra, posso ajustar.
+Note: example field values (such as Chinese message content and summaries in the JSON blocks) are kept as-is.

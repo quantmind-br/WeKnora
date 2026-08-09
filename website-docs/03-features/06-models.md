@@ -1,6 +1,3 @@
-Vou traduzir o documento diretamente.
-
---- DOCUMENT START ---
 # Model Management
 
 WeKnora is not tied to any single model vendor: the five capability categories — conversation, embedding, reranking, image understanding, and speech transcription — are all abstracted into a unified "model" concept. You add models under "Settings → Models," then select them as needed within knowledge bases and Agents. Local Ollama and 20+ remote vendors (OpenAI, DeepSeek, Tongyi, Zhipu, Hunyuan, Gemini, SiliconFlow, etc.) can be mixed and matched — for example, using a small local model for embedding while using a large remote model for answering.
@@ -269,5 +266,3 @@ It deliberately names the scoring field `score` rather than `relevance_score`, i
 - **Trace tracking**: when Langfuse is enabled, every model type has a `langfuse_wrapper.go` decorator that reports each call (including usage) as a trace/span.
 - **Streaming responses**: usage is returned with the final `StreamResponse` event (the model debugger aggregates it into the `usage` field).
 - **Concurrency watermark**: as described above, `GET /system/admin/runtime/queues` exposes real-time per-model `active / waiting / limit`.
-
---- DOCUMENT END ---

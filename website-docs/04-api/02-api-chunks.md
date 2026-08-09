@@ -218,5 +218,3 @@ curl -X POST $BASE/api/v1/chunker/preview -H "Authorization: Bearer $TOKEN" \
 ```
 
 ---
-
-Tradução completa concluída, estrutura markdown preservada integralmente.

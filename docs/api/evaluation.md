@@ -1,7 +1,3 @@
-Traduzido abaixo. Estrutura markdown intacta, código/URLs/identificadores intocados.
-
----
-
 # Evaluation Feature API
 
 [Back to index](./README.md)
@@ -165,5 +161,3 @@ curl --location 'http://localhost:8080/api/v1/evaluation' \
 ```
 
 ---
-
-Documento completo, nada omitido.

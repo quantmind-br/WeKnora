@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # IM Integration
 
 Often, the easiest way to get colleagues using the knowledge base isn't to have them open a new website — it's to put the bot right into the chat tools they already use. That's what IM Integration does: mention the bot in WeCom, Feishu, DingTalk, Slack, Telegram, and similar platforms to ask questions, and WeKnora answers through the same RAG / Agent pipeline.
@@ -261,7 +260,3 @@ All distributed state is centrally defined as Redis key prefix constants in `ser
 | `im:global:active` | Global concurrent QA worker count (atomic Lua INCR+check, TTL 5min self-healing) |
 
 Without Redis (Lite/single-instance mode), all of the above fall back to local in-memory implementations — functionality is unchanged, only the cross-instance semantics are lost.
-
---- DOCUMENT END ---
-
-Tradução completa concluída, com toda a estrutura markdown, code fences, tabelas e diagramas mermaid preservados intactos.

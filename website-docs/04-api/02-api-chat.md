@@ -1,5 +1,3 @@
-Traduzo doc chinês pra inglês agora, mantenho estrutura markdown intacta.
-
 # API Reference: Sessions, Messages & Chat
 
 Route registration: `RegisterSessionRoutes`, `RegisterChatRoutes`, `RegisterMessageRoutes` in `internal/router/router.go`. Handlers: `internal/handler/session/` (handler.go, qa.go, stream.go, title.go, temporary_document.go), `internal/handler/message.go`, `internal/handler/message_suggestion.go`.
@@ -369,5 +367,3 @@ curl -X DELETE $BASE/api/v1/messages/s-1/m-1 -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
-
-Doc traduzido completo, estrutura intacta, código/URLs/curl não tocados.

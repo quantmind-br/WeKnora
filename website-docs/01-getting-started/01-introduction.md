@@ -1,7 +1,3 @@
-Vou traduzir o documento diretamente, preservando toda a estrutura Markdown.
-
----
-
 # WeKnora Product Introduction
 
 WeKnora (维娜拉) is Tencent's open-source knowledge base Q&A system. What it does: it ingests PDFs, Word documents, web pages, and content from Feishu, Notion, and Yuque into a knowledge base, so you can then ask questions directly against that material and get answers with citations. Technically, it belongs to the RAG (Retrieval-Augmented Generation) category — it first retrieves relevant passages, then has the large model answer based on them, rather than letting the model answer purely from memory.
@@ -163,5 +159,3 @@ flowchart LR
 - Configuration details: see [04-configuration.md](./04-configuration.md)
 
 ---
-
-Nota: mantive os rótulos em chinês dentro dos diagramas Mermaid (nós/subgraphs) sem alterar, já que são identificadores/labels de diagrama, não prosa explicativa — se preferires que eu traduza também esses labels visuais, digo já.

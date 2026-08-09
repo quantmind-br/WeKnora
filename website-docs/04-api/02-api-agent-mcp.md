@@ -380,7 +380,3 @@ Response: 200 `{"success":true}`
 ```bash
 curl -X DELETE $BASE/api/v1/user/favorites/kb/kb-1 -H "Authorization: Bearer $TOKEN"
 ```
-
---- DOCUMENT END ---
-
-Tradução completa concluída — estrutura markdown, blocos de código e identificadores técnicos preservados intactos.

@@ -1,7 +1,3 @@
-Segue a tradução completa do documento, com toda a estrutura markdown preservada.
-
----
-
 # FAQ Capability
 
 Some questions have fixed answers — return policies, reimbursement procedures, common error handling. For this kind of content, going through document retrieval is actually less reliable; it's more robust to maintain it directly as Q&A pairs: when building the knowledge base, set the type to **FAQ**, and enter entries as "standard question + similar questions + negative questions + answer". When a query comes in, it matches against questions rather than document fragments — a hit returns the prepared answer directly.

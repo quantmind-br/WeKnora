@@ -1,6 +1,3 @@
-Vou traduzir o documento diretamente, mantendo toda a estrutura markdown.
-
---- DOCUMENT START ---
 # API Reference: Authentication & Users
 
 Route registration: `RegisterAuthRoutes` and `RegisterMyInvitationRoutes` in `internal/router/router.go`. Handlers: `internal/handler/auth.go`, `internal/handler/auth_register_by_invite.go`, `internal/handler/tenant_invitation.go`.
@@ -268,7 +265,3 @@ Response: 200 `{"success":true}`
 ```bash
 curl -X POST $BASE/api/v1/me/invitations/12/decline -H "Authorization: Bearer $TOKEN"
 ```
-
---- DOCUMENT END ---
-
-Tradução completa entregue, com toda a estrutura markdown, tabelas e blocos de código preservados intactos.

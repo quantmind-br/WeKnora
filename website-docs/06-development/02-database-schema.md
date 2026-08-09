@@ -1,7 +1,3 @@
-Segue a tradução completa do documento para inglês, com toda a estrutura markdown preservada:
-
----
-
 # Database and Migrations
 
 This chapter covers WeKnora's database support matrix, the final table schema after all migrations in the `migrations/` directory are stacked, the inter-table relationships (ER diagram), the golang-migrate migration mechanism, and guidance for adding new migrations and troubleshooting common issues.

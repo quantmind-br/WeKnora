@@ -1,7 +1,3 @@
-Vou traduzir o documento diretamente, mantendo toda a estrutura markdown.
-
----
-
 # Storage Backends
 
 Original files, extracted images, and export artifacts all need to land on some object storage. Early on, this could only be configured via environment variables for a single global storage setup; starting with migration `000068`, this changed to support **registering multiple storage instances** — a tenant picks one as the default, and individual knowledge bases can also be bound to a specific instance.

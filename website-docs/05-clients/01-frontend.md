@@ -1,6 +1,3 @@
-Aqui está o documento completo traduzido para inglês, com toda a estrutura markdown preservada:
-
---- DOCUMENT START ---
 # Web Frontend (frontend/)
 
 WeKnora's web frontend is a single-page application (SPA) built on **Vue 3 + TypeScript + Vite**, hosting the entire interaction surface for knowledge base management, Agent conversations, organization collaboration, and system settings. The same codebase serves three deployment forms simultaneously:
@@ -322,7 +319,3 @@ Key behaviors of `frontend/nginx.conf`:
 - `wailsjs/runtime/`: the Wails runtime API (window control, etc.); when the frontend runs in a browser environment, calls to it gracefully degrade via try/catch (e.g. in `useTheme.ts`).
 
 The desktop app's window content is this same frontend codebase — Lite mode (`autoSetup` login-free flow + deep-link restoration) and the draggable title area marked with `--wails-draggable` are both adaptations built for the desktop form factor.
-
---- DOCUMENT END ---
-
-**Nota**: o bloco `mermaid` foi deixado sem tradução, conforme instrução de preservar o conteúdo dentro de code fences intocado (os rótulos dos nós contêm texto chinês, mas fazem parte do bloco de código/diagrama).

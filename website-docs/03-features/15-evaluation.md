@@ -1,6 +1,3 @@
-Vou traduzir o documento do chinês para inglês, preservando toda a estrutura markdown, blocos de código, tabelas e o diagrama mermaid (traduzindo apenas os rótulos textuais).
-
---- DOCUMENT START ---
 # Evaluation
 
 Switch out the embedding model, toggle reranking on or off, bump up the chunk size — did any of these changes actually make things better? That's exactly what the evaluation capability answers: prepare a QA dataset with ground-truth answers, and WeKnora will automatically build a temporary knowledge base, ingest the corpus, run the full retrieval + generation pipeline question by question, and finally produce a set of comparable scores (Precision / Recall / NDCG / MRR / MAP on the retrieval side, BLEU / ROUGE on the generation side).
@@ -277,5 +274,3 @@ For navigating the source code, use the table below (paths relative to the repos
 | Type definitions | `internal/types/evaluation.go`, `internal/types/dataset.go` |
 | Built-in sample dataset | `dataset/samples/` (Parquet files) |
 | Route registration | `RegisterEvaluationRoutes` in `internal/router/router.go` |
-
---- DOCUMENT END ---

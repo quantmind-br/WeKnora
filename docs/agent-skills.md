@@ -1,6 +1,3 @@
-Vou traduzir o documento diretamente, preservando toda a estrutura markdown.
-
---- DOCUMENT START ---
 # Agent Skills Documentation
 
 ## Overview
@@ -95,7 +92,6 @@ with pdfplumber.open("document.pdf") as pdf:
 | `description` | 1–500 characters, describing the skill's purpose and trigger conditions |
 
 **Reserved words**: `system`, `default`, `internal`, `core`, `base`, `root`, `admin`
-
 
 ## Configuration
 
@@ -337,7 +333,6 @@ skills/preloaded/
 ## Creating a Custom Skill
 
 User-created custom Skills are not yet supported.
-
 
 ## Sandbox Security Mechanisms
 
@@ -649,4 +644,3 @@ Common errors:
 - `skill name contains invalid characters`: Contains illegal characters
 - `skill name is reserved`: Uses a reserved word
 - `skill description too long`: Description exceeds 500 characters
---- DOCUMENT END ---

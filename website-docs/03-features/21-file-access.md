@@ -1,7 +1,3 @@
-Tradução completa abaixo.
-
----
-
 # External Access to Images and Files
 
 "The image in the answer shows fine on the web, but it's a broken image in WeCom" / "The image URL in the citation from the API is `resource://xxx`, and the frontend can't load it" — this is the most common type of issue. The cause isn't a broken image; it's that **different channels can obtain different forms of URLs**, and they need to be matched by channel.
@@ -102,5 +98,3 @@ Two limitations worth remembering: **an API Key scoped to a specific knowledge b
 - [Web Frontend](../05-clients/01-frontend.md): nginx's `/files` and `/r/` proxies
 
 ---
-
-Tradução completa, markdown intacto, código/URLs/mermaid intocados.

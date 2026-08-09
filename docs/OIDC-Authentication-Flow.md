@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # WeKnora OIDC Authentication Flow
 
 This document describes the actual call flow of WeKnora's current OIDC login capability, covering:
@@ -645,5 +644,3 @@ The backend issues a 302 back to the frontend, passing the login result via `#oi
   - `internal/config/config.go`
 - Local Dex example:
   - `misc/dex-config.yaml`
-
---- DOCUMENT END ---

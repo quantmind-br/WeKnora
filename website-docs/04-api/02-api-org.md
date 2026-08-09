@@ -1,4 +1,3 @@
---- DOCUMENT START ---
 # API Reference: Organizations & Sharing
 
 Route registration: `RegisterOrganizationRoutes` in `internal/router/router.go`. Handler: `internal/handler/organization.go`.
@@ -439,5 +438,3 @@ Response: 200 `{"success":true}`
 curl -X POST $BASE/api/v1/shared-agents/disabled -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"agent_id":"agent-1","disabled":true}'
 ```
-
---- DOCUMENT END ---

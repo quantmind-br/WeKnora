@@ -1,6 +1,3 @@
-Vou traduzir o documento markdown para inglês, preservando toda a estrutura.
-
---- DOCUMENT START ---
 # Skills API
 
 [Back to Table of Contents](./README.md)
@@ -53,5 +50,3 @@ When Skills are not configured in the system, `skills_available` returns `false`
     "success": true
 }
 ```
-
---- DOCUMENT END ---
