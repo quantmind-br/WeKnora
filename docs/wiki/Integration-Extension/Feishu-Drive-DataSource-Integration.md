@@ -1,5 +1,3 @@
----
-
 # Feishu Drive Data Source Guide
 
 The Feishu Drive data source (`feishu_drive` / `lark_drive`) can automatically sync documents and files from a folder in Feishu/Lark Drive into the WeKnora knowledge base, supporting incremental sync, scheduled sync, and recursive subfolder traversal.
