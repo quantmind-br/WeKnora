@@ -1,27 +1,27 @@
-# 初始化配置 API
+# Initialization Configuration API
 
-[返回目录](./README.md)
+[Back to Index](./README.md)
 
-| 方法   | 路径                                              | 描述                       |
-| ------ | ------------------------------------------------- | -------------------------- |
-| GET    | `/initialization/config/:kb_id`                   | 获取知识库初始化配置       |
-| POST   | `/initialization/initialize/:kb_id`               | 初始化知识库模型配置       |
-| PUT    | `/initialization/config/:kb_id`                   | 更新知识库模型配置         |
-| GET    | `/initialization/ollama/status`                   | 检查 Ollama 状态           |
-| GET    | `/initialization/ollama/models`                   | 获取本地 Ollama 模型列表   |
-| POST   | `/initialization/ollama/models/check`             | 检查 Ollama 模型是否可用   |
-| POST   | `/initialization/ollama/models/download`          | 下载 Ollama 模型           |
-| GET    | `/initialization/ollama/download/progress/:task_id` | 获取下载进度             |
-| GET    | `/initialization/ollama/download/tasks`           | 获取所有下载任务           |
-| POST   | `/initialization/remote/check`                    | 检查远程模型 API           |
-| POST   | `/initialization/embedding/test`                  | 测试嵌入模型               |
-| POST   | `/initialization/rerank/check`                    | 检查重排序模型             |
-| POST   | `/initialization/multimodal/test`                 | 测试多模态模型             |
-| POST   | `/initialization/extract/text-relation`           | 提取文本关系               |
+| Method | Path                                                 | Description                             |
+| ------ | ----------------------------------------------------- | ---------------------------------------- |
+| GET    | `/initialization/config/:kb_id`                       | Get knowledge base initialization config |
+| POST   | `/initialization/initialize/:kb_id`                   | Initialize knowledge base model config   |
+| PUT    | `/initialization/config/:kb_id`                       | Update knowledge base model config       |
+| GET    | `/initialization/ollama/status`                       | Check Ollama status                      |
+| GET    | `/initialization/ollama/models`                       | Get local Ollama model list              |
+| POST   | `/initialization/ollama/models/check`                 | Check whether an Ollama model is available |
+| POST   | `/initialization/ollama/models/download`              | Download an Ollama model                 |
+| GET    | `/initialization/ollama/download/progress/:task_id`   | Get download progress                    |
+| GET    | `/initialization/ollama/download/tasks`               | Get all download tasks                   |
+| POST   | `/initialization/remote/check`                        | Check remote model API                   |
+| POST   | `/initialization/embedding/test`                      | Test embedding model                     |
+| POST   | `/initialization/rerank/check`                        | Check rerank model                       |
+| POST   | `/initialization/multimodal/test`                     | Test multimodal model                    |
+| POST   | `/initialization/extract/text-relation`                | Extract text relations                   |
 
-## GET `/initialization/config/:kb_id` - 获取知识库初始化配置
+## GET `/initialization/config/:kb_id` - Get knowledge base initialization config
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/config/kb-00000001' \
@@ -29,7 +29,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/config/kb-00000001'
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -43,9 +43,9 @@ curl --location 'http://localhost:8080/api/v1/initialization/config/kb-00000001'
 }
 ```
 
-## POST `/initialization/initialize/:kb_id` - 初始化知识库模型配置
+## POST `/initialization/initialize/:kb_id` - Initialize knowledge base model config
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/initialize/kb-00000001' \
@@ -59,7 +59,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/initialize/kb-00000
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -67,9 +67,9 @@ curl --location 'http://localhost:8080/api/v1/initialization/initialize/kb-00000
 }
 ```
 
-## PUT `/initialization/config/:kb_id` - 更新知识库模型配置
+## PUT `/initialization/config/:kb_id` - Update knowledge base model config
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/initialization/config/kb-00000001' \
@@ -81,7 +81,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/initialization/confi
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -89,9 +89,9 @@ curl --location --request PUT 'http://localhost:8080/api/v1/initialization/confi
 }
 ```
 
-## GET `/initialization/ollama/status` - 检查 Ollama 状态
+## GET `/initialization/ollama/status` - Check Ollama status
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/ollama/status' \
@@ -99,7 +99,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/status' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -110,9 +110,9 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/status' \
 }
 ```
 
-## GET `/initialization/ollama/models` - 获取本地 Ollama 模型列表
+## GET `/initialization/ollama/models` - Get local Ollama model list
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/ollama/models' \
@@ -120,7 +120,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/models' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -140,9 +140,9 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/models' \
 }
 ```
 
-## POST `/initialization/ollama/models/check` - 检查 Ollama 模型是否可用
+## POST `/initialization/ollama/models/check` - Check whether an Ollama model is available
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/ollama/models/check' \
@@ -153,7 +153,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/models/check
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -166,9 +166,9 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/models/check
 }
 ```
 
-## POST `/initialization/ollama/models/download` - 下载 Ollama 模型
+## POST `/initialization/ollama/models/download` - Download an Ollama model
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/ollama/models/download' \
@@ -179,7 +179,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/models/downl
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -188,16 +188,16 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/models/downl
         "modelName": "mistral:7b",
         "status": "downloading",
         "progress": 0,
-        "message": "开始下载",
+        "message": "Download started",
         "startTime": "2025-08-12T10:00:00+08:00"
     },
     "success": true
 }
 ```
 
-## GET `/initialization/ollama/download/progress/:task_id` - 获取下载进度
+## GET `/initialization/ollama/download/progress/:task_id` - Get download progress
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/progress/task-00000001' \
@@ -205,7 +205,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/pro
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -214,16 +214,16 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/pro
         "modelName": "mistral:7b",
         "status": "downloading",
         "progress": 45.6,
-        "message": "正在下载 2.1GB / 4.6GB",
+        "message": "Downloading 2.1GB / 4.6GB",
         "startTime": "2025-08-12T10:00:00+08:00"
     },
     "success": true
 }
 ```
 
-## GET `/initialization/ollama/download/tasks` - 获取所有下载任务
+## GET `/initialization/ollama/download/tasks` - Get all download tasks
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/tasks' \
@@ -231,7 +231,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/tas
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -241,7 +241,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/tas
             "modelName": "mistral:7b",
             "status": "completed",
             "progress": 100,
-            "message": "下载完成",
+            "message": "Download complete",
             "startTime": "2025-08-12T10:00:00+08:00",
             "endTime": "2025-08-12T10:15:00+08:00"
         },
@@ -250,7 +250,7 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/tas
             "modelName": "llama3:70b",
             "status": "downloading",
             "progress": 30.2,
-            "message": "正在下载 12.5GB / 41.4GB",
+            "message": "Downloading 12.5GB / 41.4GB",
             "startTime": "2025-08-12T10:20:00+08:00"
         }
     ],
@@ -258,9 +258,9 @@ curl --location 'http://localhost:8080/api/v1/initialization/ollama/download/tas
 }
 ```
 
-## POST `/initialization/remote/check` - 检查远程模型 API
+## POST `/initialization/remote/check` - Check remote model API
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/remote/check' \
@@ -273,21 +273,21 @@ curl --location 'http://localhost:8080/api/v1/initialization/remote/check' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "success": true,
-        "message": "模型可用"
+        "message": "Model available"
     },
     "success": true
 }
 ```
 
-## POST `/initialization/embedding/test` - 测试嵌入模型
+## POST `/initialization/embedding/test` - Test embedding model
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/embedding/test' \
@@ -300,21 +300,21 @@ curl --location 'http://localhost:8080/api/v1/initialization/embedding/test' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "success": true,
-        "message": "嵌入模型测试通过"
+        "message": "Embedding model test passed"
     },
     "success": true
 }
 ```
 
-## POST `/initialization/rerank/check` - 检查重排序模型
+## POST `/initialization/rerank/check` - Check rerank model
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/rerank/check' \
@@ -327,21 +327,21 @@ curl --location 'http://localhost:8080/api/v1/initialization/rerank/check' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "success": true,
-        "message": "重排序模型可用"
+        "message": "Rerank model available"
     },
     "success": true
 }
 ```
 
-## POST `/initialization/multimodal/test` - 测试多模态模型
+## POST `/initialization/multimodal/test` - Test multimodal model
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/multimodal/test' \
@@ -354,45 +354,45 @@ curl --location 'http://localhost:8080/api/v1/initialization/multimodal/test' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "success": true,
-        "message": "多模态模型测试通过"
+        "message": "Multimodal model test passed"
     },
     "success": true
 }
 ```
 
-## POST `/initialization/extract/text-relation` - 提取文本关系
+## POST `/initialization/extract/text-relation` - Extract text relations
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/initialization/extract/text-relation' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "text": "WeKnora 是一个知识管理平台，支持多种文档格式的解析和检索。",
+    "text": "WeKnora is a knowledge management platform that supports parsing and retrieval of multiple document formats.",
     "model_id": "model-00000001"
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "entities": [
             {"name": "WeKnora", "type": "Product"},
-            {"name": "知识管理平台", "type": "Concept"}
+            {"name": "Knowledge Management Platform", "type": "Concept"}
         ],
         "relations": [
             {
                 "source": "WeKnora",
-                "target": "知识管理平台",
+                "target": "Knowledge Management Platform",
                 "relation": "is_a"
             }
         ]

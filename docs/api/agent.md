@@ -1,58 +1,58 @@
-# 智能体（Agent）管理 API
+# Agent Management API
 
-[返回目录](./README.md)
+[Back to index](./README.md)
 
-## 概述
+## Overview
 
-智能体 API 用于管理自定义智能体（Custom Agent）。系统提供了内置智能体，同时支持用户创建自定义智能体来满足不同的业务场景需求。
+The Agent API is used to manage Custom Agents. The system provides built-in agents while also supporting user-created custom agents to meet different business scenario needs.
 
-> 智能体的共享与跨组织分发（`/agents/:id/shares` 等）属于组织协作能力，文档见 [组织管理 API](./organization.md)。本文件只覆盖智能体自身的 CRUD、复制、占位符、类型预设以及推荐问题接口。
+> Agent sharing and cross-organization distribution (`/agents/:id/shares`, etc.) are organizational collaboration capabilities documented in [Organization Management API](./organization.md). This document only covers the CRUD, copy, placeholders, type presets, and suggested questions endpoints for agents themselves.
 
-### 内置智能体
+### Built-in Agents
 
-系统默认提供以下内置智能体：
+The system provides the following built-in agents by default:
 
-| ID | 名称 | 描述 | 模式 |
+| ID | Name | Description | Mode |
 |----|------|------|------|
-| `builtin-quick-answer` | 快速问答 | 基于知识库的 RAG 问答，快速准确地回答问题 | quick-answer |
-| `builtin-smart-reasoning` | 智能推理 | ReAct 推理框架，支持多步思考和工具调用 | smart-reasoning |
-| `builtin-data-analyst` | 数据分析师 | 专业数据分析智能体，支持 CSV/Excel 文件的 SQL 查询与统计分析 | smart-reasoning |
+| `builtin-quick-answer` | Quick Answer | RAG-based Q&A over the knowledge base, delivering fast and accurate answers | quick-answer |
+| `builtin-smart-reasoning` | Smart Reasoning | ReAct reasoning framework, supporting multi-step thinking and tool calls | smart-reasoning |
+| `builtin-data-analyst` | Data Analyst | Professional data analysis agent, supporting SQL queries and statistical analysis over CSV/Excel files | smart-reasoning |
 
-### 智能体模式
+### Agent Modes
 
-| 模式 | 说明 |
+| Mode | Description |
 |------|------|
-| `quick-answer` | RAG 模式，快速问答，直接基于知识库检索结果生成回答 |
-| `smart-reasoning` | ReAct 模式，支持多步推理和工具调用 |
+| `quick-answer` | RAG mode, quick Q&A, generates answers directly from knowledge base retrieval results |
+| `smart-reasoning` | ReAct mode, supporting multi-step reasoning and tool calls |
 
-## API 列表
+## API List
 
-| 方法   | 路径                       | 描述                       |
-| ------ | -------------------------- | -------------------------- |
-| POST   | `/agents`                  | 创建智能体                 |
-| GET    | `/agents`                  | 获取智能体列表             |
-| GET    | `/agents/:id`              | 获取智能体详情             |
-| PUT    | `/agents/:id`              | 更新智能体                 |
-| DELETE | `/agents/:id`              | 删除智能体                 |
-| POST   | `/agents/:id/copy`         | 复制智能体                 |
-| GET    | `/agents/placeholders`     | 获取占位符定义             |
+| Method | Path                       | Description                 |
+| ------ | -------------------------- | ---------------------------- |
+| POST   | `/agents`                  | Create an agent              |
+| GET    | `/agents`                  | Get the agent list           |
+| GET    | `/agents/:id`              | Get agent details            |
+| PUT    | `/agents/:id`              | Update an agent              |
+| DELETE | `/agents/:id`              | Delete an agent              |
+| POST   | `/agents/:id/copy`         | Copy an agent                |
+| GET    | `/agents/placeholders`     | Get placeholder definitions  |
 
 ---
 
-## POST `/agents` - 创建智能体
+## POST `/agents` - Create an Agent
 
-创建新的自定义智能体。成功返回 HTTP 201。
+Creates a new custom agent. Returns HTTP 201 on success.
 
-**请求体参数**:
+**Request body parameters**:
 
-| 参数          | 类型   | 必填 | 说明                                              |
-| ------------- | ------ | ---- | ------------------------------------------------- |
-| `name`        | string | 是   | 智能体名称                                        |
-| `description` | string | 否   | 智能体描述                                        |
-| `avatar`      | string | 否   | 头像（emoji 或图标名称）                          |
-| `config`      | object | 否   | 智能体配置，详见 [配置参数](#配置参数)            |
+| Parameter     | Type   | Required | Description                                       |
+| ------------- | ------ | -------- | -------------------------------------------------- |
+| `name`        | string | Yes      | Agent name                                         |
+| `description` | string | No       | Agent description                                  |
+| `avatar`      | string | No       | Avatar (emoji or icon name)                        |
+| `config`      | object | No       | Agent configuration, see [Configuration Parameters](#configuration-parameters) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agents' \
@@ -75,7 +75,7 @@ curl --location 'http://localhost:8080/api/v1/agents' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -100,27 +100,27 @@ curl --location 'http://localhost:8080/api/v1/agents' \
 }
 ```
 
-**错误响应**:
+**Error responses**:
 
-| 状态码 | 错误码 | 错误                  | 说明                              |
-| ------ | ------ | --------------------- | --------------------------------- |
-| 400    | 1000   | Bad Request           | 请求参数错误或智能体名称为空      |
-| 500    | 1007   | Internal Server Error | 服务器内部错误                    |
+| Status Code | Error Code | Error                  | Description                              |
+| ----------- | ---------- | ----------------------- | ------------------------------------------ |
+| 400         | 1000       | Bad Request             | Invalid request parameters or empty agent name |
+| 500         | 1007       | Internal Server Error   | Internal server error                      |
 
 ---
 
-## GET `/agents` - 获取智能体列表
+## GET `/agents` - Get the Agent List
 
-获取当前空间的所有智能体，包括内置智能体和自定义智能体。响应中额外返回 `disabled_own_agent_ids`，指示当前空间在前端对话下拉框中主动隐藏的本空间自有智能体 ID 列表（不影响其他空间）。
+Gets all agents in the current space, including built-in agents and custom agents. The response additionally returns `disabled_own_agent_ids`, indicating the list of the current space's own agent IDs that have been actively hidden from the frontend's conversation dropdown (this does not affect other spaces).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agents' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -160,33 +160,33 @@ curl --location 'http://localhost:8080/api/v1/agents' \
 }
 ```
 
-**错误响应**:
+**Error responses**:
 
-| 状态码 | 错误码 | 错误                  | 说明               |
-| ------ | ------ | --------------------- | ------------------ |
-| 401    | 1001   | Unauthorized          | 缺少空间上下文     |
-| 500    | 1007   | Internal Server Error | 服务器内部错误     |
+| Status Code | Error Code | Error                  | Description         |
+| ----------- | ---------- | ----------------------- | --------------------- |
+| 401         | 1001       | Unauthorized             | Missing space context |
+| 500         | 1007       | Internal Server Error   | Internal server error |
 
 ---
 
-## GET `/agents/:id` - 获取智能体详情
+## GET `/agents/:id` - Get Agent Details
 
-根据 ID 获取智能体的详细信息。
+Gets the detailed information of an agent by ID.
 
-**路径参数**:
+**Path parameters**:
 
-| 参数 | 类型   | 说明     |
-| ---- | ------ | -------- |
-| `id` | string | 智能体 ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ------------ |
+| `id`      | string | Agent ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agents/builtin-quick-answer' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -214,36 +214,36 @@ curl --location 'http://localhost:8080/api/v1/agents/builtin-quick-answer' \
 }
 ```
 
-**错误响应**:
+**Error responses**:
 
-| 状态码 | 错误码 | 错误                  | 说明               |
-| ------ | ------ | --------------------- | ------------------ |
-| 400    | 1000   | Bad Request           | 智能体 ID 为空     |
-| 404    | 1003   | Not Found             | 智能体不存在       |
-| 500    | 1007   | Internal Server Error | 服务器内部错误     |
+| Status Code | Error Code | Error                  | Description         |
+| ----------- | ---------- | ----------------------- | --------------------- |
+| 400         | 1000       | Bad Request             | Empty agent ID        |
+| 404         | 1003       | Not Found               | Agent does not exist  |
+| 500         | 1007       | Internal Server Error   | Internal server error |
 
 ---
 
-## PUT `/agents/:id` - 更新智能体
+## PUT `/agents/:id` - Update an Agent
 
-更新智能体的名称、描述、头像和配置。内置智能体不可修改。
+Updates an agent's name, description, avatar, and configuration. Built-in agents cannot be modified.
 
-**路径参数**:
+**Path parameters**:
 
-| 参数 | 类型   | 说明     |
-| ---- | ------ | -------- |
-| `id` | string | 智能体 ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ------------ |
+| `id`      | string | Agent ID     |
 
-**请求体参数**:
+**Request body parameters**:
 
-| 参数          | 类型   | 必填 | 说明         |
-| ------------- | ------ | ---- | ------------ |
-| `name`        | string | 否   | 智能体名称   |
-| `description` | string | 否   | 智能体描述   |
-| `avatar`      | string | 否   | 智能体头像   |
-| `config`      | object | 否   | 智能体配置   |
+| Parameter     | Type   | Required | Description        |
+| ------------- | ------ | -------- | -------------------- |
+| `name`        | string | No       | Agent name           |
+| `description` | string | No       | Agent description    |
+| `avatar`      | string | No       | Agent avatar          |
+| `config`      | object | No       | Agent configuration   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/agents/550e8400-e29b-41d4-a716-446655440000' \
@@ -260,7 +260,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/agents/550e8400-e29b
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -279,35 +279,35 @@ curl --location --request PUT 'http://localhost:8080/api/v1/agents/550e8400-e29b
 }
 ```
 
-**错误响应**:
+**Error responses**:
 
-| 状态码 | 错误码 | 错误                  | 说明                              |
-| ------ | ------ | --------------------- | --------------------------------- |
-| 400    | 1000   | Bad Request           | 请求参数错误或智能体名称为空      |
-| 403    | 1002   | Forbidden             | 无法修改内置智能体                |
-| 404    | 1003   | Not Found             | 智能体不存在                      |
-| 500    | 1007   | Internal Server Error | 服务器内部错误                    |
+| Status Code | Error Code | Error                  | Description                              |
+| ----------- | ---------- | ----------------------- | ------------------------------------------ |
+| 400         | 1000       | Bad Request             | Invalid request parameters or empty agent name |
+| 403         | 1002       | Forbidden               | Cannot modify a built-in agent             |
+| 404         | 1003       | Not Found               | Agent does not exist                       |
+| 500         | 1007       | Internal Server Error   | Internal server error                      |
 
 ---
 
-## DELETE `/agents/:id` - 删除智能体
+## DELETE `/agents/:id` - Delete an Agent
 
-删除指定的自定义智能体。内置智能体不可删除。
+Deletes the specified custom agent. Built-in agents cannot be deleted.
 
-**路径参数**:
+**Path parameters**:
 
-| 参数 | 类型   | 说明     |
-| ---- | ------ | -------- |
-| `id` | string | 智能体 ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ------------ |
+| `id`      | string | Agent ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/agents/550e8400-e29b-41d4-a716-446655440000' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -316,35 +316,35 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/agents/550e8400-e
 }
 ```
 
-**错误响应**:
+**Error responses**:
 
-| 状态码 | 错误码 | 错误                  | 说明                  |
-| ------ | ------ | --------------------- | --------------------- |
-| 400    | 1000   | Bad Request           | 智能体 ID 为空        |
-| 403    | 1002   | Forbidden             | 无法删除内置智能体    |
-| 404    | 1003   | Not Found             | 智能体不存在          |
-| 500    | 1007   | Internal Server Error | 服务器内部错误        |
+| Status Code | Error Code | Error                  | Description             |
+| ----------- | ---------- | ----------------------- | -------------------------- |
+| 400         | 1000       | Bad Request             | Empty agent ID              |
+| 403         | 1002       | Forbidden               | Cannot delete a built-in agent |
+| 404         | 1003       | Not Found               | Agent does not exist        |
+| 500         | 1007       | Internal Server Error   | Internal server error       |
 
 ---
 
-## POST `/agents/:id/copy` - 复制智能体
+## POST `/agents/:id/copy` - Copy an Agent
 
-复制指定的智能体，创建一个新的副本，副本始终为自定义智能体。支持复制内置智能体。成功返回 HTTP 201。
+Copies the specified agent, creating a new copy that is always a custom agent. Supports copying built-in agents. Returns HTTP 201 on success.
 
-**路径参数**:
+**Path parameters**:
 
-| 参数 | 类型   | 说明           |
-| ---- | ------ | -------------- |
-| `id` | string | 源智能体 ID    |
+| Parameter | Type   | Description       |
+| --------- | ------ | ------------------- |
+| `id`      | string | Source agent ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/agents/builtin-smart-reasoning/copy' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -364,28 +364,28 @@ curl --location --request POST 'http://localhost:8080/api/v1/agents/builtin-smar
 }
 ```
 
-**错误响应**:
+**Error responses**:
 
-| 状态码 | 错误码 | 错误                  | 说明               |
-| ------ | ------ | --------------------- | ------------------ |
-| 400    | 1000   | Bad Request           | 智能体 ID 为空     |
-| 404    | 1003   | Not Found             | 智能体不存在       |
-| 500    | 1007   | Internal Server Error | 服务器内部错误     |
+| Status Code | Error Code | Error                  | Description         |
+| ----------- | ---------- | ----------------------- | --------------------- |
+| 400         | 1000       | Bad Request             | Empty agent ID        |
+| 404         | 1003       | Not Found               | Agent does not exist  |
+| 500         | 1007       | Internal Server Error   | Internal server error |
 
 ---
 
-## GET `/agents/placeholders` - 获取占位符定义
+## GET `/agents/placeholders` - Get Placeholder Definitions
 
-获取所有可用的提示词占位符定义，按字段类型分组。这些占位符可用于系统提示词和上下文模板中。
+Gets all available prompt placeholder definitions, grouped by field type. These placeholders can be used in system prompts and context templates.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agents/placeholders' \
 --header 'X-API-Key: your_api_key'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -404,136 +404,136 @@ curl --location 'http://localhost:8080/api/v1/agents/placeholders' \
 
 ---
 
-## 配置参数
+## Configuration Parameters
 
-智能体的 `config` 对象支持以下配置项：
+The agent's `config` object supports the following configuration items:
 
-### 基础设置
+### Basic Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `agent_mode` | string | - | 智能体模式：`quick-answer`（RAG）或 `smart-reasoning`（ReAct） |
-| `system_prompt` | string | - | 系统提示词，支持使用占位符 |
-| `system_prompt_id` | string | - | 系统提示词模板 ID（引用 `prompt_templates/` YAML 文件中的模板） |
-| `context_template` | string | - | 上下文模板（仅 quick-answer 模式使用） |
-| `context_template_id` | string | - | 上下文模板 ID（引用 `prompt_templates/` YAML 文件中的模板） |
+| `agent_mode` | string | - | Agent mode: `quick-answer` (RAG) or `smart-reasoning` (ReAct) |
+| `system_prompt` | string | - | System prompt, supports the use of placeholders |
+| `system_prompt_id` | string | - | System prompt template ID (references a template in the `prompt_templates/` YAML files) |
+| `context_template` | string | - | Context template (used only in quick-answer mode) |
+| `context_template_id` | string | - | Context template ID (references a template in the `prompt_templates/` YAML files) |
 
-### 模型设置
+### Model Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `model_id` | string | - | 对话模型 ID |
-| `rerank_model_id` | string | - | 重排序模型 ID |
-| `temperature` | float | 0.7 | 温度参数（0-1） |
-| `max_completion_tokens` | int | 2048 | 最大生成 token 数 |
-| `thinking` | *bool | nil | 是否启用思考模式（适用于支持扩展思考的模型） |
+| `model_id` | string | - | Conversation model ID |
+| `rerank_model_id` | string | - | Rerank model ID |
+| `temperature` | float | 0.7 | Temperature parameter (0-1) |
+| `max_completion_tokens` | int | 2048 | Maximum number of tokens to generate |
+| `thinking` | *bool | nil | Whether to enable thinking mode (applies to models that support extended thinking) |
 
-### Agent 模式设置
+### Agent Mode Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `max_iterations` | int | 10 | ReAct 最大迭代次数 |
-| `allowed_tools` | []string | - | 允许使用的工具列表 |
-| `mcp_selection_mode` | string | - | MCP 服务选择模式：`all`/`selected`/`none` |
-| `mcp_services` | []string | - | 选中的 MCP 服务 ID 列表 |
-| `skills_selection_mode` | string | - | Skills 选择模式：`all`/`selected`/`none` |
-| `selected_skills` | []string | - | 选中的 Skill 名称列表（mode 为 `selected` 时） |
+| `max_iterations` | int | 10 | Maximum number of ReAct iterations |
+| `allowed_tools` | []string | - | List of tools allowed for use |
+| `mcp_selection_mode` | string | - | MCP service selection mode: `all`/`selected`/`none` |
+| `mcp_services` | []string | - | List of selected MCP service IDs |
+| `skills_selection_mode` | string | - | Skills selection mode: `all`/`selected`/`none` |
+| `selected_skills` | []string | - | List of selected Skill names (when mode is `selected`) |
 
-### 知识库设置
+### Knowledge Base Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `kb_selection_mode` | string | - | 知识库选择模式：`all`/`selected`/`none` |
-| `knowledge_bases` | []string | - | 关联的知识库 ID 列表 |
-| `retrieve_kb_only_when_mentioned` | bool | false | 仅在用户通过 @ 显式提及时才检索知识库 |
-| `supported_file_types` | []string | - | 支持的文件类型（如 `["csv", "xlsx"]`） |
+| `kb_selection_mode` | string | - | Knowledge base selection mode: `all`/`selected`/`none` |
+| `knowledge_bases` | []string | - | List of associated knowledge base IDs |
+| `retrieve_kb_only_when_mentioned` | bool | false | Only retrieve from the knowledge base when explicitly mentioned by the user via @ |
+| `supported_file_types` | []string | - | Supported file types (e.g. `["csv", "xlsx"]`) |
 
-### 图片上传 / 多模态设置
+### Image Upload / Multimodal Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `image_upload_enabled` | bool | false | 是否允许上传图片 |
-| `vlm_model_id` | string | - | 图片分析所用的 VLM 模型 ID |
-| `image_storage_provider` | string | - | 图片存储提供者：`local`/`minio`/`cos`/`tos`/`oss`，为空使用全局默认 |
+| `image_upload_enabled` | bool | false | Whether to allow image uploads |
+| `vlm_model_id` | string | - | VLM model ID used for image analysis |
+| `image_storage_provider` | string | - | Image storage provider: `local`/`minio`/`cos`/`tos`/`oss`; uses the global default if left empty |
 
-### FAQ 策略设置
+### FAQ Strategy Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `faq_priority_enabled` | bool | true | FAQ 优先策略开关 |
-| `faq_direct_answer_threshold` | float | 0.9 | FAQ 直接回答阈值 |
-| `faq_score_boost` | float | 1.2 | FAQ 分数加成系数 |
+| `faq_priority_enabled` | bool | true | FAQ priority strategy switch |
+| `faq_direct_answer_threshold` | float | 0.9 | FAQ direct-answer threshold |
+| `faq_score_boost` | float | 1.2 | FAQ score boost coefficient |
 
-### 网络搜索设置
+### Web Search Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `web_search_enabled` | bool | true | 是否启用网络搜索 |
-| `web_search_max_results` | int | 5 | 网络搜索最大结果数 |
-| `web_search_provider_id` | string | - | 网络搜索提供者 ID，为空使用空间默认提供者 |
-| `web_fetch_enabled` | bool | false | 是否自动获取重排后的搜索结果页面全文 |
-| `web_fetch_top_n` | int | 3 | 重排后获取全文的最大页面数 |
+| `web_search_enabled` | bool | true | Whether to enable web search |
+| `web_search_max_results` | int | 5 | Maximum number of web search results |
+| `web_search_provider_id` | string | - | Web search provider ID; uses the space's default provider if left empty |
+| `web_fetch_enabled` | bool | false | Whether to automatically fetch the full text of reranked search result pages |
+| `web_fetch_top_n` | int | 3 | Maximum number of pages to fetch full text for after reranking |
 
-### 多轮对话设置
+### Multi-turn Conversation Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `multi_turn_enabled` | bool | true | 是否启用多轮对话 |
-| `history_turns` | int | 5 | 保留的历史轮次数 |
+| `multi_turn_enabled` | bool | true | Whether to enable multi-turn conversation |
+| `history_turns` | int | 5 | Number of historical turns to retain |
 
-### 检索策略设置
+### Retrieval Strategy Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `embedding_top_k` | int | 10 | 向量检索 TopK |
-| `keyword_threshold` | float | 0.3 | 关键词检索阈值 |
-| `vector_threshold` | float | 0.5 | 向量检索阈值 |
-| `rerank_top_k` | int | 5 | 重排序 TopK |
-| `rerank_threshold` | float | 0.5 | 重排序阈值 |
+| `embedding_top_k` | int | 10 | Vector retrieval TopK |
+| `keyword_threshold` | float | 0.3 | Keyword retrieval threshold |
+| `vector_threshold` | float | 0.5 | Vector retrieval threshold |
+| `rerank_top_k` | int | 5 | Rerank TopK |
+| `rerank_threshold` | float | 0.5 | Rerank threshold |
 
-### 推荐问题设置
+### Suggested Questions Settings
 
-`question_suggestions` 是智能体拥有的统一策略。网页嵌入等渠道只能关闭展示，不能覆盖内容或生成规则。
+`question_suggestions` is a unified strategy owned by the agent. Channels such as web embeds can only toggle its display off — they cannot override the content or generation rules.
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `question_suggestions.starters.enabled` | bool | true | 是否在首次提问前展示开场问题 |
-| `question_suggestions.starters.mode` | string | `hybrid` | `curated`、`knowledge` 或 `hybrid` |
-| `question_suggestions.starters.items` | []string | `[]` | 运营配置的开场问题 |
-| `question_suggestions.starters.count` | int | 6 | 展示数量，范围 1-8 |
-| `question_suggestions.follow_ups.enabled` | bool | false | 是否在每次完整回答后异步生成追问 |
-| `question_suggestions.follow_ups.mode` | string | `hybrid` | `generated`、`knowledge` 或 `hybrid` |
-| `question_suggestions.follow_ups.count` | int | 3 | 生成数量，范围 1-5 |
-| `question_suggestions.follow_ups.model_id` | string | - | 独立生成模型；为空使用本轮对话模型 |
-| `question_suggestions.follow_ups.categories` | []string | `clarify,deepen,action` | 允许的问题类型 |
-| `question_suggestions.follow_ups.max_context_turns` | int | 2 | 生成时使用的最近对话轮数，范围 1-5 |
-| `question_suggestions.follow_ups.additional_instruction` | string | - | 智能体作者的附加生成要求 |
-| `question_suggestions.follow_ups.suppress_on_fallback` | bool | true | 兜底回答后不展示 |
-| `question_suggestions.follow_ups.suppress_when_answer_asks_question` | bool | true | 回答本身以问题结尾时不展示 |
-| `question_suggestions.follow_ups.knowledge_fallback` | bool | true | 模型失败时使用知识库候选补位 |
-| `question_suggestions.follow_ups.allow_regenerate` | bool | false | 是否允许用户换一批 |
+| `question_suggestions.starters.enabled` | bool | true | Whether to show starter questions before the first query |
+| `question_suggestions.starters.mode` | string | `hybrid` | `curated`, `knowledge`, or `hybrid` |
+| `question_suggestions.starters.items` | []string | `[]` | Operator-configured starter questions |
+| `question_suggestions.starters.count` | int | 6 | Number to display, range 1-8 |
+| `question_suggestions.follow_ups.enabled` | bool | false | Whether to asynchronously generate follow-up questions after each complete answer |
+| `question_suggestions.follow_ups.mode` | string | `hybrid` | `generated`, `knowledge`, or `hybrid` |
+| `question_suggestions.follow_ups.count` | int | 3 | Number to generate, range 1-5 |
+| `question_suggestions.follow_ups.model_id` | string | - | Dedicated generation model; uses the current turn's conversation model if left empty |
+| `question_suggestions.follow_ups.categories` | []string | `clarify,deepen,action` | Allowed question types |
+| `question_suggestions.follow_ups.max_context_turns` | int | 2 | Number of recent conversation turns used for generation, range 1-5 |
+| `question_suggestions.follow_ups.additional_instruction` | string | - | Additional generation requirements from the agent's author |
+| `question_suggestions.follow_ups.suppress_on_fallback` | bool | true | Do not display after a fallback answer |
+| `question_suggestions.follow_ups.suppress_when_answer_asks_question` | bool | true | Do not display when the answer itself ends with a question |
+| `question_suggestions.follow_ups.knowledge_fallback` | bool | true | Use knowledge base candidates as a fallback when the model fails |
+| `question_suggestions.follow_ups.allow_regenerate` | bool | false | Whether to allow the user to request a new batch |
 
-旧 `suggested_prompts` 会在数据库迁移时一次性写入 `starters.items`，API 不再接受该字段。
+The legacy `suggested_prompts` field is written into `starters.items` in a one-time database migration; the API no longer accepts this field.
 
-### 高级设置
+### Advanced Settings
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `enable_query_expansion` | bool | true | 是否启用查询扩展 |
-| `enable_rewrite` | bool | true | 是否启用多轮对话查询改写 |
-| `rewrite_prompt_system` | string | - | 改写系统提示词 |
-| `rewrite_prompt_user` | string | - | 改写用户提示词模板 |
-| `fallback_strategy` | string | `model` | 回退策略：`fixed`（固定回复）或 `model`（模型生成）；未设置时在服务端默认为 `model` |
-| `fallback_response` | string | - | 固定回退回复（`fallback_strategy` 为 `fixed` 时使用） |
-| `fallback_prompt` | string | - | 回退提示词（`fallback_strategy` 为 `model` 时使用） |
+| `enable_query_expansion` | bool | true | Whether to enable query expansion |
+| `enable_rewrite` | bool | true | Whether to enable multi-turn conversation query rewriting |
+| `rewrite_prompt_system` | string | - | Rewrite system prompt |
+| `rewrite_prompt_user` | string | - | Rewrite user prompt template |
+| `fallback_strategy` | string | `model` | Fallback strategy: `fixed` (fixed reply) or `model` (model-generated); defaults to `model` on the server side if not set |
+| `fallback_response` | string | - | Fixed fallback reply (used when `fallback_strategy` is `fixed`) |
+| `fallback_prompt` | string | - | Fallback prompt (used when `fallback_strategy` is `model`) |
 
 ---
 
-## 使用 Agent 进行问答
+## Using an Agent for Q&A
 
-创建或获取智能体后，可以通过 `/agent-chat/:session_id` 接口使用智能体进行问答。详情请参考 [聊天功能 API](./chat.md)。
+After creating or obtaining an agent, you can use the `/agent-chat/:session_id` endpoint to perform Q&A with the agent. See [Chat API](./chat.md) for details.
 
-在问答请求中使用 `agent_id` 参数指定要使用的智能体：
+Use the `agent_id` parameter in the Q&A request to specify which agent to use:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agent-chat/session-123' \
@@ -546,8 +546,8 @@ curl --location 'http://localhost:8080/api/v1/agent-chat/session-123' \
 }'
 ```
 
-## 相关文档
+## Related Documentation
 
-- 智能体的组织共享、跨空间分发与禁用（`/agents/:id/shares`、`/shared-agents` 等）：见 [组织管理 API](./organization.md)
-- 智能体绑定 IM 渠道（`/agents/:id/im-channels`）：见组织/IM 渠道相关文档
-- 网络搜索提供者配置（被 `web_search_provider_id` 引用）：见 [Web Search API](./web-search.md)
+- Agent organizational sharing, cross-space distribution, and disabling (`/agents/:id/shares`, `/shared-agents`, etc.): see [Organization Management API](./organization.md)
+- Binding an agent to IM channels (`/agents/:id/im-channels`): see the organization/IM channel documentation
+- Web search provider configuration (referenced by `web_search_provider_id`): see [Web Search API](./web-search.md)

@@ -1,13 +1,13 @@
-# WeKnora MCP Server 安装和使用指南
+# WeKnora MCP Server Installation and Usage Guide
 
-## 快速开始
+## Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 设置环境变量
+### 2. Set Environment Variables
 ```bash
 # Linux/macOS
 export WEKNORA_BASE_URL="http://localhost:8080/api/v1"
@@ -22,141 +22,141 @@ set WEKNORA_BASE_URL=http://localhost:8080/api/v1
 set WEKNORA_API_KEY=your_api_key_here
 ```
 
-### 3. 运行服务器
+### 3. Run the Server
 
-有多种方式运行服务器：
+There are several ways to run the server:
 
-#### 方式 1: 使用主入口点 (推荐)
+#### Method 1: Using the Main Entry Point (Recommended)
 ```bash
 python main.py
 ```
 
-#### 方式 2: 使用原始启动脚本
+#### Method 2: Using the Original Startup Script
 ```bash
 python run_server.py
 ```
 
-#### 方式 3: 直接运行服务器模块
+#### Method 3: Running the Server Module Directly
 ```bash
 python weknora_mcp_server.py
 ```
 
-#### 方式 4: 作为 Python 模块运行
+#### Method 4: Running as a Python Module
 ```bash
 python -m weknora_mcp_server
 ```
 
-## 作为 Python 包安装
+## Installing as a Python Package
 
-### 开发模式安装
+### Development Mode Installation
 ```bash
 pip install -e .
 ```
 
-安装后可以使用命令行工具：
+Once installed, you can use the command-line tools:
 ```bash
 weknora-mcp-server
-# 或
+# or
 weknora-server
 ```
 
-### 生产模式安装
+### Production Mode Installation
 ```bash
 pip install .
 ```
 
-### 构建分发包
+### Building Distribution Packages
 ```bash
-# 构建源码分发包和轮子
+# Build source distribution and wheel
 python setup.py sdist bdist_wheel
 
-# 或使用 build 工具
+# Or use the build tool
 pip install build
 python -m build
 ```
 
-## 命令行选项
+## Command-Line Options
 
-主入口点 `main.py` 支持以下选项：
+The main entry point `main.py` supports the following options:
 
 ```bash
-python main.py --help                 # 显示帮助信息
-python main.py --check-only           # 仅检查环境配置
-python main.py --verbose              # 启用详细日志
-python main.py --version              # 显示版本信息
+python main.py --help                 # Show help information
+python main.py --check-only           # Only check environment configuration
+python main.py --verbose              # Enable verbose logging
+python main.py --version              # Show version information
 ```
 
-## 环境检查
+## Environment Check
 
-运行以下命令检查环境配置：
+Run the following command to check your environment configuration:
 ```bash
 python main.py --check-only
 ```
 
-这将显示：
-- WeKnora API 基础 URL 配置
-- API 密钥设置状态
-- 依赖包安装状态
+This will display:
+- WeKnora API base URL configuration
+- API key setup status
+- Dependency package installation status
 
-## 故障排除
+## Troubleshooting
 
-### 1. 导入错误
-如果遇到 `ImportError`，请确保：
-- 已安装所有依赖：`pip install -r requirements.txt`
-- Python 版本兼容（推荐 3.10+）
-- 没有文件名冲突
+### 1. Import Errors
+If you encounter an `ImportError`, make sure:
+- All dependencies are installed: `pip install -r requirements.txt`
+- Your Python version is compatible (3.10+ recommended)
+- There are no filename conflicts
 
-### 2. 连接错误
-如果无法连接到 WeKnora API：
-- 检查 `WEKNORA_BASE_URL` 是否正确
-- 确认 WeKnora 服务正在运行
-- 验证网络连接
+### 2. Connection Errors
+If you cannot connect to the WeKnora API:
+- Check that `WEKNORA_BASE_URL` is correct
+- Confirm that the WeKnora service is running
+- Verify your network connection
 
-### 3. 认证错误
-如果遇到认证问题：
-- 检查 `WEKNORA_API_KEY` 是否设置
-- 确认 API 密钥有效
-- 验证权限设置
+### 3. Authentication Errors
+If you encounter authentication issues:
+- Check that `WEKNORA_API_KEY` is set
+- Confirm that the API key is valid
+- Verify your permission settings
 
-## 开发模式
+## Development Mode
 
-### 项目结构
+### Project Structure
 ```
 WeKnora/mcp-server/
-├── __init__.py              # 包初始化文件
-├── main.py                  # 主入口点
-├── run_server.py           # 原始启动脚本
-├── weknora_mcp_server.py   # MCP 服务器实现
-├── requirements.txt        # 依赖列表
-├── setup.py               # 安装脚本
-├── pyproject.toml         # 项目元数据（PyPI: tencent-weknora-mcp）
-├── MANIFEST.in            # 包含文件清单
-├── LICENSE                # 许可证
-├── README.md              # 项目说明
-└── INSTALL.md             # 安装指南
+├── __init__.py              # Package initialization file
+├── main.py                  # Main entry point
+├── run_server.py           # Original startup script
+├── weknora_mcp_server.py   # MCP server implementation
+├── requirements.txt        # Dependency list
+├── setup.py               # Installation script
+├── pyproject.toml         # Project metadata (PyPI: tencent-weknora-mcp)
+├── MANIFEST.in            # Included files manifest
+├── LICENSE                # License
+├── README.md              # Project description
+└── INSTALL.md             # Installation guide
 ```
 
-### 添加新功能
-1. 在 `WeKnoraClient` 类中添加新的 API 方法
-2. 用 `@mcp.tool()` 装饰器注册一个新工具函数：参数用类型标注（schema 自动生成），描述写在 docstring 里，函数体调用上面新增的客户端方法
-3. 更新文档和测试
+### Adding New Features
+1. Add a new API method in the `WeKnoraClient` class
+2. Register a new tool function with the `@mcp.tool()` decorator: annotate parameters with types (the schema is auto-generated), write the description in the docstring, and have the function body call the newly added client method above
+3. Update documentation and tests
 
-### 测试
+### Testing
 ```bash
-# 运行基本测试
+# Run basic tests
 python check_imports.py
 
-# 测试环境配置
+# Test environment configuration
 python main.py --check-only
 
-# 测试服务器启动
+# Test server startup
 python main.py --verbose
 ```
 
-## 部署
+## Deployment
 
-### Docker 部署
-创建 `Dockerfile`：
+### Docker Deployment
+Create a `Dockerfile`:
 ```dockerfile
 FROM python:3.11-slim
 
@@ -173,8 +173,8 @@ EXPOSE 8000
 CMD ["weknora-mcp-server"]
 ```
 
-### 系统服务
-创建 systemd 服务文件 `/etc/systemd/system/weknora-mcp.service`：
+### System Service
+Create the systemd service file `/etc/systemd/system/weknora-mcp.service`:
 ```ini
 [Unit]
 Description=WeKnora MCP Server
@@ -193,16 +193,16 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-启用服务：
+Enable the service:
 ```bash
 sudo systemctl enable weknora-mcp
 sudo systemctl start weknora-mcp
 ```
 
-## 支持
+## Support
 
-如果遇到问题，请：
-1. 查看日志输出
-2. 检查环境配置
-3. 参考故障排除部分
-4. 提交 Issue 到项目仓库: https://github.com/Tencent/WeKnora/issues
+If you encounter any issues, please:
+1. Check the log output
+2. Check the environment configuration
+3. Refer to the Troubleshooting section
+4. Submit an Issue to the project repository: https://github.com/Tencent/WeKnora/issues

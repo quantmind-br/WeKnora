@@ -18,7 +18,7 @@ export interface SidebarSessionBucket {
   items: SessionForGrouping[]
   loaded: boolean
   loading: boolean
-  /** 已通过轻量 count 探测（page_size=1），用于隐藏无会话的渠道文件夹 */
+  /** Already probed via a lightweight count check (page_size=1), used to hide channel folders with no sessions */
   countKnown: boolean
 }
 

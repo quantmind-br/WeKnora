@@ -10,8 +10,8 @@ interface ConfirmDeleteOptions {
 }
 
 /**
- * 统一的删除确认交互，基于 TDesign DialogPlugin.confirm。
- * 取代散落在各处的 window.confirm / t-popconfirm / 自定义 Dialog 写法。
+ * Unified delete confirmation interaction, based on TDesign DialogPlugin.confirm.
+ * Replaces window.confirm / t-popconfirm / custom Dialog implementations scattered throughout the codebase.
  */
 export function useConfirmDelete() {
   const { t } = useI18n()

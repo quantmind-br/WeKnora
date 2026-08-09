@@ -2,12 +2,12 @@
 set -euo pipefail
 
 #
-# 本地构建 + 打包 WeKnora Lite 发行包
+# Local build + package WeKnora Lite release
 #
-# 用法:
-#   ./scripts/package-lite.sh              # 自动检测版本
-#   ./scripts/package-lite.sh v0.2.0       # 指定版本号
-#   SKIP_FRONTEND=1 ./scripts/package-lite.sh  # 跳过前端构建（使用已有 web/）
+# Usage:
+# ./scripts/package-lite.sh              # auto-detect version
+# ./scripts/package-lite.sh v0.2.0       # specify version number
+# SKIP_FRONTEND=1 ./scripts/package-lite.sh  # skip frontend build (use existing web/)
 #
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

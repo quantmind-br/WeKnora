@@ -42,7 +42,7 @@ export function defaultThinkingControl(
     case 'aliyun':
       return isQwenThinkingModel(model) ? 'enable_thinking' : 'none'
     case 'lkeap':
-      // R1 系列后端不发 thinking 参数；其余（含未填模型名）按 LKEAP 的 thinking.type 格式预选
+      // R1-series backends don't send the thinking parameter; others (including unspecified model names) are pre-selected by LKEAP's thinking.type format
       if (model && isLkeapDeepSeekR1Model(model)) return 'none'
       return 'thinking_type'
     case 'generic':

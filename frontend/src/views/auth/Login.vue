@@ -625,7 +625,7 @@ const handleOIDCLogin = async () => {
 
     window.location.href = authorizationURL
   } catch (error: any) {
-    console.error('OIDC 登录跳转失败:', error)
+    console.error('OIDC login redirect failed:', error)
     MessagePlugin.error(error.message || t('auth.oidcLoginFailed'))
   } finally {
     oidcLoading.value = false
@@ -652,7 +652,7 @@ const handleLogin = async () => {
       MessagePlugin.error(response.message || t('auth.loginError'))
     }
   } catch (error: any) {
-    console.error('登录错误:', error)
+    console.error('Login error:', error)
     MessagePlugin.error(error.message || t('auth.loginErrorRetry'))
   } finally {
     loading.value = false
@@ -710,7 +710,7 @@ const handleRegister = async () => {
       MessagePlugin.error(response.message || t('auth.registerFailed'))
     }
   } catch (error: any) {
-    console.error('注册错误:', error)
+    console.error('Registration error:', error)
     MessagePlugin.error(error.message || t('auth.registerError'))
   } finally {
     loading.value = false
@@ -1364,8 +1364,8 @@ onMounted(async () => {
   font-family: var(--app-font-family);
 }
 
-/* 注册入口：从底部小字链接升级为带分隔线的醒目次级按钮，
-   让首次访客一眼就能找到「创建账户」。 */
+/* Registration entry point: upgraded from a small bottom-of-page link to a prominent secondary button with a divider,
+   so first-time visitors can spot "Create account" at a glance. */
 .register-cta {
   margin-top: 8px;
 

@@ -7,20 +7,20 @@ import (
 )
 
 const (
-	// NvidiaChatBaseURL NVIDIA Chat 的默认 BaseURL
+	// NvidiaChatBaseURL default BaseURL for NVIDIA Chat
 	NvidiaChatBaseURL = "https://integrate.api.nvidia.com/v1"
-	// NvidiaRerankBaseURL NVIDIA Rerank 的默认 BaseURL
+	// NvidiaRerankBaseURL default BaseURL for NVIDIA Rerank
 	NvidiaRerankBaseURL = "https://ai.api.nvidia.com/v1/retrieval/nvidia/reranking"
 )
 
-// NvidiaProvider 实现NVIDIA AI 的 Provider 接口
+// NvidiaProvider implements the Provider interface for NVIDIA AI
 type NvidiaProvider struct{}
 
 func init() {
 	Register(&NvidiaProvider{})
 }
 
-// Info 返回NVIDIA provider 的元数据
+// Info returns metadata for the NVIDIA provider
 func (p *NvidiaProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderNvidia,
@@ -42,7 +42,7 @@ func (p *NvidiaProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证NVIDIA provider 配置
+// ValidateConfig validates NVIDIA provider configuration
 func (p *NvidiaProvider) ValidateConfig(config *Config) error {
 	if config.APIKey == "" {
 		return fmt.Errorf("API key is required for NVIDIA")

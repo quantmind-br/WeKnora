@@ -50,10 +50,10 @@
         </div>
       </div>
 
-      <!-- 与其它 settings 列表同形：左侧 monogram 徽章 + 标题 + 状态徽 + 描述。
-           整张卡是一个 button，单击打开配置抽屉；当前抽屉对应的卡获得品牌色描边。
-           原本 8 张手写卡片由统一的 STORAGE_PROVIDERS 数组驱动，把状态判定收敛到
-           providerStatus()，新增 provider 时只需在数组里加一项 + 翻译键即可。 -->
+      <!-- Same shape as the other settings list items: monogram badge on the left + title + status badge + description.
+           The whole card is a button; clicking it opens the config drawer. The card matching the currently open drawer gets a brand-colored outline.
+           The original 8 hand-written cards are now driven by a unified STORAGE_PROVIDERS array, consolidating status resolution into
+           providerStatus(); adding a new provider only requires adding an entry to the array + translation keys. -->
       <div class="engine-cards">
         <button
           v-for="provider in STORAGE_PROVIDERS"
@@ -98,7 +98,7 @@
       </div>
     </template>
 
-    <!-- 配置抽屉 — SettingDrawer 包装，与 ModelEditorDialog / ParserEngineSettings 同款 -->
+    <!-- Config drawer — wrapped by SettingDrawer, same convention as ModelEditorDialog / ParserEngineSettings -->
     <SettingDrawer
       v-model:visible="drawerVisible"
       :title="drawerTitle"
@@ -109,11 +109,11 @@
       @cancel="drawerVisible = false"
     >
       <!--
-        Header icon — 复用列表卡片同款 logo / 配色徽章。
-        - color logo（如 MinIO/AWS）: 直接 <img>，保留品牌彩色
-        - mono logo（mask-image）: 通过 ::before + currentColor 染色，颜色由
-          .storage-engine-drawer--{id} :deep(.setting-drawer__header-icon) 决定
-        - 无 logo: 渲染首字母作为 monogram
+        Header icon — reuses the same logo / color badge as the list cards.
+        - color logo (e.g. MinIO/AWS): rendered directly as an <img>, preserving the brand colors
+        - mono logo (mask-image): tinted via ::before + currentColor, with the color determined by
+          .storage-engine-drawer--{id} :deep(.setting-drawer__header-icon)
+        - no logo: renders the initial letter as a monogram
       -->
       <template v-if="currentEngine" #headerIcon>
         <img
@@ -130,7 +130,7 @@
         <span v-else class="header-icon__text">{{ providerInitial(currentEngine as StorageProviderId) }}</span>
       </template>
 
-      <!-- 副标题：引擎描述 + inline 控制台/文档外链（若有） -->
+      <!-- Subtitle: engine description + inline console/docs external link (if any) -->
       <template v-if="currentEngine" #subtitle>
         <span>{{ engineDescText }}</span>
         <template v-for="link in engineLinks" :key="link.url">
@@ -141,7 +141,7 @@
         </template>
       </template>
 
-      <!-- 测试连接挪到 footer-left（local 不需要） -->
+      <!-- Test connection moved to footer-left (not needed for local) -->
       <template v-if="needsTestButton" #footer-left>
         <t-button
           variant="outline"
@@ -180,7 +180,7 @@
         <!-- ===== local ===== -->
         <template v-if="currentEngine === 'local'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.basicSection', '基本配置') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.basicSection', 'Basic settings') }}</h4>
             <div class="form-item">
               <label class="form-label">{{ $t('settings.storage.pathPrefix') }}</label>
               <t-input
@@ -194,9 +194,9 @@
 
         <!-- ===== minio ===== -->
         <template v-else-if="currentEngine === 'minio'">
-          <!-- Section 1 — 部署模式（Docker / 远程） -->
+          <!-- Section 1 — Deployment mode (Docker / remote) -->
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.modeSection', '部署模式') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.modeSection', 'Deployment mode') }}</h4>
             <div class="form-item">
               <div class="source-options" role="radiogroup">
                 <button
@@ -219,7 +219,7 @@
                 </button>
               </div>
 
-              <!-- Docker 模式状态提示 inline-alert -->
+              <!-- Docker mode status hint inline-alert -->
               <div v-if="config.minio.mode !== 'remote'" class="inline-alert"
                 :class="minioEnvAvailable ? 'inline-alert--ok' : 'inline-alert--warn'">
                 <t-icon
@@ -238,9 +238,9 @@
             </div>
           </section>
 
-          <!-- Section 2 — 远程模式凭证（仅 remote） -->
+          <!-- Section 2 — Remote mode credentials (remote only) -->
           <section v-if="config.minio.mode === 'remote'" class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <div class="form-item">
               <label class="form-label required">Endpoint</label>
               <t-input v-model="config.minio.endpoint" placeholder="e.g. minio.example.com:9000" clearable />
@@ -259,7 +259,7 @@
             </div>
           </section>
 
-          <!-- Section 3 — Bucket 与选项 -->
+          <!-- Section 3 — Bucket and options -->
           <section class="setting-drawer__section">
             <h4 class="setting-drawer__section-title">{{ $t('settings.storage.bucketSection', 'Bucket') }}</h4>
             <div class="form-item">
@@ -283,7 +283,7 @@
               <label class="form-label">SSL</label>
               <div class="vision-toggle">
                 <t-switch v-model="config.minio.use_ssl" />
-                <span class="form-desc form-desc--inline">{{ $t('settings.storage.useSslDesc', '通过 HTTPS 访问 MinIO') }}</span>
+                <span class="form-desc form-desc--inline">{{ $t('settings.storage.useSslDesc', 'Access MinIO over HTTPS') }}</span>
               </div>
             </div>
           </section>
@@ -292,7 +292,7 @@
         <!-- ===== cos ===== -->
         <template v-else-if="currentEngine === 'cos'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <div class="form-item">
               <label class="form-label required">Secret ID</label>
               <t-input v-model="config.cos.secret_id" :placeholder="$t('settings.storage.cosSecretIdPlaceholder')" clearable>
@@ -330,7 +330,7 @@
         <!-- ===== tos ===== -->
         <template v-else-if="currentEngine === 'tos'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <div class="form-item">
               <label class="form-label required">Access Key</label>
               <t-input v-model="config.tos.access_key" :placeholder="$t('settings.storage.tosAccessKeyPlaceholder')" clearable>
@@ -368,7 +368,7 @@
         <!-- ===== s3 ===== -->
         <template v-else-if="currentEngine === 's3'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <p class="form-desc">{{ $t('settings.storage.s3DefaultCredentialsHint') }}</p>
             <div class="form-item">
               <label class="form-label">Access Key</label>
@@ -407,7 +407,7 @@
         <!-- ===== oss ===== -->
         <template v-else-if="currentEngine === 'oss'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <div class="form-item">
               <label class="form-label required">Access Key</label>
               <t-input v-model="config.oss.access_key" :placeholder="$t('settings.storage.ossAccessKeyPlaceholder')" clearable>
@@ -445,7 +445,7 @@
         <!-- ===== ks3 ===== -->
         <template v-else-if="currentEngine === 'ks3'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <div class="form-item">
               <label class="form-label required">Access Key</label>
               <t-input v-model="config.ks3.access_key" :placeholder="$t('settings.storage.ks3AccessKeyPlaceholder')" clearable>
@@ -483,7 +483,7 @@
         <!-- ===== obs ===== -->
         <template v-else-if="currentEngine === 'obs'">
           <section class="setting-drawer__section">
-            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', '凭证') }}</h4>
+            <h4 class="setting-drawer__section-title">{{ $t('settings.storage.credentialsSection', 'Credentials') }}</h4>
             <div class="form-item">
               <label class="form-label required">Access Key</label>
               <t-input v-model="config.obs.access_key" :placeholder="$t('settings.storage.obsAccessKeyPlaceholder')" clearable>
@@ -652,8 +652,8 @@ const drawerTitle = computed(() => {
   return titles[currentEngine.value] || currentEngine.value
 })
 
-// SettingDrawer 头部图标 — 走列表卡片同款 logo（color / mono / fallback）。
-// providerLogo 已经处理了 storage 域内每个 id 的 logo URL + 模式。
+// SettingDrawer header icon — uses the same logo as the list cards (color / mono / fallback).
+// providerLogo already handles the logo URL + mode for each id within the storage domain.
 const currentLogo = computed(() => {
   if (!currentEngine.value) return null
   return providerLogo('storage', currentEngine.value as StorageProviderId)
@@ -669,7 +669,7 @@ const monoLogoStyle = computed((): Record<string, string> => {
   return { '--logo-url': `url("${logo.url}")` }
 })
 
-// 引擎描述（副标题主体文本）。
+// Engine description (subtitle main text).
 const engineDescText = computed((): string => {
   if (!currentEngine.value) return ''
   const key = `settings.storage.${currentEngine.value}Desc`
@@ -677,8 +677,8 @@ const engineDescText = computed((): string => {
   return translated !== key ? translated : ''
 })
 
-// 控制台 / 文档外链 — 副标题尾部 inline 显示，与 ParserEngineSettings
-// 同款。各 provider 的 console / docs 链接来自原模板里的硬编码地址。
+// Console / docs external link — shown inline at the end of the subtitle, same convention as ParserEngineSettings
+// Provider-specific console / docs links come from the hardcoded URLs in the original template.
 const ENGINE_LINK_TABLE: Record<string, { console?: string; docs?: string }> = {
   cos: {
     console: 'https://console.cloud.tencent.com/cos',
@@ -712,8 +712,8 @@ const engineLinks = computed((): Array<{ label: string; url: string }> => {
   return result
 })
 
-// 是否在 footer 显示"测试连接"按钮 — 本地直接读写文件系统，无连接概念，
-// 跳过；其余 provider 都需要远程 endpoint，必须能测。
+// Whether to show the "Test connection" button in the footer — local reads/writes the filesystem directly, no connection concept,
+// so it's skipped; every other provider requires a remote endpoint and must be testable.
 const needsTestButton = computed(() => {
   return !!currentEngine.value && currentEngine.value !== 'local'
 })
@@ -725,8 +725,8 @@ const minioAvailable = computed(() => {
   return minioEnvAvailable.value
 })
 
-// Single source-of-truth for the cards列 + 状态/标题查询。新增 provider 时
-// 在数组里加一项 + 翻译键即可，模板 v-for 自动跟进。
+// Single source-of-truth for the cards list + status/title lookups. Adding a new provider only requires
+// adding an entry to the array + translation keys; the template's v-for picks it up automatically.
 type StorageProviderId = 'local' | 'minio' | 'cos' | 'tos' | 's3' | 'oss' | 'ks3' | 'obs'
 const STORAGE_PROVIDERS: { id: StorageProviderId }[] = [
   { id: 'local' },
@@ -749,7 +749,7 @@ const providerInitial = (id: StorageProviderId): string => {
   return providerTitle(id).trim().charAt(0).toUpperCase() || '?'
 }
 
-// 见 VectorStoreSettings 的同名注释：返回 --logo-url 给 ::before 用 mask 渲染。
+// See the identically named comment in VectorStoreSettings: returns --logo-url for ::before to render via mask.
 const resolveLogo = (id: StorageProviderId) => providerLogo('storage', id)
 
 const badgeClass = (id: StorageProviderId) => {
@@ -1207,8 +1207,8 @@ onMounted(loadAll)
   margin-top: 24px;
 }
 
-// 与 Parser / Model / WebSearch / Mcp 一致的卡片样式 —— 整张是 button，
-// 单击打开抽屉；active 是「当前正在编辑」的语义而不是「默认引擎」。
+// Same card style as Parser / Model / WebSearch / Mcp — the whole thing is a button,
+// clicking it opens the drawer; "active" means "currently being edited," not "default engine."
 .engine-card {
   display: flex;
   align-items: flex-start;
@@ -1251,8 +1251,8 @@ onMounted(loadAll)
   color: #0052D9;
 }
 
-// 真实品牌 logo：白底 + 细边，logo 用 mask-image 染成 currentColor（沿用品牌色）。
-// 多套一层 .engine-card 以胜过 `.engine-card--<id> .engine-card__badge` 的具体规则。
+// Real brand logo: white background + thin border, logo tinted with mask-image to currentColor (keeps the brand color).
+// Adds an extra .engine-card wrapper to override the more specific `.engine-card--<id> .engine-card__badge` rule.
 .engine-card .engine-card__badge--logo {
   background: var(--td-bg-color-container, #fff);
   box-shadow: inset 0 0 0 1px var(--td-component-stroke);
@@ -1280,7 +1280,7 @@ onMounted(loadAll)
   display: block;
 }
 
-// 各对象存储徽章配色 —— 和 LOGO 主色对齐，但走低饱和版以维持 settings 整体调性。
+// Object storage badge colors — aligned with each logo's primary color, but desaturated to stay consistent with the overall settings tone.
 .engine-card--local .engine-card__badge {
   background: rgba(70, 70, 70, 0.1);
   color: #464646;
@@ -1384,9 +1384,9 @@ onMounted(loadAll)
   overflow: hidden;
 }
 
-// ---- 抽屉内容 — 与 ModelEditorDialog 同款约定 ----
+// ---- Drawer content — same conventions as ModelEditorDialog ----
 
-// color logo 容器内部的图片
+// Image inside the color logo container
 .header-icon__img {
   width: 24px;
   height: 24px;
@@ -1394,7 +1394,7 @@ onMounted(loadAll)
   display: block;
 }
 
-// mono logo（用 mask-image 渲染，颜色由 currentColor 决定）
+// Mono logo (rendered via mask-image, color determined by currentColor)
 .header-icon__mono {
   display: inline-block;
   width: 22px;
@@ -1410,7 +1410,7 @@ onMounted(loadAll)
   mask-size: contain;
 }
 
-// fallback：首字母 monogram
+// Fallback: initial-letter monogram
 .header-icon__text {
   font-size: 15px;
   font-weight: 600;
@@ -1429,7 +1429,7 @@ onMounted(loadAll)
   color: var(--td-text-color-primary);
   line-height: 1.4;
 
-  // 必填星号前置（与 ModelEditorDialog 一致）
+  // Required-field asterisk placed before the label (consistent with ModelEditorDialog)
   &.required::before {
     content: '*';
     color: var(--td-error-color);
@@ -1458,7 +1458,7 @@ onMounted(loadAll)
   font-size: 13px;
 }
 
-// ---- MinIO 部署模式：紧凑 pill segmented（与 ModelEditorDialog 来源切换同款）----
+// ---- MinIO deployment mode: compact pill segmented control (same as ModelEditorDialog's source switch) ----
 .source-options {
   display: inline-flex;
   align-items: center;
@@ -1508,7 +1508,7 @@ onMounted(loadAll)
   white-space: nowrap;
 }
 
-// ---- inline-alert（与 ParserEngineSettings 同款，瘦身的状态行） ----
+// ---- inline-alert (same as ParserEngineSettings, a slim status line) ----
 .inline-alert {
   display: flex;
   align-items: center;
@@ -1543,14 +1543,14 @@ onMounted(loadAll)
   min-width: 0;
 }
 
-// ---- vision-toggle（switch + 行内描述）----
+// ---- vision-toggle (switch + inline description) ----
 .vision-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-// ---- footer-left 测试连接消息（与 ModelEditorDialog 同款） ----
+// ---- footer-left test connection message (same as ModelEditorDialog) ----
 .footer-test-message {
   font-size: 12px;
   line-height: 1.4;
@@ -1586,7 +1586,7 @@ onMounted(loadAll)
   }
 }
 
-// ---- 文档外链 ----
+// ---- Document external links ----
 .doc-link {
   display: inline-flex;
   align-items: center;
@@ -1643,15 +1643,15 @@ onMounted(loadAll)
   → drawer hand-off is visually continuous.
 -->
 <style lang="less">
-// 当抽屉里渲染了彩色 logo（如 MinIO/AWS）时，给 header-icon 容器一个白底
-// + 细边，避免品牌色浅底盖在彩色图标上影响对比度。
+// When the drawer renders a colored logo (e.g. MinIO/AWS), give the header-icon container a white background
+// + thin border, to avoid the brand color's light background overlaying the colored icon and hurting contrast.
 .storage-engine-drawer .setting-drawer__header-icon:has(.header-icon__img) {
   background: var(--td-bg-color-container, #fff);
   box-shadow: inset 0 0 0 1px var(--td-component-stroke);
 }
 
-// 单色 logo / 首字母 fallback 的徽章配色 — 与列表卡片 .engine-card--{id}
-// .engine-card__badge 完全一致。
+// Badge coloring for monochrome logos / initial-letter fallback — matches the list card's .engine-card--{id}
+// .engine-card__badge exactly.
 .storage-engine-drawer--local .setting-drawer__header-icon {
   background: rgba(70, 70, 70, 0.1);
   color: #464646;

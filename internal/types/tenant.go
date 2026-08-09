@@ -305,12 +305,12 @@ type ParserEngineConfig struct {
 	// ChatParserEngineRules selects parser engines for session-scoped chat
 	// documents. Knowledge bases keep their own rules in ChunkingConfig.
 	ChatParserEngineRules []ParserEngineRule `json:"chat_parser_engine_rules,omitempty"`
-	MinerUEndpoint        string             `json:"mineru_endpoint"` // MinerU 自建服务端点
-	MinerUAPIKey          string             `json:"mineru_api_key"`  // MinerU 云 API Key
+	MinerUEndpoint        string             `json:"mineru_endpoint"` // MinerU self-hosted service endpoint
+	MinerUAPIKey          string             `json:"mineru_api_key"`  // MinerU cloud API key
 
-	// MinerU 自建解析参数
+	// MinerU self-hosted parsing parameters
 	MinerUModel         string `json:"mineru_model,omitempty"`          // backend: pipeline, vlm-*, hybrid-*
-	MinerUVLMServerURL  string `json:"mineru_vlm_server_url,omitempty"` // vLLM 服务器地址 (vlm-http-client / hybrid-http-client)
+	MinerUVLMServerURL  string `json:"mineru_vlm_server_url,omitempty"` // vLLM server URL (vlm-http-client / hybrid-http-client)
 	MinerUEnableFormula *bool  `json:"mineru_enable_formula,omitempty"`
 	MinerUEnableTable   *bool  `json:"mineru_enable_table,omitempty"`
 	MinerUParseMethod   string `json:"mineru_parse_method,omitempty"`
@@ -319,7 +319,7 @@ type ParserEngineConfig struct {
 	MinerUEnableOCR *bool  `json:"mineru_enable_ocr,omitempty"`
 	MinerULanguage  string `json:"mineru_language,omitempty"`
 
-	// MinerU 云 API 解析参数
+	// MinerU cloud API parsing parameters
 	MinerUCloudModel         string `json:"mineru_cloud_model,omitempty"` // model_version: pipeline, vlm, MinerU-HTML
 	MinerUCloudEnableFormula *bool  `json:"mineru_cloud_enable_formula,omitempty"`
 	MinerUCloudEnableTable   *bool  `json:"mineru_cloud_enable_table,omitempty"`
@@ -540,7 +540,7 @@ type COSEngineConfig struct {
 	TempRegion     string `json:"temp_region"`
 }
 
-// TOSEngineConfig is for Volcengine TOS (火山引擎对象存储).
+// TOSEngineConfig is for Volcengine TOS (Volcengine Object Storage).
 type TOSEngineConfig struct {
 	Endpoint       string `json:"endpoint"`
 	Region         string `json:"region"`
@@ -564,7 +564,7 @@ type S3EngineConfig struct {
 	ForcePathStyle bool   `json:"force_path_style"`
 }
 
-// OSSEngineConfig is for Alibaba Cloud OSS (对象存储服务).
+// OSSEngineConfig is for Alibaba Cloud OSS (Object Storage Service).
 type OSSEngineConfig struct {
 	Endpoint       string `json:"endpoint"`
 	Region         string `json:"region"`
@@ -587,7 +587,7 @@ type KS3EngineConfig struct {
 	PathPrefix string `json:"path_prefix"`
 }
 
-// OBSEngineConfig is for Huawei Cloud OBS (对象存储服务).
+// OBSEngineConfig is for Huawei Cloud OBS (Object Storage Service).
 type OBSEngineConfig struct {
 	Endpoint   string `json:"endpoint"`
 	Region     string `json:"region"`

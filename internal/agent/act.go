@@ -162,20 +162,20 @@ func dataKeys(data map[string]interface{}) []string {
 
 // toolDisplayNames maps internal tool names to user-friendly display labels.
 var toolDisplayNames = map[string]string{
-	agenttools.ToolThinking:            "深度思考",
-	agenttools.ToolTodoWrite:           "制定计划",
-	agenttools.ToolGrepChunks:          "关键词搜索",
-	agenttools.ToolKnowledgeSearch:     "知识搜索",
-	agenttools.ToolListKnowledgeChunks: "查看文档分块",
-	agenttools.ToolQueryKnowledgeGraph: "查询知识图谱",
-	agenttools.ToolGetDocumentInfo:     "获取文档信息",
-	agenttools.ToolDatabaseQuery:       "查询数据",
-	agenttools.ToolDataAnalysis:        "数据分析",
-	agenttools.ToolDataSchema:          "查看数据结构",
-	agenttools.ToolWebSearch:           "搜索网页",
-	agenttools.ToolWebFetch:            "获取网页",
-	agenttools.ToolExecuteSkillScript:  "执行技能脚本",
-	agenttools.ToolReadSkill:           "读取技能",
+	agenttools.ToolThinking:            "Deep Thinking",
+	agenttools.ToolTodoWrite:           "Plan",
+	agenttools.ToolGrepChunks:          "Keyword Search",
+	agenttools.ToolKnowledgeSearch:     "Knowledge Search",
+	agenttools.ToolListKnowledgeChunks: "List Document Chunks",
+	agenttools.ToolQueryKnowledgeGraph: "Query Knowledge Graph",
+	agenttools.ToolGetDocumentInfo:     "Get Document Info",
+	agenttools.ToolDatabaseQuery:       "Query Data",
+	agenttools.ToolDataAnalysis:        "Data Analysis",
+	agenttools.ToolDataSchema:          "View Data Schema",
+	agenttools.ToolWebSearch:           "Web Search",
+	agenttools.ToolWebFetch:            "Fetch Web Page",
+	agenttools.ToolExecuteSkillScript:  "Execute Skill Script",
+	agenttools.ToolReadSkill:           "Read Skill",
 }
 
 // toolHintSensitiveArgs lists tools whose arguments should NOT be shown in hints
@@ -184,7 +184,7 @@ var toolHintSensitiveArgs = map[string]bool{
 	agenttools.ToolDatabaseQuery: true,
 }
 
-// formatToolHint returns a concise human-readable hint for a tool call, e.g. `搜索网页("query text")`.
+// formatToolHint returns a concise human-readable hint for a tool call, e.g. `Web Search("query text")`.
 // Uses display names instead of internal tool names, and hides sensitive arguments.
 func formatToolHint(name string, args map[string]any) string {
 	displayName := name

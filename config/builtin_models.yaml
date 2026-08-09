@@ -1,0 +1,157 @@
+builtin_models:
+# ============================================
+# Provider customizado OpenAI-compatible
+# Base URL : http://localhost:4321/v1
+# API Key  : 123456789
+# ============================================
+
+# --- Embedding (único na lista detectada) ---
+- id: builtin-local-embedding
+  type: Embedding
+  source: remote
+  name: qwen3-embedding-0.6b-32k
+  is_default: true
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+    embedding_parameters:
+      dimension: 1024   # ajuste conforme necessário
+      truncate_prompt_tokens: 0
+
+# --- Chat / QA models (KnowledgeQA) ---
+- id: builtin-local-agents-a1-vision
+  type: KnowledgeQA
+  source: remote
+  name: agents-a1-35b-a3b-q4km-mtp-vision-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+    supports_vision: true
+
+- id: builtin-local-agents-a1-4b
+  type: KnowledgeQA
+  source: remote
+  name: agents-a1-4b-q8-ngram-layer-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-gemma4-awq
+  type: KnowledgeQA
+  source: remote
+  name: gemma-4-e4b-awq-vllm-tp2-128k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-kat-coder-xl-batch2
+  type: KnowledgeQA
+  source: remote
+  name: kat-coder-v2-5-dev-35b-a3b-ud-q5-k-xl-tensor-batch2-128k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-kat-coder-mtp
+  type: KnowledgeQA
+  source: remote
+  name: kat-coder-v2-5-dev-35b-a3b-ud-q5-k-xl-mtp-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-kat-coder-vllm
+  type: KnowledgeQA
+  source: remote
+  name: kat-coder-v2-5-dev-w4a16-vllm-tp2-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-ornith-aeon
+  type: KnowledgeQA
+  source: remote
+  name: ornith-aeon-ultimate-35b-a3b-q8_0-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-ornith-1.0
+  type: KnowledgeQA
+  source: remote
+  name: ornith-1.0-35b-a3b-q8_0-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-qwen3.6-fusion-dflash
+  type: KnowledgeQA
+  source: remote
+  name: qwen3.6-27b-fable-fusion-711-q4km-dflash-q8-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-qwen3.6-fusion-mtp
+  type: KnowledgeQA
+  source: remote
+  name: qwen3.6-27b-fable-fusion-711-q4km-mtp-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-qwythos-27b
+  type: KnowledgeQA
+  source: remote
+  name: qwythos-27b-v1-mtp-q4km-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-qwythos-9b-batch2
+  type: KnowledgeQA
+  source: remote
+  name: qwythos-9b-v2-mtp-q8-tensor-batch2-128k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-qwythos-9b
+  type: KnowledgeQA
+  source: remote
+  name: qwythos-9b-v2-mtp-q8-tensor-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-thinkingcap
+  type: KnowledgeQA
+  source: remote
+  name: thinkingcap-27b-protolabs-q4km-mtp-256k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic
+
+- id: builtin-local-unlimited-ocr
+  type: KnowledgeQA
+  source: remote
+  name: unlimited-ocr-sglang-tp2-32k
+  parameters:
+    base_url: http://localhost:4321/v1
+    api_key: "123456789"
+    provider: generic

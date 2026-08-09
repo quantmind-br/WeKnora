@@ -132,7 +132,7 @@
       </div>
     </t-loading>
 
-    <!-- 模型编辑器抽屉 -->
+    <!-- Model editor drawer -->
     <ModelEditorDialog v-model:visible="showDialog" :model-type="currentModelType" :model-data="editingModel"
       @confirm="handleModelSave" />
     <ModelDebugDrawer v-model:visible="showDebugDrawer" :models="allModels" />
@@ -162,10 +162,10 @@ const editingModel = ref<any>(null)
 const loading = ref(true)
 const activeTypeFilter = ref<FilterType>('all')
 
-// 模型列表数据
+// Model list data
 const allModels = ref<ModelConfig[]>([])
 
-// 后端 type → 前端分组 type 的映射
+// Backend type → frontend group type mapping
 const backendTypeToModelType: Record<string, ModelType> = {
   KnowledgeQA: 'chat',
   Embedding: 'embedding',
@@ -174,7 +174,7 @@ const backendTypeToModelType: Record<string, ModelType> = {
   ASR: 'asr'
 }
 
-// 将后端模型格式转换为旧的前端格式（附带 _modelType 便于渲染）
+// Convert backend model format to the legacy frontend format (with _modelType for rendering)
 // apiKey is always blank here: the server's main GET response does not
 // include it (see internal/handler/dto/model.go — ModelParametersDTO omits
 // secret fields). Credential read/write happens inside the editor dialog
@@ -198,7 +198,7 @@ function convertToLegacyFormat(model: ModelConfig) {
       ? Object.entries(model.parameters.custom_headers).map(([key, value]) => ({ key, value: String(value) }))
       : [],
     lkeapRegion: model.parameters.extra_config?.region || 'ap-guangzhou',
-    // 原始存库值，编辑弹窗内再 resolve（避免打开时被推断值覆盖）
+    // Raw stored value, resolved inside the edit dialog (avoids being overwritten by inferred values on open)
     thinkingControl: model.parameters.extra_config?.thinking_control,
     _modelType: backendTypeToModelType[model.type] || 'chat' as ModelType,
     // Preserve the credential metadata map so the editor dialog can render
@@ -207,7 +207,7 @@ function convertToLegacyFormat(model: ModelConfig) {
   }
 }
 
-// 平铺 + 过滤
+// Flatten + filter
 const allLegacyModels = computed(() => allModels.value.map(convertToLegacyFormat))
 const filteredModels = computed(() => {
   if (activeTypeFilter.value === 'all') return allLegacyModels.value
@@ -216,7 +216,7 @@ const filteredModels = computed(() => {
 
 const countByType = (type: ModelType) => allLegacyModels.value.filter(m => m._modelType === type).length
 
-// 类型徽章图标。沿用 TDesign 自带 icon name，避免再引第三方图标包。
+// Type badge icon. Reuses TDesign's built-in icon names, avoiding another third-party icon package.
 const typeIcon = (type: ModelType): string => {
   const map: Record<ModelType, string> = {
     chat: 'chat',
@@ -240,7 +240,7 @@ const typeLabel = (type: ModelType) => {
 }
 
 const sourceLabel = (type: ModelType) => {
-  // vllm / asr 的 remote 文案特殊，其余走通用 remote 文案
+  // vllm / asr have special remote copy; the rest use the generic remote copy
   if (type === 'vllm' || type === 'asr') {
     return t('modelSettings.source.openaiCompatible')
   }
@@ -262,11 +262,11 @@ const providerLabel = (model: any): string => {
 // What the vendor chip on a card shows. Keeps the chip text uniformly
 // short so cards line up:
 //   local  → "Ollama"
-//   remote → provider's localized short name (e.g. "腾讯云 LKEAP",
-//            "阿里云 DashScope"). For the catch-all "generic" provider
-//            we render a single short word ("自定义" / "Custom") — the
-//            editor dropdown's longer "自定义 (OpenAI兼容接口)" label
-//            blows out the card chip row, and the "OpenAI 兼容" framing
+// remote → provider's localized short name (e.g. "腾讯云 LKEAP",
+// "阿里云 DashScope"). For the catch-all "generic" provider
+// we render a single short word ("自定义" / "Custom") — the
+// editor dropdown's longer "自定义 (OpenAI兼容接口)" label
+// blows out the card chip row, and the "OpenAI 兼容" framing
 //            isn't meaningful to most end users (they didn't pick "I
 //            want OpenAI compatibility", they just pasted a base URL).
 const vendorLabel = (model: any): string => {
@@ -294,21 +294,21 @@ const emptyHint = computed(() => {
   return map[activeTypeFilter.value as ModelType]
 })
 
-// 加载模型列表
+// Load model list
 const loadModels = async () => {
   loading.value = true
   try {
     const models = await listModels()
     allModels.value = models
   } catch (error: any) {
-    console.error('加载模型列表失败:', error)
+    console.error('Failed to load model list:', error)
     MessagePlugin.error(error.message)
   } finally {
     loading.value = false
   }
 }
 
-// 打开添加对话框；类型在抽屉内选择，此处仅按当前 Tab 预填默认值
+// Open the add dialog; type is chosen inside the drawer, this only prefills defaults based on the current tab
 const openAddDialog = () => {
   currentModelType.value = activeTypeFilter.value === 'all' ? 'chat' : activeTypeFilter.value
   editingModel.value = null
@@ -341,7 +341,7 @@ const onModelCardClick = (event: Event, type: ModelType, model: any) => {
   editModel(type, model)
 }
 
-// 编辑模型
+// Edit model
 const editModel = (type: ModelType, model: any) => {
   if (model.isBuiltin && !authStore.isSystemAdmin) {
     MessagePlugin.warning(t('modelSettings.toasts.builtinCannotEdit'))
@@ -355,7 +355,7 @@ const editModel = (type: ModelType, model: any) => {
   showDialog.value = true
 }
 
-// 保存模型
+// Save model
 const handleModelSave = async (modelData: any) => {
   const saveType: ModelType = modelData.modelType ?? currentModelType.value
   currentModelType.value = saveType
@@ -457,7 +457,7 @@ const handleModelSave = async (modelData: any) => {
         } : saveType === 'chat' ? {
           supports_vision: modelData.supportsVision ?? false
         } : {}),
-        // 后台并发上限：仅 chat/embedding/vllm 受治理，>0 才写入（0/空沿用全局默认）。
+        // Background concurrency cap: only chat/embedding/vllm are governed, written only if >0 (0/empty falls back to the global default).
         ...(['chat', 'embedding', 'vllm'].includes(saveType)
           && Number(modelData.maxConcurrency) > 0
           ? { max_concurrency: Number(modelData.maxConcurrency) }
@@ -476,12 +476,12 @@ const handleModelSave = async (modelData: any) => {
     showDialog.value = false
     await loadModels()
   } catch (error: any) {
-    console.error('保存模型失败:', error)
+    console.error('Failed to save model:', error)
     MessagePlugin.error(error.message || t('modelSettings.toasts.saveFailed'))
   }
 }
 
-// 删除模型
+// Delete model
 const deleteModel = async (_type: ModelType, modelId: string) => {
   const model = allModels.value.find(m => m.id === modelId)
   if (model?.is_builtin) {
@@ -494,12 +494,12 @@ const deleteModel = async (_type: ModelType, modelId: string) => {
     MessagePlugin.success(t('modelSettings.toasts.deleted'))
     await loadModels()
   } catch (error: any) {
-    console.error('删除模型失败:', error)
+    console.error('Failed to delete model:', error)
     MessagePlugin.error(error.message || t('modelSettings.toasts.deleteFailed'))
   }
 }
 
-// 获取模型操作菜单选项
+// Get model action menu options
 const getModelOptions = (type: ModelType, model: any) => {
   const options: any[] = []
 
@@ -534,7 +534,7 @@ const getModelOptions = (type: ModelType, model: any) => {
   return options
 }
 
-// 处理菜单操作
+// Handle menu action
 const handleMenuAction = (data: { value: string }, type: ModelType, model: any) => {
   const value = data.value
 
@@ -545,7 +545,7 @@ const handleMenuAction = (data: { value: string }, type: ModelType, model: any) 
   }
 }
 
-// 生成不重复的复制名称
+// Generate a non-duplicate copy name
 const generateCopyName = (originalName: string): string => {
   const suffix = t('modelSettings.copySuffix')
   const existingNames = new Set(allModels.value.map(m => m.name))
@@ -558,7 +558,7 @@ const generateCopyName = (originalName: string): string => {
   return candidate
 }
 
-// 复制模型
+// Copy model
 const copyModel = async (_type: ModelType, modelId: string) => {
   const source = allModels.value.find(m => m.id === modelId)
   if (!source) {
@@ -583,12 +583,12 @@ const copyModel = async (_type: ModelType, modelId: string) => {
     MessagePlugin.success(t('modelSettings.toasts.copied'))
     await loadModels()
   } catch (error: any) {
-    console.error('复制模型失败:', error)
+    console.error('Failed to copy model:', error)
     MessagePlugin.error(error.message || t('modelSettings.toasts.copyFailed'))
   }
 }
 
-// 获取后端模型类型
+// Get backend model type
 function getModelType(type: ModelType): 'KnowledgeQA' | 'Embedding' | 'Rerank' | 'VLLM' | 'ASR' {
   const typeMap = {
     chat: 'KnowledgeQA' as const,
@@ -727,7 +727,7 @@ onMounted(() => {
   }
 }
 
-// 模型卡片 —— 可选类型徽章（仅「全部」Tab）+ 标题 + 一行副标题
+// Model card — optional type badge (only in the "All" tab) + title + one-line subtitle
 .model-card {
   position: relative;
   display: flex;
@@ -823,12 +823,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   margin-top: 1px;
-  // 默认底色，被 type 修饰覆盖
+  // Default background color, overridden by the type modifier
   background: rgba(0, 82, 217, 0.1);
   color: #0052D9;
 }
 
-// 5 种类型的徽章配色 —— 比原 tag 配色饱和度低一档，避免炫光
+// Badge colors for the 5 types — one saturation notch lower than the original tag colors, to avoid glare
 .model-card--chat .model-card__badge {
   background: rgba(0, 82, 217, 0.1);
   color: #0052D9;
@@ -956,7 +956,7 @@ onMounted(() => {
   }
 }
 
-// Hover / 键盘焦点 时显示操作按钮，避免静态卡片上有"杂物"。
+// Show action buttons on hover / keyboard focus, to avoid "clutter" on static cards.
 .model-card:hover .model-card__action-btn,
 .model-card:focus-within .model-card__action-btn,
 .model-card__actions:focus-within .model-card__action-btn {

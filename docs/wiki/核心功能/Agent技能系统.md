@@ -1,90 +1,92 @@
+Vou traduzir o documento diretamente, preservando toda a estrutura markdown.
+
 ---
-title: Agent技能系统
-tags: [核心功能, Agent, Skills, 技能, 沙箱]
-aliases: [Agent Skills, 技能系统, agent-skills]
+title: Agent Skills System
+tags: [Core Features, Agent, Skills, Sandbox]
+aliases: [Agent Skills, Skills System, agent-skills]
 source: agent-skills.md
 ---
 
-# Agent 技能系统
+# Agent Skills System
 
-## 概述
+## Overview
 
-Agent Skills 是一种让 Agent 通过阅读"使用说明书"来学习新能力的扩展机制。与传统的硬编码工具不同，Skills 通过注入到 System Prompt 来扩展 Agent 的能力，遵循 **Progressive Disclosure（渐进式披露）** 的设计理念。目前仅支持带**智能推理**能力的智能体使用。
+Agent Skills is an extension mechanism that lets an Agent learn new capabilities by reading an "instruction manual." Unlike traditional hardcoded tools, Skills extend the Agent's capabilities by injecting content into the System Prompt, following the **Progressive Disclosure** design philosophy. Currently only supported by agents with **intelligent reasoning** capability.
 
-### 核心特性
+### Core Features
 
-- **非侵入式扩展**：不影响原有 Agent ReAct 流程
-- **按需加载**：三级渐进式加载，优化 Token 使用
-- **沙箱执行**：脚本在隔离环境中安全执行
-- **灵活配置**：支持多目录、白名单过滤
+- **Non-intrusive extension**: Does not affect the original Agent ReAct flow
+- **On-demand loading**: Three-tier progressive loading, optimizing token usage
+- **Sandboxed execution**: Scripts run safely in an isolated environment
+- **Flexible configuration**: Supports multiple directories and whitelist filtering
 
-> Skills 与 [MCP](../核心功能/MCP功能使用说明.md) 是两种不同的 Agent 扩展机制：Skills 通过 Prompt 注入，MCP 通过协议调用外部工具。
+> Skills and [MCP](../核心功能/MCP功能使用说明.md) are two different Agent extension mechanisms: Skills work through prompt injection, while MCP works through protocol calls to external tools.
 
-## 设计理念
+## Design Philosophy
 
-### Progressive Disclosure（渐进式披露）
+### Progressive Disclosure
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Level 1: 元数据 (Metadata)                                      │
-│ • 始终加载到 System Prompt • 约 100 tokens/skill                  │
-│ • 包含：技能名称 + 简短描述                                       │
+│ Level 1: Metadata                                      │
+│ • Always loaded into the System Prompt • ~100 tokens/skill                  │
+│ • Contains: skill name + short description                                       │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓ 用户请求匹配时
+                              ↓ When a user request matches
 ┌─────────────────────────────────────────────────────────────────┐
-│ Level 2: 指令 (Instructions)                                    │
-│ • 通过 read_skill 工具按需加载 • SKILL.md 的指令内容              │
-│ • 包含：详细指令、代码示例、使用方法                               │
+│ Level 2: Instructions                                    │
+│ • Loaded on demand via the read_skill tool • SKILL.md instruction content              │
+│ • Contains: detailed instructions, code examples, usage methods                               │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓ 需要更多信息时
+                              ↓ When more information is needed
 ┌─────────────────────────────────────────────────────────────────┐
-│ Level 3: 附加资源 (Resources)                                   │
-│ • 通过 read_skill 工具加载特定文件                               │
-│ • 通过 execute_skill_script 执行脚本                            │
+│ Level 3: Additional Resources                                   │
+│ • Load specific files via the read_skill tool                               │
+│ • Execute scripts via execute_skill_script                            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Skill 目录结构
+## Skill Directory Structure
 
 ```
 my-skill/
-├── SKILL.md           # 必需：主文件（含 YAML frontmatter）
-├── REFERENCE.md       # 可选：补充文档
-├── templates/         # 可选：模板文件
-└── scripts/           # 可选：可执行脚本
+├── SKILL.md           # Required: main file (with YAML frontmatter)
+├── REFERENCE.md       # Optional: supplementary documentation
+├── templates/         # Optional: template files
+└── scripts/           # Optional: executable scripts
 ```
 
-## 预加载技能
+## Preloaded Skills
 
-系统内置了以下 5 个预加载技能：
+The system comes with the following 5 built-in preloaded skills:
 
-| 技能 | 用途 |
+| Skill | Purpose |
 |------|------|
-| citation-generator | 自动生成规范引用格式 |
-| data-processor | 数据处理与分析 |
-| doc-coauthoring | 引导用户完成结构化文档创作 |
-| document-analyzer | 深度分析文档结构和内容 |
-| summary-generator | 内容摘要生成 |
+| citation-generator | Automatically generates standardized citation formats |
+| data-processor | Data processing and analysis |
+| doc-coauthoring | Guides users through structured document authoring |
+| document-analyzer | Deep analysis of document structure and content |
+| summary-generator | Content summary generation |
 
-预加载技能位于 `skills/preloaded/` 目录下。
+Preloaded skills are located in the `skills/preloaded/` directory.
 
-## 沙箱安全机制
+## Sandbox Security Mechanism
 
-### 脚本安全校验
+### Script Security Validation
 
-执行前进行多层安全校验：危险命令检测、危险模式匹配、网络访问检测、反向 Shell 检测、参数注入检测等。
+Multiple layers of security validation are performed before execution: dangerous command detection, dangerous pattern matching, network access detection, reverse shell detection, argument injection detection, and more.
 
-### Sandbox 模式
+### Sandbox Modes
 
-| 模式 | 说明 |
+| Mode | Description |
 |------|------|
-| `docker` | 使用 Docker 容器隔离（推荐） |
-| `local` | 本地进程执行（基础安全限制） |
-| `disabled` | 禁用脚本执行 |
+| `docker` | Uses Docker container isolation (recommended) |
+| `local` | Local process execution (basic security restrictions) |
+| `disabled` | Disables script execution |
 
-通过环境变量 `WEKNORA_SANDBOX_MODE` 配置。
+Configured via the `WEKNORA_SANDBOX_MODE` environment variable.
 
-## 配置示例
+## Configuration Example
 
 ```json
 {
@@ -94,17 +96,21 @@ my-skill/
 }
 ```
 
-## 相关主题
+## Related Topics
 
-- [MCP功能使用说明](MCP功能使用说明.md) — 另一种 Agent 扩展机制
-- [IM集成开发](../集成扩展/IM集成开发.md) — Agent 可通过 IM 渠道使用技能
-- [开发指南](../开发部署/开发指南.md) — 沙箱镜像的构建
+- [MCP Feature Usage Guide](MCP功能使用说明.md) — Another Agent extension mechanism
+- [IM Integration Development](../集成扩展/IM集成开发.md) — Agents can use skills through IM channels
+- [Development Guide](../开发部署/开发指南.md) — Building the sandbox image
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [MCP功能使用说明](MCP功能使用说明.md) — 与 Skills 并列的 Agent 扩展机制
-- [IM集成开发](../集成扩展/IM集成开发.md) — Agent 在 IM 渠道中可使用技能
-- [版本路线图](../项目概述/版本路线图.md) — 路线图中的 Skills 社区扩展方向
+- [Home](../Home.md) — Wiki home navigation
+- [MCP Feature Usage Guide](MCP功能使用说明.md) — Agent extension mechanism alongside Skills
+- [IM Integration Development](../集成扩展/IM集成开发.md) — Agents can use skills in IM channels
+- [Version Roadmap](../项目概述/版本路线图.md) — Skills community extension direction in the roadmap
+
+---
+
+Tradução completa entregue acima, com toda a estrutura markdown preservada (frontmatter, tabelas, blocos de código, links).

@@ -13,7 +13,7 @@ class HTMLParserTest(unittest.TestCase):
 
         document = HTMLParser(file_name="test.html", file_type="html").parse(content)
 
-        self.assertIn("# 测试 HTML 文档", document.content)
+        self.assertIn("# Test HTML document", document.content)
         self.assertIn("[测试链接](https://example.com)", document.content)
         self.assertIn("| 表头1 | 表头2 |", document.content)
         self.assertIn("内容4", document.content)

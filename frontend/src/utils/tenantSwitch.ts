@@ -1,33 +1,33 @@
 // Tenant-switch navigation helper.
 //
 // Switching the active tenant always lands the user on the platform's KB
-// list. 之前是「在当前路径 reload」+ 个别敏感路径回退到 KB 列表，但即便不带
-// resource id 的页面（设置、Agent 列表等）reload 后也常常因为新空间下没有
-// 对应数据出现空状态，体验跟跳到固定首页其实差不多——干脆统一跳到 KB 列表，
-// 用一次 full navigation 把所有 store / SSE / 请求都重置一遍。
+// list. Previously it was "reload on the current path" + fallback to the KB list for certain sensitive paths, but even
+// pages without a resource id (settings, agent list, etc.) often end up in an empty state after reload because there's no
+// corresponding data in the new space—so the experience is basically the same as jumping to a fixed home page anyway. Just unify by jumping to the KB list,
+// resetting all stores/SSE/requests at once via a single full navigation.
 
 import { updateMyPreferences } from '@/api/auth'
 
 const SAFE_FALLBACK_PATH = '/platform/knowledge-bases'
 
 /**
- * Return the URL to navigate to after a tenant switch. 目前始终返回 KB 列表
- * 作为登录页，保留函数签名是为了未来需要按路由做特殊处理时留个口子。
+ * Return the URL to navigate to after a tenant switch. Currently always returns the KB list
+ * as the login page; the function signature is kept in case future routing-specific handling is needed.
  */
 export function tenantSwitchTargetPath(_currentPath: string): string {
   return SAFE_FALLBACK_PATH
 }
 
 /**
- * Perform the post-switch navigation. 统一跳到 KB 列表。
+ * Perform the post-switch navigation. Unified to jump to the KB list.
  */
 export function navigateAfterTenantSwitch(): void {
   window.location.href = tenantSwitchTargetPath(window.location.pathname)
 }
 
-// 切换成功后的 toast 跨 hard reload 传递：调用方在 reload 前把信息塞进
-// sessionStorage，App.vue 启动时 consume 一次再弹出。直接在 reload 前调
-// NotifyPlugin 会被刷掉，根本来不及看清。
+// Toast after a successful switch is carried across the hard reload: the caller stuffs the info in before reloading
+// sessionStorage, consumed once when App.vue starts, then popped. Called directly before reload
+// NotifyPlugin gets dismissed too fast to read.
 const PENDING_TOAST_KEY = 'weknora_pending_tenant_switch_toast'
 
 export interface PendingTenantSwitchToast {
@@ -42,7 +42,7 @@ export function stashTenantSwitchToast(payload: PendingTenantSwitchToast): void 
   try {
     sessionStorage.setItem(PENDING_TOAST_KEY, JSON.stringify(payload))
   } catch {
-    // sessionStorage 写失败（隐私模式等）就静默放弃，toast 是锦上添花
+    // If writing to sessionStorage fails (private mode, etc.), silently give up — the toast is just a nice-to-have
   }
 }
 

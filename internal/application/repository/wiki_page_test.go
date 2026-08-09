@@ -199,7 +199,7 @@ func TestFolderTree_CRUDAndChildListing(t *testing.T) {
 		require.NoError(t, repo.CreateFolder(ctx, f))
 	}
 
-	// Root children: AI, 人物 (ordered by name within equal sort_order).
+	// Root children: AI, People (人物) (ordered by name within equal sort_order).
 	roots, err := repo.ListChildFolders(ctx, "kb-f", types.WikiFolderRootID)
 	require.NoError(t, err)
 	require.Len(t, roots, 2)

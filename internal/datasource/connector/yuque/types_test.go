@@ -161,7 +161,7 @@ func TestGetBaseURL_TrimsWhitespace(t *testing.T) {
 func TestSanitizeFileName_TruncatesAtRuneBoundary(t *testing.T) {
 	// Long Chinese title (each 测 is 3 bytes in UTF-8). Raw byte slicing at 200
 	// would split a rune and produce invalid UTF-8 that downstream filename
-	// validation rejects with "文件名包含非法字符".
+	// validation rejects with "filename contains illegal characters".
 	long := strings.Repeat("测试", 100) // 600 bytes
 	got := sanitizeFileName(long)
 	if !utf8.ValidString(got) {

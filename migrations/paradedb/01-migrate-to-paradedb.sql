@@ -1,13 +1,13 @@
--- 迁移脚本：从PostgreSQL迁移到ParadeDB
--- 注意：在执行此脚本前，请确保已经备份了数据
+-- Migration script: from PostgreSQL to ParadeDB
+-- Note: ensure data is backed up before running this script
 
--- 1. 导出数据（在PostgreSQL中执行）
+-- 1. Export data (run on PostgreSQL)
 -- pg_dump -U postgres -h localhost -p 5432 -d your_database > backup.sql
 
--- 2. 导入数据（在ParadeDB中执行）
+-- 2. Import data (run on ParadeDB)
 -- psql -U postgres -h localhost -p 5432 -d your_database < backup.sql
 
--- 3. 验证数据
+-- 3. Verify data
 
 
 -- Insert some sample data
@@ -34,9 +34,9 @@ SELECT COUNT(*) FROM knowledge_bases;
 SELECT COUNT(*) FROM knowledges;
 
 
--- 测试中文全文搜索
+-- Test Chinese full-text search
 
--- 创建文档表
+-- Create documents table
 CREATE TABLE chinese_documents (
     id SERIAL PRIMARY KEY,
     title TEXT,
@@ -44,7 +44,7 @@ CREATE TABLE chinese_documents (
     published_date DATE
 );
 
--- 在表上创建 BM25 索引，使用结巴分词器支持中文
+-- Create a BM25 index on the table using the jieba tokenizer for Chinese
 CREATE INDEX idx_documents_bm25 ON chinese_documents
 USING bm25 (id, content)
 WITH (

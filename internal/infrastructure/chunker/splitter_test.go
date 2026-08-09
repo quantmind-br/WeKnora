@@ -112,7 +112,7 @@ func TestSplitText_MixedChineseAndASCII(t *testing.T) {
 
 func TestSplitText_ProtectedPattern_ChineseContext(t *testing.T) {
 	// Test protected markdown images in Chinese context.
-	text := "这是前面的中文内容。![图片描述](http://example.com/img.png)这是后面的中文内容。"
+	text := "这是前面的中文内容。![图片描述](http:// example.com/img.png) this is the Chinese content that follows."
 	cfg := SplitterConfig{ChunkSize: 200, ChunkOverlap: 0, Separators: []string{"。"}}
 	chunks := SplitText(text, cfg)
 

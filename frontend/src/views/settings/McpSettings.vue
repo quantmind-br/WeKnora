@@ -22,9 +22,9 @@
       </div>
 
       <div v-else class="services-grid">
-        <!-- 与 ModelSettings / WebSearchSettings 同形的卡片：左侧 transport 徽章 +
-             标题 / 副标题 / url 三段式。开关挂在标题行右侧，三点菜单 hover 才出现。
-             SettingCard 当前没有其它消费者了，但保留组件供未来需要时复用。 -->
+        <!-- Card with the same shape as ModelSettings / WebSearchSettings: transport badge on the left +
+             title / subtitle / url three-line layout. The switch sits on the right of the title row, the three-dot menu only appears on hover.
+             SettingCard currently has no other consumers, but the component is kept for future reuse. -->
         <div
           v-for="service in services"
           :key="service.id"
@@ -47,7 +47,7 @@
           <div class="service-card__body">
             <div class="service-card__header">
               <h3 class="service-card__title" :title="service.name">{{ service.name }}</h3>
-              <!-- 单一状态徽章：内置优先（builtin 永远启用、不可关），否则用 enabled。 -->
+              <!-- Single status badge: builtin takes priority (always enabled, cannot be turned off), otherwise use enabled. -->
               <span
                 v-if="service.is_builtin"
                 class="service-card__pill service-card__pill--warning"
@@ -237,8 +237,8 @@ const handleDelete = (service: MCPService) => {
 
 // Get service options for dropdown menu. MCP service mutations are all
 // Admin+ in the backend matrix, so non-Admins see an empty action menu.
-// 测试连接已挪到编辑抽屉的 footer，不再放在外层菜单里 — 单一入口减少
-// 用户疑惑（"为什么有两个测试入口，结果一样吗？"）。
+// Test connection has moved to the edit drawer's footer, no longer in the outer menu — a single entry point reduces
+// user confusion ("why are there two test entries, do they give the same result?").
 const getServiceOptions = (service: MCPService) => {
   if (!authStore.hasRole('admin')) {
     return []
@@ -253,8 +253,8 @@ const getServiceOptions = (service: MCPService) => {
   ]
 }
 
-// Builtin: 仅编辑（同样 Admin+ only）。内置服务测试也通过抽屉的 footer 触发，
-// 不再在外层菜单露出"测试连接"项。
+// Builtin: edit only (also Admin+ only). Built-in service testing is also triggered via the drawer's footer,
+// no longer exposing a "test connection" item in the outer menu.
 const getBuiltinServiceOptions = () => {
   if (!authStore.hasRole('admin')) {
     return []
@@ -284,7 +284,7 @@ const handleMenuAction = (data: { value: string }, service: MCPService) => {
   }
 }
 
-// Get transport type icon. 复用 tdesign 自带 icon name；新增 transport 时同步加。
+// Get transport type icon. Reuses tdesign's built-in icon names; add to this when a new transport is introduced.
 const getTransportTypeIcon = (transportType: string) => {
   switch (transportType) {
     case 'sse':
@@ -385,7 +385,7 @@ onMounted(() => {
   }
 }
 
-// Transport-distinguished card. 与 ModelSettings / WebSearchSettings 同形。
+// Transport-distinguished card. Same shape as ModelSettings / WebSearchSettings.
 .service-card {
   display: flex;
   align-items: flex-start;
@@ -483,7 +483,7 @@ onMounted(() => {
   color: #0052D9;
 }
 
-// 三种 transport 的徽章配色：sse 流式 → 绿，http-streamable → 蓝，stdio → 橙
+// Badge colors for the three transports: sse streaming → green, http-streamable → blue, stdio → orange
 .service-card--sse .service-card__badge {
   background: rgba(17, 128, 83, 0.12);
   color: #118053;
@@ -539,8 +539,8 @@ onMounted(() => {
   }
 }
 
-// On/Off 状态徽章 —— 用 dot+文字而非 t-switch，避免误触；翻转启用状态由
-// 三点菜单里的 toggle 项触发，实际 API 调用走 handleToggleEnabled 同一路径。
+// On/Off status badge — uses a dot + text instead of t-switch, to avoid accidental taps; toggling the enabled state is
+// triggered by the toggle item in the three-dot menu, and the actual API call goes through the same handleToggleEnabled path.
 .service-card__status {
   flex-shrink: 0;
   display: inline-flex;
@@ -590,7 +590,7 @@ onMounted(() => {
   }
 }
 
-// switch 始终显示（它是状态锚点）；三点按钮只在 hover/focus 时出现。
+// switch always visible (it's the state anchor); the three-dot button only appears on hover/focus.
 .service-card:hover .service-card__more,
 .service-card:focus-within .service-card__more,
 .service-card__actions:focus-within .service-card__more {

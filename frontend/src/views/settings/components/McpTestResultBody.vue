@@ -1,6 +1,6 @@
 <template>
   <div v-if="result" class="mtr">
-    <!-- 状态条 -->
+    <!-- status bar -->
     <div class="mtr-status" :class="result.success ? 'is-success' : 'is-error'">
       <t-icon :name="result.success ? 'check-circle-filled' : 'close-circle-filled'" />
       <span>{{ result.success ? $t('mcp.testResult.connectionSuccess') : $t('mcp.testResult.connectionFailed') }}</span>
@@ -12,7 +12,7 @@
     </div>
 
     <template v-if="result.success">
-      <!-- 工具列表 -->
+      <!-- tool list -->
       <div v-if="result.tools && result.tools.length > 0" class="mtr-group">
         <div class="mtr-group-title">
           <span>{{ $t('mcp.testResult.toolsTitle') }}</span>
@@ -62,7 +62,7 @@
         </div>
       </div>
 
-      <!-- 资源列表 -->
+      <!-- resource list -->
       <div v-if="result.resources && result.resources.length > 0" class="mtr-group">
         <div class="mtr-group-title">
           <span>{{ $t('mcp.testResult.resourcesTitle') }}</span>
@@ -86,7 +86,7 @@
         </div>
       </div>
 
-      <!-- 空状态 -->
+      <!-- empty state -->
       <t-empty
         v-if="(!result.tools || result.tools.length === 0) && (!result.resources || result.resources.length === 0)"
         :description="$t('mcp.testResult.emptyDescription')"
@@ -184,7 +184,7 @@ const formatSchema = (schema: any): string => {
   gap: 16px;
 }
 
-/* 状态条 */
+/* status bar */
 .mtr-status {
   display: flex;
   align-items: center;
@@ -240,7 +240,7 @@ const formatSchema = (schema: any): string => {
   }
 }
 
-/* 分组 */
+/* group */
 .mtr-group {
   display: flex;
   flex-direction: column;
@@ -256,7 +256,7 @@ const formatSchema = (schema: any): string => {
   color: var(--td-text-color-secondary);
 }
 
-/* 列表：扁平卡片，靠分隔与圆角，无重阴影，贴合抽屉 */
+/* list: flat cards, relying on dividers and rounded corners, no heavy shadows, matching the drawer style */
 .mtr-list {
   display: flex;
   flex-direction: column;
@@ -337,7 +337,7 @@ const formatSchema = (schema: any): string => {
   flex-shrink: 0;
 }
 
-/* 描述：独占整行，绝不与右侧开关挤在一起 */
+/* description: takes up the full row on its own, never crammed together with the toggle on the right */
 .mtr-item-desc {
   margin-top: 6px;
   font-size: 13px;

@@ -56,8 +56,8 @@ func serveFrontendStatic(r *gin.Engine) {
 }
 
 // setFrontendCacheHeaders sets Cache-Control headers for frontend static resources.
-// Vite 构建产物中 /assets/* 的文件名带 hash，可长期缓存；其余（index.html、config.js、favicon 等）
-// 每次都需 revalidate，避免前端升级后用户看到旧版本。
+// Files under /assets/* in the Vite build output have hashed filenames and can be cached long-term; the rest (index.html, config.js, favicon, etc.)
+// need revalidation every time, so users don't see a stale version after a frontend upgrade.
 func setFrontendCacheHeaders(w http.ResponseWriter, path string) {
 	if strings.HasPrefix(path, "/assets/") {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

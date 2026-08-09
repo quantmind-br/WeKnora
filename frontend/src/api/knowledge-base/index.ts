@@ -26,7 +26,7 @@ export async function listKnowledgeBaseActivity(
   return (await get(`/api/v1/knowledge-bases/${id}/activity${qs ? `?${qs}` : ''}`)) as unknown as ListAuditLogResponse;
 }
 
-// 知识库管理 API（列表、创建、获取、更新、删除、复制）
+// Knowledge base management API (list, create, get, update, delete, copy)
 export function listKnowledgeBases(params?: {
   agent_id?: string;
   agent_source_tenant_id?: string;
@@ -178,12 +178,12 @@ export function duplicateKnowledgeBase(id: string) {
   return post(`/api/v1/knowledge-bases/${id}/duplicate`);
 }
 
-// 获取可移动目标知识库列表（同类型、同Embedding模型）
+// Get list of movable target knowledge bases (same type, same Embedding model)
 export function listMoveTargets(sourceKbId: string) {
   return get(`/api/v1/knowledge-bases/${sourceKbId}/move-targets`);
 }
 
-// 移动知识到其他知识库
+// Move knowledge to another knowledge base
 export function moveKnowledge(data: {
   knowledge_ids: string[];
   source_kb_id: string;
@@ -193,7 +193,7 @@ export function moveKnowledge(data: {
   return post('/api/v1/knowledge/move', data);
 }
 
-// 获取知识移动进度
+// Get knowledge move progress
 export function getKnowledgeMoveProgress(taskId: string) {
   return get(`/api/v1/knowledge/move/progress/${taskId}`);
 }
@@ -202,8 +202,8 @@ export function togglePinKnowledgeBase(id: string) {
   return put(`/api/v1/knowledge-bases/${id}/pin`);
 }
 
-// 知识文件 API（基于具体知识库）
-// data.tag_ids: 可选，指定知识所属的多个标签 ID
+// Knowledge file API (based on specific knowledge base)
+// data.tag_ids: optional, specifies the tag IDs the knowledge belongs to
 export function uploadKnowledgeFile(
   kbId: string,
   data: {
@@ -230,8 +230,8 @@ export function uploadKnowledgeFile(
   return postUpload(`/api/v1/knowledge-bases/${kbId}/knowledge/file`, formData, onProgress);
 }
 
-// 从URL创建知识
-// data.tag_ids: 可选，指定知识所属的多个标签 ID
+// Create knowledge from URL
+// data.tag_ids: optional, specifies the tag IDs the knowledge belongs to
 export function createKnowledgeFromURL(
   kbId: string,
   data: { url: string; enable_multimodel?: boolean; tag_ids?: string[]; process_config?: KnowledgeProcessOverrides },
@@ -239,8 +239,8 @@ export function createKnowledgeFromURL(
   return post(`/api/v1/knowledge-bases/${kbId}/knowledge/url`, data);
 }
 
-// 手工创建知识
-// data.tag_ids: 可选，指定知识所属的标签 ID
+// Manually create knowledge
+// data.tag_ids: optional, specifies the tag ID the knowledge belongs to
 export function createManualKnowledge(
   kbId: string,
   data: {
@@ -369,7 +369,7 @@ export function delKnowledgeDetails(id: string) {
   return del(`/api/v1/knowledge/${id}`);
 }
 
-// 批量删除（同一知识库内）。后端会校验所有 id 隶属于 kb_id 且具有编辑权限。
+// Batch delete (within the same knowledge base). The backend validates that all ids belong to kb_id and have edit permission.
 export function batchDeleteKnowledge(kbId: string, ids: string[]) {
   return post(`/api/v1/knowledge/batch-delete`, { kb_id: kbId, ids });
 }

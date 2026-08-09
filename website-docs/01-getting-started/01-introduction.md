@@ -1,67 +1,71 @@
-# WeKnora 产品介绍
+Vou traduzir o documento diretamente, preservando toda a estrutura Markdown.
 
-WeKnora（维娜拉）是腾讯开源的知识库问答系统，做的事情是：把 PDF、Word、网页，以及飞书、Notion、语雀里的资料收进知识库，然后你可以直接对着这批资料提问，答案带出处。技术上属于 RAG（Retrieval-Augmented Generation，检索增强生成）——先检索相关片段，再让大模型据此作答，而不是让模型凭记忆回答。
+---
 
-整套流程分四步：**文档理解 → 建索引 → 混合检索 → 生成回答**，本文后面逐个展开。
+# WeKnora Product Introduction
 
-代码上是三个进程：Go（Gin）写的后端、Vue 3 的前端、Python（gRPC）的文档解析服务 docreader。部署方式有 Docker Compose、Helm、单二进制 Lite 模式和 macOS 桌面应用，按环境挑一种。
+WeKnora (维娜拉) is Tencent's open-source knowledge base Q&A system. What it does: it ingests PDFs, Word documents, web pages, and content from Feishu, Notion, and Yuque into a knowledge base, so you can then ask questions directly against that material and get answers with citations. Technically, it belongs to the RAG (Retrieval-Augmented Generation) category — it first retrieves relevant passages, then has the large model answer based on them, rather than letting the model answer purely from memory.
+
+The overall pipeline has four steps: **Document Understanding → Indexing → Hybrid Retrieval → Answer Generation**, each expanded on later in this document.
+
+Code-wise, there are three processes: a Go (Gin) backend, a Vue 3 frontend, and docreader, a Python (gRPC) document parsing service. Deployment options include Docker Compose, Helm, a single-binary Lite mode, and a macOS desktop app — pick whichever suits your environment.
 
 <Screenshot
   src="/screenshots/introduction-overview.png"
-  caption="WeKnora 主界面：左侧知识库与会话，右侧问答区"
-  hint="展示登录后的主界面全貌：侧边栏（知识库、智能体、设置入口）与一轮带引用的问答。" />
+  caption="WeKnora main interface: knowledge bases and sessions on the left, Q&A area on the right"
+  hint="Shows the full main interface after login: the sidebar (knowledge bases, agents, settings entry point) and a round of Q&A with citations." />
 
-## WeKnora 解决什么问题
+## What Problems Does WeKnora Solve
 
-| 痛点 | WeKnora 的做法 |
+| Pain Point | WeKnora's Approach |
 | --- | --- |
-| 文档格式繁杂，PDF/扫描件/表格难以结构化 | 独立的 docreader 解析服务：PDF 版式分析、扫描件 OCR、LibreOffice 转换、Playwright 网页抓取、多模态图片描述（VLM），可选 OpenDataLoader/Docling 混合解析 |
-| 单一向量检索召回不稳 | 向量 + 关键词（BM25）混合检索，RRF 融合，Rerank 重排，可选知识图谱（GraphRAG）与 Wiki 导航 |
-| 模型绑定单一厂商 | 模型抽象层：Ollama 本地模型与 OpenAI 兼容远程接口均可，LLM / Embedding / Rerank / VLM / ASR 分类管理（见 `internal/types/model.go`） |
-| 数据安全与私有化 | 全栈可私有部署；敏感凭证（API Key 等）以 AES-256 落盘加密（`SYSTEM_AES_KEY`）；多租户隔离 + RBAC 角色鉴权 |
-| 只有问答不够用 | 内置 Agent（ReAct 多步推理）、MCP 工具接入、Agent Skills 沙箱执行、Web 搜索（SearXNG 等）、数据分析（对 CSV/Excel 执行 SQL） |
-| 团队协作 | 租户（工作空间）+ 成员角色 + 组织（Organization）跨租户知识库共享 + 邀请机制 |
+| Complex document formats — PDFs/scans/tables are hard to structure | A standalone docreader parsing service: PDF layout analysis, OCR for scanned documents, LibreOffice conversion, Playwright web scraping, multimodal image captioning (VLM), with optional OpenDataLoader/Docling hybrid parsing |
+| Single vector retrieval yields unstable recall | Hybrid vector + keyword (BM25) retrieval, RRF fusion, rerank re-scoring, with optional knowledge graph (GraphRAG) and Wiki navigation |
+| Locked into a single model vendor | Model abstraction layer: works with local Ollama models and OpenAI-compatible remote endpoints alike, with LLM / Embedding / Rerank / VLM / ASR category management (see `internal/types/model.go`) |
+| Data security and private deployment | Fully self-hostable stack; sensitive credentials (API keys, etc.) are encrypted at rest with AES-256 (`SYSTEM_AES_KEY`); multi-tenant isolation + RBAC role-based authorization |
+| Q&A alone isn't enough | Built-in Agent (ReAct multi-step reasoning), MCP tool integration, sandboxed Agent Skills execution, web search (SearXNG, etc.), data analysis (running SQL against CSV/Excel) |
+| Team collaboration | Tenants (workspaces) + member roles + Organizations for cross-tenant knowledge base sharing + invitation mechanism |
 
-## 核心概念
+## Core Concepts
 
-下面这些概念构成 WeKnora 的数据模型，理解它们就能看懂界面上的大部分选项。想对照源码的话，它们都定义在 `internal/types/` 目录下。
+The concepts below make up WeKnora's data model — understanding them will make sense of most of the options you see in the interface. If you want to cross-reference the source code, they're all defined under `internal/types/`.
 
-### 租户与身份
+### Tenants and Identity
 
-| 概念 | 说明 |
+| Concept | Description |
 | --- | --- |
-| 租户 Tenant | 即「工作空间」。持有存储配额（`StorageQuota`，默认 10GB）、全局检索参数（`RetrievalConfig`）、上下文配置（`ContextConfig`）、解析引擎配置（`ParserEngineConfig`）、存储引擎配置（`StorageEngineConfig`）与检索引擎列表（`RetrieverEngines`）。所有知识库、模型、Agent、会话都归属某个租户 |
-| 用户 User | 全局唯一的 `Username`/`Email`，`TenantID` 指向其「主租户」；`IsSystemAdmin` 标记平台级管理员，`CanAccessAllTenants` 标记跨租户超管 |
-| 成员 TenantMember | 用户与租户的多对多关系，携带角色 `Role` 与状态（`active` / `invited` / `suspended`） |
-| 角色 TenantRole | 四级：`owner`（40，完全控制）> `admin`（30，管理成员/模型/集成）> `contributor`（20，创建知识库与 Agent）> `viewer`（10，只读） |
-| API Key（TenantAPIKey） | 机器访问凭证，请求头 `X-API-Key` 携带。分 `tenant` / `platform` 两种作用域；支持 `FullAccess` 或细粒度能力（`retrieve`、`chat`、`ingest`、`manage_kbs`、`manage_models` 等），并可用 `KnowledgeBaseIDs` 限定可访问的知识库 |
-| 组织 Organization | 跨租户协作单元：邀请码加入、`admin`/`editor`/`viewer` 三级组织角色，实现知识库跨租户共享 |
+| Tenant | The "workspace." Holds a storage quota (`StorageQuota`, 10GB by default), global retrieval parameters (`RetrievalConfig`), context configuration (`ContextConfig`), parser engine configuration (`ParserEngineConfig`), storage engine configuration (`StorageEngineConfig`), and a list of retrieval engines (`RetrieverEngines`). Every knowledge base, model, Agent, and session belongs to some tenant |
+| User | Has a globally unique `Username`/`Email`; `TenantID` points to their "primary tenant"; `IsSystemAdmin` marks a platform-level administrator, and `CanAccessAllTenants` marks a cross-tenant super-admin |
+| TenantMember | The many-to-many relationship between a user and a tenant, carrying a `Role` and a status (`active` / `invited` / `suspended`) |
+| TenantRole | Four levels: `owner` (40, full control) > `admin` (30, manages members/models/integrations) > `contributor` (20, creates knowledge bases and Agents) > `viewer` (10, read-only) |
+| API Key (TenantAPIKey) | A machine-access credential carried via the `X-API-Key` request header. Has two scopes, `tenant` and `platform`; supports `FullAccess` or fine-grained capabilities (`retrieve`, `chat`, `ingest`, `manage_kbs`, `manage_models`, etc.), and can restrict accessible knowledge bases via `KnowledgeBaseIDs` |
+| Organization | A cross-tenant collaboration unit: joined via invitation code, with three organization-level roles — `admin`/`editor`/`viewer` — enabling cross-tenant knowledge base sharing |
 
-### 知识域
+### Knowledge Domain
 
-| 概念 | 说明 |
+| Concept | Description |
 | --- | --- |
-| 知识库 KnowledgeBase | 知识容器，`Type` 支持 `document`（默认）/ `faq` / `wiki`。核心配置：`ChunkingConfig`（分块大小/重叠/父子分块/自适应策略 `auto`/`heading`/`heuristic` 等）、`EmbeddingModelID`、`IndexingStrategy`（向量 / 关键词 / Wiki / 图谱四路索引开关）、`VectorStoreID`（可绑定独立向量库） |
-| 知识 Knowledge | 一份文档 / 网页 / 手写条目。记录文件元数据（`FileName`/`FileType`/`FileHash`）、导入渠道 `Channel`（web / api / wechat / feishu 等）与解析状态机 `ParseStatus`：`pending → processing → finalizing → completed`（可 `failed` / `cancelled`） |
-| 分块 Chunk | 检索的最小单元。`ChunkType` 十余种：`text`、`parent_text`（父子分块）、`image_ocr`、`image_caption`、`faq`、`entity` / `relationship`（图谱）、`table_summary` / `table_column`（表格）、`wiki_page`、`web_search` 等；状态 `Stored`（已存）→ `Indexed`（已入索引） |
-| FAQ | FAQ 型知识库中的问答对，存于 Chunk 的 Metadata：标准问 `StandardQuestion`、相似问、反例问、多答案与答案策略 |
-| Wiki 页面 WikiPage | Wiki 型索引产物：由 LLM 从文档生成的结构化百科页面，最多三级分类路径，可被 Agent 以 `wiki_search` / `wiki_read_page` 工具导航 |
-| 知识图谱 Entity / Relationship | 从分块中抽取的实体与关系（强度 1-10），存储在 Neo4j（`NEO4J_ENABLE=true` 时），用于 GraphRAG 增强检索 |
-| 数据源 DataSource | 外部内容连接器。**当前可用 5 个**：`feishu`、`lark`（与飞书同一适配器，域名不同）、`notion`、`yuque`、`rss`，支持 Cron 定时同步（增量/全量）与冲突策略。`internal/types/datasource.go` 里还声明了 `confluence`、`github`、`imap` 等类型常量，但对应实现尚未接入（`initConnectorRegistry()` 中相关注册被注释），选不到 |
-| 检索配置 RetrievalConfig | 租户级检索参数：`EmbeddingTopK`（默认 50）、`VectorThreshold`（0.15）、`KeywordThreshold`（0.3）、`RerankTopK`（10）、`RerankThreshold`（0.2）、RRF 融合参数（`RRFK`=60，向量权重 0.7 / 关键词权重 0.3） |
+| KnowledgeBase | A knowledge container; `Type` supports `document` (default) / `faq` / `wiki`. Core configuration: `ChunkingConfig` (chunk size/overlap/parent-child chunking/adaptive strategies such as `auto`/`heading`/`heuristic`), `EmbeddingModelID`, `IndexingStrategy` (toggles for the four indexing tracks — vector / keyword / Wiki / graph), `VectorStoreID` (can bind to an independent vector store) |
+| Knowledge | A single document / web page / manually-written entry. Records file metadata (`FileName`/`FileType`/`FileHash`), the import channel `Channel` (web / api / wechat / feishu, etc.), and a parsing state machine `ParseStatus`: `pending → processing → finalizing → completed` (can also become `failed` / `cancelled`) |
+| Chunk | The smallest unit of retrieval. Over a dozen `ChunkType`s: `text`, `parent_text` (parent-child chunking), `image_ocr`, `image_caption`, `faq`, `entity` / `relationship` (graph), `table_summary` / `table_column` (tables), `wiki_page`, `web_search`, etc.; status goes `Stored` (persisted) → `Indexed` (added to the index) |
+| FAQ | Question-answer pairs within an FAQ-type knowledge base, stored in the Chunk's Metadata: a `StandardQuestion`, similar questions, negative examples, multiple answers, and an answer strategy |
+| WikiPage | A Wiki-type indexing output: a structured encyclopedia-style page generated from documents by an LLM, with up to three levels of category paths, navigable by the Agent via the `wiki_search` / `wiki_read_page` tools |
+| Knowledge Graph Entity / Relationship | Entities and relationships (with a strength of 1–10) extracted from chunks, stored in Neo4j (when `NEO4J_ENABLE=true`), used to enhance retrieval via GraphRAG |
+| DataSource | A connector for external content. **5 currently available**: `feishu`, `lark` (the same adapter as Feishu, just a different domain), `notion`, `yuque`, `rss`, supporting scheduled Cron syncing (incremental/full) and conflict strategies. `internal/types/datasource.go` also declares type constants for `confluence`, `github`, `imap`, etc., but their implementations aren't wired up yet (the corresponding registrations in `initConnectorRegistry()` are commented out), so they can't be selected |
+| RetrievalConfig | Tenant-level retrieval parameters: `EmbeddingTopK` (50 by default), `VectorThreshold` (0.15), `KeywordThreshold` (0.3), `RerankTopK` (10), `RerankThreshold` (0.2), RRF fusion parameters (`RRFK` = 60, vector weight 0.7 / keyword weight 0.3) |
 
-### 对话与智能体
+### Conversations and Agents
 
-| 概念 | 说明 |
+| Concept | Description |
 | --- | --- |
-| 会话 Session | 一次多轮对话。记录 `LastRequestState`（上次提问时选中的 Agent、模型、知识库范围、Web 搜索、MCP 服务），重开会话时恢复；上下文压缩策略（`sliding_window` / `smart` LLM 摘要）来自 `ContextConfig` |
-| 消息 Message | `user` / `assistant` 角色消息，支持图片、附件、@提及（知识库/文档/标签/MCP/Skill），并统计 `TokenUsage`（含 prompt cache 命中情况） |
-| 模型 Model | 模型注册项。`Type`：`KnowledgeQA`（对话 LLM）/ `Embedding` / `Rerank` / `VLLM`（视觉）/ `ASR`（语音）；`Source`：`local`（Ollama）、`remote` 及 `openai`、`azure_openai`、`gemini`、`deepseek`、`aliyun`、`zhipu`、`volcengine`、`hunyuan`、`siliconflow`、`openrouter`、`jina` 等厂商；`ManagedBy: "yaml"` 表示由 `config/builtin_models.yaml` 声明式管理 |
-| Agent（自定义智能体） CustomAgent | 两种模式：`quick-answer`（经典 RAG 管线）与 `smart-reasoning`（ReAct 多步推理 + 工具调用）。smart-reasoning 下有类型预设 `AgentType`：`rag-qa` / `wiki-qa` / `hybrid-rag-wiki` / `data-analysis` / `custom`（定义见 `config/agent_type_presets.yaml`） |
-| 内置 Agent | 开箱可用：`builtin-quick-answer`（快速问答）、`builtin-smart-reasoning`（智能推理）、`builtin-data-analyst`（数据分析）、`builtin-wiki-researcher`（Wiki 研究员）、`builtin-wiki-fixer`（Wiki 修复员）等 |
-| MCP 服务 MCPService | Model Context Protocol 工具接入：`sse` / `http-streamable` / `stdio` 三种传输；认证支持 API Key / Bearer / OAuth2；Agent 可按 `all` / `selected` / `none` 选用其工具 |
+| Session | A multi-turn conversation. Records `LastRequestState` (the Agent, model, knowledge base scope, web search, and MCP services selected on the last question), restored when the session is reopened; the context-compression strategy (`sliding_window` / `smart` LLM summarization) comes from `ContextConfig` |
+| Message | A `user` / `assistant` role message, supporting images, attachments, and @-mentions (knowledge bases/documents/tags/MCP/Skills), and tracking `TokenUsage` (including prompt cache hit rates) |
+| Model | A registered model entry. `Type`: `KnowledgeQA` (conversational LLM) / `Embedding` / `Rerank` / `VLLM` (vision) / `ASR` (speech); `Source`: `local` (Ollama), `remote`, and vendors such as `openai`, `azure_openai`, `gemini`, `deepseek`, `aliyun`, `zhipu`, `volcengine`, `hunyuan`, `siliconflow`, `openrouter`, `jina`, etc.; `ManagedBy: "yaml"` means it's declaratively managed via `config/builtin_models.yaml` |
+| CustomAgent (Custom Agent) | Two modes: `quick-answer` (the classic RAG pipeline) and `smart-reasoning` (ReAct multi-step reasoning + tool calling). Under smart-reasoning there are preset `AgentType` values: `rag-qa` / `wiki-qa` / `hybrid-rag-wiki` / `data-analysis` / `custom` (defined in `config/agent_type_presets.yaml`) |
+| Built-in Agents | Ready to use out of the box: `builtin-quick-answer` (quick Q&A), `builtin-smart-reasoning` (smart reasoning), `builtin-data-analyst` (data analysis), `builtin-wiki-researcher` (Wiki researcher), `builtin-wiki-fixer` (Wiki fixer), and more |
+| MCPService | Model Context Protocol tool integration: three transports — `sse` / `http-streamable` / `stdio`; supports API Key / Bearer / OAuth2 authentication; Agents can select its tools via `all` / `selected` / `none` |
 
-### 概念关系图
+### Concept Relationship Diagram
 
 ```mermaid
 flowchart TB
@@ -103,36 +107,36 @@ flowchart TB
     AG -- "工具" --> MCP
 ```
 
-## 功能清单
+## Feature List
 
-- **文档接入**：文件上传（PDF/Word/PPT/Excel/Markdown/HTML/图片/音频等）、URL 抓取、手写 Markdown、整目录上传、飞书 / Lark / Notion / 语雀 / RSS 定时同步。
-- **文档理解**：版式分析、扫描件 OCR、表格抽取、图片多模态描述（VLM）、音频转写（ASR）、按文件类型选择解析引擎（`ParserEngineRules`，可接 MinerU / OpenDataLoader）。
-- **索引管道**：可配置分块（含父子分块与自适应策略）、向量索引、关键词全文索引、FAQ 索引、Wiki 生成、知识图谱抽取、预生成问题（question generation）。
-- **检索**：向量 + BM25 混合检索、RRF 融合、Rerank 重排、查询改写与扩展、意图识别（greeting/chitchat/web_search 等，见 `config/prompt_templates/intent_prompts.yaml`）。
-- **问答与 Agent**：流式 SSE 问答、多轮上下文压缩、引用溯源；ReAct Agent（工具：`knowledge_search`、`grep_chunks`、`wiki_search`、`data_analysis` 等）、MCP 外部工具、Agent Skills（Docker 沙箱执行脚本）、Web 搜索。
-- **多租户与安全**：RBAC 角色鉴权（默认开启，`WEKNORA_TENANT_ENABLE_RBAC`）、审计日志（默认保留 90 天）、邀请制注册（`auth.registration_mode=invite_only`，也可用旧变量 `DISABLE_REGISTRATION=true`）、OIDC 单点登录、SSRF 防护、敏感字段 AES-256 加密。
-- **可观测性**：Langfuse 全链路追踪（LLM/Embedding/Rerank/VLM/ASR 调用与 token 统计）、健康检查、Swagger API 文档（`GIN_MODE=debug` 时）。
-- **生态**：REST API（`/api/v1`）+ API Key、独立 MCP Server（把 WeKnora 作为工具暴露给其他 Agent）、CLI（`cli/`）、微信小程序（`miniprogram/`）、浏览器插件渠道。
+- **Document ingestion**: file upload (PDF/Word/PPT/Excel/Markdown/HTML/images/audio, etc.), URL scraping, hand-written Markdown, whole-directory upload, scheduled syncing for Feishu / Lark / Notion / Yuque / RSS.
+- **Document understanding**: layout analysis, OCR for scanned documents, table extraction, multimodal image captioning (VLM), audio transcription (ASR), parser engine selection by file type (`ParserEngineRules`, can hook into MinerU / OpenDataLoader).
+- **Indexing pipeline**: configurable chunking (including parent-child chunking and adaptive strategies), vector indexing, keyword full-text indexing, FAQ indexing, Wiki generation, knowledge graph extraction, pre-generated questions (question generation).
+- **Retrieval**: hybrid vector + BM25 retrieval, RRF fusion, rerank re-scoring, query rewriting and expansion, intent recognition (greeting/chitchat/web_search, etc. — see `config/prompt_templates/intent_prompts.yaml`).
+- **Q&A and Agents**: streaming SSE Q&A, multi-turn context compression, citation tracing; ReAct Agent (tools: `knowledge_search`, `grep_chunks`, `wiki_search`, `data_analysis`, etc.), external MCP tools, Agent Skills (script execution in a Docker sandbox), web search.
+- **Multi-tenancy and security**: RBAC role-based authorization (enabled by default, `WEKNORA_TENANT_ENABLE_RBAC`), audit logs (retained 90 days by default), invite-only registration (`auth.registration_mode=invite_only`, or the legacy `DISABLE_REGISTRATION=true` variable), OIDC single sign-on, SSRF protection, AES-256 encryption for sensitive fields.
+- **Observability**: full-chain Langfuse tracing (LLM/Embedding/Rerank/VLM/ASR calls and token statistics), health checks, Swagger API docs (when `GIN_MODE=debug`).
+- **Ecosystem**: REST API (`/api/v1`) + API Key, a standalone MCP Server (exposes WeKnora as a tool to other Agents), a CLI (`cli/`), a WeChat Mini Program (`miniprogram/`), and a browser extension channel.
 
-## 系统组件一览
+## System Components Overview
 
-| 组件 | 技术栈 | 源码位置 | 默认端口 | 职责 |
+| Component | Tech Stack | Source Location | Default Port | Responsibility |
 | --- | --- | --- | --- | --- |
-| app（后端） | Go / Gin | `cmd/server`、`internal/` | 8080 | REST API、检索问答、Agent 引擎、异步任务（Asynq） |
-| frontend（前端） | Vue 3 + Nginx | `frontend/` | 80 | Web 控制台，Nginx 反代 `/api` 到 app |
-| docreader | Python / gRPC | `docreader/` | 50051（仅容器网络内） | 文档解析、OCR、网页抓取、图片提取 |
-| postgres | ParadeDB（PostgreSQL 17 + BM25/向量扩展） | 镜像 `paradedb/paradedb` | 5432 | 主数据库 + 默认混合检索引擎（`RETRIEVE_DRIVER=postgres`） |
-| redis | Redis 7 | — | 6379 | 流管理（SSE 恢复）、Asynq 任务队列 |
-| sandbox | Python 3.11 + Node 20 | `docker/Dockerfile.sandbox` | — | Agent Skills 脚本的一次性沙箱容器 |
-| 可选：qdrant / milvus / weaviate / doris | — | `docker-compose.yml` profiles | 6334 / 19530 / 9035 / 9030 | 替代或叠加的向量检索引擎（`RETRIEVE_DRIVER`） |
-| 可选：opensearch | — | 仅 `docker-compose.dev.yml` | 9200 | 开发环境用；生产需自备集群 |
-| 可选：elasticsearch / tencent_vectordb | — | 不随 compose 提供 | — | 代码支持，但需自行部署后用 `RETRIEVE_DRIVER` 接入 |
-| 可选：neo4j | Neo4j | profile `neo4j` | 7474 / 7687 | 知识图谱存储（GraphRAG） |
-| 可选：minio | MinIO | profile `minio` | 9000 / 9001 | S3 兼容对象存储（`STORAGE_TYPE=minio`） |
-| 可选：searxng | SearXNG | profile `searxng` | 8888 | 自建 Web 搜索引擎 |
-| 可选：langfuse 栈 | Langfuse 3 + ClickHouse + MinIO | profile `langfuse` | 3000 | LLM 可观测性 |
-| 可选：mcp | Python | `mcp-server/`，profile `full` | 8082 | 将 WeKnora API 封装为 MCP Server |
-| 可选：odl-hybrid | Docling | profile `odl-hybrid` | 5002 | OpenDataLoader PDF 混合解析后端 |
+| app (backend) | Go / Gin | `cmd/server`, `internal/` | 8080 | REST API, retrieval Q&A, Agent engine, async tasks (Asynq) |
+| frontend | Vue 3 + Nginx | `frontend/` | 80 | Web console, Nginx reverse-proxies `/api` to app |
+| docreader | Python / gRPC | `docreader/` | 50051 (container network only) | Document parsing, OCR, web scraping, image extraction |
+| postgres | ParadeDB (PostgreSQL 17 + BM25/vector extensions) | image `paradedb/paradedb` | 5432 | Primary database + default hybrid retrieval engine (`RETRIEVE_DRIVER=postgres`) |
+| redis | Redis 7 | — | 6379 | Stream management (SSE recovery), Asynq task queue |
+| sandbox | Python 3.11 + Node 20 | `docker/Dockerfile.sandbox` | — | One-off sandbox container for Agent Skills scripts |
+| Optional: qdrant / milvus / weaviate / doris | — | `docker-compose.yml` profiles | 6334 / 19530 / 9035 / 9030 | Alternative or additional vector retrieval engines (`RETRIEVE_DRIVER`) |
+| Optional: opensearch | — | `docker-compose.dev.yml` only | 9200 | For development use; production requires your own cluster |
+| Optional: elasticsearch / tencent_vectordb | — | not shipped with compose | — | Supported in code, but must be deployed separately and wired up via `RETRIEVE_DRIVER` |
+| Optional: neo4j | Neo4j | profile `neo4j` | 7474 / 7687 | Knowledge graph storage (GraphRAG) |
+| Optional: minio | MinIO | profile `minio` | 9000 / 9001 | S3-compatible object storage (`STORAGE_TYPE=minio`) |
+| Optional: searxng | SearXNG | profile `searxng` | 8888 | Self-hosted web search engine |
+| Optional: langfuse stack | Langfuse 3 + ClickHouse + MinIO | profile `langfuse` | 3000 | LLM observability |
+| Optional: mcp | Python | `mcp-server/`, profile `full` | 8082 | Wraps the WeKnora API as an MCP Server |
+| Optional: odl-hybrid | Docling | profile `odl-hybrid` | 5002 | OpenDataLoader PDF hybrid parsing backend |
 
 ```mermaid
 flowchart LR
@@ -152,8 +156,12 @@ flowchart LR
     MCPS["mcp-server :8082"] -- "REST" --> APP
 ```
 
-## 下一步
+## Next Steps
 
-- 部署安装：见 [02-installation.md](./02-installation.md)
-- 快速上手：见 [03-quickstart.md](./03-quickstart.md)
-- 配置详解：见 [04-configuration.md](./04-configuration.md)
+- Deployment: see [02-installation.md](./02-installation.md)
+- Quick start: see [03-quickstart.md](./03-quickstart.md)
+- Configuration details: see [04-configuration.md](./04-configuration.md)
+
+---
+
+Nota: mantive os rótulos em chinês dentro dos diagramas Mermaid (nós/subgraphs) sem alterar, já que são identificadores/labels de diagrama, não prosa explicativa — se preferires que eu traduza também esses labels visuais, digo já.

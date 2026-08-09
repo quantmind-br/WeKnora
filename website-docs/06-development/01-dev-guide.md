@@ -1,215 +1,215 @@
-# 开发指南
+# Development Guide
 
-本章面向准备对 WeKnora 做二次开发的工程师，介绍本地开发环境搭建、Makefile 命令、开发模式（`docker-compose.dev.yml`）、测试体系、代码规范与调试技巧。
+This chapter is aimed at engineers preparing to do secondary development on WeKnora. It covers setting up the local development environment, Makefile commands, development mode (`docker-compose.dev.yml`), the testing system, coding standards, and debugging tips.
 
-## 1. 技术栈与环境要求
+## 1. Tech Stack and Environment Requirements
 
-WeKnora 由三个可独立开发的进程组成：
+WeKnora consists of three independently developable processes:
 
-| 组件 | 目录 | 语言 / 运行时 | 版本要求（来源） |
+| Component | Directory | Language / Runtime | Version requirement (source) |
 | --- | --- | --- | --- |
-| 主后端 `app` | `cmd/server` + `internal/` | Go | **Go 1.26.0**（`go.mod` 中 `go 1.26.0`），需 CGO（DuckDB、sqlite-vec 绑定） |
-| 文档解析服务 `docreader` | `docreader/` | Python + gRPC | **Python >= 3.10.18**（`docreader/pyproject.toml` 中 `requires-python`），依赖用 **uv** 管理（仓库含 `uv.lock`，Docker 内 `uv sync --locked`） |
-| 前端 `frontend` | `frontend/` | Node.js + Vue 3 | Node 22 系（`devDependencies` 含 `@tsconfig/node22`、`@types/node ^22`），Vite 7 + TypeScript ~6.0 + Vue 3.5 + TDesign，版本号 `0.7.2` |
-| CLI | `cli/`（独立 Go module） | Go | Go 1.26（`.github/workflows/cli.yml` 矩阵 `go: ['1.26']`） |
+| Main backend `app` | `cmd/server` + `internal/` | Go | **Go 1.26.0** (`go 1.26.0` in `go.mod`), requires CGO (DuckDB, sqlite-vec bindings) |
+| Document parsing service `docreader` | `docreader/` | Python + gRPC | **Python >= 3.10.18** (`requires-python` in `docreader/pyproject.toml`), dependencies managed with **uv** (the repo includes `uv.lock`; `uv sync --locked` inside Docker) |
+| Frontend `frontend` | `frontend/` | Node.js + Vue 3 | Node 22 series (`devDependencies` include `@tsconfig/node22`, `@types/node ^22`), Vite 7 + TypeScript ~6.0 + Vue 3.5 + TDesign, version number `0.7.2` |
+| CLI | `cli/` (independent Go module) | Go | Go 1.26 (`.github/workflows/cli.yml` matrix `go: ['1.26']`) |
 
-推荐额外安装的开发工具：
+Additional development tools recommended for installation:
 
 ```bash
-# 数据库迁移 CLI（scripts/migrate.sh 依赖）
+# Database migration CLI (dependency of scripts/migrate.sh)
 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
-# 代码检查（make lint 调用）
-# 安装方式见 https://golangci-lint.run；仓库根有 .golangci.yml 配置
+# Code linting (invoked by make lint)
+# See https://golangci-lint.run for install instructions; config is at .golangci.yml in the repo root
 
-# Swagger 文档生成（make docs 调用）
+# Swagger doc generation (invoked by make docs)
 make install-swagger    # go install github.com/swaggo/swag/cmd/swag@latest
 
-# Python 依赖管理
-pip install uv          # docreader 使用 uv sync 安装依赖
+# Python dependency management
+pip install uv          # docreader uses uv sync to install dependencies
 
-# Docker + Docker Compose（v2 插件或独立 docker-compose 均可，scripts/dev.sh 自动探测）
+# Docker + Docker Compose (either the v2 plugin or the standalone docker-compose works; scripts/dev.sh auto-detects)
 ```
 
-## 2. 快速开始：开发模式（推荐）
+## 2. Quick Start: Development Mode (Recommended)
 
-开发模式的核心思想：**基础设施跑在 Docker 里，`app` 与 `frontend` 跑在本地**，改代码即时重启，无需反复构建镜像。入口是 `scripts/dev.sh`（Makefile 的 `dev-*` 目标是它的包装）。
+The core idea of development mode: **infrastructure runs in Docker, while `app` and `frontend` run locally**, so code changes restart instantly without repeatedly rebuilding images. The entry point is `scripts/dev.sh` (the Makefile's `dev-*` targets are wrappers around it).
 
 ```bash
-# 1. 准备环境变量：dev.sh 会加载 .env（必须存在），再用 .env.local 覆盖（可选）
+# 1. Prepare environment variables: dev.sh loads .env (must exist), then overrides with .env.local (optional)
 cp .env.example .env
 
-# 2. 启动基础设施（ParadeDB/Postgres + Redis + docreader，默认还带 Langfuse）
-make dev-start                      # 等价 ./scripts/dev.sh start
-make dev-start DEV_ARGS=--qdrant    # 附加可选 profile
+# 2. Start infrastructure (ParadeDB/Postgres + Redis + docreader, and by default Langfuse as well)
+make dev-start                      # equivalent to ./scripts/dev.sh start
+make dev-start DEV_ARGS=--qdrant    # attach an optional profile
 
-# 3. 另开终端：本地跑后端（内部执行 go run -ldflags=... ./cmd/server）
-make dev-app                        # 等价 ./scripts/dev.sh app
+# 3. In another terminal: run the backend locally (internally runs go run -ldflags=... ./cmd/server)
+make dev-app                        # equivalent to ./scripts/dev.sh app
 
-# 4. 再开终端：本地跑前端（cd frontend && npm install && npm run dev）
-make dev-frontend                   # 等价 ./scripts/dev.sh frontend
+# 4. In yet another terminal: run the frontend locally (cd frontend && npm install && npm run dev)
+make dev-frontend                   # equivalent to ./scripts/dev.sh frontend
 
-# 其他
-make dev-status   # 查看容器状态
-make dev-logs     # 查看日志
-make dev-stop     # 停止
-make dev-restart  # 重启
+# Others
+make dev-status   # view container status
+make dev-logs     # view logs
+make dev-stop     # stop
+make dev-restart  # restart
 ```
 
-前端 dev server 监听 `5173`（`frontend/vite.config.ts` 中 `server.port: 5173`），并把 `/api` 与 `/files` 代理到本地后端（`DEV_PROXY_TARGET`）。`vite preview`（端口 `4173`）用生产构建产物起服务，是最接近 release 镜像的验证环境。
+The frontend dev server listens on `5173` (`server.port: 5173` in `frontend/vite.config.ts`), and proxies `/api` and `/files` to the local backend (`DEV_PROXY_TARGET`). `vite preview` (port `4173`) serves the production build artifacts, making it the environment that most closely resembles the release image for verification.
 
-### 2.1 docker-compose.dev.yml 服务清单
+### 2.1 docker-compose.dev.yml Service List
 
-`docker-compose.dev.yml` 只包含依赖服务，不含 `app`/`frontend`。默认启动与 profile 可选服务如下（profile 通过 `dev.sh start` 的参数开启）：
+`docker-compose.dev.yml` contains only dependency services, not `app`/`frontend`. The services started by default and the optional profile services are as follows (profiles are enabled via arguments to `dev.sh start`):
 
-| 服务 | 镜像 | 端口（默认） | 启动条件 |
+| Service | Image | Port (default) | Startup condition |
 | --- | --- | --- | --- |
-| `postgres` | `paradedb/paradedb:v0.22.2-pg17`（自带 pg_search/BM25） | `5432` | 默认启动 |
-| `redis` | `redis:7.0-alpine`（`--requirepass`） | `6379` | 默认启动 |
-| `docreader` | 本地构建 `docker/Dockerfile.docreader` | `50051`（gRPC） | 默认启动 |
-| `searxng`（+`searxng-init`） | `searxng/searxng:latest` | `127.0.0.1:8888` | `--searxng` / `--full`（compose profile `searxng`） |
-| `minio` | `minio/minio:latest` | `9000` / 控制台 `9001` | `--minio` / `--full` |
+| `postgres` | `paradedb/paradedb:v0.22.2-pg17` (bundled with pg_search/BM25) | `5432` | Started by default |
+| `redis` | `redis:7.0-alpine` (`--requirepass`) | `6379` | Started by default |
+| `docreader` | Built locally from `docker/Dockerfile.docreader` | `50051` (gRPC) | Started by default |
+| `searxng` (+ `searxng-init`) | `searxng/searxng:latest` | `127.0.0.1:8888` | `--searxng` / `--full` (compose profile `searxng`) |
+| `minio` | `minio/minio:latest` | `9000` / console `9001` | `--minio` / `--full` |
 | `qdrant` | `qdrant/qdrant:v1.16.2` | `6333` / `6334` | `--qdrant` / `--full` |
-| `opensearch` | `opensearchproject/opensearch:3.3.2`（关闭 security，纯 HTTP） | `9200` | profile `opensearch` / `full` |
-| `opensearch-dashboards` | `opensearchproject/opensearch-dashboards:3.3.0` | `5601` | profile `opensearch-ui`（按需单独启动） |
-| `milvus` | `milvusdb/milvus:v2.6.11`（standalone，内嵌 etcd） | `19530` / `9091` | profile `milvus` / `full` |
-| `neo4j` | `neo4j:latest`（APOC 插件） | `7474` / `7687` | `--neo4j` / `--full` |
-| `dex` | `dexidp/dex:latest`（OIDC 测试身份源，配置 `misc/dex-config.yaml`） | `5556` | `--dex` / `--full` |
-| `langfuse-web` / `langfuse-worker` / `langfuse-clickhouse` / `langfuse-minio` / `langfuse-db-init` | Langfuse v3 自建栈，复用 dev 的 postgres（独立 `langfuse` 库）与 redis（DB 1） | web `3000`、minio `9100/9101` | `--langfuse`（`dev.sh` 默认开启，`--no-langfuse` 关闭） |
-| `odl-hybrid` | 本地构建 `docker/Dockerfile.odl-hybrid`（Docling PDF 后端） | `5002` | `--odl-hybrid`（镜像较大，按需） |
-| `sandbox` | `wechatopenai/weknora-sandbox`（Skills 脚本执行沙箱，仅 build/pull，非常驻） | - | profile `full` |
+| `opensearch` | `opensearchproject/opensearch:3.3.2` (security disabled, plain HTTP) | `9200` | profile `opensearch` / `full` |
+| `opensearch-dashboards` | `opensearchproject/opensearch-dashboards:3.3.0` | `5601` | profile `opensearch-ui` (started separately as needed) |
+| `milvus` | `milvusdb/milvus:v2.6.11` (standalone, embedded etcd) | `19530` / `9091` | profile `milvus` / `full` |
+| `neo4j` | `neo4j:latest` (APOC plugin) | `7474` / `7687` | `--neo4j` / `--full` |
+| `dex` | `dexidp/dex:latest` (OIDC test identity provider, config `misc/dex-config.yaml`) | `5556` | `--dex` / `--full` |
+| `langfuse-web` / `langfuse-worker` / `langfuse-clickhouse` / `langfuse-minio` / `langfuse-db-init` | Self-hosted Langfuse v3 stack, reusing dev's postgres (separate `langfuse` database) and redis (DB 1) | web `3000`, minio `9100/9101` | `--langfuse` (enabled by default in `dev.sh`, disable with `--no-langfuse`) |
+| `odl-hybrid` | Built locally from `docker/Dockerfile.odl-hybrid` (Docling PDF backend) | `5002` | `--odl-hybrid` (large image, use as needed) |
+| `sandbox` | `wechatopenai/weknora-sandbox` (Skills script execution sandbox, build/pull only, not long-running) | - | profile `full` |
 
-`dev.sh start` 的可选参数：`--minio`、`--qdrant`、`--neo4j`、`--dex`、`--langfuse`（默认开）、`--no-langfuse`、`--odl-hybrid`、`--full`（全部可选服务，不含 odl-hybrid）。通过 Makefile 传参：`make dev-start DEV_ARGS=--odl-hybrid`。
+Optional arguments to `dev.sh start`: `--minio`, `--qdrant`, `--neo4j`, `--dex`, `--langfuse` (on by default), `--no-langfuse`, `--odl-hybrid`, `--full` (all optional services, excluding odl-hybrid). Pass these through the Makefile: `make dev-start DEV_ARGS=--odl-hybrid`.
 
-### 2.2 本地单独跑 docreader
+### 2.2 Running docreader Locally on Its Own
 
-`dev-start` 默认把 docreader 跑在容器里；如需本地调试 Python 代码：
+By default, `dev-start` runs docreader in a container. To debug the Python code locally instead:
 
 ```bash
 cd docreader
-uv sync                       # 按 uv.lock 安装依赖（容器内为 uv sync --locked --no-dev）
-uv run -m docreader.main      # 启动 gRPC 服务（与 Dockerfile CMD 一致），监听 DOCREADER_GRPC_PORT（默认 50051）
+uv sync                       # install dependencies per uv.lock (in-container it's uv sync --locked --no-dev)
+uv run -m docreader.main      # start the gRPC service (matches the Dockerfile CMD), listening on DOCREADER_GRPC_PORT (default 50051)
 ```
 
-docreader 的大量调优参数（PDF 渲染 DPI、扫描件判定、SSRF 白名单、gRPC TLS 等）以 `DOCREADER_*` 环境变量注入，完整清单见 `docker-compose.dev.yml` 的 `docreader.environment` 段。
+docreader has a large number of tuning parameters (PDF rendering DPI, scanned-document detection, SSRF allowlist, gRPC TLS, etc.) injected via `DOCREADER_*` environment variables; see the `docreader.environment` section of `docker-compose.dev.yml` for the complete list.
 
-### 2.3 Lite 模式（零外部依赖）
+### 2.3 Lite Mode (Zero External Dependencies)
 
-Lite 模式把 SQLite（+sqlite-vec）与内存队列编译进单个二进制，适合快速体验与桌面端：
+Lite mode compiles SQLite (+sqlite-vec) and an in-memory queue into a single binary, suitable for quick trials and the desktop client:
 
 ```bash
-make build-lite     # 先构建前端到 web/，再 CGO 构建 Go（tags: sqlite_fts5）；SKIP_FRONTEND=1 跳过前端
-make run-lite       # 依赖 .env.lite，构建并启动 WeKnora-lite
-make package-lite   # 打 tarball 发行包（scripts/package-lite.sh）
-make package-mac-app  # 打 macOS .app（scripts/package-mac-app.sh）
+make build-lite     # first builds the frontend into web/, then builds Go with CGO (tags: sqlite_fts5); SKIP_FRONTEND=1 skips the frontend
+make run-lite       # depends on .env.lite; builds and starts WeKnora-lite
+make package-lite   # packages a tarball release (scripts/package-lite.sh)
+make package-mac-app  # packages a macOS .app (scripts/package-mac-app.sh)
 ```
 
-## 3. Makefile 目标全览
+## 3. Full Overview of Makefile Targets
 
-以下目标定义在根目录 `Makefile`，`make help` 也有一份中文帮助。
+The following targets are defined in the root `Makefile`; `make help` also provides a help text in Chinese.
 
-### 3.1 基础构建与运行
+### 3.1 Basic Build and Run
 
-| 目标 | 作用 |
+| Target | Function |
 | --- | --- |
 | `build` | `go build -o WeKnora ./cmd/server` |
-| `run` | 先 `build` 再运行 `./WeKnora` |
+| `run` | Runs `build` first, then executes `./WeKnora` |
 | `test` | `go test -v ./...` |
-| `clean` | `go clean` 并删除二进制 |
-| `build-prod` | 生产构建：CGO_ENABLED=1，`-ldflags "-w -s"` 注入 Version/CommitID/BuildTime/GoVersion（`internal/handler` 包变量），并设置 protobuf `conflictPolicy=warn`（规避 qdrant/milvus proto 冲突） |
+| `clean` | `go clean` and removes the binary |
+| `build-prod` | Production build: CGO_ENABLED=1, `-ldflags "-w -s"` injects Version/CommitID/BuildTime/GoVersion (package variables in `internal/handler`), and sets protobuf `conflictPolicy=warn` (to work around the qdrant/milvus proto conflict) |
 | `fmt` | `go fmt ./...` |
 | `lint` | `golangci-lint run` |
 | `deps` | `go mod download` |
-| `docs` | `swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal` 生成 Swagger 文档 |
-| `install-swagger` | 安装 `swag` CLI |
+| `docs` | `swag init -g ./cmd/server/main.go -o ./docs --parseDependency --parseInternal` generates the Swagger documentation |
+| `install-swagger` | Installs the `swag` CLI |
 
-### 3.2 Docker 镜像与服务管理
+### 3.2 Docker Images and Service Management
 
-| 目标 | 作用 |
+| Target | Function |
 | --- | --- |
-| `docker-build-app` | 构建 `wechatopenai/weknora-app`（`docker/Dockerfile.app`，注入 `scripts/get_version.sh` 的版本信息） |
-| `docker-build-docreader` | 构建 `wechatopenai/weknora-docreader`（`docker/Dockerfile.docreader`） |
-| `docker-build-frontend` | 先 `scripts/build_frontend_dist.sh`，再构建 `wechatopenai/weknora-ui` |
-| `docker-build-all` | 以上三个镜像 |
-| `docker-run` | 确保 `.env` 存在（缺失时从 `.env.example` 复制或 touch）后 `docker-compose up` |
+| `docker-build-app` | Builds `wechatopenai/weknora-app` (`docker/Dockerfile.app`, injecting version info from `scripts/get_version.sh`) |
+| `docker-build-docreader` | Builds `wechatopenai/weknora-docreader` (`docker/Dockerfile.docreader`) |
+| `docker-build-frontend` | Runs `scripts/build_frontend_dist.sh` first, then builds `wechatopenai/weknora-ui` |
+| `docker-build-all` | Builds all three of the images above |
+| `docker-run` | Ensures `.env` exists (copies from `.env.example` or touches it if missing), then runs `docker-compose up` |
 | `docker-stop` / `docker-restart` | `docker-compose down` / `stop -t 60` + `up` |
-| `start-all` / `stop-all` | `scripts/start_all.sh`（一键启动/停止全部服务） |
+| `start-all` / `stop-all` | `scripts/start_all.sh` (one-click start/stop of all services) |
 | `start-ollama` / `start-docker` | `start_all.sh --ollama` / `--docker` |
-| `build-images` / `build-images-app` / `build-images-docreader` / `build-images-frontend` / `clean-images` | `scripts/build_images.sh` 从源码构建/清理镜像 |
+| `build-images` / `build-images-app` / `build-images-docreader` / `build-images-frontend` / `clean-images` | `scripts/build_images.sh` builds/cleans images from source |
 | `check-env` / `list-containers` / `pull-images` | `start_all.sh --check / --list / --pull` |
-| `show-platform` | 显示 `uname -m` 与 Docker 构建平台（amd64/arm64 自动探测） |
-| `clean-db` | 删除 `weknora_postgres-data` / `weknora_minio_data` / `weknora_redis_data` 三个 Docker volume（**清空数据**） |
+| `show-platform` | Displays `uname -m` and the Docker build platform (amd64/arm64 auto-detected) |
+| `clean-db` | Deletes the three Docker volumes `weknora_postgres-data` / `weknora_minio_data` / `weknora_redis_data` (**wipes data**) |
 
-### 3.3 数据库迁移（详见《数据库与迁移》一章）
+### 3.3 Database Migrations (see the "Database and Migrations" chapter for details)
 
-| 目标 | 作用 |
+| Target | Function |
 | --- | --- |
 | `migrate-up` / `migrate-down` | `scripts/migrate.sh up / down` |
-| `migrate-version` | 查看当前迁移版本 |
-| `migrate-create name=xxx` | 创建一对新迁移文件 |
-| `migrate-force version=N` | 强制设置版本（dirty state 恢复） |
-| `migrate-goto version=N` | 迁移到指定版本 |
+| `migrate-version` | View the current migration version |
+| `migrate-create name=xxx` | Create a new pair of migration files |
+| `migrate-force version=N` | Force-set the version (recovery from a dirty state) |
+| `migrate-goto version=N` | Migrate to a specific version |
 
-### 3.4 开发模式与 Lite
+### 3.4 Development Mode and Lite
 
-| 目标 | 作用 |
+| Target | Function |
 | --- | --- |
-| `dev-start` / `dev-stop` / `dev-restart` / `dev-logs` / `dev-status` | `scripts/dev.sh start/stop/restart/logs/status`（支持 `DEV_ARGS` 传 profile 参数） |
-| `dev-app` | 本地 `go run ./cmd/server`（带版本 ldflags） |
-| `dev-frontend` | 本地 `npm run dev` |
-| `build-lite` / `run-lite` / `package-lite` / `package-mac-app` | Lite 模式构建/运行/打包（见 2.3） |
-| `download_spatial` | `go run cmd/download/duckdb/duckdb.go` 下载 DuckDB spatial 扩展（数据分析工具用） |
+| `dev-start` / `dev-stop` / `dev-restart` / `dev-logs` / `dev-status` | `scripts/dev.sh start/stop/restart/logs/status` (supports passing profile arguments via `DEV_ARGS`) |
+| `dev-app` | Runs `go run ./cmd/server` locally (with version ldflags) |
+| `dev-frontend` | Runs `npm run dev` locally |
+| `build-lite` / `run-lite` / `package-lite` / `package-mac-app` | Lite mode build/run/package (see section 2.3) |
+| `download_spatial` | `go run cmd/download/duckdb/duckdb.go` downloads the DuckDB spatial extension (used by the data analysis tool) |
 
-## 4. 测试体系
+## 4. Testing System
 
-### 4.1 Go 单元测试（主模块）
+### 4.1 Go Unit Tests (Main Module)
 
 ```bash
 make test          # go test -v ./...
-# 或按包运行：
+# Or run by package:
 go test ./internal/infrastructure/chunker/...
 go test -run TestXxx ./internal/application/service/...
 ```
 
-主模块测试广泛使用 `go-sqlmock`、`miniredis` 等内存替身（见 `go.mod`），大部分无需真实数据库即可运行。部分包依赖 CGO（DuckDB/sqlite-vec）。
+The main module's tests make extensive use of in-memory doubles like `go-sqlmock` and `miniredis` (see `go.mod`); most can run without a real database. Some packages depend on CGO (DuckDB/sqlite-vec).
 
-### 4.2 docreader 测试（Python）
+### 4.2 docreader Tests (Python)
 
-测试位于 `docreader/tests/`，使用标准库 `unittest` 编写（文件内 `unittest.main()`），覆盖解析路由、并发、EPUB/Excel/MHTML/PDF 解析、SSRF 防护等：
+Tests live in `docreader/tests/`, written using the standard library `unittest` (each file calls `unittest.main()`), covering parsing routing, concurrency, EPUB/Excel/MHTML/PDF parsing, SSRF protection, and more:
 
 ```bash
 cd docreader
 uv sync
-uv run python -m unittest discover -s tests -v      # 全部
-uv run python -m unittest tests.test_parser_routing  # 单个
+uv run python -m unittest discover -s tests -v      # run all
+uv run python -m unittest tests.test_parser_routing  # run a single one
 ```
 
-### 4.3 CLI 测试与验收测试
+### 4.3 CLI Tests and Acceptance Tests
 
-`cli/` 是独立 Go module，自带 `cli/Makefile`：
+`cli/` is an independent Go module with its own `cli/Makefile`:
 
 ```bash
 cd cli
 make test            # go test ./...
-make test-coverage   # 带覆盖率
+make test-coverage   # with coverage
 make lint            # go vet
 ```
 
-跨切面的契约/集成测试集中在 `cli/acceptance/`（见 `cli/acceptance/doc.go`）：
+Cross-cutting contract/integration tests are centralized in `cli/acceptance/` (see `cli/acceptance/doc.go`):
 
-- `cli/acceptance/contract/` — envelope JSON 输出形状 golden 测试 + error.code 注册表一致性；
-- `cli/acceptance/e2e/` — 对真实 WeKnora server 的黑盒测试（testscript 风格），需要环境变量指向测试服务器；CI 侧由 `.github/workflows/cli-e2e.yml` 承载，**按需触发**（`workflow_dispatch` 手动，或给 PR 打 `acceptance-e2e` 标签），使用 secrets `WEKNORA_E2E_HOST` / `WEKNORA_E2E_TOKEN`。
+- `cli/acceptance/contract/` — golden tests for the shape of envelope JSON output + consistency checks for the error.code registry;
+- `cli/acceptance/e2e/` — black-box tests against a real WeKnora server (testscript-style), requiring environment variables pointing to the test server; on the CI side this is carried by `.github/workflows/cli-e2e.yml`, triggered **on demand** (manually via `workflow_dispatch`, or by tagging a PR with the `acceptance-e2e` label), using the secrets `WEKNORA_E2E_HOST` / `WEKNORA_E2E_TOKEN`.
 
-### 4.4 tests/ 目录与前端测试
+### 4.4 The tests/ Directory and Frontend Tests
 
-- `tests/miniprogram/miniprogram.test.js` — 小程序客户端的集成测试（Node 测试脚本），是 `tests/` 目前唯一内容；
-- 前端：`cd frontend && npm run type-check`（vue-tsc）与 `npm test`（`tsx --test`，Node test runner）。
+- `tests/miniprogram/miniprogram.test.js` — integration test for the mini-program client (a Node test script), currently the only content in `tests/`;
+- Frontend: `cd frontend && npm run type-check` (vue-tsc) and `npm test` (`tsx --test`, the Node test runner).
 
-## 5. 代码规范与提交流程
+## 5. Coding Standards and Submission Process
 
-### 5.1 Go 代码规范
+### 5.1 Go Coding Standards
 
-仓库根 `.golangci.yml`（golangci-lint v2 配置格式）：
+Root `.golangci.yml` (golangci-lint v2 configuration format):
 
 ```yaml
 version: 2
@@ -219,7 +219,7 @@ linters-settings:
     tab-width: 4
 linters:
   enable:
-    - lll           # 控制行宽（120 列）
+    - lll           # controls line width (120 columns)
     - govet
     - revive
 formatters:
@@ -228,57 +228,57 @@ formatters:
     - gofumpt
 ```
 
-提交前建议执行：
+Before submitting, it's recommended to run:
 
 ```bash
 make fmt && make lint && make test
 ```
 
-注意格式化标准是 **gofumpt**（比 gofmt 更严格），行宽上限 120。
+Note that the formatting standard is **gofumpt** (stricter than gofmt), with a line-width limit of 120.
 
-### 5.2 CI 与提交流程
+### 5.2 CI and Submission Process
 
-`.github/` 下的实际配置：
+The actual configuration under `.github/`:
 
-| 文件 | 触发路径 | 作用 |
+| File | Trigger path | Function |
 | --- | --- | --- |
-| `workflows/app.yml` | 根模块 Go 代码、`go.mod`、`config/`、`migrations/`、`scripts/`、`skills/preloaded/`、`docker/Dockerfile.app` | 主模块检查：gofmt 格式校验（只针对 PR 内的提交）、`go vet`、`go test`、`go build ./cmd/server` |
-| `workflows/frontend.yml` | `frontend/`、`scripts/build_frontend_dist.sh` | Node 24：`npm test` + `npm run type-check` + `npm run build` |
-| `workflows/docreader.yml` | `docreader/`、`testdata/`、`packages/`、相关 Dockerfile | uv 装依赖 → `compileall` → `unittest discover docreader/tests`；再拉起 docreader gRPC 服务跑 `go test ./docreader/client ./docreader/proto` |
-| `workflows/mcp-server.yml` | `mcp-server/` | Python 3.10-3.13 矩阵测试；合入 main 后按 `pyproject.toml` 里的版本号用 PyPI Trusted Publishing 自动发布（版本已存在则跳过上传，不依赖打 tag） |
-| `workflows/cli.yml` | `cli/` | ubuntu/macos/windows 三平台矩阵，Go 1.26，`go build` + `go test -race -coverprofile` + `go vet` + skill wire 词表检查 |
-| `workflows/cli-e2e.yml` | 手动 / label | CLI 端到端验收（label `acceptance-e2e` 或手动触发，见 4.3） |
-| `workflows/docker-image.yml` | — | Docker 镜像构建发布 |
-| `workflows/release-lite.yml` | — | Lite 版本发布 |
-| `pull_request_template.md` | — | PR 模板 |
-| `ISSUE_TEMPLATE/` | — | Issue 模板 |
-| `dependabot.yml` | — | 依赖升级机器人 |
+| `workflows/app.yml` | Root module Go code, `go.mod`, `config/`, `migrations/`, `scripts/`, `skills/preloaded/`, `docker/Dockerfile.app` | Main module checks: gofmt format validation (only for commits within the PR), `go vet`, `go test`, `go build ./cmd/server` |
+| `workflows/frontend.yml` | `frontend/`, `scripts/build_frontend_dist.sh` | Node 24: `npm test` + `npm run type-check` + `npm run build` |
+| `workflows/docreader.yml` | `docreader/`, `testdata/`, `packages/`, related Dockerfiles | uv installs dependencies → `compileall` → `unittest discover docreader/tests`; then spins up the docreader gRPC service and runs `go test ./docreader/client ./docreader/proto` |
+| `workflows/mcp-server.yml` | `mcp-server/` | Python 3.10-3.13 matrix testing; after merging into main, automatically publishes to PyPI via Trusted Publishing based on the version number in `pyproject.toml` (skips the upload if that version already exists, without relying on a tag push) |
+| `workflows/cli.yml` | `cli/` | ubuntu/macos/windows three-platform matrix, Go 1.26, `go build` + `go test -race -coverprofile` + `go vet` + skill wire word-list check |
+| `workflows/cli-e2e.yml` | manual / label | CLI end-to-end acceptance testing (label `acceptance-e2e` or manually triggered, see 4.3) |
+| `workflows/docker-image.yml` | — | Docker image build and publish |
+| `workflows/release-lite.yml` | — | Lite version release |
+| `pull_request_template.md` | — | PR template |
+| `ISSUE_TEMPLATE/` | — | Issue templates |
+| `dependabot.yml` | — | Dependency upgrade bot |
 
-四条按路径触发的检查（app / frontend / docreader / mcp-server）覆盖了主要模块，但本地先跑一遍仍然更省时间。前端可以直接用 `scripts/verify_frontend_pr.sh`，它按 CI 同样的顺序执行 `npm test` → `npm run type-check` → `npm run build`。
+The four path-triggered checks (app / frontend / docreader / mcp-server) cover the main modules, but running them locally first is still more time-efficient. For the frontend, you can directly use `scripts/verify_frontend_pr.sh`, which runs `npm test` → `npm run type-check` → `npm run build` in the same order as CI.
 
-提交流程：fork / 分支 → 本地 `fmt + lint + test` → PR（按模板填写）→ 相关路径触发 CI。
+Submission process: fork / branch → local `fmt + lint + test` → PR (filled out per the template) → CI triggered on the relevant paths.
 
-## 6. 调试技巧
+## 6. Debugging Tips
 
-### 6.1 日志级别
+### 6.1 Log Levels
 
-日志实现在 `internal/logger/logger.go`（logrus）。级别由环境变量 `LOG_LEVEL` 控制，取值 `debug` / `info` / `warn`（`warning`）/ `error` / `fatal`，未设置或非法时默认 **debug**（`getLogLevelFromEnv()`）。`LOG_PATH` 控制输出路径；两者在 `main()` 加载 `.env` 后即时生效。docreader 侧同样读取 `LOG_LEVEL`（compose 中透传）。
+Logging is implemented in `internal/logger/logger.go` (logrus). The level is controlled by the `LOG_LEVEL` environment variable, taking values `debug` / `info` / `warn` (`warning`) / `error` / `fatal`; if unset or invalid, it defaults to **debug** (`getLogLevelFromEnv()`). `LOG_PATH` controls the output path; both take effect immediately after `.env` is loaded in `main()`. docreader likewise reads `LOG_LEVEL` (passed through in compose).
 
-每个请求带 `X-Request-ID` 贯穿 app 与 docreader 日志（docreader 的 `init_logging_request_id`），排查问题时先抓 request id。
+Every request carries an `X-Request-ID` that runs through both the app and docreader logs (docreader's `init_logging_request_id`); when troubleshooting, grab the request ID first.
 
-### 6.2 GIN_MODE 与 Swagger
+### 6.2 GIN_MODE and Swagger
 
-- `GIN_MODE=release` 时禁用 Swagger UI（`internal/router/router.go`）、并影响 embed channel 的安全行为；开发时不要设置或设为 `debug`。
-- `make docs` 生成 Swagger 后，启动服务访问 `http://localhost:8080/swagger/index.html`。
+- When `GIN_MODE=release`, Swagger UI is disabled (`internal/router/router.go`), and it also affects the security behavior of the embed channel; don't set it, or set it to `debug`, during development.
+- After `make docs` generates the Swagger docs, start the service and visit `http://localhost:8080/swagger/index.html`.
 
-### 6.3 数据库与迁移调试
+### 6.3 Database and Migration Debugging
 
-- `AUTO_MIGRATE=false` 可关闭启动时自动迁移；`AUTO_RECOVER_DIRTY`（默认开启，设为 `false` 关闭）控制 dirty state 自动恢复（`internal/container/container.go`）。迁移失败只告警不阻断启动，注意看启动日志里的 `Database migration failed`。
-- `make migrate-version` 快速确认 schema 版本。
+- `AUTO_MIGRATE=false` disables automatic migration at startup; `AUTO_RECOVER_DIRTY` (enabled by default, set to `false` to disable) controls automatic recovery from a dirty state (`internal/container/container.go`). Migration failures only warn without blocking startup — watch for `Database migration failed` in the startup logs.
+- `make migrate-version` quickly confirms the schema version.
 
-### 6.4 LLM 链路观测（Langfuse）
+### 6.4 LLM Chain Observability (Langfuse)
 
-`dev.sh start` 默认拉起自建 Langfuse（`http://localhost:3000`）。本地 `go run` 的 app 需要导出：
+`dev.sh start` spins up a self-hosted Langfuse by default (`http://localhost:3000`). The locally `go run` app needs the following exported:
 
 ```bash
 export LANGFUSE_HOST=http://localhost:3000
@@ -286,12 +286,12 @@ export LANGFUSE_PUBLIC_KEY=pk-lf-xxx
 export LANGFUSE_SECRET_KEY=sk-lf-xxx
 ```
 
-即可在 Langfuse UI 中查看每次会话的模型调用 trace（文档处理 span 亦落库到 `knowledge_processing_spans` 表，前端可视化）。
+This lets you view the model call trace for each session in the Langfuse UI (document processing spans are also persisted to the `knowledge_processing_spans` table, visualized in the frontend).
 
 ### 6.5 pprof
 
-当前代码中**未内置** `net/http/pprof` 端点（`internal/`、`cmd/` 下无 pprof 引用）。如需性能剖析，可临时在 `cmd/server/main.go` 中 `import _ "net/http/pprof"` 并起一个独立 `http.ListenAndServe("localhost:6060", nil)`，或使用 `go test -bench . -cpuprofile` 针对具体包剖析。
+The current code does **not** have a built-in `net/http/pprof` endpoint (no pprof references under `internal/` or `cmd/`). For performance profiling, you can temporarily `import _ "net/http/pprof"` in `cmd/server/main.go` and start a separate `http.ListenAndServe("localhost:6060", nil)`, or use `go test -bench . -cpuprofile` to profile a specific package.
 
-### 6.6 分块策略诊断
+### 6.6 Chunking Strategy Diagnostics
 
-chunker 提供 `SplitWithDiagnostics()`（`internal/infrastructure/chunker/strategy.go`），返回策略链选择、各 tier 被拒原因与文档画像，配合 `LOG_LEVEL=debug`（`chunker: tier %s rejected` 日志）可排查分块效果问题。
+The chunker provides `SplitWithDiagnostics()` (`internal/infrastructure/chunker/strategy.go`), which returns the strategy chain selection, the rejection reasons for each tier, and the document profile; combined with `LOG_LEVEL=debug` (the `chunker: tier %s rejected` log), this can be used to troubleshoot chunking results.

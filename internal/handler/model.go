@@ -52,14 +52,14 @@ type CreateModelRequest struct {
 }
 
 // CreateModel godoc
-// @Summary      创建模型
-// @Description  创建新的模型配置
-// @Tags         模型管理
+// @Summary      Create model
+// @Description  Create a new model configuration
+// @Tags         Model Management
 // @Accept       json
 // @Produce      json
-// @Param        request  body      CreateModelRequest  true  "模型信息"
-// @Success      201      {object}  map[string]interface{}  "创建的模型"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        request  body      CreateModelRequest  true  "Model info"
+// @Success      201      {object}  map[string]interface{}  "Created model"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models [post]
@@ -123,14 +123,14 @@ func (h *ModelHandler) CreateModel(c *gin.Context) {
 }
 
 // GetModel godoc
-// @Summary      获取模型详情
-// @Description  根据ID获取模型详情
-// @Tags         模型管理
+// @Summary      Get model details
+// @Description  Get model details by ID
+// @Tags         Model Management
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "模型ID"
-// @Success      200  {object}  map[string]interface{}  "模型详情"
-// @Failure      404  {object}  errors.AppError         "模型不存在"
+// @Param        id   path      string  true  "Model ID"
+// @Success      200  {object}  map[string]interface{}  "Model details"
+// @Failure      404  {object}  errors.AppError         "Model does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models/{id} [get]
@@ -168,13 +168,13 @@ func (h *ModelHandler) GetModel(c *gin.Context) {
 }
 
 // ListModels godoc
-// @Summary      获取模型列表
-// @Description  获取当前空间的所有模型
-// @Tags         模型管理
+// @Summary      Get model list
+// @Description  Get all models of the current workspace
+// @Tags         Model Management
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "模型列表"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
+// @Success      200  {object}  map[string]interface{}  "Model list"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models [get]
@@ -533,15 +533,15 @@ type UpdateModelRequest struct {
 }
 
 // UpdateModel godoc
-// @Summary      更新模型
-// @Description  更新模型配置信息
-// @Tags         模型管理
+// @Summary      Update model
+// @Description  Update model configuration
+// @Tags         Model Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string              true  "模型ID"
-// @Param        request  body      UpdateModelRequest  true  "更新信息"
-// @Success      200      {object}  map[string]interface{}  "更新后的模型"
-// @Failure      404      {object}  errors.AppError         "模型不存在"
+// @Param        id       path      string              true  "Model ID"
+// @Param        request  body      UpdateModelRequest  true  "Update info"
+// @Success      200      {object}  map[string]interface{}  "Updated model"
+// @Failure      404      {object}  errors.AppError         "Model does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models/{id} [put]
@@ -648,14 +648,14 @@ func (h *ModelHandler) UpdateModel(c *gin.Context) {
 }
 
 // DeleteModel godoc
-// @Summary      删除模型
-// @Description  删除指定的模型
-// @Tags         模型管理
+// @Summary      Delete model
+// @Description  Delete the given model
+// @Tags         Model Management
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "模型ID"
-// @Success      200  {object}  map[string]interface{}  "删除成功"
-// @Failure      404  {object}  errors.AppError         "模型不存在"
+// @Param        id   path      string  true  "Model ID"
+// @Success      200  {object}  map[string]interface{}  "Deleted successfully"
+// @Failure      404  {object}  errors.AppError         "Model does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models/{id} [delete]
@@ -694,16 +694,16 @@ func (h *ModelHandler) DeleteModel(c *gin.Context) {
 	})
 }
 
-// ModelProviderDTO 模型厂商信息 DTO
+// ModelProviderDTO model provider info DTO
 type ModelProviderDTO struct {
-	Value       string            `json:"value"`       // provider 标识符
-	Label       string            `json:"label"`       // 显示名称
-	Description string            `json:"description"` // 描述
-	DefaultURLs map[string]string `json:"defaultUrls"` // 按模型类型区分的默认 URL
-	ModelTypes  []string          `json:"modelTypes"`  // 支持的模型类型
+	Value       string            `json:"value"`       // provider identifier
+	Label       string            `json:"label"`       // display name
+	Description string            `json:"description"` // description
+	DefaultURLs map[string]string `json:"defaultUrls"` // default URL by model type
+	ModelTypes  []string          `json:"modelTypes"`  // supported model types
 }
 
-// modelTypeToFrontend 将后端 ModelType 转换为前端兼容的字符串
+// modelTypeToFrontend converts the backend ModelType to a frontend-compatible string
 // KnowledgeQA -> chat, Embedding -> embedding, Rerank -> rerank, VLLM -> vllm
 func modelTypeToFrontend(mt types.ModelType) string {
 	switch mt {
@@ -723,13 +723,13 @@ func modelTypeToFrontend(mt types.ModelType) string {
 }
 
 // ListModelProviders godoc
-// @Summary      获取模型厂商列表
-// @Description  根据模型类型获取支持的厂商列表及配置信息
-// @Tags         模型管理
+// @Summary      Get model provider list
+// @Description  Get supported provider list and configuration by model type
+// @Tags         Model Management
 // @Accept       json
 // @Produce      json
-// @Param        model_type  query     string  false  "模型类型 (chat, embedding, rerank, vllm)"
-// @Success      200         {object}  map[string]interface{}  "厂商列表"
+// @Param        model_type  query     string  false  "Model type (chat, embedding, rerank, vllm)"
+// @Success      200         {object}  map[string]interface{}  "Provider list"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models/providers [get]
@@ -739,9 +739,9 @@ func (h *ModelHandler) ListModelProviders(c *gin.Context) {
 	modelType := c.Query("model_type")
 	logger.Infof(ctx, "Listing model providers for type: %s", secutils.SanitizeForLog(modelType))
 
-	// 将前端类型映射到后端类型
-	// 前端: chat, embedding, rerank, vllm
-	// 后端: KnowledgeQA, Embedding, Rerank, VLLM
+	// maps frontend types to backend types
+	// frontend: chat, embedding, rerank, vllm
+	// backend: KnowledgeQA, Embedding, Rerank, VLLM
 	var backendModelType types.ModelType
 	switch modelType {
 	case "chat":
@@ -760,25 +760,25 @@ func (h *ModelHandler) ListModelProviders(c *gin.Context) {
 
 	var providers []provider.ProviderInfo
 	if modelType != "" {
-		// 按模型类型过滤
+		// filter by model type
 		providers = provider.ListByModelType(backendModelType)
 	} else {
-		// 返回所有 provider
+		// return all providers
 		providers = provider.List()
 	}
 
-	// 转换为 DTO
+	// convert to DTO
 	result := make([]ModelProviderDTO, 0, len(providers))
 	for _, p := range providers {
-		// 转换 DefaultURLs map[types.ModelType]string -> map[string]string
-		// 使用前端兼容的 key (chat 而不是 KnowledgeQA)
+		// convert DefaultURLs map[types.ModelType]string -> map[string]string
+		// use frontend-compatible keys (chat instead of KnowledgeQA)
 		defaultURLs := make(map[string]string)
 		for mt, url := range p.DefaultURLs {
 			frontendType := modelTypeToFrontend(mt)
 			defaultURLs[frontendType] = url
 		}
 
-		// 转换 ModelTypes 为前端兼容格式
+		// convert ModelTypes to frontend-compatible format
 		modelTypes := make([]string, 0, len(p.ModelTypes))
 		for _, mt := range p.ModelTypes {
 			modelTypes = append(modelTypes, modelTypeToFrontend(mt))

@@ -51,9 +51,9 @@ interface SourceItem {
 const props = defineProps<{
   sources: SourceItem[]
   current: string
-  /** 列表顶部的轻量文字触发器（无图标，右对齐） */
+  /** Lightweight text trigger at the top of the list (no icon, right-aligned) */
   inline?: boolean
-  /** 非默认来源时始终显示（便于切回网页对话） */
+  /** Always show when the source isn't default (makes it easy to switch back to web chat) */
   emphasized?: boolean
 }>()
 

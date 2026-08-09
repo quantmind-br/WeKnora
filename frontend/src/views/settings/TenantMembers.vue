@@ -41,7 +41,7 @@
             </template>
           </t-popup>
           <!-- Audit log entry sits inline with the title: title (i)
-               [审计日志]. Keeping all section-level affordances on the
+               [Audit Log]. Keeping all section-level affordances on the
                left edge avoids the "lonely right-aligned button"
                pattern in narrow settings panels. -->
           <t-button v-if="canViewAudit" variant="text" size="small" class="header-audit-btn" @click="openAuditDrawer">
@@ -65,9 +65,9 @@
     </div>
 
     <div class="members-tab-layout">
-      <!-- Toolbar 已被并入「空间成员」列表头：搜索框紧贴列表头右
-           侧，邀请按钮再往右一个图标位，所有「针对这张列表」的控
-           件聚到同一行，独立 toolbar 不复存在。 -->
+      <!-- The toolbar has been merged into the "Space Members" list header: the search box sits right next to the list header
+           on the right, with the invite button one icon-width further right — all controls "acting on this list"
+           are gathered on the same row; the standalone toolbar no longer exists. -->
 
       <!-- Pending invitations. Shown only to managers because the
                viewer/contributor roles don't have an action surface
@@ -80,7 +80,7 @@
             <span class="pending-invitations-title">
               {{ $t('tenantInvitation.pendingSectionTitle') }}
             </span>
-            <!-- Same count-badge style as the «空间成员» list header
+            <!-- Same count-badge style as the "Space Members" list header
                  so the two list titles read at parity. -->
             <span class="members-list-count-badge">{{ invitationsTotal }}</span>
           </div>
@@ -182,9 +182,9 @@
         </div>
       </div>
 
-      <!-- Member list. 列表头（标题 / 计数 / 搜索框 / 邀请按钮）始终
-           渲染，loading / error / empty / 表格作为下方的内容状态切换。
-           这样搜索时输入框不会被卸载，避免焦点丢失与页面抖动。 -->
+      <!-- Member list. The list header (title / count / search box / invite button) always
+           renders; loading / error / empty / table are content states that swap below it.
+           This way the input isn't unmounted while searching, avoiding focus loss and page jitter. -->
       <div class="members-list-wrap">
         <div class="members-list-header">
           <div class="members-list-titlewrap">
@@ -492,7 +492,7 @@
               </t-table>
             </div>
 
-            <!-- 触底 sentinel：IntersectionObserver root 指向 audit-scroll-area -->
+            <!-- Bottom sentinel: IntersectionObserver root points to audit-scroll-area -->
             <div ref="auditLoadSentinelEl" class="audit-load-sentinel" aria-hidden="true" />
 
             <div v-if="auditLoading && auditEntries.length > 0" class="audit-loading-more">
@@ -541,7 +541,7 @@ import {
 const { t, tm, locale } = useI18n()
 const authStore = useAuthStore()
 
-/** 悬停层限制在视口内，内容由内部滚动 */
+/** The hover layer is constrained within the viewport, with internal scrolling for content */
 const permissionsPopupInnerStyle = {
   boxSizing: 'border-box' as const,
   padding: '0',
@@ -556,7 +556,7 @@ const members = ref<TenantMember[]>([])
 const loading = ref(false)
 const error = ref('')
 const adding = ref(false)
-/** 邀请流程：锚在列表头「+」按钮旁的弹出层（非居中模态）。 */
+/** Invite flow: a popover anchored next to the "+" button in the list header (not a centered modal). */
 const invitePopupVisible = ref(false)
 // share-link generator state (separate popup next to the email
 // invite). shareLinkResult is non-null after a successful create —
@@ -570,7 +570,7 @@ const shareLinkResult = ref<TenantInvitation | null>(null)
 const addDialogStep = ref<'form' | 'confirm'>('form')
 const addFormRef = ref<any>(null)
 const searchQuery = ref('')
-/** 已应用到服务端筛选的检索词（相对输入框防抖） */
+/** The search term already applied to server-side filtering (debounced relative to the input) */
 const memberSearchQ = ref('')
 let memberSearchDebounceTimer: number | undefined
 
@@ -582,7 +582,7 @@ const invitationsTotal = ref(0)
 const invitationsPage = ref(1)
 const invitationsPageSize = ref(20)
 
-/** 历次分页载荷里见过的成员展示字段，补齐审计表里不在当前页的 user id */
+/** Member display fields seen in previous pagination payloads, used to fill in user IDs in the audit table that aren't on the current page */
 const memberDisplayByUserId = reactive<Record<string, { username?: string; email?: string }>>({})
 
 // Pending invitations live alongside members but in a distinct section
@@ -622,7 +622,7 @@ const auditHasMore = ref(true)
 const auditLoadedOnce = ref(false)
 const AUDIT_PAGE_SIZE = 50
 
-/** 抽屉内滚动根与触底 sentinel，用于游标分页自动加载下一页（见 attachAuditInfiniteScroll） */
+/** Scroll root and bottom sentinel inside the drawer, used for cursor-based pagination auto-loading the next page (see attachAuditInfiniteScroll) */
 const auditScrollRoot = ref<HTMLElement | null>(null)
 const auditLoadSentinelEl = ref<HTMLElement | null>(null)
 let auditScrollObserver: IntersectionObserver | null = null
@@ -670,7 +670,7 @@ const roleOptions = computed(() => [
   { label: t('tenantMember.role.viewer'), value: 'viewer' },
 ])
 
-/** 下拉层须高于邀请浮层（3050）与组织设置全屏遮罩，否则会被压住 */
+/** The dropdown layer must be above the invite popover (3050) and the org settings full-screen overlay, or it gets covered */
 const roleSelectPopupProps = {
   zIndex: 6200,
   overlayClassName: 'tenant-members-role-select-popup',
@@ -768,7 +768,7 @@ function roleTagTheme(role: TenantRole): 'primary' | 'warning' | 'success' | 'de
   }
 }
 
-/** 成员表/下拉与权限矩阵共用图标（crown 不在 tdesign-icons-vue-next 中）。 */
+/** Member table/dropdown and the permission matrix share an icon (crown isn't in tdesign-icons-vue-next). */
 function roleIcon(role: TenantRole | string): string {
   if (role === 'owner' || role === 'admin' || role === 'contributor' || role === 'viewer') {
     return roleMatrixIcon(role as TenantRole)
@@ -780,7 +780,7 @@ function formatDate(s: string | undefined): string {
   if (!s) return '-'
   try {
     const d = new Date(s)
-    return new Intl.DateTimeFormat(locale.value || 'zh-CN', {
+    return new Intl.DateTimeFormat(locale.value || 'en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -999,7 +999,7 @@ const auditColumns = computed(() => [
 function formatAuditDatePart(s: string | undefined): string {
   if (!s) return '-'
   try {
-    return new Intl.DateTimeFormat(locale.value || 'zh-CN', {
+    return new Intl.DateTimeFormat(locale.value || 'en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -1012,7 +1012,7 @@ function formatAuditDatePart(s: string | undefined): string {
 function formatAuditTimePart(s: string | undefined): string {
   if (!s) return ''
   try {
-    return new Intl.DateTimeFormat(locale.value || 'zh-CN', {
+    return new Intl.DateTimeFormat(locale.value || 'en-US', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
@@ -1051,14 +1051,14 @@ function auditOutcomeTheme(o: AuditOutcome): 'success' | 'danger' | 'default' {
   return 'default'
 }
 
-// i18n 键名含点号（rbac.member_added）。用 t(path) 会按路径拆开解析，
-// 无法命中 tenantMember.audit.action['rbac.*'] — 必须用 tm + 字面量键。
+// The i18n key contains a dot (rbac.member_added). Using t(path) would split and resolve it by path,
+// which can't match tenantMember.audit.action['rbac.*'] — must use tm with a literal key.
 function formatAuditAction(action: AuditAction): string {
   return auditActionLabel({ tm }, AUDIT_ACTION_I18N_ROOTS.tenantMember, action)
 }
 
-// Resolve a user id to a display label: prefer current页的 members，
-// 再退到历次分页积累的 memberDisplayByUserId，最后是原始 id。
+// Resolve a user id to a display label: prefer members from the current page,
+// then fall back to memberDisplayByUserId accumulated from previous pages, and finally the raw id.
 function actorDisplayName(userId: string): string {
   const cur = members.value.find((x) => x.user_id === userId)
   if (cur?.username?.trim()) return cur.username.trim()
@@ -1403,9 +1403,9 @@ async function onRoleChange(row: TenantMember, newRole: string) {
   }
 }
 
-// 原地 popconfirm 替代 DialogPlugin 模态确认：与"共享资源删除"等其它列表内
-// 的删除入口风格统一，避免一个简单的二次确认打断成员管理表格的浏览节奏。
-// 错误分支保持与旧实现一致（409 last-owner / 404 not-found / 兜底）。
+// In-place popconfirm replacing the DialogPlugin modal confirmation: keeps the style consistent with other in-list delete entries like "shared resource deletion,"
+// avoiding a simple confirmation from interrupting the browsing flow of the member management table.
+// Error branches kept consistent with the old implementation (409 last-owner / 404 not-found / fallback).
 async function removeRow(row: TenantMember) {
   try {
     const resp = await removeMember(activeTenantId.value, row.user_id)
@@ -1523,8 +1523,8 @@ watch(
   }
 }
 
-/* 顶部右侧的「审计日志」入口。t-button variant="text" 自带颜色
-   交互；这里只调 flex 行为，避免在 wrap 时被挤压。 */
+/* The "Audit Log" entry on the top right. t-button variant="text" already has its own color
+   interaction; here we only adjust flex behavior, to avoid it getting squeezed when wrapping. */
 .header-audit-btn {
   flex-shrink: 0;
 }
@@ -1534,8 +1534,8 @@ watch(
   flex-direction: column;
 }
 
-/* 带子分页的卡片：仅在表格主体上横向滚动，页脚不参与滚动，避免分页条被卷入或对齐错位。
-   双类选择器用于盖过根上 .data-table-shell 的 overflow-x: auto */
+/* Card with sub-pagination: only the table body scrolls horizontally; the footer doesn't scroll, avoiding the pagination bar getting caught in the scroll or misaligned.
+   Dual-class selector used to override the .data-table-shell's overflow-x: auto on the root */
 .data-table-shell.data-table-shell--with-footer {
   display: flex;
   flex-direction: column;
@@ -1565,7 +1565,7 @@ watch(
   }
 }
 
-/* 待接受区块整体为浅底色，分页条与表格区同色阶、仅靠顶部分割线与表格区分 */
+/* The pending-acceptance block has a uniform light background; the pagination bar and table area share the same shade, separated only by a top divider */
 .pending-invitations-table.data-table-shell.data-table-shell--with-footer>.data-table-shell__pager {
   background-color: transparent;
 }
@@ -1602,8 +1602,8 @@ watch(
   }
 }
 
-/* 列表上方的标题行：「空间成员 [N] · 筛选出 K」 左侧；右侧
-   是「搜索 + 邀请按钮」一组。视觉级别与「待接受邀请」一致。 */
+/* Title row above the list: "Space Members [N] · K filtered" on the left; on the right
+   is the "search + invite button" group. Same visual level as "Pending Invitations." */
 .members-list-wrap {
   display: flex;
   flex-direction: column;
@@ -1632,8 +1632,8 @@ watch(
   color: var(--td-text-color-primary);
 }
 
-/* 数字外面套一个浅底圆角徽章，避免裸露的「成员 1」读起来像
-   排版残留。色阶与 td-tag default+light 看齐。 */
+/* Wrap the number in a light rounded badge, so a bare "Member 1" doesn't read like
+   leftover formatting. Shade matches td-tag default+light. */
 .members-list-count-badge {
   display: inline-flex;
   align-items: center;
@@ -1663,9 +1663,9 @@ watch(
 }
 
 .members-list-search {
-  /* 用显式 width 锁定外层尺寸，避免 inline-flex 父容器下子项跟随
-     内容宽度变化（TDesign t-input 在 hover/focus 时会显示 clearable
-     的 × 图标、边框态切换），导致整行横向抖动。 */
+  /* Lock the outer size with an explicit width, to prevent a child from following
+     content width changes inside an inline-flex parent (TDesign t-input shows a clearable icon on hover/focus
+     ×icon, border-state toggle), causing the whole row to shake horizontally. */
   flex: 0 0 14rem;
   width: 14rem;
   min-width: 0;
@@ -1675,8 +1675,8 @@ watch(
   }
 }
 
-/* 列表头的邀请按钮：outline + primary，自带外框，比裸 icon
-   有分量；shape="square" 让它仍然是个紧凑的图标按钮。 */
+/* Invite button in the list header: outline + primary, has its own border, more substantial than a bare icon
+   shape="square" keeps it a compact icon button. */
 .members-list-add-btn {
   flex-shrink: 0;
 }
@@ -1711,8 +1711,8 @@ watch(
     padding-bottom: 12px;
   }
 
-  /* 角色列：下拉收缩到内容宽度，不再撑满整格。原先 100% 在窄角色
-     名（如"Owner"）下显得空荡且与其他列对不齐。 */
+  /* Role column: dropdown shrinks to content width, no longer fills the whole cell. Previously 100% looked empty and misaligned under narrow role names (e.g. "Owner")
+     names (e.g. "Owner") looks empty and misaligned with the other columns. */
   &:deep(.role-cell) {
     display: flex;
     align-items: center;
@@ -1861,7 +1861,7 @@ watch(
     }
   }
 
-  /* Hover 弹出层：压扁占位 + 2×2 角色块 + 内部滚动 */
+  /* Hover popover: flattened placeholder + 2×2 role grid + internal scroll */
   &.permissions-compact--popover {
     padding: 10px 12px;
     margin: 0;
@@ -2318,7 +2318,7 @@ watch(
 </style>
 
 <style lang="less">
-/* 权限说明弹出层（t-popup 挂到 body，须全局样式） */
+/* Permission description popover (t-popup mounted to body, needs global styles) */
 .permissions-popup-overlay {
   z-index: 3050 !important;
 
@@ -2449,7 +2449,7 @@ watch(
   }
 }
 
-/* t-popup 挂到 body，需全局样式；z-index 需高于设置全屏遮罩（2000）。 */
+/* t-popup mounted to body, needs global styles; z-index must be higher than the settings full-screen mask (2000). */
 .member-invite-popup-overlay {
   z-index: 3050 !important;
 
@@ -2478,7 +2478,7 @@ watch(
     0 8px 32px rgba(0, 0, 0, 0.28) !important;
 }
 
-/* 角色下拉挂到 body 时可能被邀请 Popup / 设置遮罩盖住，类名挂在 t-popup 根节点 */
+/* Role dropdown mounted to body may be covered by the invite popup / settings mask; class is attached to the t-popup root node */
 .tenant-members-role-select-popup {
   z-index: 6200 !important;
 
@@ -2493,7 +2493,7 @@ watch(
   }
 }
 
-/* 成员页审计抽屉 teleport 到 body，须全局样式才能把 body 高度链拉满以便内层滚动 */
+/* Member page audit drawer teleported to body, needs global styles to stretch the body height chain for inner scrolling */
 .t-drawer.tenant-members-audit-drawer.t-drawer--right .t-drawer__content-wrapper--right {
   box-sizing: border-box;
   display: flex;

@@ -1,56 +1,56 @@
-# 会话管理 API
+# Session Management API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-会话（Session）是纯粹的对话容器，仅存储基础信息（标题、描述、置顶状态等）。所有与知识库、模型、检索策略相关的配置均在查询时由 Custom Agent 提供，不再存储在会话中。
+A Session is a pure conversation container that stores only basic information (title, description, pinned status, etc.). All configuration related to knowledge bases, models, and retrieval strategies is now provided by the Custom Agent at query time, and is no longer stored in the session.
 
-| 方法   | 路径                                       | 描述                          |
-| ------ | ------------------------------------------ | ----------------------------- |
-| POST   | `/sessions`                                | 创建会话                      |
-| DELETE | `/sessions/batch`                          | 批量删除会话                  |
-| GET    | `/sessions/:id`                            | 获取会话详情                  |
-| GET    | `/sessions`                                | 获取当前空间的会话列表        |
-| PUT    | `/sessions/:id`                            | 更新会话                      |
-| DELETE | `/sessions/:id`                            | 删除会话                      |
-| DELETE | `/sessions/:id/messages`                   | 清空会话消息                  |
-| POST   | `/sessions/:session_id/generate_title`     | 生成会话标题                  |
-| POST   | `/sessions/:session_id/stop`               | 停止生成                      |
-| POST   | `/sessions/:session_id/pin`                | 置顶会话                      |
-| DELETE | `/sessions/:id/pin`                        | 取消置顶会话                  |
-| GET    | `/sessions/continue-stream/:session_id`    | 继续未完成的流式响应          |
+| Method | Path                                       | Description                    |
+| ------ | ------------------------------------------ | ------------------------------- |
+| POST   | `/sessions`                                | Create a session                |
+| DELETE | `/sessions/batch`                          | Batch delete sessions           |
+| GET    | `/sessions/:id`                            | Get session details             |
+| GET    | `/sessions`                                | Get the session list for the current space |
+| PUT    | `/sessions/:id`                            | Update a session                |
+| DELETE | `/sessions/:id`                            | Delete a session                |
+| DELETE | `/sessions/:id/messages`                   | Clear session messages          |
+| POST   | `/sessions/:session_id/generate_title`     | Generate a session title        |
+| POST   | `/sessions/:session_id/stop`               | Stop generation                 |
+| POST   | `/sessions/:session_id/pin`                | Pin a session                   |
+| DELETE | `/sessions/:id/pin`                        | Unpin a session                 |
+| GET    | `/sessions/continue-stream/:session_id`    | Resume an unfinished streaming response |
 
-> **路由命名说明**：置顶接口的 POST 与 DELETE 使用了不同的路径参数名（POST 用 `:session_id`，DELETE 用 `:id`）。这是由于 gin 路由器为每个 HTTP 方法维护独立的 radix tree，且既有树中的通配符命名不同，必须保留以避免注册时的 `wildcard conflicts` panic。两者语义上都指会话 ID。
+> **Route naming note**: The pin endpoints' POST and DELETE use different path parameter names (POST uses `:session_id`, DELETE uses `:id`). This is because the gin router maintains a separate radix tree for each HTTP method, and the wildcard names in the existing trees differ; they must be kept as-is to avoid a `wildcard conflicts` panic at registration time. Semantically, both refer to the session ID.
 
-## POST `/sessions` - 创建会话
+## POST `/sessions` - Create a session
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/sessions' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "我的新对话",
-    "description": "关于 AI 的讨论"
+    "title": "My new conversation",
+    "description": "A discussion about AI"
 }'
 ```
 
-**请求参数**:
+**Request parameters**:
 
-| 字段          | 类型   | 必填 | 描述     |
-| ------------- | ------ | ---- | -------- |
-| `title`       | string | 否   | 会话标题 |
-| `description` | string | 否   | 会话描述 |
+| Field         | Type   | Required | Description       |
+| ------------- | ------ | -------- | ------------------ |
+| `title`       | string | No       | Session title       |
+| `description` | string | No       | Session description |
 
-**响应**:
+**Response**:
 
 ```json
 {
     "success": true,
     "data": {
         "id": "411d6b70-9a85-4d03-bb74-aab0fd8bd12f",
-        "title": "我的新对话",
-        "description": "关于 AI 的讨论",
+        "title": "My new conversation",
+        "description": "A discussion about AI",
         "tenant_id": 1,
         "user_id": "u-001",
         "is_pinned": false,
@@ -61,13 +61,13 @@ curl --location 'http://localhost:8080/api/v1/sessions' \
 }
 ```
 
-> 通过 API-Key 调用时 `user_id` 可能为空，此时会话以空间级可见。
+> When calling via an API key, `user_id` may be empty, in which case the session is visible at the space level.
 
-## DELETE `/sessions/batch` - 批量删除会话
+## DELETE `/sessions/batch` - Batch delete sessions
 
-支持两种模式：按 ID 列表批量删除，或删除当前空间的所有会话。
+Two modes are supported: batch delete by a list of IDs, or delete all sessions in the current space.
 
-**请求 - 按 ID 列表删除**:
+**Request - Delete by ID list**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/batch' \
@@ -81,7 +81,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/batch' \
 }'
 ```
 
-**请求 - 删除所有会话**:
+**Request - Delete all sessions**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/batch' \
@@ -92,14 +92,14 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/batch' \
 }'
 ```
 
-**请求参数**:
+**Request parameters**:
 
-| 字段         | 类型     | 必填 | 描述                                                       |
-| ------------ | -------- | ---- | ---------------------------------------------------------- |
-| `ids`        | string[] | 否   | 要删除的会话 ID 列表（`delete_all` 为 `false` 时必填）     |
-| `delete_all` | bool     | 否   | 设为 `true` 时删除当前空间的所有会话，忽略 `ids` 字段      |
+| Field        | Type     | Required | Description                                                       |
+| ------------ | -------- | -------- | ------------------------------------------------------------------ |
+| `ids`        | string[] | No       | List of session IDs to delete (required when `delete_all` is `false`) |
+| `delete_all` | bool     | No       | When set to `true`, deletes all sessions in the current space, ignoring the `ids` field |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -108,11 +108,11 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/batch' \
 }
 ```
 
-`delete_all=true` 时 `message` 为 `"All sessions deleted successfully"`。
+When `delete_all=true`, the `message` is `"All sessions deleted successfully"`.
 
-## GET `/sessions/:id` - 获取会话详情
+## GET `/sessions/:id` - Get session details
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-fd584954304b' \
@@ -120,20 +120,20 @@ curl --location 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-f
 --header 'Content-Type: application/json'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 描述    |
-| ---- | ------ | ---- | ------- |
-| `id` | string | 是   | 会话 ID |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| `id`  | string | Yes      | Session ID   |
 
-**响应**:
+**Response**:
 
 ```json
 {
     "success": true,
     "data": {
         "id": "ceb9babb-1e30-41d7-817d-fd584954304b",
-        "title": "模型优化策略",
+        "title": "Model optimization strategy",
         "description": "",
         "tenant_id": 1,
         "user_id": "u-001",
@@ -146,13 +146,13 @@ curl --location 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-f
 }
 ```
 
-会话不存在时返回 `404`。
+Returns `404` if the session does not exist.
 
-## GET `/sessions` - 获取当前空间的会话列表
+## GET `/sessions` - Get the session list for the current space
 
-获取当前空间的会话列表，支持分页、关键字搜索、按来源 / Agent 过滤。
+Retrieves the session list for the current space, with support for pagination, keyword search, and filtering by source / Agent.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/sessions?page=1&page_size=10&keyword=AI&source=web' \
@@ -160,17 +160,17 @@ curl --location 'http://localhost:8080/api/v1/sessions?page=1&page_size=10&keywo
 --header 'Content-Type: application/json'
 ```
 
-**查询参数**:
+**Query parameters**:
 
-| 字段        | 类型   | 必填 | 描述                                                              |
-| ----------- | ------ | ---- | ----------------------------------------------------------------- |
-| `page`      | int    | 否   | 页码（默认 1）                                                    |
-| `page_size` | int    | 否   | 每页数量（默认 10）                                               |
-| `keyword`   | string | 否   | 按标题模糊匹配（ILIKE `%keyword%`）                               |
-| `source`    | string | 否   | 来源过滤：`web`（无 IM 映射）或 IM 平台名，如 `feishu`、`wechat`、`slack` |
-| `agent_id`  | string | 否   | 按 Agent 过滤（仅对 IM 会话生效）                                 |
+| Field       | Type   | Required | Description                                                              |
+| ----------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `page`      | int    | No       | Page number (default 1)                                                    |
+| `page_size` | int    | No       | Items per page (default 10)                                                |
+| `keyword`   | string | No       | Fuzzy match on title (ILIKE `%keyword%`)                                   |
+| `source`    | string | No       | Source filter: `web` (no IM mapping) or an IM platform name, e.g. `feishu`, `wechat`, `slack` |
+| `agent_id`  | string | No       | Filter by Agent (only applies to IM sessions)                              |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -178,7 +178,7 @@ curl --location 'http://localhost:8080/api/v1/sessions?page=1&page_size=10&keywo
     "data": [
         {
             "id": "411d6b70-9a85-4d03-bb74-aab0fd8bd12f",
-            "title": "我的新对话",
+            "title": "My new conversation",
             "description": "",
             "tenant_id": 1,
             "user_id": "u-001",
@@ -198,44 +198,44 @@ curl --location 'http://localhost:8080/api/v1/sessions?page=1&page_size=10&keywo
 }
 ```
 
-> 列表项始终包含置顶状态字段，IM 来源相关字段（`im_platform`、`im_chat_id`、`im_thread_id`、`im_user_id`、`im_agent_id`、`im_channel_id`）仅对 IM 创建的会话填充，Web 会话省略。
+> List items always include the pinned status field. IM-source-related fields (`im_platform`, `im_chat_id`, `im_thread_id`, `im_user_id`, `im_agent_id`, `im_channel_id`) are only populated for sessions created via IM, and are omitted for Web sessions.
 
-## PUT `/sessions/:id` - 更新会话
+## PUT `/sessions/:id` - Update a session
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/sessions/411d6b70-9a85-4d03-bb74-aab0fd8bd12f' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "WeKnora 技术讨论",
-    "description": "关于 WeKnora 架构的讨论"
+    "title": "WeKnora technical discussion",
+    "description": "A discussion about WeKnora's architecture"
 }'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 描述    |
-| ---- | ------ | ---- | ------- |
-| `id` | string | 是   | 会话 ID |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| `id`  | string | Yes      | Session ID   |
 
-**请求参数**:
+**Request parameters**:
 
-| 字段          | 类型   | 必填 | 描述     |
-| ------------- | ------ | ---- | -------- |
-| `title`       | string | 否   | 会话标题 |
-| `description` | string | 否   | 会话描述 |
+| Field         | Type   | Required | Description       |
+| ------------- | ------ | -------- | ------------------ |
+| `title`       | string | No       | Session title       |
+| `description` | string | No       | Session description |
 
-**响应**:
+**Response**:
 
 ```json
 {
     "success": true,
     "data": {
         "id": "411d6b70-9a85-4d03-bb74-aab0fd8bd12f",
-        "title": "WeKnora 技术讨论",
-        "description": "关于 WeKnora 架构的讨论",
+        "title": "WeKnora technical discussion",
+        "description": "A discussion about WeKnora's architecture",
         "tenant_id": 1,
         "user_id": "u-001",
         "is_pinned": false,
@@ -246,11 +246,11 @@ curl --location --request PUT 'http://localhost:8080/api/v1/sessions/411d6b70-9a
 }
 ```
 
-会话不存在时返回 `404`。
+Returns `404` if the session does not exist.
 
-## DELETE `/sessions/:id` - 删除会话
+## DELETE `/sessions/:id` - Delete a session
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/411d6b70-9a85-4d03-bb74-aab0fd8bd12f' \
@@ -258,13 +258,13 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/411d6b70
 --header 'Content-Type: application/json'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 描述    |
-| ---- | ------ | ---- | ------- |
-| `id` | string | 是   | 会话 ID |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| `id`  | string | Yes      | Session ID   |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -273,11 +273,11 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/411d6b70
 }
 ```
 
-## DELETE `/sessions/:id/messages` - 清空会话消息
+## DELETE `/sessions/:id/messages` - Clear session messages
 
-删除会话中的所有消息，同时清除 LLM 上下文和聊天历史知识库条目。会话本身保留。
+Deletes all messages in the session, and also clears the LLM context and chat-history knowledge base entries. The session itself is retained.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-fd584954304b/messages' \
@@ -285,13 +285,13 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/ceb9babb
 --header 'Content-Type: application/json'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 描述    |
-| ---- | ------ | ---- | ------- |
-| `id` | string | 是   | 会话 ID |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| `id`  | string | Yes      | Session ID   |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -300,11 +300,11 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/ceb9babb
 }
 ```
 
-## POST `/sessions/:session_id/generate_title` - 生成会话标题
+## POST `/sessions/:session_id/generate_title` - Generate a session title
 
-根据消息内容自动生成会话标题。
+Automatically generates a session title based on message content.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-fd584954304b/generate_title' \
@@ -314,42 +314,42 @@ curl --location 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-f
   "messages": [
     {
       "role": "user",
-      "content": "你好，我想了解关于人工智能的知识"
+      "content": "Hi, I'd like to learn about artificial intelligence"
     },
     {
       "role": "assistant",
-      "content": "人工智能是计算机科学的一个分支..."
+      "content": "Artificial intelligence is a branch of computer science..."
     }
   ]
 }'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段         | 类型   | 必填 | 描述    |
-| ------------ | ------ | ---- | ------- |
-| `session_id` | string | 是   | 会话 ID |
+| Field        | Type   | Required | Description |
+| ------------ | ------ | -------- | ------------ |
+| `session_id` | string | Yes      | Session ID   |
 
-**请求参数**:
+**Request parameters**:
 
-| 字段       | 类型      | 必填 | 描述                         |
-| ---------- | --------- | ---- | ---------------------------- |
-| `messages` | Message[] | 是   | 用作标题生成上下文的消息列表 |
+| Field      | Type      | Required | Description                                  |
+| ---------- | --------- | -------- | ---------------------------------------------- |
+| `messages` | Message[] | Yes      | List of messages used as context for title generation |
 
-**响应**:
+**Response**:
 
 ```json
 {
     "success": true,
-    "data": "人工智能基础知识"
+    "data": "Artificial Intelligence Basics"
 }
 ```
 
-## POST `/sessions/:session_id/stop` - 停止生成
+## POST `/sessions/:session_id/stop` - Stop generation
 
-停止当前正在进行的助手回复生成任务。后端会向流中追加一条 `stop` 事件，由活跃的 SSE 处理协程感知并发起取消。
+Stops the assistant's currently in-progress reply generation task. The backend appends a `stop` event to the stream, which the active SSE handling goroutine detects and uses to trigger cancellation.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/sessions/7c966c74-610e-4516-8d5b-05e14b2e4ee0/stop' \
@@ -360,19 +360,19 @@ curl --location 'http://localhost:8080/api/v1/sessions/7c966c74-610e-4516-8d5b-0
 }'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段         | 类型   | 必填 | 描述    |
-| ------------ | ------ | ---- | ------- |
-| `session_id` | string | 是   | 会话 ID |
+| Field        | Type   | Required | Description |
+| ------------ | ------ | -------- | ------------ |
+| `session_id` | string | Yes      | Session ID   |
 
-**请求参数**:
+**Request parameters**:
 
-| 字段         | 类型   | 必填 | 描述                    |
-| ------------ | ------ | ---- | ----------------------- |
-| `message_id` | string | 是   | 要停止生成的助手消息 ID |
+| Field        | Type   | Required | Description                          |
+| ------------ | ------ | -------- | -------------------------------------- |
+| `message_id` | string | Yes      | ID of the assistant message to stop generating |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -381,7 +381,7 @@ curl --location 'http://localhost:8080/api/v1/sessions/7c966c74-610e-4516-8d5b-0
 }
 ```
 
-若消息已完成（无需停止）：
+If the message has already completed (no need to stop):
 
 ```json
 {
@@ -390,26 +390,26 @@ curl --location 'http://localhost:8080/api/v1/sessions/7c966c74-610e-4516-8d5b-0
 }
 ```
 
-> 消息不属于当前会话返回 `403`；消息或会话不存在返回 `404`。
+> Returns `403` if the message does not belong to the current session; returns `404` if the message or session does not exist.
 
-## POST `/sessions/:session_id/pin` - 置顶会话
+## POST `/sessions/:session_id/pin` - Pin a session
 
-将指定会话置顶（用户维度）。
+Pins the specified session (per user).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-fd584954304b/pin' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段         | 类型   | 必填 | 描述    |
-| ------------ | ------ | ---- | ------- |
-| `session_id` | string | 是   | 会话 ID |
+| Field        | Type   | Required | Description |
+| ------------ | ------ | -------- | ------------ |
+| `session_id` | string | Yes      | Session ID   |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -418,26 +418,26 @@ curl --location --request POST 'http://localhost:8080/api/v1/sessions/ceb9babb-1
 }
 ```
 
-会话不存在或对当前用户不可见时返回 `404`。
+Returns `404` if the session does not exist or is not visible to the current user.
 
-## DELETE `/sessions/:id/pin` - 取消置顶会话
+## DELETE `/sessions/:id/pin` - Unpin a session
 
-取消指定会话的置顶。
+Unpins the specified session.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/ceb9babb-1e30-41d7-817d-fd584954304b/pin' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 描述    |
-| ---- | ------ | ---- | ------- |
-| `id` | string | 是   | 会话 ID |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| `id`  | string | Yes      | Session ID   |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -446,25 +446,25 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/sessions/ceb9babb
 }
 ```
 
-> 同上，`POST /pin` 与 `DELETE /pin` 路径参数名不同，但语义上都是会话 ID。
+> As above, `POST /pin` and `DELETE /pin` use different path parameter names, but both refer to the session ID semantically.
 
-## GET `/sessions/continue-stream/:session_id` - 继续未完成的流式响应
+## GET `/sessions/continue-stream/:session_id` - Resume an unfinished streaming response
 
-用于在 SSE 连接断开后重新连接正在进行的流式响应：先回放该消息已产生的所有事件，再继续推送后续事件，直至 `complete`。
+Used to reconnect to an in-progress streaming response after an SSE connection has been dropped: it first replays all events already produced for that message, then continues pushing subsequent events until `complete`.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段         | 类型   | 必填 | 描述    |
-| ------------ | ------ | ---- | ------- |
-| `session_id` | string | 是   | 会话 ID |
+| Field        | Type   | Required | Description |
+| ------------ | ------ | -------- | ------------ |
+| `session_id` | string | Yes      | Session ID   |
 
-**查询参数**:
+**Query parameters**:
 
-| 字段         | 类型   | 必填 | 描述                                                                            |
-| ------------ | ------ | ---- | ------------------------------------------------------------------------------- |
-| `message_id` | string | 是   | 从 `/messages/:session_id/load` 接口中获取的 `is_completed` 为 `false` 的消息 ID |
+| Field        | Type   | Required | Description                                                                       |
+| ------------ | ------ | -------- | ------------------------------------------------------------------------------------- |
+| `message_id` | string | Yes      | The ID of a message whose `is_completed` is `false`, obtained from the `/messages/:session_id/load` endpoint |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/sessions/continue-stream/ceb9babb-1e30-41d7-817d-fd584954304b?message_id=b8b90eeb-7dd5-4cf9-81c6-5ebcbd759451' \
@@ -472,6 +472,6 @@ curl --location 'http://localhost:8080/api/v1/sessions/continue-stream/ceb9babb-
 --header 'Content-Type: application/json'
 ```
 
-**响应格式**:
+**Response format**:
 
-服务器端事件流（Server-Sent Events），事件结构与 `/knowledge-chat/:session_id`、`/agent-chat/:session_id` 返回结果一致。若该消息当前在流中已无事件返回 `404 No stream events found`；若消息记录不存在返回 `404 Incomplete message not found`。
+A Server-Sent Events stream, with event structure identical to that returned by `/knowledge-chat/:session_id` and `/agent-chat/:session_id`. Returns `404 No stream events found` if there are currently no stream events for the message; returns `404 Incomplete message not found` if the message record does not exist.

@@ -1,16 +1,19 @@
+Vou traduzir o documento markdown para inglês, preservando toda a estrutura.
+
+--- DOCUMENT START ---
 # Skills API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-| 方法 | 路径      | 描述               |
-| ---- | --------- | ------------------ |
-| GET  | `/skills` | 获取预装 Skills 列表 |
+| Method | Path      | Description                    |
+| ------ | --------- | ------------------------------- |
+| GET    | `/skills` | Get the list of pre-installed Skills |
 
-## GET `/skills` - 获取预装 Skills 列表
+## GET `/skills` - Get the List of Pre-installed Skills
 
-获取系统中所有预装的智能体技能列表。
+Retrieves the list of all pre-installed agent skills in the system.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/skills' \
@@ -18,22 +21,22 @@ curl --location 'http://localhost:8080/api/v1/skills' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": [
         {
             "name": "web_search",
-            "description": "搜索互联网获取最新信息"
+            "description": "Search the internet for the latest information"
         },
         {
             "name": "code_interpreter",
-            "description": "执行代码并返回结果"
+            "description": "Execute code and return the results"
         },
         {
             "name": "image_generation",
-            "description": "根据文本描述生成图片"
+            "description": "Generate images from text descriptions"
         }
     ],
     "skills_available": true,
@@ -41,7 +44,7 @@ curl --location 'http://localhost:8080/api/v1/skills' \
 }
 ```
 
-当系统未配置 Skills 时，`skills_available` 返回 `false`，`data` 为空数组：
+When Skills are not configured in the system, `skills_available` returns `false` and `data` is an empty array:
 
 ```json
 {
@@ -50,3 +53,5 @@ curl --location 'http://localhost:8080/api/v1/skills' \
     "success": true
 }
 ```
+
+--- DOCUMENT END ---

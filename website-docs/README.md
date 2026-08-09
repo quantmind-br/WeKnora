@@ -1,198 +1,202 @@
-# WeKnora 文档
+Vou traduzir agora. Documento grande, formatação markdown mantida.
 
-WeKnora（维娜拉）是腾讯开源的企业级知识库与 RAG（Retrieval-Augmented Generation）系统：Go 单体后端 + Vue 3 前端 + Python 文档解析微服务（docreader），支持多租户、多知识库、混合检索、Agent 智能体、知识图谱、Wiki 生成、MCP 集成、多平台 IM 接入与网页嵌入等能力。
+---
 
-本目录是 WeKnora 的官方文档，按「入门 → 架构 → 功能 → API → 客户端 → 开发」六个部分组织。
+# WeKnora Documentation
 
-## 文档站点
+WeKnora is Tencent's open-source enterprise-grade knowledge base and RAG (Retrieval-Augmented Generation) system: a Go monolithic backend + Vue 3 frontend + Python document parsing microservice (docreader), supporting multi-tenancy, multiple knowledge bases, hybrid retrieval, Agent capabilities, knowledge graphs, Wiki generation, MCP integration, multi-platform IM access, and web embedding, among other capabilities.
 
-本目录同时是一个 VitePress 站点，Markdown 即页面，新增文件会自动进入侧边栏（标题取正文一级标题，目录顺序按文件名数字前缀）。
+This directory is the official WeKnora documentation, organized into six parts: "Getting Started → Architecture → Features → API → Clients → Development."
+
+## Documentation Site
+
+This directory is also a VitePress site — Markdown files become pages, and new files are automatically added to the sidebar (the title is taken from the first-level heading in the body, and the directory order follows the numeric prefix in the filename).
 
 ```bash
 npm install
-npm run dev      # 本地预览
-npm run build    # 产物输出到 .vitepress/dist
-npm run preview  # 预览构建产物
+npm run dev      # local preview
+npm run build    # output to .vitepress/dist
+npm run preview  # preview the build output
 ```
 
-主题位于 `.vitepress/theme/`：`style.css` 是排版与配色的单一来源，`Landing.vue` 是首页。
+The theme is located in `.vitepress/theme/`: `style.css` is the single source of truth for typography and colors, and `Landing.vue` is the homepage.
 
-## 写作约定
+## Writing Conventions
 
-- **先讲怎么用，再讲怎么实现。** 每篇功能文档开头回答「这东西解决什么问题、在界面上怎么用」，之后才展开数据模型、流程与源码细节；源码索引统一放在文末的「实现参考」小节。
-- **面向用户的章节**（01 快速开始、03 功能模块、05 客户端）以任务为主线；**面向开发者的章节**（02 架构、04 API、06 开发指南）以结构为主线，可以直接深入细节。
-- 涉及界面操作的地方配截图，用 `<Screenshot>` 组件引用（见下节）。
+- **Explain how to use it first, then how it's implemented.** Each feature document should begin by answering "what problem does this solve, and how is it used in the UI," before moving on to the data model, workflow, and source code details; source code references are consolidated in an "Implementation Reference" section at the end.
+- **User-facing sections** (01 Getting Started, 03 Feature Modules, 05 Clients) are organized around tasks; **developer-facing sections** (02 Architecture, 04 API, 06 Development Guide) are organized around structure and can dive directly into details.
+- Wherever UI operations are involved, include screenshots referenced via the `<Screenshot>` component (see the section below).
 
-## 截图
+## Screenshots
 
-截图用全局组件 `<Screenshot>` 引用，图片放在 `public/screenshots/` 下：
+Screenshots are referenced using the global `<Screenshot>` component, with images placed under `public/screenshots/`:
 
 ```md
 <Screenshot
   src="/screenshots/kb-document-list.png"
-  caption="知识库文档列表：解析状态、标签与批量操作"
-  hint="展示文档列表页，包含解析状态列、标签列、顶部筛选栏与勾选后出现的批量操作栏。" />
+  caption="Knowledge base document list: parsing status, tags, and batch operations"
+  hint="Shows the document list page, including the parsing status column, tags column, top filter bar, and the batch operations bar that appears after selection." />
 ```
 
-图片文件不存在时，组件会渲染成一个带说明的虚线占位框，标出期望的文件路径与该图应当展示的内容；把同名图片放进 `website-docs/public/screenshots/` 即可自动生效，**不需要改 Markdown**。
+When the image file doesn't exist, the component renders as a dashed placeholder box with a caption, indicating the expected file path and what the image should show. Simply place a same-named image file into `website-docs/public/screenshots/` for it to take effect automatically — **no need to modify the Markdown**.
 
-当前待补充的截图共 31 张：
+There are currently 31 screenshots pending:
 
-| 文件名（放在 `public/screenshots/` 下） | 出现位置 | 应当展示 |
+| Filename (placed under `public/screenshots/`) | Appears in | Should show |
 | --- | --- | --- |
-| `introduction-overview.png` | 产品介绍 | 登录后的主界面全貌 |
-| `quickstart-register.png` | 快速上手 | 注册页 |
-| `quickstart-init-wizard.png` | 快速上手 | 初始化向导中的模型配置 |
-| `quickstart-upload.png` | 快速上手 | 上传确认对话框 |
-| `quickstart-document-list.png` | 快速上手 | 文档解析完成的列表 |
-| `quickstart-chat.png` | 快速上手 | 一轮带引用的问答 |
-| `settings-members.png` | 租户与认证 | 空间成员与邀请 |
-| `settings-system-admin.png` | 平台管理 | 平台控制台（系统管理员专属分区） |
-| `kb-document-list.png` | 知识库 | 文档列表与批量操作栏 |
-| `kb-settings.png` | 知识库 | 分块参数与索引策略开关 |
-| `kb-chunk-edit.png` | 知识库 | 分块编辑与版本历史 |
-| `kb-batch-tag.png` | 知识库 | 批量打标签对话框 |
-| `kb-activity.png` | 知识库 | 活动流记录 |
-| `kb-folder-tree.png` | 知识库 | 文档列表的文件夹树 |
-| `settings-models.png` | 模型管理 | 模型列表与添加表单 |
-| `agent-editor.png` | Agent 引擎 | 自定义 Agent 配置弹窗 |
-| `agent-chat.png` | Agent 引擎 | Agent 推理过程时间线 |
-| `mcp-services.png` | MCP 集成 | MCP 服务配置与工具清单 |
-| `kg-graph.png` | 知识图谱 | 实体关系图 |
-| `datasource-sync.png` | 数据源导入 | 数据源列表与同步状态 |
-| `im-channels.png` | IM 集成 | IM 渠道配置 |
-| `embed-channel.png` | 网页嵌入 | 渠道配置与挂件效果 |
-| `wiki-browser.png` | Wiki 能力 | Wiki 浏览器目录与页面 |
-| `wiki-graph.png` | Wiki 能力 | Wiki 图谱视图 |
-| `wiki-revision-history.png` | Wiki 能力 | 页面版本历史与回滚 |
-| `chat-references-drawer.png` | 会话与对话体验 | 回答、引用角标与引用面板 |
-| `settings-storage-backends.png` | 存储后端 | 多实例列表与连通性测试 |
-| `chrome-extension.png` | Chrome 插件 | 网页侧边栏问答与剪藏 |
-| `faq-management.png` | FAQ 能力 | FAQ 条目列表与导入 |
-| `queue-dashboard.png` | 可观测性 | 运行时任务队列面板 |
-| `observability-langfuse.png` | 可观测性 | Langfuse 中一条完整调用链 |
+| `introduction-overview.png` | Product Introduction | Full view of the main interface after login |
+| `quickstart-register.png` | Quick Start | Registration page |
+| `quickstart-init-wizard.png` | Quick Start | Model configuration in the initialization wizard |
+| `quickstart-upload.png` | Quick Start | Upload confirmation dialog |
+| `quickstart-document-list.png` | Quick Start | List of documents that have finished parsing |
+| `quickstart-chat.png` | Quick Start | A round of Q&A with citations |
+| `settings-members.png` | Tenant & Auth | Space members and invitations |
+| `settings-system-admin.png` | Platform Administration | Platform console (system administrator-only section) |
+| `kb-document-list.png` | Knowledge Base | Document list and batch operations bar |
+| `kb-settings.png` | Knowledge Base | Chunking parameters and indexing strategy toggles |
+| `kb-chunk-edit.png` | Knowledge Base | Chunk editing and version history |
+| `kb-batch-tag.png` | Knowledge Base | Batch tagging dialog |
+| `kb-activity.png` | Knowledge Base | Activity stream records |
+| `kb-folder-tree.png` | Knowledge Base | Folder tree in the document list |
+| `settings-models.png` | Model Management | Model list and add-model form |
+| `agent-editor.png` | Agent Engine | Custom Agent configuration dialog |
+| `agent-chat.png` | Agent Engine | Agent reasoning process timeline |
+| `mcp-services.png` | MCP Integration | MCP service configuration and tool list |
+| `kg-graph.png` | Knowledge Graph | Entity-relationship graph |
+| `datasource-sync.png` | Data Source Import | Data source list and sync status |
+| `im-channels.png` | IM Integration | IM channel configuration |
+| `embed-channel.png` | Web Embedding | Channel configuration and widget appearance |
+| `wiki-browser.png` | Wiki Capabilities | Wiki browser directory and pages |
+| `wiki-graph.png` | Wiki Capabilities | Wiki graph view |
+| `wiki-revision-history.png` | Wiki Capabilities | Page revision history and rollback |
+| `chat-references-drawer.png` | Conversation Experience | Answer, citation markers, and citation panel |
+| `settings-storage-backends.png` | Storage Backends | Multi-instance list and connectivity test |
+| `chrome-extension.png` | Chrome Extension | Web sidebar Q&A and clipping |
+| `faq-management.png` | FAQ Capabilities | FAQ entry list and import |
+| `queue-dashboard.png` | Observability | Runtime task queue panel |
+| `observability-langfuse.png` | Observability | A complete call trace in Langfuse |
 
-仓库 `docs/images/` 下已有一批现成的产品截图（`qa.png`、`knowledgebases.png`、`wiki-browser.png`、`wiki-graph.png`、`settings.png`、`agent-qa.png`、`graph1-3.png`、`langfuse.png`、`rbac-*.png` 等），补图时可以先看看能否直接复用。
+The repository's `docs/images/` directory already contains a set of ready-made product screenshots (`qa.png`, `knowledgebases.png`, `wiki-browser.png`, `wiki-graph.png`, `settings.png`, `agent-qa.png`, `graph1-3.png`, `langfuse.png`, `rbac-*.png`, etc.) — when filling in screenshots, check first whether these can be reused directly.
 
-## 阅读路径建议
+## Suggested Reading Paths
 
-- **初次使用**：01 快速开始 四篇按顺序读完即可完成部署与首次问答。
-- **评估选型 / 了解原理**：02 架构 五篇给出系统全貌与两条核心流水线（文档入库、检索问答）。
-- **使用某项具体功能**：直接查 03 功能模块 对应章节。
-- **对接 API / 写集成**：04 API 参考 + 05 客户端（CLI / Go SDK）。
-- **二次开发 / 贡献代码**：06 开发指南，尤其是扩展点指南。
+- **First-time use**: Reading the four articles in 01 Getting Started in order is enough to complete deployment and your first Q&A session.
+- **Evaluation / understanding the design**: The five articles in 02 Architecture give a full picture of the system and its two core pipelines (document ingestion, retrieval Q&A).
+- **Using a specific feature**: Go directly to the corresponding section in 03 Feature Modules.
+- **Integrating with the API / writing an integration**: 04 API Reference + 05 Clients (CLI / Go SDK).
+- **Extending / contributing code**: 06 Development Guide, especially the extension points guide.
 
-## 目录
+## Table of Contents
 
-### 01 快速开始
+### 01 Getting Started
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [产品介绍](01-getting-started/01-introduction.md) | WeKnora 是什么、核心概念（租户/知识库/知识/分块/会话/Agent 等）、功能总览与系统组件图 |
-| [安装部署](01-getting-started/02-installation.md) | docker-compose（含 12 个可选 profile）、开发模式、Helm、Lite 单二进制与桌面应用、Homebrew |
-| [快速上手](01-getting-started/03-quickstart.md) | 注册 → 初始化向导 → 配置模型 → 建库 → 上传 → 问答的完整路径，含可直接执行的 curl 链路 |
-| [配置详解](01-getting-started/04-configuration.md) | config.yaml 全字段、约 150 个环境变量、prompt 模板、内置模型与内置 Agent 配置 |
+| [Product Introduction](01-getting-started/01-introduction.md) | What WeKnora is, core concepts (tenant/knowledge base/knowledge/chunk/session/Agent, etc.), feature overview, and system component diagram |
+| [Installation & Deployment](01-getting-started/02-installation.md) | docker-compose (including 12 optional profiles), development mode, Helm, Lite single-binary and desktop app, Homebrew |
+| [Quick Start](01-getting-started/03-quickstart.md) | The full path from register → initialization wizard → configure models → create a knowledge base → upload → Q&A, with a runnable curl walkthrough |
+| [Configuration Reference](01-getting-started/04-configuration.md) | All config.yaml fields, ~150 environment variables, prompt templates, built-in models, and built-in Agent configuration |
 
-### 02 架构
+### 02 Architecture
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [总体架构](02-architecture/01-overview.md) | 组件构成、技术栈、进程间通信、顶层目录导览 |
-| [Go 后端设计](02-architecture/02-backend-design.md) | 四层架构、uber/dig 依赖注入、启动与优雅退出、路由与中间件、领域模型 ER 图 |
-| [文档入库流程](02-architecture/03-document-pipeline.md) | 上传/URL/手动创建 → 存储 → 解析 → 分块 → 向量化 → 索引 → 后处理的全链路与状态机 |
-| [检索问答流程](02-architecture/04-rag-pipeline.md) | chat_pipeline 插件流水线、跨库检索与融合、重排、流式输出（SSE）与引用生成 |
-| [异步任务系统](02-architecture/05-async-tasks.md) | asynq 队列拓扑、6 个 worker pool、Lite 同步模式、死信与任务巡检、事件总线 |
+| [Overall Architecture](02-architecture/01-overview.md) | Component composition, tech stack, inter-process communication, top-level directory tour |
+| [Go Backend Design](02-architecture/02-backend-design.md) | Four-layer architecture, uber/dig dependency injection, startup and graceful shutdown, routing and middleware, domain model ER diagram |
+| [Document Ingestion Pipeline](02-architecture/03-document-pipeline.md) | The full chain from upload/URL/manual creation → storage → parsing → chunking → vectorization → indexing → post-processing, and its state machine |
+| [Retrieval & Q&A Pipeline](02-architecture/04-rag-pipeline.md) | The chat_pipeline plugin pipeline, cross-knowledge-base retrieval and fusion, reranking, streaming output (SSE), and citation generation |
+| [Async Task System](02-architecture/05-async-tasks.md) | asynq queue topology, 6 worker pools, Lite synchronous mode, dead-letter handling and task inspection, event bus |
 
-### 03 功能模块
+### 03 Feature Modules
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [租户、用户与认证授权](03-features/01-tenant-auth.md) | 多租户模型、JWT / API Key / OIDC、RBAC 角色矩阵、组织与共享空间 |
-| [知识库与知识管理](03-features/02-knowledge-base.md) | 知识库类型与全部可配置项、树形文件夹、多标签与批量打标、分块编辑与版本历史、自定义元数据、预览安全、复制与移动、活动流、配额 |
-| [文档解析服务 docreader](03-features/03-document-parsing.md) | gRPC 接口、三引擎注册表、解析器矩阵（含 HTML / MHTML / Excel 表头模式）、并发模型、部署与扩容 |
-| [分块机制](03-features/04-chunking.md) | 自适应分块架构（heading/heuristic/recursive）、父子分块、语义边界重叠、ContextHeader、调试端点 |
-| [检索引擎与向量存储](03-features/05-retrieval-engines.md) | 各检索引擎（向量/BM25/全文/混合）能力对比、驱动选择、维度管理、打分归一化 |
-| [模型管理](03-features/06-models.md) | 5 类模型、26 个厂商 Provider、内置模型机制、Ollama 本地模型、限流与用量 |
-| [Agent 引擎](03-features/07-agent.md) | ReAct 循环、24 个内置工具、上下文与记忆管理、技能系统与沙箱、自定义 Agent、建议问题 |
-| [MCP 集成](03-features/08-mcp.md) | MCP 客户端管理、OAuth 2.0 + PKCE 全流程、工具审批、WeKnora MCP Server（`tencent-weknora-mcp`，29 个工具） |
-| [知识图谱](03-features/09-knowledge-graph.md) | 两级开关、LLM 实体关系抽取、Neo4j 存储、图谱增强检索 |
-| [数据源导入](03-features/10-datasource.md) | 连接器体系（飞书/Lark/Notion/语雀/RSS）、凭据加密、同步调度与增量更新 |
-| [网络搜索与网页抓取](03-features/11-web-search.md) | 9 个搜索引擎、SSRF 防护、web_fetch 双实现、SearXNG 自托管 |
-| [IM 集成](03-features/12-im-integration.md) | 10 个 IM 平台适配、消息处理流水线、内置命令、流式渲染、多实例协同 |
-| [网页嵌入 Embed Channel](03-features/13-embed-channel.md) | 嵌入渠道配置、匿名会话与 token 交换、安全模式、webhook、接入示例 |
-| [Wiki 能力](03-features/14-wiki.md) | 基于知识库的 LLM Wiki 站点生成、四阶段管道、slug 机制、人工编辑与版本回滚、issue 闭环、变更并入知识库活动流 |
-| [评估能力](03-features/15-evaluation.md) | 评估任务、Parquet 数据集格式、12 项检索/生成指标 |
-| [可观测性与审计](03-features/16-observability.md) | 日志体系、Langfuse 追踪、审计日志与保留策略、限流、健康检查 |
-| [FAQ 能力](03-features/17-faq.md) | FAQ 条目模型、批量导入与去重、检索命中策略、克隆同步 |
-| [会话与对话体验](03-features/18-chat-experience.md) | 进度条与引用面板、导出对话、会话内临时附件、渠道会话可见性、跨会话历史搜索 |
-| [存储后端](03-features/19-storage-backends.md) | 多实例注册、空间默认与按库绑定、连通性测试、legacy 别名迁移 |
-| [平台管理与系统管理员](03-features/20-platform-admin.md) | 平台级身份与空间 Owner 的边界、首个管理员引导、控制台四分区、运行时系统设置 |
-| [图片与文件的对外访问](03-features/21-file-access.md) | 四种 URL 形式、各渠道怎么取、IM/API 图片不显示的排查表 |
+| [Tenants, Users & Auth/Authorization](03-features/01-tenant-auth.md) | Multi-tenant model, JWT / API Key / OIDC, RBAC role matrix, organizations and shared spaces |
+| [Knowledge Base & Knowledge Management](03-features/02-knowledge-base.md) | Knowledge base types and all configurable options, tree-structured folders, multi-tag and batch tagging, chunk editing and version history, custom metadata, preview security, copy and move, activity stream, quotas |
+| [Document Parsing Service (docreader)](03-features/03-document-parsing.md) | gRPC interface, three-engine registry, parser matrix (including HTML / MHTML / Excel header modes), concurrency model, deployment and scaling |
+| [Chunking Mechanism](03-features/04-chunking.md) | Adaptive chunking architecture (heading/heuristic/recursive), parent-child chunks, semantic boundary overlap, ContextHeader, debug endpoints |
+| [Retrieval Engines & Vector Storage](03-features/05-retrieval-engines.md) | Capability comparison across retrieval engines (vector/BM25/full-text/hybrid), driver selection, dimension management, score normalization |
+| [Model Management](03-features/06-models.md) | 5 model categories, 26 vendor providers, built-in model mechanism, local Ollama models, rate limiting and usage |
+| [Agent Engine](03-features/07-agent.md) | ReAct loop, 24 built-in tools, context and memory management, skill system and sandbox, custom Agents, suggested questions |
+| [MCP Integration](03-features/08-mcp.md) | MCP client management, full OAuth 2.0 + PKCE flow, tool approval, WeKnora MCP Server (`tencent-weknora-mcp`, 29 tools) |
+| [Knowledge Graph](03-features/09-knowledge-graph.md) | Two-level switch, LLM entity-relationship extraction, Neo4j storage, graph-augmented retrieval |
+| [Data Source Import](03-features/10-datasource.md) | Connector ecosystem (Feishu/Lark/Notion/Yuque/RSS), credential encryption, sync scheduling and incremental updates |
+| [Web Search & Web Scraping](03-features/11-web-search.md) | 9 search engines, SSRF protection, dual web_fetch implementations, self-hosted SearXNG |
+| [IM Integration](03-features/12-im-integration.md) | 10 IM platform adapters, message processing pipeline, built-in commands, streaming rendering, multi-instance coordination |
+| [Web Embedding — Embed Channel](03-features/13-embed-channel.md) | Embed channel configuration, anonymous sessions and token exchange, secure mode, webhooks, integration examples |
+| [Wiki Capabilities](03-features/14-wiki.md) | LLM-based Wiki site generation from a knowledge base, four-stage pipeline, slug mechanism, manual editing and version rollback, issue closure loop, changes merged into the knowledge base activity stream |
+| [Evaluation Capabilities](03-features/15-evaluation.md) | Evaluation tasks, Parquet dataset format, 12 retrieval/generation metrics |
+| [Observability & Auditing](03-features/16-observability.md) | Logging system, Langfuse tracing, audit logs and retention policy, rate limiting, health checks |
+| [FAQ Capabilities](03-features/17-faq.md) | FAQ entry model, batch import and deduplication, retrieval hit strategy, clone syncing |
+| [Conversation Experience](03-features/18-chat-experience.md) | Progress bar and citation panel, exporting conversations, session-scoped temporary attachments, channel session visibility, cross-session history search |
+| [Storage Backends](03-features/19-storage-backends.md) | Multi-instance registration, space defaults and per-knowledge-base binding, connectivity testing, legacy alias migration |
+| [Platform Administration & System Administrators](03-features/20-platform-admin.md) | Boundary between platform-level identity and space Owners, first administrator bootstrap, the console's four sections, runtime system settings |
+| [External Access to Images & Files](03-features/21-file-access.md) | Four types of URLs, how each channel retrieves them, a troubleshooting table for images not displaying in IM/API |
 
-### 04 API 参考
+### 04 API Reference
 
-覆盖约 360 个端点，每个端点含权限要求、参数表与 curl 示例。
+Covers approximately 360 endpoints, each with permission requirements, a parameter table, and a curl example.
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [API 总览](04-api/01-api-overview.md) | Base URL、三种认证方式、通用响应包与错误码、分页规范、SSE 协议、限流 |
-| [认证与用户](04-api/02-api-auth.md) | /auth 注册登录、token 刷新、邀请 |
-| [租户与成员](04-api/02-api-tenant.md) | 租户、成员、邀请、API Key、审计 |
-| [组织与共享](04-api/02-api-org.md) | 组织、知识库共享、Agent 共享 |
-| [知识库与知识](04-api/02-api-knowledge.md) | 知识库、知识、文件夹 |
-| [分块与标签](04-api/02-api-chunks.md) | 分块读写与版本、生成问题、标签、分块预览 |
-| [FAQ 与 Wiki](04-api/02-api-faq-wiki.md) | FAQ 管理与导入、Wiki 读写 |
-| [会话与聊天](04-api/02-api-chat.md) | 会话、消息、知识问答与 Agent 对话（SSE） |
-| [模型与初始化](04-api/02-api-model-system.md) | 模型、初始化向导、WeKnoraCloud、评估 |
-| [系统与平台管理](04-api/02-api-system.md) | 系统信息、全局设置、运行时队列、平台 API Key、系统审计 |
-| [基础设施与数据源](04-api/02-api-infra.md) | 向量存储、存储后端、Web 搜索、数据源 |
-| [Agent 与 MCP](04-api/02-api-agent-mcp.md) | Agent、MCP 服务、OAuth、技能、收藏 |
-| [IM、Embed 与文件](04-api/02-api-channels.md) | IM 回调与渠道、微信扫码、Embed、文件服务 |
+| [API Overview](04-api/01-api-overview.md) | Base URL, three authentication methods, common response envelope and error codes, pagination conventions, SSE protocol, rate limiting |
+| [Auth & Users](04-api/02-api-auth.md) | /auth registration/login, token refresh, invitations |
+| [Tenants & Members](04-api/02-api-tenant.md) | Tenants, members, invitations, API Keys, auditing |
+| [Organizations & Sharing](04-api/02-api-org.md) | Organizations, knowledge base sharing, Agent sharing |
+| [Knowledge Base & Knowledge](04-api/02-api-knowledge.md) | Knowledge bases, knowledge, folders |
+| [Chunks & Tags](04-api/02-api-chunks.md) | Chunk read/write and versioning, question generation, tags, chunk preview |
+| [FAQ & Wiki](04-api/02-api-faq-wiki.md) | FAQ management and import, Wiki read/write |
+| [Sessions & Chat](04-api/02-api-chat.md) | Sessions, messages, knowledge Q&A and Agent conversations (SSE) |
+| [Models & Initialization](04-api/02-api-model-system.md) | Models, initialization wizard, WeKnoraCloud, evaluation |
+| [System & Platform Administration](04-api/02-api-system.md) | System info, global settings, runtime queue, platform API Keys, system auditing |
+| [Infrastructure & Data Sources](04-api/02-api-infra.md) | Vector storage, storage backends, web search, data sources |
+| [Agent & MCP](04-api/02-api-agent-mcp.md) | Agent, MCP services, OAuth, skills, favorites |
+| [IM, Embed & Files](04-api/02-api-channels.md) | IM callbacks and channels, WeChat QR code scanning, Embed, file service |
 
-### 05 客户端
+### 05 Clients
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [Web 前端](05-clients/01-frontend.md) | Vue 3 + TDesign 技术栈、页面路由、状态管理、i18n、部署 |
-| [命令行工具 CLI](05-clients/02-cli.md) | 17 个命令组、多 profile 配置、输出格式与退出码、脚本化用法 |
-| [Go SDK](05-clients/03-go-sdk.md) | 约 170 个方法的资源覆盖、流式对话、错误处理、完整示例 |
-| [微信小程序](05-clients/04-miniprogram.md) | 页面结构、后端地址与 API Key 配置、构建发布 |
-| [桌面端](05-clients/05-desktop.md) | 单机桌面应用（未正式发布）、数据目录与端口设置、偏好设置与自动更新 |
-| [Chrome 插件](05-clients/06-chrome-extension.md) | 网页侧边栏问答、剪藏与速记，凭证配置与排查 |
-| [Claw Skill](05-clients/07-claw-skill.md) | ClawHub 上的 WeKnora Skill、环境变量配置、与 MCP 的取舍 |
+| [Web Frontend](05-clients/01-frontend.md) | Vue 3 + TDesign tech stack, page routing, state management, i18n, deployment |
+| [CLI Tool](05-clients/02-cli.md) | 17 command groups, multi-profile configuration, output formats and exit codes, scripting usage |
+| [Go SDK](05-clients/03-go-sdk.md) | Resource coverage across ~170 methods, streaming conversations, error handling, complete examples |
+| [WeChat Mini Program](05-clients/04-miniprogram.md) | Page structure, backend address and API Key configuration, build and release |
+| [Desktop Client](05-clients/05-desktop.md) | Standalone desktop app (not yet officially released), data directory and port settings, preferences and auto-update |
+| [Chrome Extension](05-clients/06-chrome-extension.md) | Web sidebar Q&A, clipping and quick notes, credential configuration and troubleshooting |
+| [Claw Skill](05-clients/07-claw-skill.md) | The WeKnora Skill on ClawHub, environment variable configuration, trade-offs versus MCP |
 
-### 06 开发指南
+### 06 Development Guide
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [开发指南](06-development/01-dev-guide.md) | 环境要求、Makefile 全目标、开发模式、四条测试线、CI 与代码规范、调试技巧 |
-| [数据库与迁移](06-development/02-database-schema.md) | 40+ 张表结构与 ER 图、golang-migrate 双路径（versioned / sqlite）、新增迁移步骤、故障排查 |
-| [扩展点指南](06-development/03-extension-points.md) | 9 大扩展点：解析器/分块策略/检索引擎/模型 Provider/搜索引擎/数据源连接器/IM 适配器/Agent 工具/存储后端 |
+| [Development Guide](06-development/01-dev-guide.md) | Environment requirements, full list of Makefile targets, development mode, four testing tracks, CI and coding standards, debugging tips |
+| [Database & Migrations](06-development/02-database-schema.md) | 40+ table schemas and ER diagram, golang-migrate's dual paths (versioned / sqlite), steps for adding a new migration, troubleshooting |
+| [Extension Points Guide](06-development/03-extension-points.md) | 9 major extension points: parsers/chunking strategies/retrieval engines/model providers/search engines/data source connectors/IM adapters/Agent tools/storage backends |
 
-## 系统组件速览
+## System Component Overview
 
 ```mermaid
 flowchart LR
-    subgraph Clients["客户端"]
-        FE["Web 前端 Vue 3"]
+    subgraph Clients["Clients"]
+        FE["Web Frontend Vue 3"]
         CLI["CLI weknora"]
         SDK["Go SDK"]
-        MINI["微信小程序"]
-        EMBED["网页嵌入挂件"]
-        IM["IM 平台 x10"]
+        MINI["WeChat Mini Program"]
+        EMBED["Web Embed Widget"]
+        IM["IM Platforms x10"]
     end
-    subgraph Core["核心服务"]
-        APP["app 主服务 Go/Gin :8080"]
-        DR["docreader 解析服务 Python gRPC :50051"]
+    subgraph Core["Core Services"]
+        APP["app main service Go/Gin :8080"]
+        DR["docreader parsing service Python gRPC :50051"]
     end
-    subgraph Infra["基础设施"]
+    subgraph Infra["Infrastructure"]
         PG[("PostgreSQL / ParadeDB")]
         RD[("Redis + asynq")]
-        VS[("向量/检索引擎 可选多种")]
-        OBJ[("对象存储 local/minio/cos/oss/s3 等")]
-        NEO[("Neo4j 知识图谱 可选")]
+        VS[("Vector/Retrieval Engines optional, multiple")]
+        OBJ[("Object Storage local/minio/cos/oss/s3, etc.")]
+        NEO[("Neo4j Knowledge Graph optional")]
     end
-    LLM["LLM / Embedding / Rerank / VLM 多厂商"]
+    LLM["LLM / Embedding / Rerank / VLM Multiple Vendors"]
     FE --> APP
     CLI --> APP
     SDK --> APP
@@ -208,9 +212,9 @@ flowchart LR
     APP --> LLM
 ```
 
-## 文档约定
+## Documentation Conventions
 
-- 文中源码路径均相对仓库根目录，如 `internal/agent/engine.go`。
-- API 路径默认带 `/api/v1` 前缀；认证方式见 [API 总览](04-api/01-api-overview.md)。
-- 配置示例中的密钥均为占位符，生产环境务必替换（尤其 `JWT_SECRET`、`SYSTEM_AES_KEY`、数据库口令）。
-- 文档基于仓库根目录 `VERSION` 文件对应版本源码整理（VitePress 构建时自动读取），随代码变更同步维护。
+- Source code paths in the text are relative to the repository root, e.g. `internal/agent/engine.go`.
+- API paths default to the `/api/v1` prefix; see [API Overview](04-api/01-api-overview.md) for authentication methods.
+- Secrets in configuration examples are placeholders — be sure to replace them in production (especially `JWT_SECRET`, `SYSTEM_AES_KEY`, and database passwords).
+- The documentation is compiled based on the source code version corresponding to the repository root's `VERSION` file (read automatically during the VitePress build), and is maintained in sync with code changes.

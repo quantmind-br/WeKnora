@@ -1,40 +1,40 @@
-# 内置模型管理指南
+# Built-in Model Management Guide
 
-## 概述
+## Overview
 
-内置模型是系统级别的模型配置，对所有空间可见。普通空间用户（包括空间管理员）看到的敏感信息会被隐藏，且不能修改；系统管理员可以在「模型管理」界面编辑配置和凭据。内置模型通常用于提供系统默认的模型配置，确保所有空间都能使用统一的模型服务。
+Built-in models are system-level model configurations, visible to all spaces. Regular space users (including space admins) see sensitive information hidden, and cannot modify it; system administrators can edit configuration and credentials in the "Model Management" interface. Built-in models are typically used to provide the system's default model configuration, ensuring all spaces can use a unified model service.
 
-## 内置模型特性
+## Built-in Model Features
 
-- **所有空间可见**：内置模型对所有空间都可见，无需单独配置
-- **安全保护**：API Key 等凭据永远不会明文返回；只有系统管理员能看到 Base URL 等管理信息和凭据是否已配置
-- **权限保护**：普通空间用户只能查看；系统管理员可以编辑配置和凭据
-- **统一管理**：内置模型对所有空间生效；删除仍通过 YAML 或 SQL 管理，避免部署配置与运行时状态冲突
+- **Visible to all spaces**: Built-in models are visible to all spaces, no individual configuration required
+- **Security protection**: API Keys and other credentials are never returned in plaintext; only system administrators can see management information such as Base URL and whether credentials are configured
+- **Permission protection**: Regular space users can only view; system administrators can edit configuration and credentials
+- **Unified management**: Built-in models take effect for all spaces; deletion is still managed via YAML or SQL to avoid conflicts between deployment configuration and runtime state
 
-## 在管理界面编辑
+## Editing in the Admin Interface
 
-系统管理员可直接在「设置 → 模型管理」中点击内置模型，修改模型参数或更新凭据。普通空间管理员仍然只能查看。
+System administrators can directly click a built-in model in "Settings → Model Management" to modify model parameters or update credentials. Regular space admins can still only view.
 
-首次通过管理界面保存 YAML 托管的内置模型后，该行会转为运行时托管（`managed_by` 清空），后续应用启动不会再用同 ID 的 YAML 条目覆盖它。这样可以保证界面保存的结果在重启后仍然有效。若希望重新交给 YAML 管理，需要由部署管理员在数据库中把该行的 `managed_by` 恢复为 `yaml`，或移除运行时覆盖后重新启动。
+The first time a YAML-managed built-in model is saved through the admin interface, that row switches to runtime management (`managed_by` is cleared), and subsequent application startups will no longer overwrite it with the YAML entry of the same ID. This ensures that results saved via the interface remain in effect after a restart. To hand it back to YAML management, the deployment administrator needs to restore that row's `managed_by` to `yaml` in the database, or remove the runtime override and restart.
 
-## 如何添加内置模型
+## How to Add Built-in Models
 
-WeKnora 支持两种方式添加内置模型：**推荐**使用 YAML 声明式配置（自动幂等下发），保留 SQL 直插作为兼容路径。
+WeKnora supports two ways to add built-in models: the **recommended** approach uses declarative YAML configuration (automatically applied idempotently), while direct SQL insertion is retained as a compatibility path.
 
-### 方式一（推荐）：YAML 配置文件
+### Method One (Recommended): YAML Configuration File
 
-#### 文件位置
+#### File Location
 
-默认路径是 `config/builtin_models.yaml`（与 `config.yaml`、`builtin_agents.yaml` 同目录）。如需挂载到其他位置，设置环境变量 `BUILTIN_MODELS_CONFIG=/absolute/path/builtin_models.yaml` 覆盖。
+The default path is `config/builtin_models.yaml` (in the same directory as `config.yaml` and `builtin_agents.yaml`). To mount it elsewhere, set the environment variable `BUILTIN_MODELS_CONFIG=/absolute/path/builtin_models.yaml` to override.
 
-文件不存在时启动期会跳过、不报错；解析失败仅记录 Warning、不影响主流程。每次应用启动会重新读取并按 `id` 字段 UPSERT 到 `models` 表（保留 `created_at`，刷新其他字段）。如果同 ID 模型已经由系统管理员在界面保存并转为运行时托管，则保留运行时配置，不再由 YAML 覆盖。
+If the file doesn't exist, it will be skipped at startup without error; parsing failures are only logged as a Warning and don't affect the main process. Every application startup re-reads the file and UPSERTs into the `models` table by the `id` field (preserving `created_at`, refreshing other fields). If a model with the same ID has already been saved through the interface by a system administrator and switched to runtime management, the runtime configuration is preserved and no longer overwritten by YAML.
 
 #### Schema
 
 ```yaml
 builtin_models:
   - id: <required, stable, UPSERT key>
-    tenant_id: <int, default 10000>          # 与 tenants_id_seq 起点对齐
+    tenant_id: <int, default 10000>          # aligned with the tenants_id_seq starting point
     name: <string>
     type: KnowledgeQA | Embedding | Rerank | VLLM | ASR
     source: <string, default "remote">       # local | remote | aliyun | ...
@@ -45,12 +45,12 @@ builtin_models:
       base_url: <string>
       api_key: <string, supports ${ENV_VAR}>
       provider: <string>                     # openai | generic | moonshot | ...
-      embedding_parameters:                  # 仅 Embedding 类型
+      embedding_parameters:                  # Embedding type only
         dimension: <int>
         truncate_prompt_tokens: <int>
 ```
 
-#### 完整示例
+#### Full Example
 
 ```yaml
 builtin_models:
@@ -58,7 +58,7 @@ builtin_models:
     name: gpt-4o-mini
     type: KnowledgeQA
     source: remote
-    description: OpenAI 默认对话模型
+    description: OpenAI default chat model
     is_default: false
     parameters:
       base_url: https://api.openai.com/v1
@@ -87,18 +87,18 @@ builtin_models:
       provider: generic
 ```
 
-#### `${ENV}` 插值
+#### `${ENV}` Interpolation
 
-`api_key` / `base_url` / `name` 等任何**字符串**字段都可以引用环境变量：`${OPENAI_API_KEY}` 会在启动时被对应的 `os.Getenv("OPENAI_API_KEY")` 替换。
+Any **string** field such as `api_key` / `base_url` / `name` can reference an environment variable: `${OPENAI_API_KEY}` will be replaced at startup by the corresponding `os.Getenv("OPENAI_API_KEY")`.
 
-- 环境变量存在 → 替换为实际值
-- 环境变量不存在 → **保留字面 `${OPENAI_API_KEY}`** 字符串（让 401 错误能直接看出来 env 没设，便于排查）
-- 不支持 `${VAR:-default}` 这种 shell 扩展，行为与现有 `config.yaml` 的插值实现一致
-- **非字符串字段不能 env 化**（如 `type`、`dimension`、`is_default`），因为它们必须按 YAML 的目标类型解析
+- If the environment variable exists → it's replaced with the actual value
+- If the environment variable doesn't exist → the literal `${OPENAI_API_KEY}` string is **preserved** (so a 401 error makes it immediately obvious the env wasn't set, making it easier to troubleshoot)
+- Shell-style expansions like `${VAR:-default}` are not supported, matching the interpolation behavior already implemented for `config.yaml`
+- **Non-string fields cannot be env-ified** (e.g. `type`, `dimension`, `is_default`), since they must be parsed as their target YAML type
 
-#### env 变量怎么进入容器
+#### How Env Variables Get Into the Container
 
-`docker-compose.yml` 的 `app` 服务已经预置了：
+The `app` service in `docker-compose.yml` already has this preconfigured:
 
 ```yaml
 env_file:
@@ -106,11 +106,11 @@ env_file:
     required: false
 ```
 
-意味着把变量值写到项目根目录的 `.env` 文件里，启动时自动透传到容器。**无需**在 `environment:` 块里逐个透传。`required: false` 保证 `.env` 不存在时容器仍可启动（适配上游 fresh clone 场景）。
+This means you write the variable values into the `.env` file at the project root, and they're automatically passed through to the container at startup. There's **no need** to pass them through individually in the `environment:` block. `required: false` ensures the container can still start even if `.env` doesn't exist (accommodating a fresh clone from upstream).
 
-仓库的 `.env.example` 顶部预留了 **Built-in Models** 注释段，列出 LLM / Embedding / Rerank 的参考变量名作为起点；复制 `.env.example` 为 `.env` 后取消注释并填值即可。变量名由 YAML 自行决定，参考段只是常见样板，不是保留字。
+The repository's `.env.example` reserves a **Built-in Models** comment section at the top, listing reference variable names for LLM / Embedding / Rerank as a starting point; after copying `.env.example` to `.env`, just uncomment and fill in the values. The variable names are decided by the YAML itself — the reference section is just a common template, not a reserved keyword.
 
-完整端到端示例：
+Complete end-to-end example:
 
 `.env`
 ```bash
@@ -133,18 +133,18 @@ builtin_models:
       provider: ${LLM_PROVIDER}
 ```
 
-启动：
+Startup:
 ```bash
 docker compose up -d
 ```
 
-#### 启动后验证
+#### Verifying After Startup
 
 ```bash
 docker compose logs app | grep -E 'Built-in models? config'
 ```
 
-会看到类似：
+You'll see something like:
 
 ```
 Built-in model upserted: id=builtin-openai-chat name=gpt-4o-mini type=KnowledgeQA
@@ -152,9 +152,9 @@ Built-in model upserted: id=builtin-openai-embeddings name=text-embedding-3-smal
 Built-in models config applied: 2 entries from /app/config/builtin_models.yaml.
 ```
 
-#### Docker 部署
+#### Docker Deployment
 
-在 `docker-compose.yml` 的 `app` 服务 `volumes` 块挂载文件：
+Mount the file in the `volumes` block of the `app` service in `docker-compose.yml`:
 
 ```yaml
 services:
@@ -163,14 +163,14 @@ services:
       - ./config/builtin_models.yaml:/app/config/builtin_models.yaml:ro
 ```
 
-仓库提供了 `config/builtin_models.yaml.example` 作为起点，复制为 `config/builtin_models.yaml` 后按需修改。
+The repository provides `config/builtin_models.yaml.example` as a starting point; copy it to `config/builtin_models.yaml` and modify as needed.
 
-### 方式二：直接 SQL 插入
+### Method Two: Direct SQL Insertion
 
-支持的 provider：`generic`（自定义）、`openai`、`aliyun`、`zhipu`、`volcengine`、`hunyuan`、`deepseek`、`minimax`、`mimo`、`siliconflow`、`jina`、`openrouter`、`requesty`、`gemini`、`modelscope`、`moonshot`、`qianfan`、`qiniu`、`longcat`、`gpustack`
+Supported providers: `generic` (custom), `openai`, `aliyun`, `zhipu`, `volcengine`, `hunyuan`, `deepseek`, `minimax`, `mimo`, `siliconflow`, `jina`, `openrouter`, `requesty`, `gemini`, `modelscope`, `moonshot`, `qianfan`, `qiniu`, `longcat`, `gpustack`
 
 ```sql
--- 示例：LLM 内置模型
+-- Example: LLM built-in model
 INSERT INTO models (
     id, tenant_id, name, type, source, description,
     parameters, is_default, status, is_builtin
@@ -180,7 +180,7 @@ INSERT INTO models (
     'gpt-4o-mini',
     'KnowledgeQA',
     'remote',
-    '系统内置 LLM 模型',
+    'System built-in LLM model',
     '{"base_url": "https://api.openai.com/v1", "api_key": "sk-xxx", "provider": "openai"}'::jsonb,
     false,
     'active',
@@ -197,7 +197,7 @@ INSERT INTO models (
     'text-embedding-3-small',
     'Embedding',
     'remote',
-    '系统内置 Embedding 模型',
+    'System built-in Embedding model',
     '{"base_url": "https://api.openai.com/v1", "api_key": "sk-xxx", "provider": "openai", "embedding_parameters": {"dimension": 1536, "truncate_prompt_tokens": 0}}'::jsonb,
     false,
     'active',
@@ -214,7 +214,7 @@ INSERT INTO models (
     'bge-reranker-v2-m3',
     'Rerank',
     'remote',
-    '系统内置 Rerank 模型',
+    'System built-in Rerank model',
     '{"base_url": "https://api.jina.ai/v1", "api_key": "jina-xxx", "provider": "jina"}'::jsonb,
     false,
     'active',
@@ -222,7 +222,7 @@ INSERT INTO models (
 ) ON CONFLICT (id) DO NOTHING;
 ```
 
-### 验证插入结果
+### Verifying the Insertion Result
 
 ```sql
 SELECT id, name, type, is_builtin, status
@@ -231,50 +231,50 @@ WHERE is_builtin = true
 ORDER BY type, created_at;
 ```
 
-## 将现有模型设置为内置模型
+## Setting an Existing Model as a Built-in Model
 
-如果你已经手工创建了一个普通模型，想把它升级为内置模型：
+If you've already manually created a regular model and want to upgrade it to a built-in model:
 
 ```sql
 UPDATE models
 SET is_builtin = true
-WHERE id = '模型ID';
+WHERE id = 'model ID';
 ```
 
-## 移除内置模型
+## Removing Built-in Models
 
-**从 YAML 删除条目即可。** 应用启动时会自动软删除 `models` 表中 YAML 不再声明的 YAML 托管行 —— 你不再需要手工跑 SQL。
+**Just delete the entry from YAML.** At application startup, rows in the `models` table that are YAML-managed and no longer declared in YAML are automatically soft-deleted — you no longer need to manually run SQL.
 
-工作原理：每条由 YAML 写入的行会被打上 `managed_by = 'yaml'` 标记。重启时 loader 走两步：
+How it works: every row written by YAML is tagged with `managed_by = 'yaml'`. At restart, the loader proceeds in two steps:
 
-1. UPSERT 当前 YAML 中的所有条目（按 `id` 幂等，包含把之前软删过的 `deleted_at` 重置为 NULL —— 也就是说从 YAML 拿掉再加回来等于"复活"）
-2. 软删除 `is_builtin = true AND managed_by = 'yaml' AND id NOT IN (当前 YAML 中的 id 集合)` 的行
+1. UPSERT all entries in the current YAML (idempotent by `id`, including resetting a previously soft-deleted `deleted_at` back to NULL — meaning removing an entry from YAML and adding it back is equivalent to "reviving" it)
+2. Soft-delete rows where `is_builtin = true AND managed_by = 'yaml' AND id NOT IN (the set of ids currently in YAML)`
 
-**手工通过 SQL 插入的 builtin 行（`managed_by = ''`）永远不会被 loader 触碰**，与 YAML 完全隔离。
+**Rows manually inserted via SQL as builtin (`managed_by = ''`) are never touched by the loader**, and are completely isolated from YAML.
 
-### 手工路径补充
+### Additional Notes for the Manual Path
 
-如果你是走 SQL 路径管理的（`managed_by = ''`），删除仍然走老方法：
+If you're managing via the SQL path (`managed_by = ''`), removal still follows the old method:
 
 ```sql
--- 取消 builtin 标记，恢复为普通模型
-UPDATE models SET is_builtin = false WHERE id = '模型ID';
+-- Unmark builtin, revert to a regular model
+UPDATE models SET is_builtin = false WHERE id = 'model ID';
 
--- 或直接删除
-DELETE FROM models WHERE id = '模型ID';
+-- Or delete directly
+DELETE FROM models WHERE id = 'model ID';
 ```
 
-### 紧急关闭 YAML 接管
+### Emergency Shutdown of YAML Takeover
 
-如果误改了 YAML 想立刻停用接管又不想清空文件，最快的方法是：把环境变量 `BUILTIN_MODELS_CONFIG` 指向一个不存在的路径并重启 —— loader 看到文件缺失会直接 no-op，**包括跳过 drift sweep**，已经写入的 YAML 托管行保留原状。
+If you accidentally modified YAML and want to immediately disable the takeover without clearing the file, the fastest method is: point the environment variable `BUILTIN_MODELS_CONFIG` to a nonexistent path and restart — the loader will see the file is missing and simply no-op, **including skipping the drift sweep**, and the already-written YAML-managed rows remain unchanged.
 
-## 注意事项
+## Notes
 
-1. **ID 命名规范**：建议使用 `builtin-{type}-{slug}` 的格式，例如 `builtin-openai-chat`、`builtin-rerank`
-2. **空间ID**：内置模型可以属于任意空间，默认 `10000`（与 `tenants_id_seq` 起点一致）
-3. **YAML 与 SQL 并存**：两种方式可以同时使用，loader 只动 `managed_by='yaml'` 的行；通过 SQL 插入的 builtin 行对 loader 完全不可见
-4. **`is_default` 单一保证**：YAML 中将某条 entry 标记 `is_default: true` 时，loader 会先把同 `(tenant_id, type)` 下的其它默认模型置为 `false`，避免 API 路径维护的"每类型一个默认模型"语义被破坏
-5. **重启即生效**：修改 YAML 后 `docker compose restart app` 即可让新配置生效
-6. **加密**：API Key 在 `parameters` JSONB 中以加密形式存储（若 `SYSTEM_AES_KEY` 已配置），未配置时降级为明文兼容路径
-7. **安全性**：前端会自动隐藏内置模型的 API Key 和 Base URL，但数据库中的原始数据仍然存在，请妥善保管数据库访问权限
-8. **解析错误自我保护**：YAML 解析失败时 loader 仅打 warning 并跳过 reconcile，**不会**执行 drift sweep，确保一个手抖的 YAML 改动不会大规模软删既有内置模型
+1. **ID naming convention**: it's recommended to use the format `builtin-{type}-{slug}`, e.g. `builtin-openai-chat`, `builtin-rerank`
+2. **Space ID**: built-in models can belong to any space, defaulting to `10000` (matching the `tenants_id_seq` starting point)
+3. **YAML and SQL coexistence**: both methods can be used simultaneously; the loader only touches rows with `managed_by='yaml'`; builtin rows inserted via SQL are completely invisible to the loader
+4. **`is_default` single guarantee**: when an entry in YAML is marked `is_default: true`, the loader first sets other default models under the same `(tenant_id, type)` to `false`, preventing the "one default model per type" semantics maintained by the API path from being broken
+5. **Restart to take effect**: after modifying YAML, `docker compose restart app` is enough to apply the new configuration
+6. **Encryption**: the API Key is stored encrypted within the `parameters` JSONB (if `SYSTEM_AES_KEY` is configured); if not configured, it falls back to a plaintext-compatible path
+7. **Security**: the frontend automatically hides the API Key and Base URL of built-in models, but the raw data still exists in the database — please safeguard database access properly
+8. **Self-protection against parse errors**: if YAML parsing fails, the loader only logs a warning and skips the reconcile step, and **will not** perform a drift sweep, ensuring that an accidental YAML edit doesn't cause mass soft-deletion of existing built-in models

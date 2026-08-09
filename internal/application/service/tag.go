@@ -67,7 +67,7 @@ func (s *knowledgeTagService) ListTags(
 	keyword string,
 ) (*types.PageResult, error) {
 	if kbID == "" {
-		return nil, werrors.NewBadRequestError("知识库ID不能为空")
+		return nil, werrors.NewBadRequestError("Knowledge base ID cannot be empty")
 	}
 	if page == nil {
 		page = &types.Pagination{}
@@ -85,7 +85,7 @@ func (s *knowledgeTagService) ListTags(
 		// Get user ID from context
 		userIDVal := ctx.Value(types.UserIDContextKey)
 		if userIDVal == nil {
-			return nil, werrors.NewForbiddenError("无权访问该知识库")
+			return nil, werrors.NewForbiddenError("No permission to access this knowledge base")
 		}
 		_ = userIDVal.(string)
 		callerTenantRole := types.TenantRoleFromContext(ctx)
@@ -93,7 +93,7 @@ func (s *knowledgeTagService) ListTags(
 		// Check whether the caller's tenant has at least viewer permission via org sharing.
 		hasPermission, err := s.kbShareService.HasTenantKBPermission(ctx, kbID, tenantID, callerTenantRole, types.OrgRoleViewer)
 		if err != nil || !hasPermission {
-			return nil, werrors.NewForbiddenError("无权访问该知识库")
+			return nil, werrors.NewForbiddenError("No permission to access this knowledge base")
 		}
 	}
 
@@ -152,7 +152,7 @@ func (s *knowledgeTagService) CreateTag(
 ) (*types.KnowledgeTag, error) {
 	name = strings.TrimSpace(name)
 	if kbID == "" || name == "" {
-		return nil, werrors.NewBadRequestError("知识库ID和标签名称不能为空")
+		return nil, werrors.NewBadRequestError("Knowledge base ID and tag name cannot be empty")
 	}
 	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
@@ -162,15 +162,15 @@ func (s *knowledgeTagService) CreateTag(
 	// Check if tag with same name already exists
 	existingTag, err := s.repo.GetByName(ctx, kb.TenantID, kbID, name)
 	if err == nil && existingTag != nil {
-		return nil, werrors.NewConflictError("标签名称已存在")
+		return nil, werrors.NewConflictError("Tag name already exists")
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
 	now := time.Now()
-	// "未分类" tag should have the lowest sort order to appear first
-	if name == types.UntaggedTagName {
+	// "Uncategorized" tag (untagged) should have the lowest sort order to appear first
+	if types.IsUntaggedTagName(name) {
 		sortOrder = -1
 	}
 	tag := &types.KnowledgeTag{
@@ -200,7 +200,7 @@ func (s *knowledgeTagService) UpdateTag(
 	sortOrder *int,
 ) (*types.KnowledgeTag, error) {
 	if id == "" {
-		return nil, werrors.NewBadRequestError("标签ID不能为空")
+		return nil, werrors.NewBadRequestError("Tag ID cannot be empty")
 	}
 	tenantID := types.MustTenantIDFromContext(ctx)
 	tag, err := s.repo.GetByID(ctx, tenantID, id)
@@ -211,7 +211,7 @@ func (s *knowledgeTagService) UpdateTag(
 	if name != nil {
 		newName := strings.TrimSpace(*name)
 		if newName == "" {
-			return nil, werrors.NewBadRequestError("标签名称不能为空")
+			return nil, werrors.NewBadRequestError("Tag name cannot be empty")
 		}
 		tag.Name = newName
 	}
@@ -235,7 +235,7 @@ func (s *knowledgeTagService) UpdateTag(
 // When contentOnly=true, only deletes the content under the tag but keeps the tag itself.
 func (s *knowledgeTagService) DeleteTag(ctx context.Context, id string, force bool, contentOnly bool, excludeIDs []string) error {
 	if id == "" {
-		return werrors.NewBadRequestError("标签ID不能为空")
+		return werrors.NewBadRequestError("Tag ID cannot be empty")
 	}
 	tenantID := types.MustTenantIDFromContext(ctx)
 	tag, err := s.repo.GetByID(ctx, tenantID, id)
@@ -263,7 +263,7 @@ func (s *knowledgeTagService) DeleteTag(ctx context.Context, id string, force bo
 		deletedIDs, err := s.chunkRepo.DeleteChunksByTagID(ctx, tenantID, tag.KnowledgeBaseID, tag.ID, excludeIDs)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to delete chunks by tag ID %s: %v", tag.ID, err)
-			return werrors.NewInternalServerError("删除标签下的数据失败")
+			return werrors.NewInternalServerError("Failed to delete data under the tag")
 		}
 
 		// Enqueue async index deletion task for the deleted chunks
@@ -284,7 +284,7 @@ func (s *knowledgeTagService) DeleteTag(ctx context.Context, id string, force bo
 		knowledgeIDs, err := s.knowledgeRepo.ListIDsByTagIDs(ctx, tenantID, kb.ID, []string{tag.ID})
 		if err != nil {
 			logger.Errorf(ctx, "Failed to list knowledge IDs by tag ID %s: %v", tag.ID, err)
-			return werrors.NewInternalServerError("获取标签下的文档失败")
+			return werrors.NewInternalServerError("Failed to get documents under the tag")
 		}
 		if len(knowledgeIDs) == 0 {
 			return nil
@@ -299,14 +299,14 @@ func (s *knowledgeTagService) DeleteTag(ctx context.Context, id string, force bo
 		payloadBytes, err := json.Marshal(payload)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to marshal knowledge list delete payload: %v", err)
-			return werrors.NewInternalServerError("删除标签下的文档失败")
+			return werrors.NewInternalServerError("Failed to delete documents under the tag")
 		}
 		task := asynq.NewTask(types.TypeKnowledgeListDelete, payloadBytes,
 			asynq.Queue(types.QueueMaintenance), asynq.MaxRetry(3), asynq.Timeout(2*time.Hour))
 		info, err := s.task.Enqueue(task)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to enqueue knowledge list delete task: %v", err)
-			return werrors.NewInternalServerError("删除标签下的文档失败")
+			return werrors.NewInternalServerError("Failed to delete documents under the tag")
 		}
 		logger.Infof(ctx, "Enqueued knowledge list delete task %s for %d knowledge files under tag %s", info.ID, len(knowledgeIDs), tag.ID)
 		return nil
@@ -332,7 +332,7 @@ func (s *knowledgeTagService) DeleteTag(ctx context.Context, id string, force bo
 	}
 
 	if !force && (kCount > 0 || cCount > 0) {
-		return werrors.NewBadRequestError("标签仍有知识或FAQ条目引用，无法删除")
+		return werrors.NewBadRequestError("Tag is still referenced by knowledge or FAQ entries and cannot be deleted")
 	}
 
 	// When force=true, delete all content under this tag first
@@ -469,7 +469,7 @@ func (s *knowledgeTagService) ProcessIndexDelete(ctx context.Context, t *asynq.T
 func (s *knowledgeTagService) FindOrCreateTagByName(ctx context.Context, kbID string, name string) (*types.KnowledgeTag, error) {
 	name = strings.TrimSpace(name)
 	if kbID == "" || name == "" {
-		return nil, werrors.NewBadRequestError("知识库ID和标签名称不能为空")
+		return nil, werrors.NewBadRequestError("Knowledge base ID and tag name cannot be empty")
 	}
 
 	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, kbID)
@@ -479,17 +479,34 @@ func (s *knowledgeTagService) FindOrCreateTagByName(ctx context.Context, kbID st
 
 	tenantID := kb.TenantID
 
-	// 先尝试查找现有标签
+	// Try to find an existing tag first.
 	tag, err := s.repo.GetByName(ctx, tenantID, kbID, name)
 	if err == nil {
 		return tag, nil
 	}
 
-	// 如果不是 not found 错误，直接返回
+	// For any error other than not-found, return it.
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 
-	// 创建新标签
+	// For the untagged tag, also accept legacy aliases so we never create a
+	// duplicate next to an existing "Uncategorized" tag from older deployments.
+	if types.IsUntaggedTagName(name) {
+		for _, alias := range []string{types.UntaggedTagName, "未分类", "Uncategorized", "Not categorized", "Sem categoria"} {
+			if alias == name {
+				continue
+			}
+			tag, err = s.repo.GetByName(ctx, tenantID, kbID, alias)
+			if err == nil && tag != nil {
+				return tag, nil
+			}
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, err
+			}
+		}
+	}
+
+	// Create the new tag otherwise.
 	return s.CreateTag(ctx, kbID, name, "", 0)
 }

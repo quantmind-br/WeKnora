@@ -59,21 +59,21 @@ type updateLastFAQImportResultDisplayStatusRequest struct {
 }
 
 // ListEntries godoc
-// @Summary      获取FAQ条目列表
-// @Description  获取知识库下的FAQ条目列表，支持分页和筛选
-// @Tags         FAQ管理
+// @Summary      Get FAQ entry list
+// @Description  Get FAQ entries in a knowledge base with pagination and filtering
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id           path      string  true   "知识库ID"
-// @Param        page         query     int     false  "页码"
-// @Param        page_size    query     int     false  "每页数量"
-// @Param        tag_id       query     int     false  "标签ID筛选(seq_id)，兼容旧版单标签"
-// @Param        tag_ids      query     string  false  "标签UUID筛选，逗号分隔（OR语义）"
-// @Param        keyword      query     string  false  "关键词搜索"
-// @Param        search_field query     string  false  "搜索字段: standard_question(标准问题), similar_questions(相似问法), answers(答案), 默认搜索全部"
-// @Param        sort_order   query     string  false  "排序方式: asc(按更新时间正序), 默认按更新时间倒序"
-// @Success      200        {object}  map[string]interface{}  "FAQ列表"
-// @Failure      400        {object}  errors.AppError         "请求参数错误"
+// @Param        id           path      string  true   "Knowledge Base ID"
+// @Param        page         query     int     false  "Page number"
+// @Param        page_size    query     int     false  "Items per page"
+// @Param        tag_id       query     int     false  "Tag ID filter (seq_id), backward-compatible single tag"
+// @Param        tag_ids      query     string  false  "Tag UUID filter, comma-separated (OR semantics)"
+// @Param        keyword      query     string  false  "Keyword search"
+// @Param        search_field query     string  false  "Search fields: standard_question, similar_questions, answers; defaults to searching all"
+// @Param        sort_order   query     string  false  "Sort order: asc (updated ascending); defaults to updated descending"
+// @Success      200        {object}  map[string]interface{}  "FAQ list"
+// @Failure      400        {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries [get]
@@ -84,7 +84,7 @@ func (h *FAQHandler) ListEntries(c *gin.Context) {
 	var page types.Pagination
 	if err := c.ShouldBindQuery(&page); err != nil {
 		logger.Error(ctx, "Failed to bind pagination query", err)
-		c.Error(errors.NewBadRequestError("分页参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid pagination parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *FAQHandler) ListEntries(c *gin.Context) {
 		var err error
 		legacyTagSeqID, err = strconv.ParseInt(tagIDStr, 10, 64)
 		if err != nil {
-			c.Error(errors.NewBadRequestError("tag_id 必须是整数"))
+			c.Error(errors.NewBadRequestError("tag_id must be an integer"))
 			return
 		}
 	}
@@ -117,17 +117,17 @@ func (h *FAQHandler) ListEntries(c *gin.Context) {
 }
 
 // UpsertEntries godoc
-// @Summary      批量更新/插入FAQ条目
-// @Description  异步批量更新或插入FAQ条目。支持 dry_run 模式（设置 dry_run=true），异步验证不实际导入。
-// @Description  dry_run 模式是异步操作，返回 task_id，通过 /faq/import/progress/{task_id} 查询进度和结果。
-// @Description  验证内容包括：1) 条目基本格式 2) 重复问题（批次内和知识库已有） 3) 内容安全检查。
-// @Tags         FAQ管理
+// @Summary      Batch update/insert FAQ entries
+// @Description  Asynchronously batch update or insert FAQ entries. Supports dry_run mode (dry_run=true) to validate without importing.
+// @Description  dry_run runs asynchronously and returns a task_id; check progress and results via /faq/import/progress/{task_id}.
+// @Description  Validation covers: 1) entry basic format 2) duplicate questions (within batch and existing in KB) 3) content safety checks.
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                    true  "知识库ID"
-// @Param        request  body      types.FAQBatchUpsertPayload  true  "批量操作请求"
-// @Success      200      {object}  map[string]interface{}    "任务ID"
-// @Failure      400      {object}  errors.AppError           "请求参数错误"
+// @Param        id       path      string                    true  "Knowledge Base ID"
+// @Param        request  body      types.FAQBatchUpsertPayload  true  "Batch operation request"
+// @Success      200      {object}  map[string]interface{}    "Task ID"
+// @Failure      400      {object}  errors.AppError           "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries [post]
@@ -138,7 +138,7 @@ func (h *FAQHandler) UpsertEntries(c *gin.Context) {
 	var req types.FAQBatchUpsertPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind FAQ upsert payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -158,15 +158,15 @@ func (h *FAQHandler) UpsertEntries(c *gin.Context) {
 }
 
 // CreateEntry godoc
-// @Summary      创建单个FAQ条目
-// @Description  同步创建单个FAQ条目
-// @Tags         FAQ管理
+// @Summary      Create a single FAQ entry
+// @Description  Synchronously create a single FAQ entry
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                true  "知识库ID"
-// @Param        request  body      types.FAQEntryPayload true  "FAQ条目"
-// @Success      200      {object}  map[string]interface{}  "创建的FAQ条目"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string                true  "Knowledge Base ID"
+// @Param        request  body      types.FAQEntryPayload true  "FAQ entry"
+// @Success      200      {object}  map[string]interface{}  "Created FAQ entry"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entry [post]
@@ -177,7 +177,7 @@ func (h *FAQHandler) CreateEntry(c *gin.Context) {
 	var req types.FAQEntryPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind FAQ entry payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -195,16 +195,16 @@ func (h *FAQHandler) CreateEntry(c *gin.Context) {
 }
 
 // UpdateEntry godoc
-// @Summary      更新FAQ条目
-// @Description  更新指定的FAQ条目
-// @Tags         FAQ管理
+// @Summary      Update FAQ entry
+// @Description  Update the given FAQ entry
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id        path      string                true  "知识库ID"
-// @Param        entry_id  path      int                   true  "FAQ条目ID(seq_id)"
-// @Param        request   body      types.FAQEntryPayload true  "FAQ条目"
-// @Success      200       {object}  map[string]interface{}  "更新成功"
-// @Failure      400       {object}  errors.AppError         "请求参数错误"
+// @Param        id        path      string                true  "Knowledge Base ID"
+// @Param        entry_id  path      int                   true  "FAQ entry ID (seq_id)"
+// @Param        request   body      types.FAQEntryPayload true  "FAQ entry"
+// @Success      200       {object}  map[string]interface{}  "Updated successfully"
+// @Failure      400       {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries/{entry_id} [put]
@@ -215,13 +215,13 @@ func (h *FAQHandler) UpdateEntry(c *gin.Context) {
 	var req types.FAQEntryPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind FAQ entry payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
 	entrySeqID, err := strconv.ParseInt(c.Param("entry_id"), 10, 64)
 	if err != nil {
-		c.Error(errors.NewBadRequestError("entry_id 必须是整数"))
+		c.Error(errors.NewBadRequestError("entry_id must be an integer"))
 		return
 	}
 
@@ -239,15 +239,15 @@ func (h *FAQHandler) UpdateEntry(c *gin.Context) {
 }
 
 // UpdateEntryTagBatch godoc
-// @Summary      批量更新FAQ标签
-// @Description  批量更新FAQ条目的标签
-// @Tags         FAQ管理
+// @Summary      Batch update FAQ tags
+// @Description  Batch update tags of FAQ entries
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string  true  "知识库ID"
-// @Param        request  body      object  true  "标签更新请求"
-// @Success      200      {object}  map[string]interface{}  "更新成功"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string  true  "Knowledge Base ID"
+// @Param        request  body      object  true  "Tag update request"
+// @Success      200      {object}  map[string]interface{}  "Updated successfully"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries/tags [put]
@@ -258,7 +258,7 @@ func (h *FAQHandler) UpdateEntryTagBatch(c *gin.Context) {
 	var req faqEntryTagBatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind FAQ entry tag batch payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	if err := h.knowledgeService.UpdateFAQEntryTagBatch(ctx, kbID, req.Updates); err != nil {
@@ -272,15 +272,15 @@ func (h *FAQHandler) UpdateEntryTagBatch(c *gin.Context) {
 }
 
 // UpdateEntryFieldsBatch godoc
-// @Summary      批量更新FAQ字段
-// @Description  批量更新FAQ条目的多个字段（is_enabled, is_recommended, tag_id）
-// @Tags         FAQ管理
+// @Summary      Batch update FAQ fields
+// @Description  Batch update multiple fields of FAQ entries (is_enabled, is_recommended, tag_id)
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                        true  "知识库ID"
-// @Param        request  body      types.FAQEntryFieldsBatchUpdate  true  "字段更新请求"
-// @Success      200      {object}  map[string]interface{}        "更新成功"
-// @Failure      400      {object}  errors.AppError               "请求参数错误"
+// @Param        id       path      string                        true  "Knowledge Base ID"
+// @Param        request  body      types.FAQEntryFieldsBatchUpdate  true  "Field update request"
+// @Success      200      {object}  map[string]interface{}        "Updated successfully"
+// @Failure      400      {object}  errors.AppError               "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries/fields [put]
@@ -291,7 +291,7 @@ func (h *FAQHandler) UpdateEntryFieldsBatch(c *gin.Context) {
 	var req types.FAQEntryFieldsBatchUpdate
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind FAQ entry fields batch payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	if err := h.knowledgeService.UpdateFAQEntryFieldsBatch(ctx, kbID, &req); err != nil {
@@ -305,15 +305,15 @@ func (h *FAQHandler) UpdateEntryFieldsBatch(c *gin.Context) {
 }
 
 // DeleteEntries godoc
-// @Summary      批量删除FAQ条目
-// @Description  批量删除指定的FAQ条目
-// @Tags         FAQ管理
+// @Summary      Batch delete FAQ entries
+// @Description  Batch delete the given FAQ entries
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string  true  "知识库ID"
-// @Param        request  body      object{ids=[]int}  true  "要删除的FAQ ID列表(seq_id)"
-// @Success      200      {object}  map[string]interface{}  "删除成功"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string  true  "Knowledge Base ID"
+// @Param        request  body      object{ids=[]int}  true  "IDs of FAQ entries to delete (seq_id)"
+// @Success      200      {object}  map[string]interface{}  "Deleted successfully"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries [delete]
@@ -324,7 +324,7 @@ func (h *FAQHandler) DeleteEntries(c *gin.Context) {
 	var req faqDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf(ctx, "Failed to bind FAQ delete payload: %s", secutils.SanitizeForLog(err.Error()))
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -340,15 +340,15 @@ func (h *FAQHandler) DeleteEntries(c *gin.Context) {
 }
 
 // SearchFAQ godoc
-// @Summary      搜索FAQ
-// @Description  使用混合搜索在FAQ中搜索，支持两级优先级标签召回：first_priority_tag_ids优先级最高，second_priority_tag_ids次之
-// @Tags         FAQ管理
+// @Summary      Search FAQ
+// @Description  Search FAQ using hybrid search with two-level priority tag recall: first_priority_tag_ids highest, second_priority_tag_ids next
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                true  "知识库ID"
-// @Param        request  body      types.FAQSearchRequest  true  "搜索请求"
-// @Success      200      {object}  map[string]interface{}  "搜索结果"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string                true  "Knowledge Base ID"
+// @Param        request  body      types.FAQSearchRequest  true  "Search request"
+// @Success      200      {object}  map[string]interface{}  "Search results"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/search [post]
@@ -359,7 +359,7 @@ func (h *FAQHandler) SearchFAQ(c *gin.Context) {
 	var req types.FAQSearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind FAQ search payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	req.QueryText = secutils.SanitizeForLog(req.QueryText)
@@ -383,16 +383,16 @@ func (h *FAQHandler) SearchFAQ(c *gin.Context) {
 }
 
 // ExportEntries godoc
-// @Summary      导出FAQ条目
-// @Description  将所有FAQ条目导出为 CSV（默认）或 JSON。?format=json 返回与 FAQEntryPayload 结构兼容的数组。
-// @Tags         FAQ管理
+// @Summary      Export FAQ entries
+// @Description  Export all FAQ entries as CSV (default) or JSON. ?format=json returns an array compatible with FAQEntryPayload.
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      text/csv
 // @Produce      application/json
-// @Param        id      path      string  true   "知识库ID"
-// @Param        format  query     string  false  "导出格式：csv（默认）或 json"
-// @Success      200     {file}    file    "导出文件"
-// @Failure      400     {object}  errors.AppError  "请求参数错误"
+// @Param        id      path      string  true   "Knowledge Base ID"
+// @Param        format  query     string  false  "Export format: csv (default) or json"
+// @Success      200     {file}    file    "Exported file"
+// @Failure      400     {object}  errors.AppError  "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries/export [get]
@@ -430,16 +430,16 @@ func (h *FAQHandler) ExportEntries(c *gin.Context) {
 }
 
 // GetEntry godoc
-// @Summary      获取FAQ条目详情
-// @Description  根据ID获取单个FAQ条目的详情
-// @Tags         FAQ管理
+// @Summary      Get FAQ entry details
+// @Description  Get details of a single FAQ entry by ID
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id        path      string  true  "知识库ID"
-// @Param        entry_id  path      int     true  "FAQ条目ID(seq_id)"
-// @Success      200       {object}  map[string]interface{}  "FAQ条目详情"
-// @Failure      400       {object}  errors.AppError         "请求参数错误"
-// @Failure      404       {object}  errors.AppError         "条目不存在"
+// @Param        id        path      string  true  "Knowledge Base ID"
+// @Param        entry_id  path      int     true  "FAQ entry ID (seq_id)"
+// @Success      200       {object}  map[string]interface{}  "FAQ entry details"
+// @Failure      400       {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404       {object}  errors.AppError         "Entry does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries/{entry_id} [get]
@@ -449,7 +449,7 @@ func (h *FAQHandler) GetEntry(c *gin.Context) {
 
 	entrySeqID, err := strconv.ParseInt(c.Param("entry_id"), 10, 64)
 	if err != nil {
-		c.Error(errors.NewBadRequestError("entry_id 必须是整数"))
+		c.Error(errors.NewBadRequestError("entry_id must be an integer"))
 		return
 	}
 
@@ -467,14 +467,14 @@ func (h *FAQHandler) GetEntry(c *gin.Context) {
 }
 
 // GetImportProgress godoc
-// @Summary      获取FAQ导入进度
-// @Description  获取FAQ导入任务的进度
-// @Tags         FAQ管理
+// @Summary      Get FAQ import progress
+// @Description  Get the progress of an FAQ import task
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        task_id  path      string  true  "任务ID"
-// @Success      200      {object}  map[string]interface{}  "导入进度"
-// @Failure      404      {object}  errors.AppError         "任务不存在"
+// @Param        task_id  path      string  true  "Task ID"
+// @Success      200      {object}  map[string]interface{}  "Import progress"
+// @Failure      404      {object}  errors.AppError         "Task does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /faq/import/progress/{task_id} [get]
@@ -500,16 +500,16 @@ func (h *FAQHandler) GetImportProgress(c *gin.Context) {
 }
 
 // UpdateLastImportResultDisplayStatus godoc
-// @Summary      更新FAQ最后一次导入结果显示状态
-// @Description  更新FAQ知识库导入结果统计卡片的显示或隐藏状态
-// @Tags         FAQ管理
+// @Summary      Update the display state of the last FAQ import results
+// @Description  Update the show/hide state of the FAQ KB import results summary card
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id      path      string                                         true  "知识库ID"
-// @Param        request body      updateLastFAQImportResultDisplayStatusRequest  true  "状态更新请求"
-// @Success      200     {object}  map[string]interface{}                         "更新成功"
-// @Failure      400     {object}  errors.AppError                                "请求参数错误"
-// @Failure      404     {object}  errors.AppError                                "知识库不存在或无导入记录"
+// @Param        id      path      string                                         true  "Knowledge Base ID"
+// @Param        request body      updateLastFAQImportResultDisplayStatusRequest  true  "Status update request"
+// @Success      200     {object}  map[string]interface{}                         "Updated successfully"
+// @Failure      400     {object}  errors.AppError                                "Invalid request parameters"
+// @Failure      404     {object}  errors.AppError                                "Knowledge base does not exist or has no import records"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/import/last-result/display [put]
@@ -520,7 +520,7 @@ func (h *FAQHandler) UpdateLastImportResultDisplayStatus(c *gin.Context) {
 	var req updateLastFAQImportResultDisplayStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind display status update payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -536,17 +536,17 @@ func (h *FAQHandler) UpdateLastImportResultDisplayStatus(c *gin.Context) {
 }
 
 // AddSimilarQuestions godoc
-// @Summary      添加相似问
-// @Description  向指定的FAQ条目添加相似问题
-// @Tags         FAQ管理
+// @Summary      Add similar question
+// @Description  Add a similar question to the given FAQ entry
+// @Tags         FAQ Management
 // @Accept       json
 // @Produce      json
-// @Param        id        path      string                      true  "知识库ID"
-// @Param        entry_id  path      int                         true  "FAQ条目ID(seq_id)"
-// @Param        request   body      addSimilarQuestionsRequest  true  "相似问列表"
-// @Success      200       {object}  map[string]interface{}      "更新后的FAQ条目"
-// @Failure      400       {object}  errors.AppError             "请求参数错误"
-// @Failure      404       {object}  errors.AppError             "条目不存在"
+// @Param        id        path      string                      true  "Knowledge Base ID"
+// @Param        entry_id  path      int                         true  "FAQ entry ID (seq_id)"
+// @Param        request   body      addSimilarQuestionsRequest  true  "Similar question list"
+// @Success      200       {object}  map[string]interface{}      "Updated FAQ entry"
+// @Failure      400       {object}  errors.AppError             "Invalid request parameters"
+// @Failure      404       {object}  errors.AppError             "Entry does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/faq/entries/{entry_id}/similar-questions [post]
@@ -556,14 +556,14 @@ func (h *FAQHandler) AddSimilarQuestions(c *gin.Context) {
 
 	entrySeqID, err := strconv.ParseInt(c.Param("entry_id"), 10, 64)
 	if err != nil {
-		c.Error(errors.NewBadRequestError("entry_id 必须是整数"))
+		c.Error(errors.NewBadRequestError("entry_id must be an integer"))
 		return
 	}
 
 	var req addSimilarQuestionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind add similar questions payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 

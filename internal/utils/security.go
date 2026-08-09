@@ -20,9 +20,9 @@ import (
 	"golang.org/x/net/http/httpproxy"
 )
 
-// XSS 防护相关正则表达式
+// Regular expressions for XSS protection
 var (
-	// 匹配潜在的 XSS 攻击模式
+	// Match potential XSS attack patterns
 	xssPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`),
 		regexp.MustCompile(`(?i)<iframe[^>]*>.*?</iframe>`),
@@ -43,30 +43,30 @@ var (
 	}
 )
 
-// SanitizeHTML 清理 HTML 内容，防止 XSS 攻击
+// SanitizeHTML sanitizes HTML content to prevent XSS attacks
 func SanitizeHTML(input string) string {
 	if input == "" {
 		return ""
 	}
 
-	// 检查输入长度
+	// Check the input length
 	if len(input) > 10000 {
 		input = input[:10000]
 	}
 
-	// 检查是否包含潜在的 XSS 攻击
+	// Check whether it contains a potential XSS attack
 	for _, pattern := range xssPatterns {
 		if pattern.MatchString(input) {
-			// 如果包含恶意内容，进行 HTML 转义
+			// If it contains malicious content, HTML-escape it
 			return html.EscapeString(input)
 		}
 	}
 
-	// 如果内容相对安全，返回原内容
+	// If the content is relatively safe, return it as is
 	return input
 }
 
-// EscapeHTML 转义 HTML 特殊字符
+// EscapeHTML escapes special HTML characters
 func EscapeHTML(input string) string {
 	if input == "" {
 		return ""
@@ -74,25 +74,25 @@ func EscapeHTML(input string) string {
 	return html.EscapeString(input)
 }
 
-// ValidateInput 验证用户输入
+// ValidateInput validates user input
 func ValidateInput(input string) (string, bool) {
 	if input == "" {
 		return "", true
 	}
 
-	// 检查是否包含控制字符
+	// Check whether it contains control characters
 	for _, r := range input {
 		if r < 32 && r != 9 && r != 10 && r != 13 {
 			return "", false
 		}
 	}
 
-	// 检查 UTF-8 有效性
+	// Check UTF-8 validity
 	if !utf8.ValidString(input) {
 		return "", false
 	}
 
-	// 检查是否包含潜在的 XSS 攻击
+	// Check whether it contains a potential XSS attack
 	for _, pattern := range xssPatterns {
 		if pattern.MatchString(input) {
 			return "", false
@@ -102,8 +102,8 @@ func ValidateInput(input string) (string, bool) {
 	return strings.TrimSpace(input), true
 }
 
-// SafePathUnderBase 校验 filePath 是否落在 baseDir 下，防止路径遍历（如 ../../）。
-// 返回规范化的绝对路径；若路径逃逸出 baseDir 则返回错误。
+// SafePathUnderBase validates that filePath falls under baseDir, preventing path traversal (e.g. ../../).
+// Returns the normalized absolute path; returns an error if the path escapes baseDir.
 func SafePathUnderBase(baseDir, filePath string) (string, error) {
 	if baseDir == "" || filePath == "" {
 		return "", fmt.Errorf("baseDir and filePath cannot be empty")
@@ -123,8 +123,8 @@ func SafePathUnderBase(baseDir, filePath string) (string, error) {
 	return absPath, nil
 }
 
-// SafeFileName 校验并返回安全的“仅文件名”部分，防止路径遍历。
-// 仅保留最后一个路径成分，禁止 ".."、空名或仅含点，用于 SaveBytes 等场景。
+// SafeFileName validates and returns the safe "filename only" portion, preventing path traversal.
+// Keeps only the last path component; disallows "..", empty names, or dot-only names; used in scenarios such as SaveBytes.
 func SafeFileName(fileName string) (string, error) {
 	if fileName == "" {
 		return "", fmt.Errorf("fileName cannot be empty")
@@ -142,7 +142,7 @@ func SafeFileName(fileName string) (string, error) {
 	return base, nil
 }
 
-// SafeObjectKey 校验对象存储的 key（如 COS/MinIO objectName），禁止包含 ".." 等路径遍历
+// SafeObjectKey validates an object storage key (e.g. COS/MinIO objectName), disallowing path traversal such as "..".
 func SafeObjectKey(objectKey string) error {
 	if objectKey == "" {
 		return fmt.Errorf("object key cannot be empty")
@@ -153,13 +153,13 @@ func SafeObjectKey(objectKey string) error {
 	return nil
 }
 
-// IsValidURL 验证 URL 是否安全
+// IsValidURL validates whether a URL is safe
 func IsValidURL(url string) bool {
 	if url == "" {
 		return false
 	}
 
-	// 检查长度
+	// Check the length
 	if len(url) > 2048 {
 		return false
 	}
@@ -181,7 +181,7 @@ func IsValidURL(url string) bool {
 		return false
 	}
 
-	// 检查是否包含恶意内容
+	// Check whether it contains malicious content
 	for _, pattern := range xssPatterns {
 		if pattern.MatchString(url) {
 			return false
@@ -485,7 +485,7 @@ func isSSRFSafeURL(rawURL string) (bool, string) {
 	return true, ""
 }
 
-// IsValidImageURL 验证图片 URL 是否安全
+// IsValidImageURL validates whether an image URL is safe
 func IsValidImageURL(url string) bool {
 	if !IsValidURL(url) {
 		return false
@@ -494,7 +494,7 @@ func IsValidImageURL(url string) bool {
 		return true
 	}
 
-	// 检查是否为图片文件
+	// Check whether it is an image file
 	imageExtensions := []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico"}
 	lowerURL := strings.ToLower(url)
 
@@ -507,13 +507,13 @@ func IsValidImageURL(url string) bool {
 	return false
 }
 
-// CleanMarkdown 清理 Markdown 内容
+// CleanMarkdown sanitizes Markdown content
 func CleanMarkdown(input string) string {
 	if input == "" {
 		return ""
 	}
 
-	// 移除潜在的恶意脚本
+	// Remove potentially malicious scripts
 	cleaned := input
 	for _, pattern := range xssPatterns {
 		cleaned = pattern.ReplaceAllString(cleaned, "")
@@ -522,40 +522,40 @@ func CleanMarkdown(input string) string {
 	return cleaned
 }
 
-// SanitizeForDisplay 为显示清理内容
+// SanitizeForDisplay sanitizes content for display
 func SanitizeForDisplay(input string) string {
 	if input == "" {
 		return ""
 	}
 
-	// 首先清理 Markdown
+	// First sanitize the Markdown
 	cleaned := CleanMarkdown(input)
 
-	// 然后进行 HTML 转义
+	// Then apply HTML escaping
 	escaped := html.EscapeString(cleaned)
 
 	return escaped
 }
 
-// SanitizeForLog 清理日志输入,防止日志注入攻击
-// 日志注入攻击是指攻击者通过在输入中插入换行符和其他控制字符,
-// 伪造日志条目,可能导致日志分析工具误判或隐藏恶意活动
+// SanitizeForLog sanitizes log input to prevent log injection attacks
+// Log injection attacks occur when an attacker inserts newlines and other control characters into input,
+// forging log entries, which can mislead log analysis tools or hide malicious activity
 func SanitizeForLog(input string) string {
 	if input == "" {
 		return ""
 	}
 
-	// 替换换行符(LF, CR, CRLF)为空格,防止日志注入
+	// Replace newlines (LF, CR, CRLF) with spaces to prevent log injection
 	sanitized := strings.ReplaceAll(input, "\n", " ")
 	sanitized = strings.ReplaceAll(sanitized, "\r", " ")
 
-	// 替换制表符为空格
+	// Replace tabs with spaces
 	sanitized = strings.ReplaceAll(sanitized, "\t", " ")
 
-	// 移除其他控制字符(ASCII 0-31,除了空格已处理的)
+	// Remove other control characters (ASCII 0-31, except spaces already handled)
 	var builder strings.Builder
 	for _, r := range sanitized {
-		// 保留可打印字符和常用Unicode字符
+		// Preserve printable characters and common Unicode characters
 		if r >= 32 || r == ' ' {
 			builder.WriteRune(r)
 		}
@@ -566,7 +566,7 @@ func SanitizeForLog(input string) string {
 	return sanitized
 }
 
-// SanitizeForLogArray 清理日志输入数组,防止日志注入攻击
+// SanitizeForLogArray sanitizes an array of log inputs to prevent log injection attacks
 func SanitizeForLogArray(input []string) []string {
 	if len(input) == 0 {
 		return []string{}
@@ -1169,7 +1169,7 @@ func ResetSSRFWhitelistForTest() {
 
 // FormatSSRFError takes the error returned by ValidateURLForSSRF and wraps
 // it with operator guidance — specifically how to add a host to the SSRF
-// allow-list. Without this hint, users hit "Base URL 未通过安全校验" with
+// allow-list. Without this hint, users hit "Base URL failed security validation" with
 // no idea how to recover (the allowlist is configured server-side, not
 // in the UI). The hint references SSRF_WHITELIST_EXTRA rather than
 // SSRF_WHITELIST because the latter is the project's baseline list and
@@ -1187,9 +1187,9 @@ func FormatSSRFError(label, rawURL string, err error) string {
 		host = parsed
 	}
 	return fmt.Sprintf(
-		"%s 未通过安全校验：%v。如该地址确实可信，请联系运维在服务端环境变量 "+
-			"SSRF_WHITELIST_EXTRA 中加入该主机（支持精确域名 / *.example.com 通配 / IP / CIDR），"+
-			"示例：SSRF_WHITELIST_EXTRA=%s,*.example.com,10.0.0.0/8",
+		"%s failed the security check: %v. If this address is trusted, ask ops to add the host to the server environment variable "+
+			"SSRF_WHITELIST_EXTRA (exact domain / *.example.com wildcard / IP / CIDR are supported), "+
+			"e.g. SSRF_WHITELIST_EXTRA=%s,*.example.com,10.0.0.0/8",
 		label, err, host,
 	)
 }
@@ -1254,7 +1254,7 @@ func ValidateURLForSSRF(rawURL string) error {
 	return nil
 }
 
-// IsSystemProxy 判断是否为系统代理
+// IsSystemProxy determines whether it's a system proxy
 func IsSystemProxy(host string) bool {
 	proxyCfg := httpproxy.FromEnvironment()
 	for _, proxyUrl := range []string{

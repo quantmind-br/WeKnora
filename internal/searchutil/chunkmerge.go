@@ -69,35 +69,35 @@ func runeSlicesEqual(left, right []rune) bool {
 	return true
 }
 
-// 这里实现 chunk 内容的「重叠拼接」公共逻辑，供文档重建（reconstructContent）、
-// 知识图谱内容合并（graph mergeChunkContents）等路径复用。聊天检索链路允许
-// 用户编辑 Chunk，使用上面的 JoinChunkContent，避免依赖原文位置坐标。
+// Implements the common "overlap stitching" logic for chunk content here, reused by document reconstruction (reconstructContent),
+// and knowledge graph content merging (graph mergeChunkContents). The chat retrieval path allows
+// users to edit a Chunk, using JoinChunkContent above to avoid depending on original-text position coordinates.
 //
-// 历史上各处都用「按位置」的公式裁剪重叠（offset = len(content) - (EndAt -
-// lastEndAt) 之类），它默认 len([]rune(Content)) == EndAt-StartAt。但有两类
-// 数据会破坏这个不变式，导致拼接错位、丢字或重复：
-//  1. 父子分块器会给被拆开的表格「补写表头」，补进去的表头是零宽度的
-//     （start == end），位置坐标无法表达它，content 比 EndAt-StartAt 更长；
-//  2. content 里可能保留 HTML 实体（如 &#34; / &gt;），其字符数比原文区间长。
+// Historically, various places trimmed overlap using a "position-based" formula (offset = len(content) - (EndAt -
+// lastEndAt), etc.), which assumes len([]rune(Content)) == EndAt-StartAt. But two kinds of
+// data break this invariant, causing misaligned stitching, dropped characters, or duplication:
+// 1. The parent-child splitter "re-adds table headers" for tables that got split apart; the re-added header is zero-width
+// (start == end), position coordinates can't express it, so content is longer than EndAt-StartAt;
+// 2. content may retain HTML entities (e.g. &#34; / &gt;), whose character count is longer than the original text span.
 //
-// 因此这里改为「按文本」匹配重叠：在下一段开头的窗口里查找已合并文本的后缀首次
-// 出现的位置，从该位置之后接上。位置信息（StartAt/EndAt）仅用于估算搜索窗口
-// 大小，不再用于裁剪。
+// So overlap here is instead matched "by text": search the window at the start of the next segment for the first occurrence
+// of the merged text's suffix, and append from just after that position. Position info (StartAt/EndAt) is only used to estimate the search window
+// size, and is no longer used for trimming.
 
 const (
-	// minOverlapRunes 是参与匹配的最短后缀长度。太短（如表格分隔行 |---|）
-	// 容易误匹配，因此忽略。
+	// minOverlapRunes is the minimum suffix length that participates in matching. Too short (e.g., a table separator row |---|)
+	// is prone to false matches, so it's ignored.
 	minOverlapRunes = 12
-	// defaultSearchSpan 是搜索窗口的下限，保证即使位置信息缺失/为 0 也能
-	// 检测到一定范围内的真实重叠。
+	// defaultSearchSpan is the lower bound of the search window, ensuring that even when position info is missing/zero, it can
+	// still detect real overlap within a certain range.
 	defaultSearchSpan = 400
 )
 
-// AppendWithOverlap 把 next 追加到 acc 之后，并去除二者之间的重叠部分。
+// AppendWithOverlap appends next after acc, removing the overlapping part between them.
 //
-// positionOverlap 是由 StartAt/EndAt 估算的重叠量（lastEnd - curStart），仅用于
-// 界定搜索窗口大小；真正的重叠按文本匹配，能兼容补写表头与 HTML 实体长度偏差。
-// 若找不到文本重叠，则原样拼接（不裁剪），宁可保留也不破坏内容。
+// positionOverlap is the overlap amount estimated from StartAt/EndAt (lastEnd - curStart), used only to
+// bound the search window size; the actual overlap is determined by text matching, which tolerates re-inserted headers and HTML entity length differences.
+// If no text overlap is found, concatenate as-is (no trimming) — better to keep content than to break it.
 func AppendWithOverlap(acc, next string, positionOverlap int) string {
 	if acc == "" {
 		return next
@@ -118,7 +118,7 @@ func AppendWithOverlap(acc, next string, positionOverlap int) string {
 	if cap := maxInt(span*3, defaultSearchSpan); maxK > cap {
 		maxK = cap
 	}
-	// 重叠内容之前最多允许跳过多少前缀（即补写的表头等合成文本）。
+	// The maximum prefix allowed to be skipped before the overlapping content (i.e., synthetic text such as re-inserted headers).
 	headSlack := maxInt(span*2, 320)
 
 	for k := maxK; k >= minOverlapRunes; k-- {
@@ -130,15 +130,15 @@ func AppendWithOverlap(acc, next string, positionOverlap int) string {
 	return acc + next
 }
 
-// AppendWithExactOverlap 在调用方已确认位置坐标可信时，按坐标给出的精确重叠量
-// 拼接 acc 与 next：校验 acc 的末 overlap 个字符与 next 的前 overlap 个字符逐字
-// 符相等，相等则精确裁剪，overlap 为 0 时直接拼接。
+// AppendWithExactOverlap, when the caller has already confirmed the position coordinates are trustworthy, uses the exact overlap amount given by the coordinates
+// to concatenate acc and next: verify that the last `overlap` characters of acc match the first `overlap` characters of next character-
+// by-character; if equal, trim exactly, and if overlap is 0, concatenate directly.
 //
-// 与 AppendWithOverlap 的区别在于「不猜」：后者为兼容补写表头、HTML 实体等长度
-// 偏差，会在窗口内搜索最长后缀匹配，重复周期性文本（表格、日志）可能被误判成重
-// 叠而裁掉真实内容。坐标可信时重叠量是已知的，不需要搜索。
+// The difference from AppendWithOverlap is that this one "doesn't guess": the latter searches for the longest suffix match within the window to tolerate length
+// deviations from re-inserted headers, HTML entities, etc., which can misjudge repeated periodic text (tables, logs) as overlap and cut real content.
+// When the coordinates are trustworthy, the overlap amount is already known, so no search is needed.
 //
-// 校验不通过返回 ok=false，由调用方决定是否回退到 AppendWithOverlap。
+// If validation fails, return ok=false, letting the caller decide whether to fall back to AppendWithOverlap.
 func AppendWithExactOverlap(acc, next string, overlap int) (string, bool) {
 	if acc == "" {
 		return next, true
@@ -164,11 +164,11 @@ func AppendWithExactOverlap(acc, next string, overlap int) (string, bool) {
 	return acc + string(nextRunes[overlap:]), true
 }
 
-// MergeTextChunks 按 StartAt（并列时按 ChunkIndex）排序后，用 AppendWithOverlap
-// 把多个 chunk 的内容重建为完整文本。gapSep 用于位置不相邻（有间隙）的两段之间
-// 的分隔符（如 "\n"），传空串则直接拼接。
+// MergeTextChunks sorts by StartAt (and by ChunkIndex for ties), then uses AppendWithOverlap
+// to reconstruct the content of multiple chunks into complete text. gapSep is the separator used between two segments whose positions are not adjacent (i.e., have a gap)
+// (e.g. "\n"); passing an empty string concatenates directly.
 //
-// 调用方负责先做类型过滤（例如只保留文本 chunk）；本函数不感知 ChunkType。
+// The caller is responsible for type filtering beforehand (e.g., keeping only text chunks); this function is unaware of ChunkType.
 func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 	if len(chunks) == 0 {
 		return ""
@@ -197,7 +197,7 @@ func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 			continue
 		}
 
-		// 间隙 / 位置信息缺失（EndAt==0）：作为独立段落拼接，不做重叠裁剪。
+		// Gap / missing position info (EndAt==0): concatenated as an independent segment, with no overlap trimming.
 		if c.StartAt > mergedEnd || c.EndAt == 0 {
 			if gapSep != "" {
 				merged += gapSep
@@ -209,19 +209,19 @@ func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 			continue
 		}
 
-		// 部分重叠或首尾相接：按文本匹配去重叠后拼接。
+		// Partial overlap or adjacent ends: concatenated after removing overlap via text matching.
 		if c.EndAt > mergedEnd {
 			merged = AppendWithOverlap(merged, c.Content, mergedEnd-c.StartAt)
 			mergedEnd = c.EndAt
 		}
-		// 否则被上一段完全覆盖，跳过。
+		// Otherwise it's fully covered by the previous segment and skipped.
 	}
 
 	return merged
 }
 
-// indexRunes 在 haystack 中查找 needle 首次出现的 rune 下标，且起始位置不超过
-// maxStart。找不到返回 -1。
+// indexRunes finds the first occurrence of needle in haystack by rune index, with the start position not exceeding
+// maxStart. Returns -1 if not found.
 func indexRunes(haystack, needle []rune, maxStart int) int {
 	if len(needle) == 0 || len(needle) > len(haystack) {
 		return -1

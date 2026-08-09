@@ -1,34 +1,34 @@
-# 空间管理 API
+# Space Management API
 
-[返回目录](./README.md)
+[Back to table of contents](./README.md)
 
-包含两组接口：
-- 空间 CRUD（`/tenants`、`/tenants/:id`）：当前认证用户对自己所属空间进行管理；跨空间访问需要管理员权限。
-- 跨空间接口（`/tenants/all`、`/tenants/search`）：**需要服务端启用 `EnableCrossTenantAccess` 且当前用户具备 `CanAccessAllTenants` 权限**，否则返回 403。
-- 空间 KV 配置（`/tenants/kv/:key`）：当前空间级别的通用配置项，**`tenant_id` 从认证上下文中获取，不在 URL 中传入**。
+Contains two groups of endpoints:
+- Space CRUD (`/tenants`, `/tenants/:id`): the currently authenticated user manages spaces they belong to; cross-space access requires admin privileges.
+- Cross-space endpoints (`/tenants/all`, `/tenants/search`): **requires the server to have `EnableCrossTenantAccess` enabled and the current user to hold the `CanAccessAllTenants` permission**, otherwise returns 403.
+- Space KV configuration (`/tenants/kv/:key`): general-purpose configuration items at the current space level, where **`tenant_id` is obtained from the authentication context and is not passed in the URL**.
 
-| 方法   | 路径                       | 描述                                              |
-| ------ | -------------------------- | ------------------------------------------------- |
-| GET    | `/tenants/all`             | 获取所有空间列表（需跨空间权限）                  |
-| GET    | `/tenants/search`          | 分页搜索空间（需跨空间权限）                      |
-| POST   | `/tenants`                 | 创建新空间                                        |
-| GET    | `/tenants/:id`             | 获取指定空间信息                                  |
-| PUT    | `/tenants/:id`             | 更新空间信息                                      |
-| DELETE | `/tenants/:id`             | 删除空间                                          |
-| GET    | `/tenants/:id/api-keys`    | 列出空间 API Key（Owner）                         |
-| POST   | `/tenants/:id/api-keys`    | 创建带角色的 API Key（Owner）                  |
-| DELETE | `/tenants/:id/api-keys/:key_id` | 吊销指定 API Key（Owner）                   |
-| GET    | `/tenants/:id/api-principal-config` | 获取 API Key 用户身份配置（Owner）          |
-| PUT    | `/tenants/:id/api-principal-config` | 更新 API Key 用户身份配置（Owner）          |
-| GET    | `/tenants`                 | 获取当前用户可见的空间列表                        |
-| GET    | `/tenants/kv/:key`         | 获取当前空间的 KV 配置（空间由认证上下文确定） |
-| PUT    | `/tenants/kv/:key`         | 更新当前空间的 KV 配置（空间由认证上下文确定） |
+| Method | Path                       | Description                                              |
+| ------ | -------------------------- | ---------------------------------------------------------|
+| GET    | `/tenants/all`             | Get a list of all spaces (requires cross-space permission) |
+| GET    | `/tenants/search`          | Paginated space search (requires cross-space permission) |
+| POST   | `/tenants`                 | Create a new space                                       |
+| GET    | `/tenants/:id`             | Get info for a specific space                            |
+| PUT    | `/tenants/:id`             | Update space info                                        |
+| DELETE | `/tenants/:id`             | Delete a space                                            |
+| GET    | `/tenants/:id/api-keys`    | List space API Keys (Owner)                               |
+| POST   | `/tenants/:id/api-keys`    | Create an API Key with a role (Owner)                     |
+| DELETE | `/tenants/:id/api-keys/:key_id` | Revoke a specific API Key (Owner)                     |
+| GET    | `/tenants/:id/api-principal-config` | Get the API Key principal configuration (Owner)   |
+| PUT    | `/tenants/:id/api-principal-config` | Update the API Key principal configuration (Owner) |
+| GET    | `/tenants`                 | Get the list of spaces visible to the current user       |
+| GET    | `/tenants/kv/:key`         | Get the KV configuration of the current space (space determined by authentication context) |
+| PUT    | `/tenants/kv/:key`         | Update the KV configuration of the current space (space determined by authentication context) |
 
-## GET `/tenants/all` - 获取所有空间列表
+## GET `/tenants/all` - Get list of all spaces
 
-获取系统中所有空间列表，需要跨空间权限。
+Gets the list of all spaces in the system; requires cross-space permission.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants/all' \
@@ -36,7 +36,7 @@ curl --location 'http://localhost:8080/api/v1/tenants/all' \
 --header 'X-API-Key: sk-An7_t_izCKFIJ4iht9Xjcjnj_MC48ILvwezEDki9ScfIa7KA'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -66,17 +66,17 @@ curl --location 'http://localhost:8080/api/v1/tenants/all' \
 }
 ```
 
-## GET `/tenants/search` - 搜索空间
+## GET `/tenants/search` - Search spaces
 
-按关键词搜索空间，需要跨空间权限。
+Searches spaces by keyword; requires cross-space permission.
 
-**查询参数**:
-- `keyword`: 搜索关键词（可选）
-- `tenant_id`: 按空间ID筛选（可选）
-- `page`: 页码（默认 1）
-- `page_size`: 每页条数（默认 20）
+**Query parameters**:
+- `keyword`: search keyword (optional)
+- `tenant_id`: filter by space ID (optional)
+- `page`: page number (default 1)
+- `page_size`: items per page (default 20)
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants/search?keyword=weknora&page=1&page_size=10' \
@@ -84,7 +84,7 @@ curl --location 'http://localhost:8080/api/v1/tenants/search?keyword=weknora&pag
 --header 'X-API-Key: sk-An7_t_izCKFIJ4iht9Xjcjnj_MC48ILvwezEDki9ScfIa7KA'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -108,23 +108,23 @@ curl --location 'http://localhost:8080/api/v1/tenants/search?keyword=weknora&pag
 }
 ```
 
-## POST `/tenants` - 创建新空间
+## POST `/tenants` - Create a new space
 
-创建一个新的空间。**默认不会**自动发放 API Key；请在创建后通过 `POST /tenants/:id/api-keys` 创建密钥。从旧版本升级时，原有 `tenants.api_key` 会迁移到 `tenant_api_keys` 表并继续可用，直至被吊销。
+Creates a new space. **By default, no** API Key is automatically issued; after creation, create a key via `POST /tenants/:id/api-keys`. When upgrading from an older version, the existing `tenants.api_key` is migrated to the `tenant_api_keys` table and remains usable until revoked.
 
-> **兼容旧行为（可选）**：如需恢复旧版「创建空间即下发默认 API Key」的行为，可将系统设置 `tenant.auto_create_api_key` 置为 `true`（或设置环境变量 `WEKNORA_TENANT_AUTO_CREATE_API_KEY=true`）。开启后，创建空间会自动生成一个 `full_access` 权限的 API Key，并在响应体 `data.api_key` 中返回其明文 token（仅本次创建响应返回，请妥善保存）。默认 `false`。
+> **Legacy behavior compatibility (optional)**: To restore the old behavior of "issuing a default API Key automatically on space creation," set the system setting `tenant.auto_create_api_key` to `true` (or set the environment variable `WEKNORA_TENANT_AUTO_CREATE_API_KEY=true`). Once enabled, creating a space automatically generates an API Key with `full_access` permission, and its plaintext token is returned in the response body's `data.api_key` field (returned only in this creation response — please store it securely). Defaults to `false`.
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段              | 类型   | 必填 | 说明                                                   |
-| ----------------- | ------ | ---- | ------------------------------------------------------ |
-| name              | string | 是   | 空间名称                                               |
-| description       | string | 否   | 空间描述                                               |
-| business          | string | 否   | 业务标识（如 `wechat`）                                |
-| retriever_engines | object | 否   | 检索引擎组合配置（`engines` 数组：每项含 `retriever_type` 与 `retriever_engine_type`） |
-| storage_quota     | int    | 否   | 存储配额（字节）                                       |
+| Field             | Type   | Required | Description                                             |
+| ----------------- | ------ | -------- | -------------------------------------------------------- |
+| name              | string | Yes      | Space name                                                |
+| description       | string | No       | Space description                                          |
+| business          | string | No       | Business identifier (e.g. `wechat`)                       |
+| retriever_engines | object | No       | Retrieval engine combination config (`engines` array: each item contains `retriever_type` and `retriever_engine_type`) |
+| storage_quota     | int    | No       | Storage quota (bytes)                                      |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants' \
@@ -148,7 +148,7 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 }'
 ```
 
-**响应**（默认，不含 API Key）:
+**Response** (default, without API Key):
 
 ```json
 {
@@ -180,7 +180,7 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 }
 ```
 
-当开启 `tenant.auto_create_api_key`（或 `WEKNORA_TENANT_AUTO_CREATE_API_KEY=true`）时，响应的 `data` 中会额外包含 `api_key` 字段（`full_access` 密钥的明文 token）：
+When `tenant.auto_create_api_key` (or `WEKNORA_TENANT_AUTO_CREATE_API_KEY=true`) is enabled, the response `data` additionally includes an `api_key` field (the plaintext token of the `full_access` key):
 
 ```json
 {
@@ -201,17 +201,17 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 }
 ```
 
-## GET `/tenants/:id` - 获取指定空间信息
+## GET `/tenants/:id` - Get info for a specific space
 
-获取指定 ID 的空间详情。只能访问自己所属空间；访问其他空间需要跨空间权限，否则返回 403。
+Gets details for the space with the specified ID. You can only access spaces you belong to; accessing other spaces requires cross-space permission, otherwise returns 403.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型 | 说明    |
-| ---- | ---- | ------- |
-| id   | int  | 空间 ID |
+| Field | Type | Description |
+| ----- | ---- | ------------ |
+| id    | int  | Space ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants/10000' \
@@ -219,7 +219,7 @@ curl --location 'http://localhost:8080/api/v1/tenants/10000' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -252,19 +252,19 @@ curl --location 'http://localhost:8080/api/v1/tenants/10000' \
 }
 ```
 
-## PUT `/tenants/:id` - 更新空间信息
+## PUT `/tenants/:id` - Update space info
 
-更新指定空间的基础信息。访问规则同 `GET /tenants/:id`。
+Updates basic info for the specified space. Access rules are the same as `GET /tenants/:id`.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型 | 说明    |
-| ---- | ---- | ------- |
-| id   | int  | 空间 ID |
+| Field | Type | Description |
+| ----- | ---- | ------------ |
+| id    | int  | Space ID     |
 
-**参数说明（请求体）**: 与 `POST /tenants` 相同字段；未传字段保持原值。
+**Parameters (request body)**: Same fields as `POST /tenants`; fields not passed retain their original values.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000' \
@@ -291,7 +291,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -324,17 +324,17 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000' \
 }
 ```
 
-## DELETE `/tenants/:id` - 删除空间
+## DELETE `/tenants/:id` - Delete a space
 
-删除指定空间。访问规则同 `GET /tenants/:id`。
+Deletes the specified space. Access rules are the same as `GET /tenants/:id`.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型 | 说明    |
-| ---- | ---- | ------- |
-| id   | int  | 空间 ID |
+| Field | Type | Description |
+| ----- | ---- | ------------ |
+| id    | int  | Space ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/tenants/10000' \
@@ -342,7 +342,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/tenants/10000' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -351,25 +351,25 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/tenants/10000' \
 }
 ```
 
-## API Key 管理（`tenant_api_keys`）
+## API Key management (`tenant_api_keys`)
 
-自 scoped API Key 改造后，密钥以独立记录存储，支持：
+Since the scoped API Key redesign, keys are stored as independent records and support:
 
-- **role**：`viewer`（只读 + 语义检索 POST）、`contributor`（知识库写入）、`admin`（空间级管理，不含 `/api-keys` 管理面）
-- **knowledge_base_ids**：可选，将 Key 限制在指定知识库
-- **吊销**：`DELETE /tenants/:id/api-keys/:key_id`
-- **过期**：创建时可选 `expires_at_unix`
+- **role**: `viewer` (read-only + semantic search POST), `contributor` (knowledge base write access), `admin` (space-level management, excluding the `/api-keys` management surface)
+- **knowledge_base_ids**: optional; restricts the key to specified knowledge bases
+- **Revocation**: `DELETE /tenants/:id/api-keys/:key_id`
+- **Expiration**: optionally set `expires_at_unix` at creation
 
-空间 Key 固定绑定创建时的空间。路由级 capability 鉴权与 KB 访问守卫会在 `X-API-Key` 认证后继续强制执行。
+Space keys are permanently bound to the space they were created in. Route-level capability authorization and KB access guards continue to be enforced after `X-API-Key` authentication.
 
-### 平台 API Key
+### Platform API Key
 
-系统管理员可在“系统管理 → 平台 API Key”创建不绑定单一空间的 Key。平台 Key 默认可以选择任意存在的空间，但每项操作仍必须具备对应 capability；平台 Key 不支持 `full_access`。
+System administrators can create keys not bound to a single space under "System Management → Platform API Key". By default, a platform key may target any existing space, but each operation still requires the corresponding capability; platform keys do not support `full_access`.
 
-- 管理接口：`GET/POST /system/admin/api-keys`、`DELETE /system/admin/api-keys/:key_id`，仅人类 SystemAdmin 会话可调用，平台 Key 不能创建或吊销其他平台 Key。
-- 调用普通空间 API 时必须同时传 `X-Tenant-ID: <空间 ID>`；服务端解析目标空间后继续复用原有空间 Context、路由 capability 和知识库范围检查。
-- 调用明确开放的 `/system/admin/*` 控制面接口时不需要 `X-Tenant-ID`，需要 `system_*` capability。
-- 平台 Key 明文仅在创建响应的 `data.token` 返回一次；列表仅返回脱敏值。
+- Management endpoints: `GET/POST /system/admin/api-keys`, `DELETE /system/admin/api-keys/:key_id`, callable only from human SystemAdmin sessions — platform keys cannot create or revoke other platform keys.
+- When calling regular space APIs, `X-Tenant-ID: <space ID>` must also be passed; after the server resolves the target space, it continues to reuse the existing space Context, route capability, and knowledge base scope checks.
+- No `X-Tenant-ID` is needed when calling explicitly exposed `/system/admin/*` control-plane endpoints; a `system_*` capability is required instead.
+- The platform key's plaintext is returned only once, in the creation response's `data.token` field; listings return only masked values.
 
 ```bash
 curl 'http://localhost:8080/api/v1/knowledge-bases' \
@@ -377,66 +377,66 @@ curl 'http://localhost:8080/api/v1/knowledge-bases' \
   -H 'X-Tenant-ID: 10000'
 ```
 
-平台 capability：
+Platform capabilities:
 
-| capability | 权限 |
+| capability | permission |
 | --- | --- |
-| `system_tenants_read` | 列出、搜索、查看全部空间 |
-| `system_tenants_manage` | 创建、更新、删除空间以及应用全局空间配置 |
-| `system_settings_read` | 读取系统设置 |
-| `system_settings_manage` | 更新、重置系统设置 |
-| `system_runtime_read` | 查看运行时队列和任务 |
-| `system_runtime_manage` | 重试、立即执行、取消、删除运行时任务 |
-| `system_audit_read` | 读取平台审计日志 |
+| `system_tenants_read` | List, search, and view all spaces |
+| `system_tenants_manage` | Create, update, delete spaces, and apply global space configuration |
+| `system_settings_read` | Read system settings |
+| `system_settings_manage` | Update and reset system settings |
+| `system_runtime_read` | View runtime queues and tasks |
+| `system_runtime_manage` | Retry, run immediately, cancel, and delete runtime tasks |
+| `system_audit_read` | Read platform audit logs |
 
-平台 Key 也可以携带现有空间 capability，例如 `retrieve`、`ingest`、`manage_kbs`；这些能力作用于请求中 `X-Tenant-ID` 指定的空间。
+Platform keys can also carry existing space capabilities, such as `retrieve`, `ingest`, `manage_kbs`; these capabilities apply to the space specified by `X-Tenant-ID` in the request.
 
-## API Key Principal：隔离边界与安全说明
+## API Key Principal: isolation boundaries and security notes
 
-`api-principal-config` 控制 `X-API-Key` 请求如何映射为终端 **Principal**。请先理解以下边界，再选择模式。
+`api-principal-config` controls how `X-API-Key` requests are mapped to an end-user **Principal**. Please understand the following boundaries before choosing a mode.
 
-### Principal 隔离范围（当前实现）
+### Principal isolation scope (current implementation)
 
-Principal **仅**用于按终端用户隔离以下能力：
+The Principal is **only** used to isolate the following capabilities per end user:
 
-- **对话 Session**（创建、列表、读取按外部用户分开；`仅空间` 模式仍共用空间级 Session）
-- **MCP OAuth** 访问令牌（同一空间下不同外部用户各自授权，token 互不共用）
-- 对话内 MCP OAuth 提示、MCP 工具审批等与终端用户绑定的流程
+- **Conversation Sessions** (creation, listing, and reading are separated by external user; **`tenant`-only** mode still shares a space-level Session)
+- **MCP OAuth** access tokens (different external users under the same space are each authorized separately; tokens are not shared)
+- In-conversation flows tied to the end user, such as MCP OAuth prompts and MCP tool approvals
 
-Principal **不会**缩小 API Key 的 HTTP 路由权限：路由访问由 Key 的 `role` 控制；空间内 RBAC 角色与 `role` 一致。知识库、Agent 等资源的细粒度访问另受 KB 守卫约束。
+The Principal **does not** narrow the API Key's HTTP route permissions: route access is controlled by the key's `role`; the space-level RBAC role matches the `role`. Fine-grained access to resources such as knowledge bases and agents is further governed by the KB guard.
 
-### 模式与安全假设
+### Modes and security assumptions
 
-| mode | 适用场景 | 安全假设 |
+| mode | applicable scenario | security assumption |
 | ---- | -------- | -------- |
-| `tenant` | 无 per-user MCP 需求 | 全空间共用一个 MCP OAuth 身份 |
-| `direct_header` | 仅可信服务端到服务端 | 用户 ID 来自调用方请求头，**可被持有 API Key 的任意调用方伪造**（冒充其他外部用户并共用/劫持其 MCP OAuth 授权）。面向终端用户或不可信客户端时**禁止**使用；若必须使用，请开启 `require_direct_header` 并确保 API Key 仅保存在可信后端 |
-| `signed_token` | 面向终端用户的集成（**推荐**） | 由业务后端使用 `hmac_secret` 为外部用户签发短期 HS256 JWT；无效或缺失 token 返回 401，**不回退**为空间级 Principal |
+| `tenant` | No per-user MCP needs | The whole space shares a single MCP OAuth identity |
+| `direct_header` | Trusted server-to-server only | The user ID comes from a request header supplied by the caller, **which can be forged by any caller holding the API Key** (impersonating another external user and sharing/hijacking their MCP OAuth authorization). **Forbidden** for use with end users or untrusted clients; if it must be used, enable `require_direct_header` and ensure the API Key is stored only on a trusted backend |
+| `signed_token` | End-user-facing integrations (**recommended**) | The business backend issues a short-lived HS256 JWT for the external user using `hmac_secret`; an invalid or missing token returns 401 and **does not fall back** to a space-level Principal |
 
-`direct_header` 模式下，若未携带用户 ID 请求头：`require_direct_header=false` 时回退为空间级 Principal；`require_direct_header=true` 时返回 401。
+In `direct_header` mode, if the user ID header is not provided: with `require_direct_header=false`, it falls back to a space-level Principal; with `require_direct_header=true`, it returns 401.
 
-## GET `/tenants/:id/api-principal-config` - 获取 API Key 用户身份配置
+## GET `/tenants/:id/api-principal-config` - Get the API Key principal configuration
 
-返回空间级 API Key 请求如何映射为终端 Principal 的配置。**需要 Owner 权限**。
+Returns the configuration for how space-level API Key requests are mapped to an end-user Principal. **Requires Owner permission**.
 
-**响应字段**:
+**Response fields**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 | ---- | ---- | ---- |
 | mode | string | `tenant` / `direct_header` / `signed_token` |
-| direct_header_name | string | 直接传用户 ID 时的请求头名，默认 `X-External-User-ID` |
-| signed_token_header_name | string | 签名 token 模式请求头名，默认 `X-External-User-Token` |
-| require_direct_header | bool | `direct_header` 模式下是否强制要求用户 ID 请求头 |
-| has_hmac_secret | bool | 是否已配置 HMAC secret（不返回明文） |
+| direct_header_name | string | Header name used for passing the user ID directly, default `X-External-User-ID` |
+| signed_token_header_name | string | Header name for signed token mode, default `X-External-User-Token` |
+| require_direct_header | bool | Whether the user ID header is mandatory in `direct_header` mode |
+| has_hmac_secret | bool | Whether an HMAC secret is configured (plaintext is not returned) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants/10000/api-principal-config' \
 --header 'Authorization: Bearer <token>'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -451,25 +451,25 @@ curl --location 'http://localhost:8080/api/v1/tenants/10000/api-principal-config
 }
 ```
 
-## PUT `/tenants/:id/api-principal-config` - 更新 API Key 用户身份配置
+## PUT `/tenants/:id/api-principal-config` - Update the API Key principal configuration
 
-更新 API Key 请求的 Principal 映射方式。**需要 Owner 权限**。
+Updates the Principal mapping method for API Key requests. **Requires Owner permission**.
 
-**请求体**:
+**Request body**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 | ---- | ---- | ---- |
-| mode | string | 必填，`tenant` / `direct_header` / `signed_token` |
-| direct_header_name | string | 可选 |
-| signed_token_header_name | string | 可选 |
-| require_direct_header | bool | 可选，`direct_header` 模式下缺 header 是否 401 |
-| hmac_secret | string | 可选，`signed_token` 模式 HMAC 密钥；省略则保留现有值 |
+| mode | string | Required, `tenant` / `direct_header` / `signed_token` |
+| direct_header_name | string | Optional |
+| signed_token_header_name | string | Optional |
+| require_direct_header | bool | Optional; whether a missing header returns 401 in `direct_header` mode |
+| hmac_secret | string | Optional; the HMAC key for `signed_token` mode — if omitted, the existing value is retained |
 
-`signed_token` 模式首次启用时必须提供 `hmac_secret`。
+`hmac_secret` must be provided the first time `signed_token` mode is enabled.
 
-外部用户 JWT 要求：HS256 签名、`aud=weknora`、包含 `sub` 与 `tenant_id`、有效期不超过 24 小时。
+External user JWT requirements: HS256 signature, `aud=weknora`, must include `sub` and `tenant_id`, and validity period no longer than 24 hours.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000/api-principal-config' \
@@ -482,11 +482,11 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/10000/api-pr
 }'
 ```
 
-## GET `/tenants` - 获取空间列表
+## GET `/tenants` - Get list of spaces
 
-返回当前认证上下文对应的空间（普通用户为单条；管理员仍只返回自身空间）。
+Returns the space corresponding to the current authentication context (a single entry for regular users; admins still only get their own space).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants' \
@@ -494,7 +494,7 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -531,30 +531,30 @@ curl --location 'http://localhost:8080/api/v1/tenants' \
 }
 ```
 
-## GET `/tenants/kv/:key` - 获取空间 KV 配置
+## GET `/tenants/kv/:key` - Get space KV configuration
 
-获取当前空间的 KV 配置项。**空间 ID 从认证上下文中获取**（即由 `X-API-Key` / Bearer Token 对应的空间决定），URL 中不需要也不接受 tenant_id。
+Gets a KV configuration item for the current space. **The space ID is obtained from the authentication context** (i.e., determined by the space associated with the `X-API-Key` / Bearer Token); it is neither required nor accepted in the URL.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明                                           |
-| ---- | ------ | ---------------------------------------------- |
-| key  | string | 配置键名（见下方支持的 key 列表，不支持的键返回 400） |
+| Field | Type   | Description                                           |
+| ----- | ------ | ------------------------------------------------------ |
+| key   | string | Configuration key name (see the list of supported keys below; unsupported keys return 400) |
 
-**支持的 key 值**:
+**Supported key values**:
 
-| key                    | 说明                          |
+| key                    | Description                          |
 | ---------------------- | ----------------------------- |
-| `agent-config`         | Agent 配置（最大迭代次数、温度、System Prompt、可用工具等） |
-| `web-search-config`    | 网页搜索配置                 |
-| `conversation-config`  | 普通模式会话/对话配置        |
-| `prompt-templates`     | 系统提示词模板（只读，按用户语言本地化） |
-| `parser-engine-config` | 解析引擎配置（如 MinerU）    |
-| `storage-engine-config`| 存储引擎配置（Local/MinIO/COS） |
-| `chat-history-config`  | 聊天历史索引配置             |
-| `retrieval-config`     | 全局检索配置                 |
+| `agent-config`         | Agent configuration (max iterations, temperature, system prompt, available tools, etc.) |
+| `web-search-config`    | Web search configuration                 |
+| `conversation-config`  | Standard-mode session/conversation configuration        |
+| `prompt-templates`     | System prompt templates (read-only, localized by user language) |
+| `parser-engine-config` | Parser engine configuration (e.g. MinerU)    |
+| `storage-engine-config`| Storage engine configuration (Local/MinIO/COS) |
+| `chat-history-config`  | Chat history indexing configuration             |
+| `retrieval-config`     | Global retrieval configuration                 |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/tenants/kv/agent-config' \
@@ -562,7 +562,7 @@ curl --location 'http://localhost:8080/api/v1/tenants/kv/agent-config' \
 --header 'Content-Type: application/json'
 ```
 
-**响应（以 `agent-config` 为例）**:
+**Response (using `agent-config` as an example)**:
 
 ```json
 {
@@ -573,33 +573,33 @@ curl --location 'http://localhost:8080/api/v1/tenants/kv/agent-config' \
         "system_prompt": "...",
         "use_custom_system_prompt": false,
         "available_tools": [
-            { "name": "knowledge_search", "label": "知识库检索", "description": "..." }
+            { "name": "knowledge_search", "label": "Knowledge base search", "description": "..." }
         ],
         "available_placeholders": [
-            { "name": "web_search_status", "label": "联网搜索状态", "description": "..." }
+            { "name": "web_search_status", "label": "Web search status", "description": "..." }
         ]
     },
     "success": true
 }
 ```
 
-失败时（不支持的键）：
+On failure (unsupported key):
 
 ```json
 { "success": false, "error": "unsupported key" }
 ```
 
-## PUT `/tenants/kv/:key` - 更新空间 KV 配置
+## PUT `/tenants/kv/:key` - Update space KV configuration
 
-更新当前空间的 KV 配置项。**空间 ID 从认证上下文中获取**，请求体结构按 `key` 不同而异。`prompt-templates` 为只读，不支持 PUT。
+Updates a KV configuration item for the current space. **The space ID is obtained from the authentication context**; the request body structure varies by `key`. `prompt-templates` is read-only and does not support PUT.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明                          |
-| ---- | ------ | ----------------------------- |
-| key  | string | 配置键名（见 GET 接口的支持列表，`prompt-templates` 除外） |
+| Field | Type   | Description                          |
+| ----- | ------ | ----------------------------- |
+| key   | string | Configuration key name (see the supported list in the GET endpoint, except `prompt-templates`) |
 
-**请求（以 `agent-config` 为例）**:
+**Request (using `agent-config` as an example)**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/tenants/kv/agent-config' \
@@ -612,7 +612,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/kv/agent-con
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -628,11 +628,11 @@ curl --location --request PUT 'http://localhost:8080/api/v1/tenants/kv/agent-con
 }
 ```
 
-**约束**:
+**Constraints**:
 
-- `agent-config`: `max_iterations` 取值范围 `(0, 30]`；`temperature` 取值范围 `[0, 2]`。
-- `web-search-config`: `max_results` 取值范围 `[1, 50]`。
-- `conversation-config`: 包含多项阈值校验（如 `keyword_threshold` / `vector_threshold` ∈ `[0, 1]`，`rerank_threshold` ∈ `[-10, 10]`，`temperature` ∈ `[0, 2]`，`max_completion_tokens` ∈ `[1, 100000]` 等）。
-- `retrieval-config`: `embedding_top_k` / `rerank_top_k` ∈ `[0, 200]`；阈值范围同上。
-- `storage-engine-config`: `default_provider` 必须在 `STORAGE_ALLOW_LIST` 允许的列表内。
-- `chat-history-config`: 启用且设置了 `embedding_model_id` 而尚未关联知识库时，会自动创建一个隐藏知识库并将其 ID 写入配置。
+- `agent-config`: `max_iterations` range `(0, 30]`; `temperature` range `[0, 2]`.
+- `web-search-config`: `max_results` range `[1, 50]`.
+- `conversation-config`: includes several threshold validations (e.g. `keyword_threshold` / `vector_threshold` ∈ `[0, 1]`, `rerank_threshold` ∈ `[-10, 10]`, `temperature` ∈ `[0, 2]`, `max_completion_tokens` ∈ `[1, 100000]`, etc.).
+- `retrieval-config`: `embedding_top_k` / `rerank_top_k` ∈ `[0, 200]`; threshold ranges as above.
+- `storage-engine-config`: `default_provider` must be within the list allowed by `STORAGE_ALLOW_LIST`.
+- `chat-history-config`: when enabled with `embedding_model_id` set but not yet associated with a knowledge base, a hidden knowledge base is automatically created and its ID is written into the configuration.

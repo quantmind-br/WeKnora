@@ -213,12 +213,12 @@ function isOdd(text: string, marker: RegExp): boolean {
  *
  * Two distinct mid-stream artifacts are smoothed out:
  *
- *  - A marker run with **nothing after it yet** (`… 实验**\n5. *`, or a bare
+ * - A marker run with **nothing after it yet** (`… experiment**\n5. *`, or a bare
  *    trailing `**`) is ambiguous — it might open bold, italic, or be the start
  *    of the next `**`. Rendering it shows literal `*`/`~` that vanish a frame
  *    later, so it is hidden until real content follows (like the citation/image
  *    guards).
- *  - A marker run **with content after it** but no closer (`**平台地址：…`) is a
+ * - A marker run **with content after it** but no closer (`**Platform address:…`) is a
  *    genuinely opened emphasis; its closer is appended so marked renders it as
  *    emphasis from the first frame instead of showing raw `**` and then snapping
  *    to bold (and, for a standalone bold line, also gaining the subtitle
@@ -288,7 +288,7 @@ const FLANKING_ITALIC = /(?<![*\p{L}\p{N}])\*(?=\S)([^*\n]*?\p{P})\*(?=[\p{L}\p{
 
 // Opening-delimiter variant of the rule above. CommonMark also refuses to *open*
 // emphasis when the run is preceded by a letter/number and immediately followed
-// by punctuation, so `知识库中**《手册》**整理` stays literal even though the
+// by punctuation, so `knowledge base**《Manual》**organize` stays literal even though the
 // closing `**` is fine. The `(?=\p{P})` guard keeps exponent/glob/math markers
 // like `x**2`, `2**3**4`, and `**/*.js` untouched (those are followed by a
 // number or slash-as-content, not an emphasis-opening punctuation run).
@@ -309,10 +309,10 @@ function repairFlankingEmphasisSegment(segment: string): string {
  *
  * CommonMark's flanking rule rejects a closing `**`/`*`/`~~` that is preceded by
  * punctuation and immediately followed by a letter/number, so a very common
- * model pattern like `**XBRL（…语言）**是一种` (and even ASCII `**a)**b`) renders
+ * `**XBRL (…language)**is a kind of` pattern renders
  * as literal asterisks — both mid-stream and when complete. The mirror case is
  * an *opening* `**`/`~~` preceded by a letter/number and immediately followed by
- * punctuation (`知识库中**《手册》**整理`), which CommonMark also refuses to open.
+ * punctuation (`**"Manual"**organized in knowledge base`), which CommonMark also refuses to open.
  * We convert just those blocked patterns into explicit HTML so they bold
  * reliably. Code spans/fences are skipped so their literal markers are untouched.
  */
@@ -339,7 +339,7 @@ export function repairFlankingEmphasis(text: string): string {
  * A trailing line that is only a number (`…\n1`) is the start of an ordered
  * marker before its `.`/`)` arrives; rendering it shows a bare unstyled "1" that
  * disappears a frame later, so it is hidden too. Because the line must be only
- * the number, in-sentence numbers (`值是 1`) are unaffected.
+ * the number, in-sentence numbers (`value is 1`) are unaffected.
  */
 export function stripTrailingStreamingListMarker(text: string): string {
   if (!text) return text
@@ -423,7 +423,7 @@ const STANDALONE_STRONG_PARAGRAPH_RE =
 
 /**
  * Tag paragraphs whose entire content is a single bold run (e.g. a model that
- * emits `**小节标题：**` instead of a real heading) so they can be styled as a
+ * emits `**Section title:**` instead of a real heading) so they can be styled as a
  * subtitle deterministically.
  *
  * This replaces the CSS `p:has(> strong:only-child)` heuristic, which was

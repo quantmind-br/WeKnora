@@ -24,7 +24,7 @@ type NvidiaReranker struct {
 	customHeaders map[string]string
 }
 
-// SetCustomHeaders 设置用户自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
+// SetCustomHeaders sets user-defined custom HTTP request headers (similar to the OpenAI Python SDK's extra_headers).
 func (r *NvidiaReranker) SetCustomHeaders(headers map[string]string) {
 	r.customHeaders = headers
 }

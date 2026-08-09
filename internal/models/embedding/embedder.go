@@ -54,15 +54,15 @@ type Config struct {
 	// back to the process-wide default (see limiter.GateN).
 	MaxConcurrency int               `json:"max_concurrency"`
 	ExtraConfig    map[string]string `json:"extra_config"`
-	// CustomHeaders 允许在调用远程 API 时附加自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
+	// CustomHeaders allows attaching custom HTTP headers to remote API calls (like OpenAI Python SDK's extra_headers).
 	CustomHeaders map[string]string `json:"custom_headers"`
 	AppID         string
-	AppSecret     string // 加密值，工厂函数调用方传入，使用前已解密
+	AppSecret     string // Encrypted value, passed in by the factory function caller, already decrypted before use
 }
 
-// ConfigFromModel 根据 types.Model 构造 embedding.Config。
-// 生产路径（从 DB 拉起）和测试连接路径（临时表单）共享这份映射。
-// appID / appSecret 是已解密的 WeKnoraCloud 凭证，调用方负责传入。
+// ConfigFromModel builds an embedding.Config from a types.Model.
+// The production path (loaded from the DB) and the test-connection path (temporary form) share this mapping.
+// appID / appSecret are decrypted WeKnoraCloud credentials; the caller is responsible for providing them.
 func ConfigFromModel(m *types.Model, appID, appSecret string) Config {
 	if m == nil {
 		return Config{}
@@ -125,20 +125,20 @@ func newEmbedder(config Config, pooler EmbedderPooler, ollamaService *ollama.Oll
 		// Route to provider-specific embedders
 		switch providerName {
 		case provider.ProviderAliyun:
-			// 检查是否是多模态嵌入模型
-			// 多模态模型: tongyi-embedding-vision-*, multimodal-embedding-*
-			// tex-only模型: text-embedding-v1/v2/v3/v4 应该使用 OpenAI 兼容接口，否则响应格式不匹配、embedding 返回空数组
+			// Check whether it is a multimodal embedding model
+			// Multimodal models: tongyi-embedding-vision-*, multimodal-embedding-*
+			// Text-only models: text-embedding-v1/v2/v3/v4 should use the OpenAI-compatible interface, otherwise the response format won't match and embedding will return an empty array
 			isMultimodalModel := strings.Contains(strings.ToLower(config.ModelName), "vision") ||
 				strings.Contains(strings.ToLower(config.ModelName), "multimodal")
 
 			if isMultimodalModel {
-				// 多模态模型需要使用DashScope专用 API 端点
-				// 如果用户填写了 OpenAI 兼容模式的 URL，自动修正为多模态 API 的baseURL
+				// Multimodal models require the DashScope-specific API endpoint
+				// Automatically corrects to the multimodal API's baseURL if the user has entered an OpenAI-compatible mode URL
 				baseURL := config.BaseURL
 				if baseURL == "" {
 					baseURL = "https://dashscope.aliyuncs.com"
 				} else if strings.Contains(baseURL, "/compatible-mode/") {
-					// 移除 compatible-mode 路径，AliyunEmbedder 会自动添加多模态端点
+					// Removes the compatible-mode path; AliyunEmbedder automatically appends the multimodal endpoint
 					baseURL = strings.Replace(baseURL, "/compatible-mode/v1", "", 1)
 					baseURL = strings.Replace(baseURL, "/compatible-mode", "", 1)
 				}

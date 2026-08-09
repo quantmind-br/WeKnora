@@ -1,6 +1,6 @@
 <template>
     <div class="user_msg_container" ref="containerRef" :class="{ 'is-embedded': embeddedMode }">
-        <!-- 显示@的知识库和文件 -->
+        <!-- Display @-mentioned knowledge bases and files -->
         <div v-if="mentioned_items && mentioned_items.length > 0" class="mentioned_items">
             <span v-for="item in mentioned_items" :key="item.id" class="mentioned_tag" :class="[
                 mentionTagClass(item)
@@ -12,12 +12,12 @@
                 <span class="tag_name">{{ item.name }}</span>
             </span>
         </div>
-        <!-- 显示上传的图片 -->
+        <!-- Display uploaded images -->
         <div v-if="hasImages" class="user_images">
             <img v-for="(img, idx) in props.images" :key="idx" :src="img.url" class="user_image_thumb"
                 @click="previewImage($event)" />
         </div>
-        <!-- 显示上传的附件 -->
+        <!-- Display uploaded attachments -->
         <div v-if="hasAttachments" class="user_attachments">
             <div v-for="(att, idx) in props.attachments" :key="idx"
                 class="user_attachment_card"

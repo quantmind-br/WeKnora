@@ -125,7 +125,7 @@ const props = defineProps<{
   activePath: string
   selectedIds: string[]
   menuOptions: SessionMenuOption[]
-  /** 渠道文件夹下的会话（样式与聊天区会话共用文案列对齐） */
+  /** Sessions under the channel folder (style shares copy alignment with chat-area sessions) */
   nested?: boolean
 }>()
 
@@ -182,7 +182,7 @@ const cancelTitleEdit = (): void => {
 }
 
 const submitTitleEdit = (): void => {
-  // Enter 会先触发 form submit，随后 input blur 再进一次；必须同步退出编辑态防重入。
+  // Enter first triggers form submit, then input blur fires again; must exit edit mode synchronously to prevent re-entry.
   if (!titleEditing.value) return
   const nextTitle = normalizeSessionTitleDraft(titleDraft.value)
   const currentTitle = normalizeSessionTitleDraft(props.item.title || '')

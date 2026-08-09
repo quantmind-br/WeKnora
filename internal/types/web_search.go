@@ -13,15 +13,15 @@ type WebSearchConfig struct {
 	// Deprecated: Use WebSearchProviderEntity.Parameters.APIKey instead.
 	APIKey string `json:"api_key,omitempty"`
 
-	MaxResults        int      `json:"max_results"`        // 最大搜索结果数
-	IncludeDate       bool     `json:"include_date"`       // 是否包含日期
-	CompressionMethod string   `json:"compression_method"` // 压缩方法：none, summary, extract, rag
-	Blacklist         []string `json:"blacklist"`          // 黑名单规则列表
-	// RAG压缩相关配置
-	EmbeddingModelID   string `json:"embedding_model_id,omitempty"`  // 嵌入模型ID（用于RAG压缩）
-	EmbeddingDimension int    `json:"embedding_dimension,omitempty"` // 嵌入维度（用于RAG压缩）
-	RerankModelID      string `json:"rerank_model_id,omitempty"`     // 重排模型ID（用于RAG压缩）
-	DocumentFragments  int    `json:"document_fragments,omitempty"`  // 文档片段数量（用于RAG压缩）
+	MaxResults        int      `json:"max_results"`        // Max number of search results
+	IncludeDate       bool     `json:"include_date"`       // Whether to include dates
+	CompressionMethod string   `json:"compression_method"` // Compression method: none, summary, extract, rag
+	Blacklist         []string `json:"blacklist"`          // Blacklist rule list
+	// RAG compression related configuration
+	EmbeddingModelID   string `json:"embedding_model_id,omitempty"`  // Embedding model ID (used for RAG compression)
+	EmbeddingDimension int    `json:"embedding_dimension,omitempty"` // Embedding dimension (for RAG compression)
+	RerankModelID      string `json:"rerank_model_id,omitempty"`     // Rerank model ID (for RAG compression)
+	DocumentFragments  int    `json:"document_fragments,omitempty"`  // Document segment count (for RAG compression)
 	ProxyURL           string `json:"proxy_url,omitempty"`           // Optional per-request proxy override; normally empty — use WebSearchProviderEntity.Parameters.proxy_url. Merged at call time when set.
 }
 
@@ -79,20 +79,20 @@ func (c *WebSearchConfig) Scan(value interface{}) error {
 
 // WebSearchResult represents a single web search result
 type WebSearchResult struct {
-	Title       string     `json:"title"`                  // 搜索结果标题
-	URL         string     `json:"url"`                    // 结果URL
-	Snippet     string     `json:"snippet"`                // 摘要片段
-	Content     string     `json:"content"`                // 完整内容（可选，需要额外抓取）
-	Source      string     `json:"source"`                 // 来源（如：duckduckgo等）
-	PublishedAt *time.Time `json:"published_at,omitempty"` // 发布时间（如果有）
+	Title       string     `json:"title"`                  // Search result title
+	URL         string     `json:"url"`                    // Result URL
+	Snippet     string     `json:"snippet"`                // Summary snippet
+	Content     string     `json:"content"`                // Full content (optional, requires additional scraping)
+	Source      string     `json:"source"`                 // Source (e.g., DuckDuckGo, etc.)
+	PublishedAt *time.Time `json:"published_at,omitempty"` // Publish time (if available)
 }
 
 // WebSearchProviderInfo represents information about a web search provider
 type WebSearchProviderInfo struct {
-	ID             string `json:"id"`                // 提供商ID
-	Name           string `json:"name"`              // 提供商名称
-	Free           bool   `json:"free"`              // 是否免费
-	RequiresAPIKey bool   `json:"requires_api_key"`  // 是否需要API密钥
-	Description    string `json:"description"`       // 描述
-	APIURL         string `json:"api_url,omitempty"` // API地址（可选）
+	ID             string `json:"id"`                // Provider ID
+	Name           string `json:"name"`              // Provider name
+	Free           bool   `json:"free"`              // Whether it's free
+	RequiresAPIKey bool   `json:"requires_api_key"`  // Whether an API key is required
+	Description    string `json:"description"`       // Description
+	APIURL         string `json:"api_url,omitempty"` // API address (optional)
 }

@@ -1,4 +1,4 @@
-// 运行时配置（本地开发默认值，Docker 环境会被 entrypoint 脚本覆盖）
+// Runtime config (local dev defaults; overridden by the entrypoint script in Docker)
 window.__RUNTIME_CONFIG__ = {
   MAX_FILE_SIZE_MB: 50,
   // Optional: serve embed on a dedicated origin, e.g. 'https://embed.example.com'

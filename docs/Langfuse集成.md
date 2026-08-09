@@ -1,88 +1,88 @@
-# Langfuse 集成
+# Langfuse Integration
 
-WeKnora 内置了对 [Langfuse](https://langfuse.com) 的轻量级集成，用于统计 token 消耗、追踪 LLM 调用链路、并为每个对话生成可在 Langfuse 控制台查看的 trace。该集成解决 issue [#497](https://github.com/Tencent/WeKnora/issues/497)（token 使用量统计）和 discussion [#620](https://github.com/Tencent/WeKnora/discussions/620)（接入 Langfuse）。
+WeKnora includes a lightweight built-in integration with [Langfuse](https://langfuse.com) to track token consumption, trace LLM call chains, and generate a trace for every conversation that can be viewed in the Langfuse console. This integration addresses issue [#497](https://github.com/Tencent/WeKnora/issues/497) (token usage tracking) and discussion [#620](https://github.com/Tencent/WeKnora/discussions/620) (Langfuse integration).
 
-## 1. 特性
+## 1. Features
 
-- 自动上报 **chat / embedding / rerank / VLM（视觉语言模型）/ ASR（语音识别）** 全部 5 类模型调用的 prompt、响应和 token 使用量。
-- 为每个对话、检索、**文件上传及后续异步处理**创建一条端到端 **trace**。HTTP 请求是根，asynq 任务以 SPAN 的形式挂在同一条 trace 下，文档解析 → chunk embedding → 多模态 OCR/Caption → 摘要 / 问题生成全部在同一棵树里可见。
-- 支持 **流式响应**：记录首 token 延迟（Time-To-First-Token），完整响应在流结束后一次性写入。
-- **跨进程 trace 透传**：HTTP 层把 `trace_id` / `parent_observation_id` 注入 asynq payload，worker 在 asynq middleware 层自动 resume；定时任务（例如数据源同步）则退化为独立 trace，依然按任务类型（`asynq.<type>`）聚合。
-- **完全可选**：不配置 `LANGFUSE_*` 环境变量时，Langfuse 相关代码路径是 no-op，不产生任何性能开销。
-- **异步批量上报**：不阻塞业务请求；队列满时静默丢弃，观测数据不会影响用户对话。
-- **开箱即用的部署方式**：Docker Compose（`docker-compose.yml` 已内置环境变量）、Helm Chart（通过 `extraEnv`）、Lite 版本（本地单机）均支持。
+- Automatically reports prompts, responses, and token usage for all 5 model call types: **chat / embedding / rerank / VLM (Vision-Language Model) / ASR (Automatic Speech Recognition)**.
+- Creates an end-to-end **trace** for every conversation, retrieval, and **file upload plus subsequent asynchronous processing**. The HTTP request is the root, and asynq tasks are attached to the same trace as SPANs — document parsing → chunk embedding → multimodal OCR/Captioning → summary/question generation are all visible within the same tree.
+- Supports **streaming responses**: records Time-To-First-Token latency, with the complete response written once streaming ends.
+- **Cross-process trace propagation**: the HTTP layer injects `trace_id` / `parent_observation_id` into the asynq payload, and the worker automatically resumes it at the asynq middleware layer; scheduled tasks (e.g., data source sync) fall back to standalone traces, still aggregated by task type (`asynq.<type>`).
+- **Fully optional**: when the `LANGFUSE_*` environment variables aren't configured, Langfuse-related code paths are no-ops with zero performance overhead.
+- **Asynchronous batch reporting**: doesn't block business requests; events are silently dropped when the queue is full, so observability data never affects user conversations.
+- **Out-of-the-box deployment support**: Docker Compose (`docker-compose.yml` has the environment variables built in), Helm Chart (via `extraEnv`), and the Lite version (local single-machine) are all supported.
 
-## 2. 快速开始
+## 2. Quick Start
 
-### 2.1 获取 Langfuse 凭证
+### 2.1 Obtain Langfuse Credentials
 
-1. 登录 [cloud.langfuse.com](https://cloud.langfuse.com) 或自建 Langfuse 实例。
-2. 进入 `Project Settings → API Keys`，生成一对 `Public Key` / `Secret Key`。
+1. Log in at [cloud.langfuse.com](https://cloud.langfuse.com) or your self-hosted Langfuse instance.
+2. Go to `Project Settings → API Keys` and generate a `Public Key` / `Secret Key` pair.
 
-### 2.2 按部署方式配置
+### 2.2 Configure by Deployment Method
 
-#### （A）Docker Compose 部署（推荐）
+#### (A) Docker Compose Deployment (Recommended)
 
-`docker-compose.yml` 已经把所有 `LANGFUSE_*` 环境变量串到 `app` 服务。下面提供两种选择。
+`docker-compose.yml` already wires all `LANGFUSE_*` environment variables through to the `app` service. Two options are provided below.
 
-##### A-1) 接入 Langfuse Cloud（最简单）
+##### A-1) Connect to Langfuse Cloud (Simplest)
 
-只需要在 **`.env`** 里加 3 行：
+Just add 3 lines to **`.env`**:
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-xxxxxxxx
 LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxx
-LANGFUSE_HOST=https://cloud.langfuse.com    # 美区用 https://us.cloud.langfuse.com
+LANGFUSE_HOST=https://cloud.langfuse.com    # Use https://us.cloud.langfuse.com for the US region
 ```
 
-然后重启服务：
+Then restart the service:
 
 ```bash
 docker compose up -d app
 docker compose logs -f app | grep Langfuse
 ```
 
-看到下面这行就说明已启用：
+Seeing the following line confirms it's enabled:
 
 ```
 [Langfuse] enabled host=https://cloud.langfuse.com flush_at=15 flush_interval=3s sample_rate=1.00
 ```
 
-##### A-2) 自建 Langfuse 栈（离线 / 内网 / 数据合规）
+##### A-2) Self-Hosted Langfuse Stack (Offline / Internal Network / Data Compliance)
 
-`docker-compose.yml` 内置了一个可选的 `langfuse` profile，用一条命令就能拉起 Langfuse v3。
+`docker-compose.yml` includes an optional `langfuse` profile that spins up Langfuse v3 with a single command.
 
-**设计上已尽可能复用 WeKnora 已有容器，避免资源浪费**：
+**Designed to reuse WeKnora's existing containers as much as possible, avoiding wasted resources**:
 
-| 组件 | 来源 | 备注 |
+| Component | Source | Notes |
 | --- | --- | --- |
-| PostgreSQL | 复用 `WeKnora-postgres` | 通过一次性的 `langfuse-db-init` 容器，在同一 pg 实例里创建独立的 `langfuse` 数据库。库级隔离，互不影响。 |
-| Redis | 复用 `WeKnora-redis` | 使用独立的 Redis DB 号（默认 DB 1，WeKnora 用 DB 0）。`REDIS_CONNECTION_STRING` 指定 DB 后缀。 |
-| ClickHouse | 新增 `langfuse-clickhouse` | Langfuse 专有（OLAP 事件存储），WeKnora 不用，必须独立。 |
-| MinIO | 新增 `langfuse-minio` | 故意和 WeKnora 的 `minio` 分开（后者是可选 profile，未必激活；Langfuse S3 要专属 bucket）。 |
-| Web / Worker | 新增 `langfuse-web` + `langfuse-worker` | Langfuse 应用本体。 |
+| PostgreSQL | Reuses `WeKnora-postgres` | A one-off `langfuse-db-init` container creates a separate `langfuse` database within the same pg instance. Isolated at the database level, no interference. |
+| Redis | Reuses `WeKnora-redis` | Uses a dedicated Redis DB number (default DB 1; WeKnora uses DB 0). `REDIS_CONNECTION_STRING` specifies the DB suffix. |
+| ClickHouse | New `langfuse-clickhouse` | Dedicated to Langfuse (OLAP event storage); WeKnora doesn't use it, so it must be separate. |
+| MinIO | New `langfuse-minio` | Deliberately kept separate from WeKnora's `minio` (which is an optional profile that may not be active; Langfuse needs its own S3 bucket). |
+| Web / Worker | New `langfuse-web` + `langfuse-worker` | The Langfuse application itself. |
 
-最终 `--profile langfuse` 只新增 **4 个常驻容器 + 1 个一次性 init**，内存开销由原先的 ~1.5–2.5 GB 降到约 **1.0–1.5 GB**。
+In the end, `--profile langfuse` only adds **4 persistent containers + 1 one-off init container**, dropping memory overhead from the original ~1.5–2.5 GB down to roughly **1.0–1.5 GB**.
 
 ```bash
-# 1. 启动自建栈（ClickHouse 首次迁移大约需要 1-2 分钟）
+# 1. Start the self-hosted stack (first-time ClickHouse migration takes about 1–2 minutes)
 docker compose --profile langfuse up -d
 
-# 2. 浏览器打开 http://localhost:3000 注册管理员账号
-#    然后在 Project Settings → API Keys 生成 Public/Secret Key
+# 2. Open http://localhost:3000 in your browser to register an admin account
+#    Then generate a Public/Secret Key under Project Settings → API Keys
 
-# 3. 把 key 填回 .env 并把 HOST 改成容器内部地址
+# 3. Put the keys back into .env and change HOST to the internal container address
 cat >> .env <<'EOF'
 LANGFUSE_HOST=http://langfuse-web:3000
 LANGFUSE_PUBLIC_KEY=pk-lf-xxxxxxxx
 LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxx
 EOF
 
-# 4. 让 app 重新加载配置
+# 4. Reload the app's configuration
 docker compose up -d app
 ```
 
-> ⚠️ **生产部署安全提示**：`.env.example` 里的默认密码 / `SALT` / `ENCRYPTION_KEY` 都是开发占位符，生产环境必须用以下命令重新生成：
+> ⚠️ **Production deployment security notice**: the default passwords / `SALT` / `ENCRYPTION_KEY` in `.env.example` are development placeholders. For production, regenerate them with the following commands:
 >
 > ```bash
 > echo "LANGFUSE_SALT=$(openssl rand -base64 32)"
@@ -90,38 +90,38 @@ docker compose up -d app
 > echo "LANGFUSE_NEXTAUTH_SECRET=$(openssl rand -base64 32)"
 > ```
 >
-> 同时把 `LANGFUSE_DB_PASSWORD` / `LANGFUSE_CLICKHOUSE_PASSWORD` / `LANGFUSE_REDIS_PASSWORD` / `LANGFUSE_MINIO_PASSWORD` 全部换成强密码。完整变量清单见 `.env.example` 的 "Langfuse 自建栈配置" 段。
+> Also replace `LANGFUSE_DB_PASSWORD` / `LANGFUSE_CLICKHOUSE_PASSWORD` / `LANGFUSE_REDIS_PASSWORD` / `LANGFUSE_MINIO_PASSWORD` with strong passwords across the board. See the "Langfuse self-hosted stack configuration" section of `.env.example` for the complete list of variables.
 
-##### 通用调优
+##### General Tuning
 
-可选调优变量（`LANGFUSE_FLUSH_AT`、`LANGFUSE_SAMPLE_RATE` 等）都已经在 `docker-compose.yml` 中预设直通，只要在 `.env` 追加对应行即可生效。完整列表见 `.env.example` 的 Langfuse 段，或本文第 3 节。
+Optional tuning variables (`LANGFUSE_FLUSH_AT`, `LANGFUSE_SAMPLE_RATE`, etc.) are already pre-wired through in `docker-compose.yml` — just append the corresponding line to `.env` to take effect. See the Langfuse section of `.env.example`, or Section 3 of this document, for the complete list.
 
-##### 资源开销估算（A-2 自建方案）
+##### Resource Overhead Estimate (A-2 Self-Hosted Setup)
 
-| 组件 | 类型 | 典型 RSS | 备注 |
+| Component | Type | Typical RSS | Notes |
 | --- | --- | --- | --- |
-| langfuse-db-init | 一次性 | – | 创建 `langfuse` 数据库后立即退出 |
-| langfuse-web | 常驻 | 300–500 MB | Next.js |
-| langfuse-worker | 常驻 | 200–400 MB | Node.js，Queue consumer |
-| langfuse-clickhouse | 常驻 | 500 MB–1 GB | 首次迁移稍高，稳态约 500 MB |
-| langfuse-minio | 常驻 | 100–200 MB | |
-| （复用）WeKnora-postgres | – | +~50 MB | 多一个 `langfuse` 数据库 |
-| （复用）WeKnora-redis | – | +30–80 MB | 共用实例的 DB 1 |
-| **新增合计** | | **≈ 1.0–1.5 GB** | 推荐 3 GB+ 可用内存 |
+| langfuse-db-init | One-off | – | Exits immediately after creating the `langfuse` database |
+| langfuse-web | Persistent | 300–500 MB | Next.js |
+| langfuse-worker | Persistent | 200–400 MB | Node.js, queue consumer |
+| langfuse-clickhouse | Persistent | 500 MB–1 GB | Slightly higher during first migration; roughly 500 MB at steady state |
+| langfuse-minio | Persistent | 100–200 MB | |
+| (Reused) WeKnora-postgres | – | +~50 MB | One additional `langfuse` database |
+| (Reused) WeKnora-redis | – | +30–80 MB | Shares DB 1 of the same instance |
+| **New total** | | **≈ 1.0–1.5 GB** | 3 GB+ available memory recommended |
 
-> 和"完全隔离各建一套 pg/redis"方案相比，这里节省了约 **400–500 MB** 内存。代价是 WeKnora 的 pg/redis 容量规划需要为 Langfuse 预留一点余量；Langfuse 写入量并不大（只是元数据 + 任务队列，事件主体走 ClickHouse），实际影响很小。
+> Compared to a "fully isolated, separate pg/redis for everything" approach, this saves roughly **400–500 MB** of memory. The trade-off is that capacity planning for WeKnora's pg/redis needs to leave a bit of headroom for Langfuse; Langfuse's write volume isn't large (just metadata + task queue, with the bulk of events going to ClickHouse), so the actual impact is minimal.
 
-对单机部署而言，若只想使用 Langfuse Cloud 方案（A-1），**完全不需要**这些容器；原有服务 CPU/内存占用不变。
+For a single-machine deployment, if you only want to use the Langfuse Cloud approach (A-1), these containers are **entirely unnecessary**; CPU/memory usage of the existing services is unaffected.
 
-##### 生产环境下的注意事项
+##### Production Considerations
 
-- **WeKnora-redis 的驱逐策略**：Langfuse 建议 `maxmemory-policy noeviction`（避免 Redis 在内存紧张时丢弃队列任务）。如果 WeKnora 的 redis 未配置该策略，建议在 `docker-compose.yml` 的 redis command 中加上 `--maxmemory-policy noeviction`。
-- **备份**：`pg_dump -d langfuse` 可独立备份 Langfuse 的元数据；事件数据在 ClickHouse 卷（`langfuse_clickhouse_data`）中。
-- **想彻底隔离**（跨机部署、强运维隔离）：可以直接把 `langfuse-web` / `langfuse-worker` 的 `DATABASE_URL` 和 `REDIS_CONNECTION_STRING` 指向任意外部 pg/redis（例如 RDS + ElastiCache）；`langfuse-db-init` 容器可以选择不启动，手动在目标 pg 上 `CREATE DATABASE langfuse` 即可。
+- **WeKnora-redis eviction policy**: Langfuse recommends `maxmemory-policy noeviction` (to prevent Redis from dropping queued tasks under memory pressure). If WeKnora's redis isn't configured with this policy, consider adding `--maxmemory-policy noeviction` to the redis command in `docker-compose.yml`.
+- **Backups**: `pg_dump -d langfuse` can back up Langfuse's metadata independently; event data lives in the ClickHouse volume (`langfuse_clickhouse_data`).
+- **For full isolation** (cross-machine deployment, strict ops separation): you can point `langfuse-web` / `langfuse-worker`'s `DATABASE_URL` and `REDIS_CONNECTION_STRING` directly at any external pg/redis (e.g., RDS + ElastiCache); the `langfuse-db-init` container can be skipped, and you can manually run `CREATE DATABASE langfuse` on the target pg instance instead.
 
-#### （B）WeKnora Lite（单机）
+#### (B) WeKnora Lite (Single Machine)
 
-在 `.env.lite`（或启动脚本导出的环境变量）里加：
+Add the following to `.env.lite` (or the environment variables exported by the startup script):
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-xxxxxxxx
@@ -129,11 +129,11 @@ LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxx
 LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
-启动 `weknora-lite`（或 macOS `.app`）后效果同上。
+After starting `weknora-lite` (or the macOS `.app`), the effect is the same as above.
 
-#### （C）Helm Chart 部署
+#### (C) Helm Chart Deployment
 
-在 `values.yaml` 的 `app.extraEnv` 添加：
+Add to `app.extraEnv` in `values.yaml`:
 
 ```yaml
 app:
@@ -152,9 +152,9 @@ app:
       value: https://cloud.langfuse.com
 ```
 
-建议把 Secret Key 放到 Kubernetes Secret 中，切勿写进 values.yaml。
+It's recommended to put the Secret Key into a Kubernetes Secret — never write it into values.yaml.
 
-#### （D）二进制 / 源码运行
+#### (D) Binary / Source Run
 
 ```bash
 export LANGFUSE_PUBLIC_KEY="pk-lf-xxxx"
@@ -163,13 +163,13 @@ export LANGFUSE_HOST="https://cloud.langfuse.com"
 ./weknora-server
 ```
 
-#### （E）本地开发（`docker-compose.dev.yml` + `go run`）
+#### (E) Local Development (`docker-compose.dev.yml` + `go run`)
 
-`docker-compose.dev.yml` 只启动基础设施容器（postgres/redis/docreader 等），`app` 走本地 `go run ./cmd/server`。Langfuse 的两种接入方式：
+`docker-compose.dev.yml` only starts infrastructure containers (postgres/redis/docreader, etc.); the `app` runs locally via `go run ./cmd/server`. There are two ways to integrate Langfuse here:
 
-**E-1) 直连 Langfuse Cloud（dev 最常见）**
+**E-1) Connect Directly to Langfuse Cloud (most common for dev)**
 
-无需改任何 compose 文件，本地 shell 导出即可：
+No need to change any compose files — just export variables in your local shell:
 
 ```bash
 export LANGFUSE_PUBLIC_KEY="pk-lf-xxxx"
@@ -178,135 +178,135 @@ export LANGFUSE_HOST="https://cloud.langfuse.com"
 go run ./cmd/server
 ```
 
-**E-2) 本地自建栈调试**
+**E-2) Debug Against a Local Self-Hosted Stack**
 
-dev compose 也支持对称的 `langfuse` profile（复用同一个 dev postgres + redis）：
+The dev compose file also supports a symmetric `langfuse` profile (reusing the same dev postgres + redis):
 
 ```bash
-# 拉起基础设施 + Langfuse 栈
+# Bring up infrastructure + the Langfuse stack
 docker compose -f docker-compose.dev.yml up -d postgres redis docreader
 docker compose -f docker-compose.dev.yml --profile langfuse up -d
 
-# 浏览器打开 http://localhost:3000 注册并生成 key
+# Open http://localhost:3000 in your browser to register and generate a key
 
-# 本地 app 接入（注意是 localhost，不是 langfuse-web，因为 go run 跑在宿主机）
+# Connect the local app (note: localhost, not langfuse-web, since go run runs on the host)
 export LANGFUSE_HOST=http://localhost:3000
 export LANGFUSE_PUBLIC_KEY=pk-lf-xxxxxxxx
 export LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxx
 go run ./cmd/server
 ```
 
-Dev 相关容器都带 `-dev` 后缀、用独立网络 `WeKnora-network-dev`，和生产 compose **不冲突**。
+All dev-related containers use a `-dev` suffix and a dedicated network `WeKnora-network-dev`, so they **do not conflict** with the production compose setup.
 
-### 2.3 验证
+### 2.3 Verification
 
-发起一次知识问答（`POST /api/v1/knowledge-chat/:session_id`）或知识检索（`POST /api/v1/knowledge-search`）。等待 3 秒（或批量大小达到 `flush_at`）后，Langfuse 控制台的 **Traces** 页面会出现对应的 trace：
+Make a knowledge Q&A request (`POST /api/v1/knowledge-chat/:session_id`) or a knowledge search request (`POST /api/v1/knowledge-search`). After waiting 3 seconds (or until the batch size reaches `flush_at`), the corresponding trace will appear on the **Traces** page of the Langfuse console:
 
-- 顶层节点：HTTP 请求（带 `userId` / `sessionId`）。
-- 子节点依次为 rerank、chat、VLM 等具体模型调用，点击可查看 prompt、响应以及 usage（prompt/completion/total tokens）。
-- 流式对话会额外标注 Time-To-First-Token。
+- Top-level node: the HTTP request (with `userId` / `sessionId`).
+- Child nodes are the specific model calls in sequence — rerank, chat, VLM, etc. — click any one to view its prompt, response, and usage (prompt/completion/total tokens).
+- Streaming conversations additionally show Time-To-First-Token.
 
-## 3. 环境变量参考
+## 3. Environment Variable Reference
 
-| 变量名 | 默认值 | 说明 |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `LANGFUSE_ENABLED` | 自动 | 显式开关。未设置时，只要 `PUBLIC_KEY` + `SECRET_KEY` 都存在就自动启用。支持 `true/false/1/0/yes/no`。 |
-| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse 实例地址。美区用 `https://us.cloud.langfuse.com`，自建实例填 `https://langfuse.your-domain.com`。 |
-| `LANGFUSE_PUBLIC_KEY` | — | 项目 Public Key（`pk-lf-...`）。 |
-| `LANGFUSE_SECRET_KEY` | — | 项目 Secret Key（`sk-lf-...`），请走密钥管理工具注入，不要提交到仓库。 |
-| `LANGFUSE_RELEASE` | — | 可选，上报到 Langfuse 的版本号，例如 CI 构建号。 |
-| `LANGFUSE_ENVIRONMENT` | — | 可选，环境标签（`production` / `staging` / `dev`），方便在 UI 过滤。 |
-| `LANGFUSE_FLUSH_AT` | `15` | 批处理大小：缓冲区积累到该数量立即上报。 |
-| `LANGFUSE_FLUSH_INTERVAL` | `3s` | 定时刷新间隔。支持 `500ms`、`5s`、`1m` 等 Go duration 写法；纯数字按秒处理。 |
-| `LANGFUSE_QUEUE_SIZE` | `2048` | 内存队列容量。队列满时新事件会被静默丢弃（避免拖慢业务）。 |
-| `LANGFUSE_REQUEST_TIMEOUT` | `10s` | 单次 HTTP ingest 请求超时。 |
-| `LANGFUSE_SAMPLE_RATE` | `1.0` | 采样率 (0..1)。`0` 视为 `1.0`。高流量环境可下调。 |
-| `LANGFUSE_DEBUG` | `false` | 打开后会在 WeKnora 日志里打印上报失败的详细原因，排障期间临时开启。 |
+| `LANGFUSE_ENABLED` | Automatic | Explicit toggle. When unset, it's automatically enabled as long as both `PUBLIC_KEY` and `SECRET_KEY` are present. Supports `true/false/1/0/yes/no`. |
+| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Address of the Langfuse instance. Use `https://us.cloud.langfuse.com` for the US region, or `https://langfuse.your-domain.com` for a self-hosted instance. |
+| `LANGFUSE_PUBLIC_KEY` | — | The project's Public Key (`pk-lf-...`). |
+| `LANGFUSE_SECRET_KEY` | — | The project's Secret Key (`sk-lf-...`); inject it via a secrets management tool — don't commit it to the repo. |
+| `LANGFUSE_RELEASE` | — | Optional. The version number reported to Langfuse, e.g., a CI build number. |
+| `LANGFUSE_ENVIRONMENT` | — | Optional. Environment label (`production` / `staging` / `dev`) for filtering in the UI. |
+| `LANGFUSE_FLUSH_AT` | `15` | Batch size: reports immediately once the buffer accumulates this many events. |
+| `LANGFUSE_FLUSH_INTERVAL` | `3s` | Periodic flush interval. Supports Go duration notation like `500ms`, `5s`, `1m`; plain numbers are treated as seconds. |
+| `LANGFUSE_QUEUE_SIZE` | `2048` | In-memory queue capacity. New events are silently dropped when the queue is full (to avoid slowing down business logic). |
+| `LANGFUSE_REQUEST_TIMEOUT` | `10s` | Timeout for a single HTTP ingest request. |
+| `LANGFUSE_SAMPLE_RATE` | `1.0` | Sampling rate (0..1). `0` is treated as `1.0`. Can be lowered in high-traffic environments. |
+| `LANGFUSE_DEBUG` | `false` | When enabled, prints detailed reasons for reporting failures in WeKnora's logs — turn on temporarily while troubleshooting. |
 
-## 4. 观测数据说明
+## 4. Observability Data Explained
 
-| Langfuse 概念 | WeKnora 对应 | 备注 |
+| Langfuse Concept | WeKnora Equivalent | Notes |
 | --- | --- | --- |
-| Trace | 一次 HTTP 请求（含其触发的所有 asynq 任务） | 对于 `knowledge-chat`、`agent-chat`、`knowledge-search`、`generate_title`、`evaluation`、模型连通性测试等在线请求；以及文件上传/URL 入库/manual/reparse/move/copy、FAQ 导入、知识修改、wiki auto-fix、数据源手工触发等入库请求，HTTP 层都会开启 trace，并把 `trace_id` / `parent_observation_id` 注入 asynq payload。 |
-| Span（type=SPAN） | 每个 asynq 任务的执行窗口 / 每次 Agent 执行及其每一轮 / 每次工具调用 | 由 `internal/tracing/langfuse/AsynqMiddleware` 在 `mux.Use` 注册；对每个 handler 自动创建 `asynq.<task_type>` 的 SPAN，并记录 `task_id` / `queue` / `retry` / `payload_bytes`。定时任务（无上游 trace）会退化为 `asynq.<task_type>` 独立 trace。**Agent 相关**：`AgentEngine.Execute` 会开 `agent.execute` 顶层 SPAN，其下每一轮 ReAct 循环开 `agent.round.N` SPAN，每次工具调用开 `agent.tool.<tool_name>` SPAN（参数、输出、耗时、成败、错误都会写入）。 |
-| Generation（type=GENERATION） | 每次 chat / embedding / rerank / VLM / ASR 调用 | 若位于 span 下会自动设置 `parentObservationId`，所以 Langfuse UI 呈现 trace → asynq-span → generation 的树状结构；Agent 模式下是 trace → agent.execute → agent.round.N → (chat.completion.stream + agent.tool.X → rerank/embedding...) 的完整树。 |
-| Input Tokens | `TokenUsage.PromptTokens` | 来自模型返回的 usage 字段。 |
-| Output Tokens | `TokenUsage.CompletionTokens` | 来自模型返回的 usage 字段。 |
-| Total Tokens | `TokenUsage.TotalTokens` | 大多数厂商返回；未返回时自动求和。 |
-| Cache Read Tokens | `TokenUsage.CacheReadTokens` | 从 OpenAI-compatible `cached_tokens`、DeepSeek 原生 hit tokens 或 Anthropic cache read tokens 归一化。 |
-| Cache Write Tokens | `TokenUsage.CacheWriteTokens` | Anthropic cache creation 或供应商等价字段；不与 Input Tokens 重复相加。 |
-| Cache Miss Tokens | `TokenUsage.CacheMissTokens` | 已上报缓存口径下未从缓存读取的输入 token。 |
-| Generation Metadata | `call_purpose` / `prompt_prefix_fingerprint` | 用调用用途分组缓存指标；前缀只上报不可逆短哈希，不上报原始 prompt。 |
-| `userId` | `X-User-ID` / 空间 ID | 未登录时退化为 `tenant:<id>`，方便按空间汇总消耗；enqueue 时会写入 payload，worker 在无上游 trace 的场景也能保留归属。 |
-| `sessionId` | URL 中的 `:session_id`（或 `RequestID` 兜底） | 可以在 Langfuse 的 Sessions 视图聚合一整场对话，或按单次异步批次聚合。 |
-| Time-To-First-Token | 流式调用首条有效 chunk 的时间 | 通过 `generation-update.completionStartTime` 上报。 |
+| Trace | One HTTP request (including all asynq tasks it triggers) | For online requests such as `knowledge-chat`, `agent-chat`, `knowledge-search`, `generate_title`, `evaluation`, model connectivity tests, etc.; as well as ingestion requests like file upload/URL ingestion/manual/reparse/move/copy, FAQ import, knowledge editing, wiki auto-fix, manually triggered data sources, etc. — the HTTP layer opens a trace for all of these and injects `trace_id` / `parent_observation_id` into the asynq payload. |
+| Span (type=SPAN) | The execution window of each asynq task / each Agent execution and each of its rounds / each tool call | Registered by `internal/tracing/langfuse/AsynqMiddleware` in `mux.Use`; automatically creates an `asynq.<task_type>` SPAN for each handler, recording `task_id` / `queue` / `retry` / `payload_bytes`. Scheduled tasks (with no upstream trace) fall back to a standalone `asynq.<task_type>` trace. **Agent-related**: `AgentEngine.Execute` opens a top-level `agent.execute` SPAN, under which each ReAct loop round opens an `agent.round.N` SPAN, and each tool call opens an `agent.tool.<tool_name>` SPAN (arguments, output, duration, success/failure, and errors are all recorded). |
+| Generation (type=GENERATION) | Each chat / embedding / rerank / VLM / ASR call | `parentObservationId` is automatically set when nested under a span, so the Langfuse UI presents a trace → asynq-span → generation tree; in Agent mode it's the full tree trace → agent.execute → agent.round.N → (chat.completion.stream + agent.tool.X → rerank/embedding...). |
+| Input Tokens | `TokenUsage.PromptTokens` | From the usage field returned by the model. |
+| Output Tokens | `TokenUsage.CompletionTokens` | From the usage field returned by the model. |
+| Total Tokens | `TokenUsage.TotalTokens` | Returned by most providers; auto-summed when not returned. |
+| Cache Read Tokens | `TokenUsage.CacheReadTokens` | Normalized from OpenAI-compatible `cached_tokens`, DeepSeek's native hit tokens, or Anthropic cache read tokens. |
+| Cache Write Tokens | `TokenUsage.CacheWriteTokens` | Anthropic cache creation tokens or the provider's equivalent field; not double-counted with Input Tokens. |
+| Cache Miss Tokens | `TokenUsage.CacheMissTokens` | Input tokens not read from cache, under the already-reported cache accounting. |
+| Generation Metadata | `call_purpose` / `prompt_prefix_fingerprint` | Groups caching metrics by call purpose; only an irreversible short hash of the prefix is reported, never the raw prompt. |
+| `userId` | `X-User-ID` / tenant ID | Falls back to `tenant:<id>` when not logged in, making it easy to aggregate consumption by tenant; written into the payload at enqueue time, so the worker retains attribution even with no upstream trace. |
+| `sessionId` | `:session_id` in the URL (or `RequestID` as a fallback) | Lets you aggregate an entire conversation, or a single async batch, in Langfuse's Sessions view. |
+| Time-To-First-Token | Time of the first valid chunk in a streaming call | Reported via `generation-update.completionStartTime`. |
 
-### 覆盖到的 asynq 任务类型
+### Covered asynq Task Types
 
-下表列出当前会在 Langfuse 里自动出现对应 SPAN 的 asynq 任务；每种任务的 payload 均已嵌入 `types.TracingContext`，enqueue 时由 `langfuse.InjectTracing(ctx, &payload)` 从当前 HTTP trace 拷出 `trace_id` / `parent_observation_id`。
+The table below lists the asynq tasks that currently show up automatically as SPANs in Langfuse; each task's payload embeds `types.TracingContext`, and at enqueue time `langfuse.InjectTracing(ctx, &payload)` copies `trace_id` / `parent_observation_id` from the current HTTP trace.
 
-| 任务类型常量 | Handler | 典型触发来源 |
+| Task Type Constant | Handler | Typical Trigger Source |
 | --- | --- | --- |
-| `document:process` | `knowledgeService.ProcessDocument` | 文件 / URL / 文本 / file_url 四种入库；reparse；知识库克隆内部重派发 |
-| `manual:process` | `knowledgeService.ProcessManualKnowledge` | 手工知识新建 / 更新 |
-| `image:multimodal` | `ImageMultimodalService.Handle` | 文档解析时发现图片 |
-| `knowledge:post_process` | `KnowledgePostProcessService.Handle` | 文档解析完成后统一调度 summary/question |
-| `summary:generation` / `question:generation` | `KnowledgePostProcessService` 子任务 | 由 `knowledge:post_process` 派发 |
-| `chunk:extract` | `ChunkExtractor.Handle` | 图谱提取（NEO4J 启用时） |
-| `datatable:summary` | `DataTableSummaryService.Handle` | 表格文件解析 |
-| `faq:import` | FAQ 批量导入 handler | FAQ 导入 / 批量创建 |
-| `knowledge:move` / `knowledge:list_delete` / `index:delete` / `kb:clone` / `kb:delete` | 知识移动 / 批量删除 / 索引清理 / 知识库复制 / 知识库删除 | 对应 HTTP 路由 |
-| `wiki:ingest` | `wikiIngestService.ProcessWikiIngest` | Wiki auto-fix / 重建链接 |
-| `datasource:sync` | `dataSourceSyncService.Handle` | 数据源手动触发 + 定时调度（定时场景下 trace 为 standalone） |
+| `document:process` | `knowledgeService.ProcessDocument` | The four ingestion paths (file / URL / text / file_url); reparse; internal re-dispatch during knowledge base cloning |
+| `manual:process` | `knowledgeService.ProcessManualKnowledge` | Manual knowledge creation / update |
+| `image:multimodal` | `ImageMultimodalService.Handle` | Images discovered during document parsing |
+| `knowledge:post_process` | `KnowledgePostProcessService.Handle` | Unified scheduling of summary/question generation after document parsing completes |
+| `summary:generation` / `question:generation` | `KnowledgePostProcessService` subtasks | Dispatched by `knowledge:post_process` |
+| `chunk:extract` | `ChunkExtractor.Handle` | Graph extraction (when NEO4J is enabled) |
+| `datatable:summary` | `DataTableSummaryService.Handle` | Table file parsing |
+| `faq:import` | FAQ bulk import handler | FAQ import / bulk creation |
+| `knowledge:move` / `knowledge:list_delete` / `index:delete` / `kb:clone` / `kb:delete` | Knowledge move / bulk delete / index cleanup / knowledge base clone / knowledge base delete | Corresponding HTTP routes |
+| `wiki:ingest` | `wikiIngestService.ProcessWikiIngest` | Wiki auto-fix / link rebuilding |
+| `datasource:sync` | `dataSourceSyncService.Handle` | Manually triggered data source sync + scheduled sync (scheduled runs produce a standalone trace) |
 
-### 各模型的 usage 处理策略
+### Usage Handling Strategy per Model
 
-| 模型类型 | 上报名称 | Token 计量方式 | 备注 |
+| Model Type | Reported Name | Token Metering Method | Notes |
 | --- | --- | --- | --- |
-| Chat | `chat.completion` / `chat.completion.stream` | 直接使用模型返回的 `prompt_tokens` / `completion_tokens` / `total_tokens` | 流式请求会记录 TTFT。 |
-| Embedding | `embedding.embed` / `embedding.batch_embed` | 模型未返回 usage 时按 `rune_count/4 + 1` 估算 input tokens | 批量接口会上报批量大小和前 5 条文本预览，避免把整批内容塞进 trace。 |
-| Rerank | `rerank` | 按 `query + 所有文档` 的 rune 数估算 input tokens | 输出只上报前 10 条 `(index, score)`。 |
-| VLM | `vlm.predict` | prompt/result 分别按 `rune/4` 估算 input/output | 不上传原始图片字节；仅记录图片数量与总字节大小。 |
-| ASR | `asr.transcribe` | 以 **秒**（`SECONDS`）为计量单位，取转录结果最后一个 segment 的 `end` 作为音频时长 | 便于 Langfuse 按"分钟"结算 Whisper 类 API。 |
+| Chat | `chat.completion` / `chat.completion.stream` | Uses the model's returned `prompt_tokens` / `completion_tokens` / `total_tokens` directly | Streaming requests also record TTFT. |
+| Embedding | `embedding.embed` / `embedding.batch_embed` | Estimates input tokens as `rune_count/4 + 1` when the model doesn't return usage | Batch calls report the batch size and a preview of the first 5 texts, avoiding stuffing the entire batch's content into the trace. |
+| Rerank | `rerank` | Estimates input tokens from the rune count of `query + all documents` | Only the first 10 `(index, score)` entries are reported for output. |
+| VLM | `vlm.predict` | Prompt/result input/output are each estimated as `rune/4` | Raw image bytes are never uploaded; only the image count and total byte size are recorded. |
+| ASR | `asr.transcribe` | Metered in **seconds** (`SECONDS`), using the `end` value of the last segment in the transcription result as the audio duration | Makes it convenient for Langfuse to bill Whisper-type APIs "per minute." |
 
-> Tip：Langfuse 的 `Settings → Models` 页面可以为自定义模型（本地 Ollama、阿里云百炼等）配置单价（每 1K tokens、每分钟等），Langfuse 会据此自动核算费用。
+> Tip: Langfuse's `Settings → Models` page lets you configure unit pricing (per 1K tokens, per minute, etc.) for custom models (local Ollama, Alibaba Cloud Bailian, etc.), and Langfuse will automatically calculate cost accordingly.
 
-## 5. 高流量部署建议
+## 5. High-Traffic Deployment Recommendations
 
-- **调高 `LANGFUSE_FLUSH_AT`** 到 50–100，降低 ingest HTTP 调用频率。
-- **采样**：把 `LANGFUSE_SAMPLE_RATE=0.1` 只采样 10% 的对话，生产成本与信噪比通常能得到较好的平衡。
-- **扩大 `LANGFUSE_QUEUE_SIZE`** 至 8192，防止短时峰值触发事件丢弃。
-- 将 Langfuse 实例部署在离 WeKnora 同机房（例如自建 Langfuse + 内网地址），可以显著降低上报延迟。
-- 打开 `LANGFUSE_DEBUG=true` 几分钟即可确认链路，生产环境常态下关闭，避免日志噪音。
+- **Raise `LANGFUSE_FLUSH_AT`** to 50–100 to reduce the frequency of ingest HTTP calls.
+- **Sampling**: setting `LANGFUSE_SAMPLE_RATE=0.1` samples only 10% of conversations, typically giving a good balance between production cost and signal-to-noise ratio.
+- **Increase `LANGFUSE_QUEUE_SIZE`** to 8192 to prevent short-lived spikes from triggering event drops.
+- Deploying the Langfuse instance in the same data center as WeKnora (e.g., a self-hosted Langfuse reachable via an internal network address) can significantly reduce reporting latency.
+- Turning on `LANGFUSE_DEBUG=true` for a few minutes is enough to confirm the pipeline is working; keep it off in normal production operation to avoid log noise.
 
-## 6. 禁用
+## 6. Disabling
 
-删除或留空 `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`，或显式设置 `LANGFUSE_ENABLED=false`，再重启服务即可。所有 Langfuse 相关代码路径会回退到 no-op，不会影响其他观测组件（OpenTelemetry、LLM Debug Log）。
+Remove or leave blank `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`, or explicitly set `LANGFUSE_ENABLED=false`, then restart the service. All Langfuse-related code paths will fall back to no-ops, without affecting other observability components (OpenTelemetry, LLM Debug Log).
 
-## 7. 故障排查
+## 7. Troubleshooting
 
-| 现象 | 建议排查步骤 |
+| Symptom | Suggested Steps |
 | --- | --- |
-| 启动日志没有 `[Langfuse] enabled` | 检查 `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` 是否被服务进程读到；容器里可 `env \| grep LANGFUSE` 验证。 |
-| 控制台看不到 trace | 打开 `LANGFUSE_DEBUG=true`，观察日志中是否有 `[Langfuse] flush ... failed`。常见原因：`LANGFUSE_HOST` 错误、企业防火墙拦截 HTTPS、Secret Key 轮换后未更新。 |
-| 部分 chunk 缺失 | 调大 `LANGFUSE_QUEUE_SIZE`；确认 Langfuse ingest API 没有返回 429/503。 |
-| token 数为 0 | 该模型在返回中未提供 usage（常见于部分本地 Ollama / 自建模型）。可在模型侧开启 usage 统计，或在 Langfuse 配置里为该模型提供 tokenizer。 |
+| No `[Langfuse] enabled` in the startup log | Check whether `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` are actually being read by the service process; inside the container, verify with `env \| grep LANGFUSE`. |
+| No traces visible in the console | Turn on `LANGFUSE_DEBUG=true` and watch the logs for `[Langfuse] flush ... failed`. Common causes: wrong `LANGFUSE_HOST`, corporate firewall blocking HTTPS, or the Secret Key was rotated but not updated. |
+| Some chunks are missing | Increase `LANGFUSE_QUEUE_SIZE`; confirm the Langfuse ingest API isn't returning 429/503. |
+| Token count is 0 | The model doesn't include a usage field in its response (common with some local Ollama / self-hosted models). Enable usage statistics on the model side, or configure a tokenizer for that model in Langfuse. |
 
-## 8. 代码位置
+## 8. Code Locations
 
-- `internal/tracing/langfuse/` — Langfuse 客户端、异步批量上报、Gin 中间件、**asynq middleware**、Span / Trace resume 实现。
-  - `tracer.go` — 暴露 `Trace` / `Span` / `Generation` + `StartTrace` / `StartSpan` / `StartGeneration` / `ResumeTrace`。
-  - `asynq.go` — `AsynqMiddleware()` 统一在 mux 上包 handler；`InjectTracing(ctx, payload)` 在 enqueue 侧把 trace/span ID 注入 payload。
-  - `middleware.go` — Gin 中间件 + `shouldTrace` 白名单（覆盖 chat / 入库 / FAQ / wiki / 数据源等路径）。
-- `internal/types/tracing.go` — `TracingContext` POCO，所有 asynq payload 通过嵌入此结构携带 `lf_trace_id` / `lf_parent_obs_id` / `lf_user_id` / `lf_session_id`。
-- `internal/models/chat/langfuse_wrapper.go` — Chat 调用装饰器（含流式）。
-- `internal/models/embedding/langfuse_wrapper.go` — Embedding 调用装饰器。
-- `internal/models/rerank/langfuse_wrapper.go` — Rerank 调用装饰器。
-- `internal/models/vlm/langfuse_wrapper.go` — VLM（视觉语言模型）调用装饰器。
-- `internal/models/asr/langfuse_wrapper.go` — ASR（语音识别）调用装饰器。
-- `internal/agent/engine.go` — `agent.execute` 顶层 SPAN 和 `agent.round.<N>` 每轮 SPAN。
-- `internal/agent/act.go` — `agent.tool.<tool_name>` 工具调用 SPAN（包含参数、输出、耗时、成败）。
-- `internal/router/router.go` — 注册 `langfuse.GinMiddleware()`。
-- `internal/router/task.go` — 在 asynq mux 上 `mux.Use(langfuse.AsynqMiddleware())`，使所有 handler 自动被 trace。
-- `internal/container/container.go` — 初始化 + 资源清理。
-- `docker-compose.yml` / `.env.example` / `.env.lite.example` — 预置 `LANGFUSE_*` 环境变量直通。
+- `internal/tracing/langfuse/` — Langfuse client, asynchronous batch reporting, Gin middleware, **asynq middleware**, Span/Trace resume implementation.
+  - `tracer.go` — exposes `Trace` / `Span` / `Generation` + `StartTrace` / `StartSpan` / `StartGeneration` / `ResumeTrace`.
+  - `asynq.go` — `AsynqMiddleware()` wraps handlers uniformly on the mux; `InjectTracing(ctx, payload)` injects the trace/span ID into the payload on the enqueue side.
+  - `middleware.go` — Gin middleware + `shouldTrace` allowlist (covering chat / ingestion / FAQ / wiki / data source, and other paths).
+- `internal/types/tracing.go` — `TracingContext` POCO; all asynq payloads carry `lf_trace_id` / `lf_parent_obs_id` / `lf_user_id` / `lf_session_id` by embedding this struct.
+- `internal/models/chat/langfuse_wrapper.go` — Chat call decorator (including streaming).
+- `internal/models/embedding/langfuse_wrapper.go` — Embedding call decorator.
+- `internal/models/rerank/langfuse_wrapper.go` — Rerank call decorator.
+- `internal/models/vlm/langfuse_wrapper.go` — VLM (Vision-Language Model) call decorator.
+- `internal/models/asr/langfuse_wrapper.go` — ASR (Automatic Speech Recognition) call decorator.
+- `internal/agent/engine.go` — top-level `agent.execute` SPAN and per-round `agent.round.<N>` SPAN.
+- `internal/agent/act.go` — `agent.tool.<tool_name>` tool call SPAN (including arguments, output, duration, and success/failure).
+- `internal/router/router.go` — registers `langfuse.GinMiddleware()`.
+- `internal/router/task.go` — `mux.Use(langfuse.AsynqMiddleware())` on the asynq mux, so all handlers are automatically traced.
+- `internal/container/container.go` — initialization + resource cleanup.
+- `docker-compose.yml` / `.env.example` / `.env.lite.example` — pre-wired `LANGFUSE_*` environment variables passthrough.

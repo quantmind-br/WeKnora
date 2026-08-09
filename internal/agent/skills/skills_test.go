@@ -69,10 +69,16 @@ func TestSkillValidation(t *testing.T) {
 		},
 		{
 			name:        "invalid characters in name",
-			skillName:   "My Skill",
+			skillName:   "My Skill!",
 			description: "A skill",
 			wantErr:     true,
-			errContains: "lowercase letters",
+			errContains: "letters, numbers, spaces",
+		},
+		{
+			name:        "spaces allowed in name",
+			skillName:   "My Skill",
+			description: "A skill",
+			wantErr:     false,
 		},
 		{
 			name:        "reserved word in name",

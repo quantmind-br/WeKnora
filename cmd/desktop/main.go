@@ -139,7 +139,7 @@ window.open=function(url){
 };
 })();`
 
-// wailsThemeSyncJS：与 index.html 首屏一致，在 DomReady 再跑一遍，覆盖 Ctrl+R 后 runtime 就绪时机
+// wailsThemeSyncJS: consistent with index.html's first screen, runs again on DomReady to cover the runtime-ready timing after Ctrl+R
 const wailsThemeSyncJS = `(function(){try{var t=localStorage.getItem('WeKnora_theme')||'light';if(t==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var bg=t==='dark'?'#181818':'#eee';document.documentElement.setAttribute('theme-mode',t);document.documentElement.style.background=bg;document.documentElement.style.minHeight='100%';document.documentElement.style.colorScheme=t==='dark'?'dark':'light';if(document.body){document.body.style.background=bg;document.body.style.minHeight='100%';}var w=window.runtime;if(!w)return;if(t==='dark'){if(w.WindowSetDarkTheme)w.WindowSetDarkTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(24,24,24,255);}else{if(w.WindowSetLightTheme)w.WindowSetLightTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(238,238,238,255);}}catch(e){}})()`
 
 const weknoraGitHubRepoURL = "https://github.com/Tencent/WeKnora"
@@ -152,8 +152,8 @@ func main() {
 		resPath := filepath.Join(filepath.Dir(filepath.Dir(execPath)), "Resources")
 		_ = os.Chdir(resPath)
 	} else if _, err := os.Stat(filepath.Join("config", "config.yaml")); os.IsNotExist(err) {
-		// wails build 生成绑定时 cwd 多为 cmd/desktop，LoadConfig 默认找 ./config/config.yaml；
-		// 仓库实际配置在 <repo>/config/，向上两级即可。
+		// When wails build generates bindings, cwd is usually cmd/desktop; LoadConfig looks for ./config/config.yaml by default;
+		// The repo's actual config is in <repo>/config/, so going up two levels reaches it.
 		repoRoot := filepath.Clean(filepath.Join("..", ".."))
 		if _, err := os.Stat(filepath.Join(repoRoot, "config", "config.yaml")); err == nil {
 			_ = os.Chdir(repoRoot)
@@ -323,7 +323,7 @@ func main() {
 		OnDomReady: func(ctx context.Context) {
 			wailsruntime.WindowExecJS(ctx, wailsThemeSyncJS)
 			wailsruntime.WindowExecJS(ctx, dragHandlerJS)
-			// 注入真实 API 根路径（与 window.location.origin 不同）；无 Go 绑定时仍可显示。
+			// Inject the real API root path (different from window.location.origin); still displayable without Go bindings.
 			if u := strings.TrimSpace(app.backendURL); u != "" {
 				apiRoot := strings.TrimRight(u, "/") + "/api/v1"
 				inject := fmt.Sprintf(`try{window.__WEKNORA_API_BASE__=%s}catch(e){}`, strconv.Quote(apiRoot))

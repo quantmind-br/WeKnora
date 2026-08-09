@@ -3,7 +3,7 @@ import i18n from '@/i18n'
 
 const t = (key: string) => i18n.global.t(key)
 
-// 空间信息接口
+// Space info endpoint
 export interface TenantInfo {
   id: number
   name: string
@@ -118,7 +118,7 @@ export interface CreateTenantAPIKeyPayload {
   expires_at_unix?: number
 }
 
-// 搜索空间参数
+// Search space parameters
 export interface SearchTenantsParams {
   keyword?: string
   tenant_id?: number
@@ -126,7 +126,7 @@ export interface SearchTenantsParams {
   page_size?: number
 }
 
-// 搜索空间响应
+// Search space response
 export interface SearchTenantsResponse {
   success: boolean
   data?: {
@@ -139,8 +139,8 @@ export interface SearchTenantsResponse {
 }
 
 /**
- * 获取所有空间列表（需要跨空间访问权限）
- * @deprecated 建议使用 searchTenants 代替，支持分页和搜索
+ * Get the full list of spaces (requires cross-space access permission)
+ * @deprecated use searchTenants instead, which supports pagination and search
  */
 export async function listAllTenants(): Promise<{ success: boolean; data?: { items: TenantInfo[] }; message?: string }> {
   try {
@@ -243,10 +243,10 @@ export async function deleteTenantAPIKey(
 }
 
 /**
- * 更新空间信息（目前暴露名称、描述两个字段的编辑入口）。
- * 后端 `PUT /tenants/:id` 用指针字段区分"未传"和"显式空串"，未传的列不会
- * 被改动；这里也按需选择性传 `name` / `description`，互不影响。
- * 权限：owner（与 router.go 中的 g.Owner() 守卫保持一致）。
+ * Update space info (currently exposes editing entry points for the name and description fields only).
+ * The backend `PUT /tenants/:id` uses pointer fields to distinguish "not passed" from "explicitly empty string"; columns not passed are left
+ * unchanged; here too, `name` / `description` are passed selectively as needed, independent of each other.
+ * Permission: owner (consistent with the g.Owner() guard in router.go).
  */
 export async function updateTenant(
   tenantId: number,
@@ -264,7 +264,7 @@ export async function updateTenant(
 }
 
 /**
- * 删除当前工作区。权限：owner。
+ * Delete the current workspace. Permission: owner.
  */
 export async function deleteTenant(
   tenantId: number,
@@ -281,10 +281,10 @@ export async function deleteTenant(
 }
 
 /**
- * 创建新工作区（任意已登录用户均可调用）。
- * 后端会自动把调用者写成新空间的 Owner，并填充默认 storage_quota
- * 等服务端字段；API Key 由用户在集成页手动创建。
- * 路由：POST /api/v1/tenants（router 上不挂 g.CrossTenant()，自助场景使用）。
+ * Create a new workspace (callable by any logged-in user).
+ * Backend automatically sets the caller as the new space's Owner and fills in a default storage_quota
+ * Waiting on server-side field; the API Key is created manually by the user on the integrations page.
+ * Route: POST /api/v1/tenants (g.CrossTenant() is not attached on the router; used for self-service scenarios).
  */
 export async function createTenant(
   payload: { name: string; description?: string },
@@ -304,7 +304,7 @@ export async function createTenant(
 }
 
 /**
- * 搜索空间（支持分页、关键词搜索和空间ID过滤）
+ * Search spaces (supports pagination, keyword search, and space ID filtering)
  */
 export async function searchTenants(params: SearchTenantsParams = {}): Promise<SearchTenantsResponse> {
   try {

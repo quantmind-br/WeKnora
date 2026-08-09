@@ -228,7 +228,7 @@ func (t *ListKnowledgeChunksTool) Execute(ctx context.Context, args json.RawMess
 		appendFAQChunkData(chunkData, c)
 		normalizeFAQChunkDataMap(chunkData, c)
 
-		// 添加图片信息
+		// Add image info
 		if c.ImageInfo != "" {
 			var imageInfos []types.ImageInfo
 			if err := json.Unmarshal([]byte(c.ImageInfo), &imageInfos); err == nil && len(imageInfos) > 0 {

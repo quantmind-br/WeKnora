@@ -1,38 +1,38 @@
-# 知识图谱
+# Knowledge Graph
 
-向量检索擅长找「意思相近的段落」，但不擅长回答「A 和 B 是什么关系」。知识图谱补的就是这一块：文档入库时用大模型把里面的实体和关系抽出来存成图，提问时顺着图多召回一批相关片段，一起交给模型作答。
+Vector retrieval excels at finding "passages with similar meaning," but it's not well suited to answering "what is the relationship between A and B?" That's the gap the knowledge graph fills: when a document is ingested, an LLM extracts the entities and relationships within it and stores them as a graph; when a question is asked, the graph is traversed to pull in additional relevant chunks, which are handed to the model together with the rest of the context to produce an answer.
 
-适合关系密集的资料（人物、组织、产品线、合同条款之间互相牵扯），普通的问答场景开不开区别不大。代价是入库时要额外调大模型，且需要部署 Neo4j。
+This is well suited to relationship-dense material (people, organizations, product lines, contract clauses that reference one another), but makes little difference for ordinary Q&A scenarios. The trade-off is that ingestion requires an extra LLM call and Neo4j must be deployed.
 
 <Screenshot
   src="/screenshots/kg-graph.png"
-  caption="知识图谱视图：实体与关系"
-  hint="展示知识库图谱页签中的实体关系图，节点可点击查看关联文档。" />
+  caption="Knowledge graph view: entities and relationships"
+  hint="Shows the entity-relationship graph on the knowledge base's Graph tab; nodes can be clicked to view associated documents." />
 
-图谱存储后端为 **Neo4j**（唯一实现，依赖 APOC 插件；代码中不存在 Nebula 等其他图数据库集成）。
+The graph storage backend is **Neo4j** (the only implementation, and it depends on the APOC plugin; there is no integration with other graph databases such as Nebula in the codebase).
 
-## 开启配置
+## Enabling the configuration
 
-图谱功能需要**两级开关**同时满足：
+The knowledge graph feature requires **two levels of switches** to be satisfied simultaneously:
 
-### 1. 全局开关：Neo4j 环境变量
+### 1. Global switch: Neo4j environment variables
 
-`NEO4J_ENABLE` 是知识图谱的唯一全局开关（`docker-compose.yml` 注释明确：`ENABLE_GRAPH_RAG` 自 v0.1.6 起已被 `NEO4J_ENABLE` 取代，Go 主应用不再读取）。
+`NEO4J_ENABLE` is the sole global switch for the knowledge graph (per the `docker-compose.yml` comment: `ENABLE_GRAPH_RAG` was superseded by `NEO4J_ENABLE` as of v0.1.6, and the Go main application no longer reads it).
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 |------|------|--------|------|
-| `NEO4J_ENABLE` | string | 空（关闭） | 置为 `true` 启用图谱；`internal/container/container.go` 的 `initNeo4jClient` 与任务入队 / 检索管线都会检查它 |
-| `NEO4J_URI` | string | `bolt://neo4j:7687` | Neo4j 连接地址 |
-| `NEO4J_USERNAME` | string | `neo4j` | 用户名 |
-| `NEO4J_PASSWORD` | string | `password` | 密码 |
+| `NEO4J_ENABLE` | string | empty (disabled) | Set to `true` to enable the knowledge graph; both `initNeo4jClient` in `internal/container/container.go` and the task-enqueuing / retrieval pipeline check it |
+| `NEO4J_URI` | string | `bolt://neo4j:7687` | Neo4j connection address |
+| `NEO4J_USERNAME` | string | `neo4j` | Username |
+| `NEO4J_PASSWORD` | string | `password` | Password |
 
-`initNeo4jClient` 启动时最多重试 30 次（间隔 2s）建立并验证连接；未启用时返回 `nil` driver，此时 `Neo4jRepository` 的所有方法降级为 no-op（日志 `NOT SUPPORT RETRIEVE GRAPH`）。`GET /system` 信息接口通过 `getGraphDatabaseEngine()` 报告 `"Neo4j"` 或 `"Not Enabled"`（`internal/handler/system.go`）。
+On startup, `initNeo4jClient` retries up to 30 times (2s interval) to establish and verify the connection; when not enabled, it returns a `nil` driver, at which point every method on `Neo4jRepository` degrades to a no-op (logging `NOT SUPPORT RETRIEVE GRAPH`). The `GET /system` info endpoint reports `"Neo4j"` or `"Not Enabled"` via `getGraphDatabaseEngine()` (`internal/handler/system.go`).
 
-docker-compose 的 `neo4j` 服务预装 APOC：`NEO4JLABS_PLUGINS=["apoc"]`（图谱写入依赖 `apoc.merge.node` / `apoc.merge.relationship`，删除依赖 `apoc.periodic.iterate`）。
+The docker-compose `neo4j` service ships with APOC preinstalled: `NEO4JLABS_PLUGINS=["apoc"]` (graph writes rely on `apoc.merge.node` / `apoc.merge.relationship`, and deletions rely on `apoc.periodic.iterate`).
 
-### 2. 知识库级开关：IndexingStrategy + ExtractConfig
+### 2. Knowledge-base–level switch: IndexingStrategy + ExtractConfig
 
-`internal/types/knowledgebase.go`：
+`internal/types/knowledgebase.go`:
 
 ```go
 // IsGraphEnabled checks if knowledge graph extraction is enabled.
@@ -43,28 +43,28 @@ func (kb *KnowledgeBase) IsGraphEnabled() bool {
 }
 ```
 
-- `IndexingStrategy.GraphEnabled`（`internal/types/indexing_strategy.go`）：知识库索引策略里的图谱开关，默认 `false`；旧字段 `ExtractConfig.Enabled` 会在读取时向 `IndexingStrategy.GraphEnabled` 单向同步（`knowledgebase.go` 635 行附近的 legacy sync）。
-- `ExtractConfig`（`internal/types/knowledgebase.go`）承载抽取的 few-shot 配置：
+- `IndexingStrategy.GraphEnabled` (`internal/types/indexing_strategy.go`): the graph switch within the knowledge base's indexing strategy, `false` by default; the legacy field `ExtractConfig.Enabled` is synced one-way into `IndexingStrategy.GraphEnabled` on read (the legacy sync near line 635 of `knowledgebase.go`).
+- `ExtractConfig` (`internal/types/knowledgebase.go`) carries the few-shot configuration for extraction:
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 |------|------|--------|------|
-| `enabled` | bool | false | 是否启用抽取 |
-| `text` | string | 空 | few-shot 示例原文 |
-| `tags` | []string | nil | 关系类型标签集合 |
-| `nodes` | []*GraphNode | nil | 示例实体节点（name / attributes） |
-| `relations` | []*GraphRelation | nil | 示例关系（node1 / node2 / type） |
-| `custom_instructions` | string | 空 | 领域自定义抽取指令（追加进系统提示，结构化输出协议仍由系统控制） |
+| `enabled` | bool | false | Whether extraction is enabled |
+| `text` | string | empty | Original few-shot example text |
+| `tags` | []string | nil | Set of relationship-type tags |
+| `nodes` | []*GraphNode | nil | Example entity nodes (name / attributes) |
+| `relations` | []*GraphRelation | nil | Example relationships (node1 / node2 / type) |
+| `custom_instructions` | string | empty | Domain-specific custom extraction instructions (appended to the system prompt; the structured output protocol remains under system control) |
 
-配置向导辅助 API（`internal/handler/initialization.go`，路由 `internal/router/router.go` 914-916 行）：
+Configuration-wizard helper APIs (`internal/handler/initialization.go`, routes at `internal/router/router.go` lines 914-916):
 
-- `POST /initialization/extract/text-relation`（`ExtractTextRelations`）：对一段文本（≤5000 字符）按选定标签试跑关系抽取，用于预览效果；
-- `POST /initialization/extract/fabri-text` / `fabri-tag`（`FabriText` / `FabriTag`）：让 LLM 生成示例文本 / 推荐标签，帮助用户快速搭建 `ExtractConfig`。
+- `POST /initialization/extract/text-relation` (`ExtractTextRelations`): runs a trial relationship extraction over a piece of text (≤5000 characters) using the selected tags, for previewing the results;
+- `POST /initialization/extract/fabri-text` / `fabri-tag` (`FabriText` / `FabriTag`): has the LLM generate example text / recommended tags, helping users quickly build up an `ExtractConfig`.
 
-## 实体关系抽取流程（构建）
+## Entity-relationship extraction flow (build time)
 
-### 触发与任务编排
+### Triggering and task orchestration
 
-文档解析完成后，`internal/application/service/knowledge_post_process.go` 在增强扇出阶段对每个文本 chunk 计数（`eff.GraphEnabled` 时 `graphChunkCount = len(textChunks)`），并调用 `internal/application/service/extract.go` 的 `NewChunkExtractTask` 逐 chunk 入队：
+Once document parsing completes, `internal/application/service/knowledge_post_process.go` counts each text chunk during the enrichment fan-out stage (`graphChunkCount = len(textChunks)` when `eff.GraphEnabled`), and calls `NewChunkExtractTask` in `internal/application/service/extract.go` to enqueue a task per chunk:
 
 ```go
 func NewChunkExtractTask(...) (bool, error) {
@@ -79,15 +79,15 @@ func NewChunkExtractTask(...) (bool, error) {
 }
 ```
 
-任务走独立的 asynq `QueueGraph` 队列，每个 chunk 一次 LLM 调用（源码注释称其为"管线中最昂贵的增强扇出"），受模型级后台并发限流（limiter）约束；被取消 / 删除 / 被新解析尝试取代（`attemptSuperseded`）的任务会跳过执行并释放父任务的 `pending_subtasks_count` 计数。
+The task runs on its own asynq `QueueGraph` queue, with one LLM call per chunk (the source comment calls it "the most expensive step in the enrichment fan-out"), constrained by a model-level background concurrency limiter; tasks that are cancelled, deleted, or superseded by a new parsing attempt (`attemptSuperseded`) are skipped and release the parent task's `pending_subtasks_count` count.
 
-### 抽取执行（ChunkExtractService.Handle）
+### Extraction execution (ChunkExtractService.Handle)
 
-`internal/application/service/extract.go`：
+`internal/application/service/extract.go`:
 
-1. 加载 chunk、知识库与文件级 `ProcessOverrides`，用 `ResolveProcessConfig` 求出生效的 `ExtractConfig`（未启用则跳过）。
-2. 组装结构化提示模板：系统协议部分来自 `config.ExtractManager.ExtractGraph`（`config/config.yaml` 的 `extract.extract_graph`，一个包含实体抽取 + 属性丰富 + 关系抽取步骤的多步指令），叠加知识库的 `custom_instructions`、`tags` 与 `ExtractConfig` 的 few-shot 示例（`Text/Nodes/Relations`）。
-3. `chatpipeline.NewExtractor(chatModel, template).Extract(ctx, chunk.Content)` 调用 Chat 模型（`temperature 0.3`、`max_tokens 4096`、关闭 thinking），由 `Formater.ParseGraph` 解析为 `types.GraphData`（`internal/types/extract_graph.go`）：
+1. Loads the chunk, the knowledge base, and file-level `ProcessOverrides`, then uses `ResolveProcessConfig` to resolve the effective `ExtractConfig` (skipped if not enabled).
+2. Assembles a structured prompt template: the system-protocol portion comes from `config.ExtractManager.ExtractGraph` (`extract.extract_graph` in `config/config.yaml`, a multi-step instruction covering entity extraction + attribute enrichment + relationship extraction), layered with the knowledge base's `custom_instructions`, `tags`, and the `ExtractConfig`'s few-shot examples (`Text/Nodes/Relations`).
+3. `chatpipeline.NewExtractor(chatModel, template).Extract(ctx, chunk.Content)` calls the Chat model (`temperature 0.3`, `max_tokens 4096`, thinking disabled), which `Formater.ParseGraph` parses into `types.GraphData` (`internal/types/extract_graph.go`):
 
 ```go
 type GraphNode struct {
@@ -102,15 +102,15 @@ type GraphRelation struct {
 }
 ```
 
-4. 为每个节点回填 `node.Chunks = []string{chunk.ID}`，然后 `graphEngine.AddGraph(ctx, NameSpace{KnowledgeBase, Knowledge}, ...)` 写入 Neo4j。
-5. 全程有 SpanTracker 追踪（`postprocess.graph.chunk[i]` 子 span，记录 nodes/relations 数量与样例）。
+4. Each node's `node.Chunks = []string{chunk.ID}` is backfilled, and then `graphEngine.AddGraph(ctx, NameSpace{KnowledgeBase, Knowledge}, ...)` writes it into Neo4j.
+5. The whole process is tracked by a SpanTracker (a `postprocess.graph.chunk[i]` sub-span recording the node/relation counts and samples).
 
-### 存储后端：Neo4j
+### Storage backend: Neo4j
 
-`internal/application/repository/retriever/neo4j/repository.go` 实现 `interfaces.RetrieveGraphRepository`（`AddGraph` / `DelGraph` / `SearchNode`）：
+`internal/application/repository/retriever/neo4j/repository.go` implements `interfaces.RetrieveGraphRepository` (`AddGraph` / `DelGraph` / `SearchNode`):
 
-- **命名空间即标签**：`NameSpace{KnowledgeBase, Knowledge}` 映射为节点标签 `ENTITY<kb_id>`、`ENTITY<knowledge_id>`（连字符替换为下划线），节点属性含 `name`、`kg`（knowledge_id）、`attributes`、`chunks`。
-- 写入用 APOC 幂等合并，同名实体的 `chunks` 做并集：
+- **Namespace as label**: `NameSpace{KnowledgeBase, Knowledge}` maps to the node labels `ENTITY<kb_id>` and `ENTITY<knowledge_id>` (hyphens replaced with underscores); node properties include `name`, `kg` (knowledge_id), `attributes`, and `chunks`.
+- Writes use an APOC idempotent merge, unioning the `chunks` for entities sharing the same name:
 
 ```cypher
 UNWIND $data AS row
@@ -118,53 +118,53 @@ CALL apoc.merge.node(row.labels, {name: row.name, kg: row.knowledge_id}, row.pro
 SET node.chunks = apoc.coll.union(node.chunks, row.chunks)
 ```
 
-- 删除知识 / 知识库时（`knowledge_delete.go`、`knowledgebase.go`）调用 `DelGraph`，用 `apoc.periodic.iterate` 按 1000 批并行删边删点。
+- When a piece of knowledge or a knowledge base is deleted (`knowledge_delete.go`, `knowledgebase.go`), `DelGraph` is called, which uses `apoc.periodic.iterate` to delete edges and nodes in parallel batches of 1000.
 
-## 检索时的图谱增强（GraphRAG）
+## Graph-augmented retrieval (GraphRAG)
 
-传统聊天管线（`internal/application/service/chat_pipeline`）中有两个插件：
+The traditional chat pipeline (`internal/application/service/chat_pipeline`) has two plugins:
 
-1. **PluginExtractEntity**（`extract_entity.go`，挂在 `QUERY_UNDERSTAND` 事件）：`NEO4J_ENABLE=true` 时，先筛出 `ExtractConfig.Enabled` 的知识库（存入 `chatManage.EntityKBIDs` / `EntityKnowledge`），再用 `ExtractManager.ExtractEntity` 模板 + Chat 模型从**用户查询**里抽取实体名，存入 `chatManage.Entity`。
-2. **PluginSearchEntity**（`search_entity.go`，挂在 `ENTITY_SEARCH` 事件）：对每个启用图谱的知识库 / 文件并行调用 `graphRepo.SearchNode`——Cypher 用 `n.name CONTAINS nodeText` 模糊匹配实体并返回一跳邻居与关系，合并为 `chatManage.GraphResult`；随后 `filterSeenChunk` 取出图谱节点携带的 `chunks`（去掉向量检索已命中的），从 `chunkRepo` 拉取原文并转换为 `SearchResult` 并入候选集，实现"实体 → 关联 chunk"的图谱补充召回。
+1. **PluginExtractEntity** (`extract_entity.go`, hooked into the `QUERY_UNDERSTAND` event): when `NEO4J_ENABLE=true`, it first filters down to the knowledge bases with `ExtractConfig.Enabled` (stored into `chatManage.EntityKBIDs` / `EntityKnowledge`), then uses the `ExtractManager.ExtractEntity` template plus the Chat model to extract entity names from the **user's query**, storing them into `chatManage.Entity`.
+2. **PluginSearchEntity** (`search_entity.go`, hooked into the `ENTITY_SEARCH` event): for each graph-enabled knowledge base / file, it calls `graphRepo.SearchNode` in parallel — a Cypher query using `n.name CONTAINS nodeText` to fuzzy-match entities and return their one-hop neighbors and relationships, merged into `chatManage.GraphResult`; afterward, `filterSeenChunk` pulls the `chunks` carried by the graph nodes (excluding ones already matched by vector retrieval), fetches the original text from `chunkRepo`, converts it to `SearchResult`, and merges it into the candidate set — implementing an "entity → associated chunk" graph-based supplementary recall.
 
-Agent 模式则提供 `query_knowledge_graph` 工具（`internal/agent/tools/query_knowledge_graph.go`）：校验各知识库是否配置了图谱（`ExtractConfig.Nodes/Relations` 非空），并发对多库执行检索、按 chunk 去重排序，输出中附带各库的图谱配置状态（实体类型 / 关系类型清单）；未配置图谱的库回落为普通混合检索结果。
+Agent mode, meanwhile, provides a `query_knowledge_graph` tool (`internal/agent/tools/query_knowledge_graph.go`): it checks whether each knowledge base has the graph configured (`ExtractConfig.Nodes/Relations` non-empty), runs retrieval concurrently across multiple knowledge bases, deduplicates and ranks by chunk, and includes each knowledge base's graph configuration status (entity-type / relationship-type lists) in the output; knowledge bases without a graph configured fall back to plain hybrid retrieval results.
 
-## 流程图
+## Flow diagrams
 
-### 构建流程
+### Build flow
 
 ```mermaid
 flowchart TD
-    A["文档解析完成<br/>(knowledge_post_process)"] --> B{"kb.IsGraphEnabled() 且<br/>NEO4J_ENABLE=true?"}
-    B -->|"否"| Z["跳过图谱抽取"]
-    B -->|"是"| C["逐文本 chunk 入队<br/>asynq QueueGraph / TypeChunkExtract<br/>(MaxRetry=3, Timeout=30m)"]
+    A["Document parsing complete<br/>(knowledge_post_process)"] --> B{"kb.IsGraphEnabled() and<br/>NEO4J_ENABLE=true?"}
+    B -->|"No"| Z["Skip graph extraction"]
+    B -->|"Yes"| C["Enqueue per text chunk<br/>asynq QueueGraph / TypeChunkExtract<br/>(MaxRetry=3, Timeout=30m)"]
     C --> D["ChunkExtractService.Handle"]
-    D --> E["组装结构化提示:<br/>ExtractManager.ExtractGraph 协议<br/>+ ExtractConfig few-shot (text/nodes/relations)<br/>+ tags + custom_instructions"]
-    E --> F["Chat 模型抽取<br/>(temp 0.3, 关闭 thinking)"]
-    F --> G["ParseGraph 解析为 GraphData<br/>(nodes: name/attributes, relations: node1/type/node2)"]
-    G --> H["节点回填 chunks=[chunk.ID]"]
-    H --> I["Neo4jRepository.AddGraph<br/>apoc.merge.node / apoc.merge.relationship<br/>标签 = ENTITY+kb_id : ENTITY+knowledge_id"]
-    I --> J["FinalizeSubtask 释放<br/>pending_subtasks_count"]
+    D --> E["Assemble structured prompt:<br/>ExtractManager.ExtractGraph protocol<br/>+ ExtractConfig few-shot (text/nodes/relations)<br/>+ tags + custom_instructions"]
+    E --> F["Chat model extraction<br/>(temp 0.3, thinking disabled)"]
+    F --> G["ParseGraph parses into GraphData<br/>(nodes: name/attributes, relations: node1/type/node2)"]
+    G --> H["Backfill node chunks=[chunk.ID]"]
+    H --> I["Neo4jRepository.AddGraph<br/>apoc.merge.node / apoc.merge.relationship<br/>labels = ENTITY+kb_id : ENTITY+knowledge_id"]
+    I --> J["FinalizeSubtask releases<br/>pending_subtasks_count"]
 ```
 
-### 查询流程
+### Query flow
 
 ```mermaid
 flowchart TD
-    Q["用户查询"] --> U["QUERY_UNDERSTAND:<br/>PluginExtractEntity"]
-    U --> U1{"NEO4J_ENABLE 且存在<br/>ExtractConfig.Enabled 的知识库?"}
-    U1 -->|"否"| SKIP["跳过, 走常规检索"]
-    U1 -->|"是"| U2["LLM 从查询抽取实体名<br/>(ExtractManager.ExtractEntity 模板)"]
+    Q["User query"] --> U["QUERY_UNDERSTAND:<br/>PluginExtractEntity"]
+    U --> U1{"NEO4J_ENABLE and a<br/>knowledge base with ExtractConfig.Enabled exists?"}
+    U1 -->|"No"| SKIP["Skip, use regular retrieval"]
+    U1 -->|"Yes"| U2["LLM extracts entity names from the query<br/>(ExtractManager.ExtractEntity template)"]
     U2 --> S["ENTITY_SEARCH:<br/>PluginSearchEntity"]
-    S --> S1["按知识库/文件并行<br/>Neo4j SearchNode<br/>(name CONTAINS entity, 返回一跳邻居)"]
-    S1 --> S2["合并 GraphResult<br/>(nodes + relations)"]
-    S2 --> S3["filterSeenChunk:<br/>取节点 chunks, 去掉已命中的"]
-    S3 --> S4["chunkRepo 拉取原文<br/>转为 SearchResult 并入候选集"]
-    S4 --> R["与向量/关键词结果一起<br/>进入重排与生成"]
+    S --> S1["Parallel per knowledge base/file<br/>Neo4j SearchNode<br/>(name CONTAINS entity, returns one-hop neighbors)"]
+    S1 --> S2["Merge GraphResult<br/>(nodes + relations)"]
+    S2 --> S3["filterSeenChunk:<br/>take node chunks, drop already-matched ones"]
+    S3 --> S4["chunkRepo fetches original text<br/>converts to SearchResult and merges into candidate set"]
+    S4 --> R["Combined with vector/keyword results<br/>fed into reranking and generation"]
 ```
 
-## 可视化
+## Visualization
 
-- **Mermaid 图生成**：`internal/application/service/graph.go` 的 `graphBuilder` 是 `types.GraphBuilder` 接口的内存版实现（LLM 抽实体 → 抽关系 → PMI×0.6 + Strength×0.4 计算关系权重并归一到 1-10 → 计算实体度数 → 构建 chunk 关联图），其 `generateKnowledgeGraphDiagram` 用 DFS 找连通分量并输出 Mermaid `graph TD` 子图（高频实体高亮、强度 >7 的关系用粗箭头）。注意：`NewGraphBuilder` 目前没有被容器装配调用（仓库内无其他引用），属于独立/遗留的图构建与可视化实现；生成的 Mermaid 图输出到日志。
-- **对外 API**：知识图谱本身没有专门的可视化 REST 端点；`query_knowledge_graph` 工具的结构化输出（`graph_configs`、结果列表）供 Agent 前端渲染。`GET /wiki/graph`（`wikiHandler.GetGraph`）是 Wiki 功能自己的图接口，与本文的实体关系图谱无关。
-- **prompt 模板**：`config/prompt_templates/graph_extraction.yaml` 提供 `default_extract_entities` 等模板（实体类型枚举 Person/Organization/Location/... 与 JSON 输出协议），经 `internal/config/config.go` 的 `extract_entities_prompt_id` / `extract_relationships_prompt_id` 解析进 `Conversation.ExtractEntitiesPrompt` / `ExtractRelationshipsPrompt`，供上述内存版 `graphBuilder` 使用；生产异步抽取路径使用的是 `config.yaml` 中 `extract.extract_graph` / `extract.extract_entity` 模板（`ExtractManagerConfig`）。
+- **Mermaid diagram generation**: `graphBuilder` in `internal/application/service/graph.go` is an in-memory implementation of the `types.GraphBuilder` interface (LLM extracts entities → extracts relationships → computes relationship weights via PMI×0.6 + Strength×0.4, normalized to 1-10 → computes entity degree → builds a chunk-association graph); its `generateKnowledgeGraphDiagram` uses DFS to find connected components and outputs a Mermaid `graph TD` subgraph (high-frequency entities are highlighted, relationships with strength >7 use bold arrows). Note: `NewGraphBuilder` is currently not invoked by container wiring (there are no other references in the repository) — it is a standalone/legacy graph-building and visualization implementation; the generated Mermaid diagram is output to the log.
+- **External API**: the knowledge graph itself has no dedicated visualization REST endpoint; the structured output of the `query_knowledge_graph` tool (`graph_configs`, result list) is available for the Agent front end to render. `GET /wiki/graph` (`wikiHandler.GetGraph`) is the Wiki feature's own graph endpoint and is unrelated to the entity-relationship graph discussed in this document.
+- **Prompt templates**: `config/prompt_templates/graph_extraction.yaml` provides templates such as `default_extract_entities` (an enumeration of entity types — Person/Organization/Location/… — and the JSON output protocol), which are resolved via `extract_entities_prompt_id` / `extract_relationships_prompt_id` in `internal/config/config.go` into `Conversation.ExtractEntitiesPrompt` / `ExtractRelationshipsPrompt`, for use by the in-memory `graphBuilder` above; the production asynchronous extraction path uses the `extract.extract_graph` / `extract.extract_entity` templates in `config.yaml` (`ExtractManagerConfig`).

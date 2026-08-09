@@ -9,31 +9,31 @@ import (
 	"github.com/Tencent/WeKnora/internal/logger"
 )
 
-// 默认的桶数 / 副本数。Doris 在 PROPERTIES 不指定时会用集群默认值，
-// 这里给一个对单机/小集群更友好的保守值。
+// Default bucket count / replica count. Doris falls back to cluster defaults when PROPERTIES doesn't specify them,
+// so this gives a conservative value that's friendlier to single-node/small clusters.
 const (
 	defaultBucketsNum     = 10
 	defaultReplicationNum = 1
 
-	// ANN 索引就绪轮询的最大等待时间。索引未就绪不阻塞写入路径，
-	// 只阻塞 ensureTable 自身（首次建表场景），所以 30s 是可接受的。
+	// Maximum wait time for ANN index readiness polling. An unready index doesn't block the write path,
+	// it only blocks ensureTable itself (first-time table creation), so 30s is acceptable.
 	annReadyTimeout = 30 * time.Second
 	annReadyPoll    = 1 * time.Second
 )
 
-// getTableName 返回某个维度对应的物理表名：<base>_<dim>。
+// getTableName returns the physical table name for a given dimension: <base>_<dim>.
 //
-// 与 Qdrant/Milvus/Weaviate 的 collection 命名约定一致，
-// 这样不同 embedding 模型（不同维度）的数据互不冲突。
+// Consistent with the collection naming convention used by Qdrant/Milvus/Weaviate,
+// so data from different embedding models (different dimensions) never conflicts.
 func (r *dorisRepository) getTableName(dimension int) string {
 	return fmt.Sprintf("%s_%d", r.tableBaseName, dimension)
 }
 
-// ensureTable 保证目标维度对应的表已经存在；
-// 不存在则用 CREATE TABLE IF NOT EXISTS 创建，并在创建后轮询 ANN 索引就绪。
+// ensureTable guarantees that the table for the target dimension already exists;
+// if it doesn't, it's created with CREATE TABLE IF NOT EXISTS, then polls for ANN index readiness after creation.
 //
-// 该方法在每次 Save / BatchSave 之前调用，结果缓存在 initializedTables 中，
-// 同一进程内同一 dimension 只会真正打一次 SHOW TABLES + DDL。
+// This method is called before every Save / BatchSave, and the result is cached in initializedTables,
+// so within the same process the same dimension only actually triggers SHOW TABLES + DDL once.
 func (r *dorisRepository) ensureTable(ctx context.Context, dimension int) error {
 	if _, ok := r.initializedTables.Load(dimension); ok {
 		return nil
@@ -59,11 +59,11 @@ func (r *dorisRepository) ensureTable(ctx context.Context, dimension int) error 
 			return fmt.Errorf("create table: %w", err)
 		}
 
-		// ANN 索引在 Doris 端异步构建。这里在后台 goroutine 里轮询就绪，
-		// 写入路径不阻塞——索引未就绪期间检索会退化为 brute-force（结果对、速度慢），
-		// 比让首批写入卡 30s 更可接受。
+		// The ANN index is built asynchronously on the Doris side. Polling for readiness happens here in a background goroutine,
+		// so the write path isn't blocked — while the index isn't ready, search falls back to brute-force (correct results, slower),
+		// which is more acceptable than blocking the first batch of writes for 30s.
 		go func(tn string) {
-			// 用独立 context（带 timeout），避免请求级 ctx 取消把后台轮询也带走。
+			// Uses a separate context (with timeout) so that cancellation of the request-level ctx doesn't also kill the background polling.
 			bgCtx, cancel := context.WithTimeout(context.Background(), annReadyTimeout)
 			defer cancel()
 			if err := r.waitANNReady(bgCtx, tn); err != nil {
@@ -81,10 +81,10 @@ func (r *dorisRepository) ensureTable(ctx context.Context, dimension int) error 
 	return nil
 }
 
-// tableExists 通过 information_schema 判断表是否存在。
+// tableExists checks whether the table exists via information_schema.
 //
-// 不直接用 SHOW TABLES 是因为 Doris 4.1 对 SHOW TABLES LIKE 大小写敏感，
-// 而 information_schema 与 MySQL 兼容性更好。
+// It doesn't use SHOW TABLES directly because SHOW TABLES LIKE is case-sensitive on Doris 4.1,
+// and information_schema has better MySQL compatibility.
 func (r *dorisRepository) tableExists(ctx context.Context, tableName string) (bool, error) {
 	const q = `SELECT COUNT(1) FROM information_schema.tables
 		WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`
@@ -95,8 +95,8 @@ func (r *dorisRepository) tableExists(ctx context.Context, tableName string) (bo
 	return n > 0, nil
 }
 
-// createTable 发出 CREATE TABLE DDL。Doris DDL 是同步的（除 ANN 索引构建外），
-// 返回成功即代表表已可写。
+// createTable issues the CREATE TABLE DDL. Doris DDL is synchronous (except for ANN index building),
+// so a successful return means the table is already writable.
 func (r *dorisRepository) createTable(ctx context.Context, tableName string, dimension int, compatMode dorisCompatMode) error {
 	buckets := r.bucketsNum
 	if buckets <= 0 {
@@ -122,17 +122,17 @@ func (r *dorisRepository) createTable(ctx context.Context, tableName string, dim
 	return err
 }
 
-// buildCreateTableDDL 根据维度生成 CREATE TABLE DDL。
+// buildCreateTableDDL generates the CREATE TABLE DDL based on the dimension.
 //
-// 关键点：
-//   - DUPLICATE KEY(id)：兼容当前 Doris/SelectDB 对 ANN 索引的表模型要求。
-//     WeKnora 在 Go 端用 delete + insert 保持按 id 替换的写入语义。
-//   - INVERTED 索引覆盖所有过滤字段 + 中文分词的 content 全文索引。
-//   - ANN 索引使用 HNSW + inner_product；Doris 写入/查询前会对向量单位化，
-//     因此整体仍保持与其他向量库一致的 cosine 相似度语义。
+// Key points:
+// - DUPLICATE KEY(id): complies with the current Doris/SelectDB table model requirement for ANN indexes.
+// WeKnora uses delete + insert on the Go side to preserve replace-by-id write semantics.
+// - The INVERTED index covers all filter fields + a full-text index on content with Chinese tokenization.
+// - The ANN index uses HNSW + inner_product; Doris normalizes vectors before write/query,
+// so overall it still keeps the same cosine similarity semantics as other vector stores.
 //
-// 注意：DDL 中 dimension / buckets / replication 三个数值字段是 Go 端格式化拼接的，
-// 不存在 SQL 注入风险（来源都是受控的 IndexConfig int）。
+// Note: the dimension / buckets / replication numeric fields in the DDL are formatted and concatenated on the Go side,
+// and there's no SQL injection risk (all sources are controlled IndexConfig ints).
 func buildCreateTableDDL(tableName string, dimension, buckets, replication int, compatMode dorisCompatMode) string {
 	metricType := "inner_product"
 	keyMode := "DUPLICATE KEY(id)"
@@ -177,10 +177,10 @@ PROPERTIES(
 	return fmt.Sprintf(tpl, tableName, metricType, dimension, keyMode, buckets, properties)
 }
 
-// waitANNReady 轮询 SHOW INDEX，等待 ANN 索引进入 FINISHED 状态。
+// waitANNReady polls SHOW INDEX, waiting for the ANN index to reach FINISHED state.
 //
-// Doris 的 ANN 索引在建表后会异步构建，期间查询会退化为 brute-force（结果对，速度慢）。
-// 此处仅做"尽力而为"的等待：到点未就绪只记 warning，不阻塞写入。
+// Doris builds the ANN index asynchronously after table creation; queries fall back to brute-force during that time (correct results, slower).
+// This is only a "best-effort" wait: if it's not ready by the deadline, it just logs a warning without blocking writes.
 func (r *dorisRepository) waitANNReady(ctx context.Context, tableName string) error {
 	deadline := time.Now().Add(annReadyTimeout)
 	for {
@@ -202,14 +202,14 @@ func (r *dorisRepository) waitANNReady(ctx context.Context, tableName string) er
 	}
 }
 
-// annIndexReady 检查 ANN 索引的 State 是否为 FINISHED。
+// annIndexReady checks whether the ANN index's State is FINISHED.
 //
-// SHOW INDEX FROM <table> 在 Doris 上返回多列；不同小版本列序略有差异，
-// 这里以列名匹配（来自 information_schema.statistics + 自定义 view 不可行，
-// 直接用 SHOW INDEX 然后扫描即可）。
+// SHOW INDEX FROM <table> returns multiple columns on Doris; column order varies slightly across minor versions,
+// so matching is done by column name (using information_schema.statistics + a custom view isn't feasible,
+// Just use SHOW INDEX and scan the results.
 //
-// 兼容策略：如果 SHOW INDEX 返回中找不到 idx_emb 行（极旧版本），视为已就绪，
-// 避免因为不同 Doris 版本的输出差异把启动卡死。
+// Compatibility strategy: if no idx_emb row is found in the SHOW INDEX result (very old versions), treat it as ready,
+// avoid deadlocking startup due to output differences across Doris versions.
 func (r *dorisRepository) annIndexReady(ctx context.Context, tableName string) (bool, error) {
 	rows, err := r.db.QueryContext(ctx,
 		fmt.Sprintf("SHOW INDEX FROM `%s`", tableName))
@@ -233,7 +233,7 @@ func (r *dorisRepository) annIndexReady(ctx context.Context, tableName string) (
 	}
 
 	for rows.Next() {
-		// 使用 sql.RawBytes 接收以兼容不同列类型。
+		// Use sql.RawBytes to receive values, for compatibility with different column types.
 		raw := make([]any, len(cols))
 		ptrs := make([]any, len(cols))
 		for i := range raw {
@@ -255,7 +255,7 @@ func (r *dorisRepository) annIndexReady(ctx context.Context, tableName string) (
 			continue
 		}
 		if stateIdx < 0 {
-			// 旧版本不暴露 state 列，乐观认为已就绪。
+			// Older versions don't expose the state column, so optimistically assume it's ready.
 			return true, nil
 		}
 		if !strings.EqualFold(state, "FINISHED") &&
@@ -266,15 +266,15 @@ func (r *dorisRepository) annIndexReady(ctx context.Context, tableName string) (
 	if err := rows.Err(); err != nil {
 		return false, err
 	}
-	// 走到这里有两种情况：
-	//   1. 找到了 idx_emb 行，且 state 已是 FINISHED/NORMAL（或 stateIdx<0 的旧版本）；
-	//   2. 没找到 idx_emb 行（极旧 Doris 不暴露该索引名）；
-	// 都视为已就绪，不阻塞。未就绪的分支已在循环内提前 return false。
+	// Two cases lead here:
+	// 1. the idx_emb row was found, and state is already FINISHED/NORMAL (or an older version with stateIdx<0);
+	// 2. the idx_emb row was not found (very old Doris doesn't expose this index name);
+	// both are treated as ready and don't block. The not-ready branch already returns false early inside the loop.
 	return true, nil
 }
 
-// listEmbeddingTables 返回当前 database 下所有 <base>_% 命名的表，
-// 用于关键词检索 / 跨维度 BatchUpdate。
+// listEmbeddingTables returns all tables in the current database named <base>_%,
+// used for keyword search / cross-dimension BatchUpdate.
 func (r *dorisRepository) listEmbeddingTables(ctx context.Context) ([]string, error) {
 	const q = `SELECT TABLE_NAME FROM information_schema.tables
 		WHERE TABLE_SCHEMA = ? AND TABLE_NAME LIKE ?`
@@ -294,8 +294,8 @@ func (r *dorisRepository) listEmbeddingTables(ctx context.Context) ([]string, er
 	return names, rows.Err()
 }
 
-// bytesToString 把 SHOW INDEX 返回的 raw any（通常是 []byte 或 string）
-// 安全转成字符串。
+// bytesToString safely converts the raw any returned by SHOW INDEX (usually []byte or string)
+// into a string.
 func bytesToString(v any) string {
 	switch s := v.(type) {
 	case []byte:

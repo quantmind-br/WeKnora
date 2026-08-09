@@ -13,14 +13,14 @@ var (
 	htmlDocPattern       = regexp.MustCompile(`(?i)^\s*(<\!DOCTYPE|<html|<body|<div|<p[\s>]|<table|<h[1-6][\s>])`)
 	multipleNewlines     = regexp.MustCompile(`\n{3,}`)
 	knownEmptyReplies    = []string{
-		"无文字内容",
-		"无法识别",
+		"No text content",
+		"Unable to recognize",
 		"no text",
 		"no text content",
 		"no content",
 		"empty",
-		"图片中没有文字",
-		"图片中没有可识别的文字",
+		"No text in the image",
+		"No recognizable text in the image",
 	}
 )
 

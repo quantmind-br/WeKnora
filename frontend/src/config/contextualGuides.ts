@@ -31,9 +31,9 @@ export interface ContextualGuideTourConfig {
   storageKey: string
   stepI18nPrefix: string
   steps: SpotlightGuideStep[]
-  /** 首次展示前的延迟（毫秒） */
+  /** Delay before first display (ms) */
   openDelayMs: number
-  /** 完成本引导时一并标记为已完成的其他引导 */
+  /** Other guides to mark as completed together with this guide */
   alsoCompleteTours?: ContextualGuideTourId[]
 }
 
@@ -45,14 +45,14 @@ export const CONTEXTUAL_GUIDE_TOURS: Record<ContextualGuideTourId, ContextualGui
     steps: [
       {
         key: 'create',
-        // 空列表时优先高亮居中的主 CTA，否则退化为顶栏新建按钮
+        // When the list is empty, prioritize highlighting the centered primary CTA; otherwise fall back to the top-bar "New" button
         target: '.empty-state-btn[data-guide="kb-list-create"], [data-guide="kb-list-create"]',
         placement: 'bottom',
         interact: true,
       },
     ],
   },
-  // 步骤由 KbCreateContextualGuide.vue 按文档库/FAQ 动态组装
+  // Steps are dynamically assembled by KbCreateContextualGuide.vue based on knowledge base/FAQ
   kbCreate: {
     storageKey: 'weknora:contextual-guide-kb-create:v3',
     stepI18nPrefix: 'contextualGuide.kbCreate.steps',

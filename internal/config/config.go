@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config 应用程序总配置
+// Config overall application configuration
 type Config struct {
 	Conversation    *ConversationConfig    `yaml:"conversation"     json:"conversation"`
 	Server          *ServerConfig          `yaml:"server"           json:"server"`
@@ -90,7 +90,7 @@ type VectorDatabaseConfig struct {
 	Driver string `yaml:"driver" json:"driver"`
 }
 
-// ConversationConfig 对话服务配置
+// ConversationConfig conversation service configuration
 type ConversationConfig struct {
 	MaxRounds            int            `yaml:"max_rounds"                       json:"max_rounds"`
 	KeywordThreshold     float64        `yaml:"keyword_threshold"                json:"keyword_threshold"`
@@ -129,7 +129,7 @@ type ConversationConfig struct {
 	IntentSystemPrompts map[string]string `yaml:"-" json:"-"`
 }
 
-// SummaryConfig 摘要配置
+// SummaryConfig summary configuration
 type SummaryConfig struct {
 	MaxInputChars       int     `yaml:"max_input_chars"       json:"max_input_chars"` // Max input characters for summary generation (default: 16384)
 	MaxTokens           int     `yaml:"max_tokens"            json:"max_tokens"`
@@ -153,7 +153,7 @@ type SummaryConfig struct {
 	ContextTemplate string `yaml:"-" json:"context_template"`
 }
 
-// ServerConfig 服务器配置
+// ServerConfig server configuration
 type ServerConfig struct {
 	Port            int           `yaml:"port"             json:"port"`
 	Host            string        `yaml:"host"             json:"host"`
@@ -161,7 +161,7 @@ type ServerConfig struct {
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" json:"shutdown_timeout" default:"30s"`
 }
 
-// KnowledgeBaseConfig 知识库配置
+// KnowledgeBaseConfig knowledge base configuration
 type KnowledgeBaseConfig struct {
 	ChunkSize              int                    `yaml:"chunk_size"       json:"chunk_size"`
 	ChunkOverlap           int                    `yaml:"chunk_overlap"    json:"chunk_overlap"`
@@ -190,12 +190,12 @@ func DocumentProcessTimeout(cfg *Config) time.Duration {
 	return DefaultDocumentProcessTimeout
 }
 
-// ImageProcessingConfig 图像处理配置
+// ImageProcessingConfig image processing configuration
 type ImageProcessingConfig struct {
 	EnableMultimodal bool `yaml:"enable_multimodal" json:"enable_multimodal"`
 }
 
-// TenantConfig 空间配置
+// TenantConfig tenant configuration
 type TenantConfig struct {
 	DefaultSessionName        string `yaml:"default_session_name"        json:"default_session_name"`
 	DefaultSessionTitle       string `yaml:"default_session_title"       json:"default_session_title"`
@@ -326,12 +326,12 @@ type PromptTemplateI18n struct {
 	Description string `yaml:"description" json:"description"`
 }
 
-// PromptTemplate 提示词模板
+// PromptTemplate prompt template
 //
-// 字段设计：每个模板最多由两部分组成 —— 系统侧 (content) 和用户侧 (user)。
-//   - content: 主要内容 / 系统 Prompt（所有模板都使用此字段）
-//   - user:    用户侧 Prompt（仅在需要 system+user 配对的模板中使用，如 rewrite、keywords_extraction）
-//   - i18n:    多语言 name/description，键为 locale（如 "zh-CN"、"en-US"、"ko-KR"），后端根据请求语言替换 Name/Description 再返回
+// Field design: each template consists of at most two parts — the system side (content) and the user side (user).
+// - content: main content / system prompt (used by all templates)
+// - user:    user-side prompt (only used by templates that need a system+user pair, e.g. rewrite, keywords_extraction)
+// - i18n:    multilingual name/description, keyed by locale (e.g. "zh-CN", "en-US", "ko-KR"); the backend replaces Name/Description based on the request language before returning
 type PromptTemplate struct {
 	ID               string                        `yaml:"id"                 json:"id"`
 	Name             string                        `yaml:"name"               json:"name"`
@@ -345,16 +345,16 @@ type PromptTemplate struct {
 	I18n             map[string]PromptTemplateI18n `yaml:"i18n"               json:"-"`
 }
 
-// PromptTemplatesConfig 提示词模板配置
+// PromptTemplatesConfig prompt templates configuration
 //
-// 每种 Prompt 类型对应一个 YAML 文件，所有模板都在同一个字段（文件）中管理。
-// 每个模板使用 content (system prompt) + user (user prompt) 两个字段。
+// Each Prompt type corresponds to one YAML file, and all templates are managed within the same field (file).
+// Each template uses two fields: content (system prompt) + user (user prompt).
 type PromptTemplatesConfig struct {
 	SystemPrompt    []PromptTemplate `yaml:"system_prompt"    json:"system_prompt"`
 	ContextTemplate []PromptTemplate `yaml:"context_template" json:"context_template"`
-	// Rewrite 合并了前端可选模板和运行时默认模板，每个模板同时包含 content + user
+	// Rewrite merges the frontend-selectable templates with the runtime default template; each template includes both content + user
 	Rewrite []PromptTemplate `yaml:"rewrite" json:"rewrite"`
-	// Fallback 合并了固定回复模板和模型兜底 prompt（通过 mode:"model" 区分）
+	// Fallback merges the fixed reply templates with the model fallback prompt (distinguished via mode:"model")
 	Fallback []PromptTemplate `yaml:"fallback" json:"fallback"`
 
 	GenerateSessionTitle []PromptTemplate `yaml:"generate_session_title" json:"generate_session_title,omitempty"`
@@ -432,7 +432,7 @@ func LocalizeTemplates(templates []PromptTemplate, locale string) []PromptTempla
 	return out
 }
 
-// ModelConfig 模型配置
+// ModelConfig model configuration
 type ModelConfig struct {
 	Type       string                 `yaml:"type"       json:"type"`
 	Source     string                 `yaml:"source"     json:"source"`
@@ -440,24 +440,24 @@ type ModelConfig struct {
 	Parameters map[string]interface{} `yaml:"parameters" json:"parameters"`
 }
 
-// StreamManagerConfig 流管理器配置
+// StreamManagerConfig stream manager configuration
 type StreamManagerConfig struct {
-	Type           string        `yaml:"type"            json:"type"`            // 类型: "memory" 或 "redis"
-	Redis          RedisConfig   `yaml:"redis"           json:"redis"`           // Redis配置
-	CleanupTimeout time.Duration `yaml:"cleanup_timeout" json:"cleanup_timeout"` // 清理超时，单位秒
+	Type           string        `yaml:"type"            json:"type"`            // Type: "memory" or "redis"
+	Redis          RedisConfig   `yaml:"redis"           json:"redis"`           // Redis configuration
+	CleanupTimeout time.Duration `yaml:"cleanup_timeout" json:"cleanup_timeout"` // Cleanup timeout, in seconds
 }
 
-// RedisConfig Redis配置
+// RedisConfig Redis configuration
 type RedisConfig struct {
-	Address  string        `yaml:"address"  json:"address"`  // Redis地址
-	Username string        `yaml:"username" json:"username"` // Redis用户名
-	Password string        `yaml:"password" json:"password"` // Redis密码
-	DB       int           `yaml:"db"       json:"db"`       // Redis数据库
-	Prefix   string        `yaml:"prefix"   json:"prefix"`   // 键前缀
-	TTL      time.Duration `yaml:"ttl"      json:"ttl"`      // 过期时间(小时)
+	Address  string        `yaml:"address"  json:"address"`  // Redis address
+	Username string        `yaml:"username" json:"username"` // Redis username
+	Password string        `yaml:"password" json:"password"` // Redis password
+	DB       int           `yaml:"db"       json:"db"`       // Redis database
+	Prefix   string        `yaml:"prefix"   json:"prefix"`   // Key prefix
+	TTL      time.Duration `yaml:"ttl"      json:"ttl"`      // Expiration time (hours)
 }
 
-// ExtractManagerConfig 抽取管理器配置
+// ExtractManagerConfig extract manager configuration
 type ExtractManagerConfig struct {
 	ExtractGraph  *types.PromptTemplateStructured `yaml:"extract_graph"  json:"extract_graph"`
 	ExtractEntity *types.PromptTemplateStructured `yaml:"extract_entity" json:"extract_entity"`
@@ -487,47 +487,47 @@ func ConfigDir() string {
 	return "./config"
 }
 
-// LoadConfig 从配置文件加载配置
+// LoadConfig loads configuration from the config file
 func LoadConfig() (*Config, error) {
-	// 设置配置文件名和路径
-	viper.SetConfigName("config")         // 配置文件名称(不带扩展名)
-	viper.SetConfigType("yaml")           // 配置文件类型
-	viper.AddConfigPath(".")              // 当前目录
-	viper.AddConfigPath("./config")       // config子目录
-	viper.AddConfigPath("$HOME/.appname") // 用户目录
-	viper.AddConfigPath("/etc/appname/")  // etc目录
+	// Set the config file name and path
+	viper.SetConfigName("config")         // Configuration file name (without extension)
+	viper.SetConfigType("yaml")           // Configuration file type
+	viper.AddConfigPath(".")              // Current directory
+	viper.AddConfigPath("./config")       // config subdirectory
+	viper.AddConfigPath("$HOME/.appname") // User directory
+	viper.AddConfigPath("/etc/appname/")  // etc directory
 
-	// 启用环境变量替换
+	// Enable environment variable substitution
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// 读取配置文件
+	// Read configuration file
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
 
-	// 替换配置中的环境变量引用
+	// Substitute environment variable references in the config
 	configFileContent, err := os.ReadFile(viper.ConfigFileUsed())
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file content: %w", err)
 	}
 
-	// 替换${ENV_VAR}格式的环境变量引用
+	// Substitute environment variable references in ${ENV_VAR} format
 	re := regexp.MustCompile(`\${([^}]+)}`)
 	result := re.ReplaceAllStringFunc(string(configFileContent), func(match string) string {
-		// 提取环境变量名称（去掉${}部分）
+		// Extract the environment variable name (strip the ${} part)
 		envVar := match[2 : len(match)-1]
-		// 获取环境变量值，如果不存在则保持原样
+		// Get the environment variable value; if it doesn't exist, keep it as is
 		if value := os.Getenv(envVar); value != "" {
 			return value
 		}
 		return match
 	})
 
-	// 使用处理后的配置内容
+	// Use the processed config content
 	viper.ReadConfig(strings.NewReader(result))
 
-	// 解析配置到结构体
+	// Parse the config into a struct
 	var cfg Config
 	if err := viper.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
 		dc.TagName = "yaml"
@@ -536,13 +536,13 @@ func LoadConfig() (*Config, error) {
 	}
 	fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
-	// 加载提示词模板（从目录或配置文件）
+	// Load prompt templates (from directory or config file)
 	configDir := filepath.Dir(viper.ConfigFileUsed())
 	resolvedConfigDir = configDir
 	promptTemplates, err := loadPromptTemplates(configDir)
 	if err != nil {
 		fmt.Printf("Warning: failed to load prompt templates from directory: %v\n", err)
-		// 如果目录加载失败，使用配置文件中的模板（如果有）
+		// If directory loading fails, use the template from the config file (if any)
 	} else if promptTemplates != nil {
 		cfg.PromptTemplates = promptTemplates
 	}
@@ -1044,23 +1044,23 @@ func resolveBuiltinAgentPromptIDs(pt *PromptTemplatesConfig) {
 	})
 }
 
-// promptTemplateFile 用于解析模板文件
+// promptTemplateFile is used to parse the template file
 type promptTemplateFile struct {
 	Templates []PromptTemplate `yaml:"templates"`
 }
 
-// loadPromptTemplates 从目录加载提示词模板
+// loadPromptTemplates loads prompt templates from a directory
 func loadPromptTemplates(configDir string) (*PromptTemplatesConfig, error) {
 	templatesDir := filepath.Join(configDir, "prompt_templates")
 
-	// 检查目录是否存在
+	// Check whether the directory exists
 	if _, err := os.Stat(templatesDir); os.IsNotExist(err) {
-		return nil, nil // 目录不存在，返回nil让调用者使用配置文件中的模板
+		return nil, nil // Directory doesn't exist; return nil so the caller falls back to the template in the config file
 	}
 
 	config := &PromptTemplatesConfig{}
 
-	// 定义模板文件映射
+	// Define the template file mapping
 	templateFiles := map[string]*[]PromptTemplate{
 		"system_prompt.yaml":          &config.SystemPrompt,
 		"context_template.yaml":       &config.ContextTemplate,
@@ -1075,11 +1075,11 @@ func loadPromptTemplates(configDir string) (*PromptTemplatesConfig, error) {
 		"intent_prompts.yaml":         &config.IntentPrompts,
 	}
 
-	// 加载每个模板文件
+	// Load each template file
 	for filename, target := range templateFiles {
 		filePath := filepath.Join(templatesDir, filename)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			continue // 文件不存在，跳过
+			continue // File doesn't exist; skip it
 		}
 
 		data, err := os.ReadFile(filePath)
@@ -1100,5 +1100,5 @@ func loadPromptTemplates(configDir string) (*PromptTemplatesConfig, error) {
 
 // WebSearchConfig represents the web search configuration
 type WebSearchConfig struct {
-	Timeout int `yaml:"timeout" json:"timeout"` // 超时时间（秒）
+	Timeout int `yaml:"timeout" json:"timeout"` // Timeout (in seconds)
 }

@@ -1,84 +1,87 @@
-# 会话与对话体验
+--- DOCUMENT START ---
+# Sessions and Conversation Experience
 
-前面的章节讲的是「知识怎么进来、怎么被检索」，这一章讲**对话框本身**：一次问答过程中用户看到什么、能做什么。这些能力分散在会话、消息、附件、建议问题几组接口上，这里集中说明。
+The previous chapters covered "how knowledge gets in, how it gets retrieved" — this chapter covers **the chat box itself**: what the user sees and can do during a round of questions and answers. These capabilities are spread across the session, message, attachment, and suggested-question interfaces; this chapter brings them together.
 
-## 1. 一轮问答里用户看到的东西
+## 1. What the user sees during a round of Q&A
 
-| 界面元素 | 说明 |
+| UI Element | Description |
 | --- | --- |
-| 流水线进度条 | 回答生成前展示当前阶段：附件解析、图片理解、检索文档、联网、工具调用、思考、生成回答 |
-| 思考过程 | 模型的推理内容内联展示在 Agent 时间线里，可折叠 |
-| 引用角标 | 回答正文中的来源标记，点击定位到原文分块 |
-| 引用面板（references drawer） | 侧栏列出本轮所有检索来源，含 Wiki 工具的返回结果 |
-| 追问建议 | 回答结束后给出的下一步问题，见 [Agent 引擎](07-agent.md)的「建议问题」 |
+| Pipeline progress bar | Shows the current stage before the answer is generated: attachment parsing, image understanding, document retrieval, web search, tool calls, thinking, generating answer |
+| Thinking process | The model's reasoning content is displayed inline in the Agent timeline, collapsible |
+| Citation markers | Source markers in the answer body; clicking jumps to the original text chunk |
+| References drawer | A sidebar listing all retrieval sources for this round, including results returned by the Wiki tool |
+| Follow-up suggestions | Next-step questions offered after the answer finishes, see the "Suggested Questions" section of [Agent Engine](07-agent.md) |
 
 <Screenshot
   src="/screenshots/chat-references-drawer.png"
-  caption="对话页：回答、引用角标与右侧引用面板"
-  hint="展示一轮带引用的回答、展开的引用面板（含来源标题与片段），以及顶部会话操作栏。" />
+  caption="Chat page: answer, citation markers, and the references drawer on the right"
+  hint="Shows a round of answer with citations, the expanded references drawer (including source titles and snippets), and the session action bar at the top." />
 
-### 进度条的两种等待态
+### Two waiting states of the progress bar
 
-所有可见阶段都完成、但模型还没吐字时会有一段静默期，进度条据此区分两种提示：确实跑过检索的显示「正在生成回答」，纯附件问答这类没有检索步骤的显示中性的「准备中」。超过 60 秒仍无回答转为停滞态——SSE 断连时后端不会再发完成事件，没有这个上限进度条会一直宣称「马上就好」。实现见 [Web 前端](../05-clients/01-frontend.md)。
+When all visible stages have finished but the model still hasn't started emitting text, there's a period of silence. The progress bar distinguishes two prompts based on this: rounds that actually ran retrieval show "Generating answer," while attachment-only Q&A with no retrieval step shows the neutral "Preparing." If no answer arrives after 60 seconds, it switches to a stalled state — when the SSE connection drops, the backend no longer sends a completion event, so without this cap the progress bar would keep claiming "almost done" forever. See the implementation in [Web Frontend](../05-clients/01-frontend.md).
 
-### 引用开不开，与引用面板无关
+### Whether citations are on or off has nothing to do with the references drawer
 
-Agent 配置里的 `citation_enabled` 只控制**回答正文里的角标**。关掉之后正文变干净，但检索来源照常送进引用面板——也就是说「不显示引用」不等于「不给出处」。该字段为 `nil` 时按开启处理，保证这个选项引入之前保存的 Agent 行为不变。
+The Agent config's `citation_enabled` only controls **the markers in the answer body**. Turning it off keeps the body clean, but retrieval sources still get sent to the references drawer as usual — in other words, "not showing citations" does not mean "not providing sources." When this field is `nil`, it's treated as enabled, to preserve the behavior of Agents saved before this option was introduced.
 
-### 导出对话
+### Exporting a conversation
 
-会话操作栏可以把整段对话导出为 Markdown（`frontend/src/utils/sessionMarkdown.ts` 的 `buildSessionMarkdown()`），内容包含会话标题、ID、导出时间与逐轮问答，适合贴进工单或周报。导出走前端，不产生额外接口调用。
+The session action bar can export the entire conversation as Markdown (`buildSessionMarkdown()` in `frontend/src/utils/sessionMarkdown.ts`), including the session title, ID, export time, and each round of Q&A — handy for pasting into a ticket or a weekly report. Export happens entirely on the frontend and triggers no additional API calls.
 
-## 2. 会话内临时附件
+## 2. Temporary attachments within a session
 
-对话里可以直接丢文件进去问，不必先建知识库——这类文件叫**临时文档**（`temporary_documents` 表，migration `000070`），只属于当前会话。
+You can drop files directly into a conversation and ask about them, without first creating a knowledge base — these are called **temporary documents** (`temporary_documents` table, migration `000070`), and they belong only to the current session.
 
-接口（均在 `/api/v1/sessions` 下）：
+Endpoints (all under `/api/v1/sessions`):
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 | --- | --- | --- |
-| POST | `/:session_id/attachments` | 上传附件 |
-| GET | `/:id/attachments` | 列出本会话附件 |
-| GET | `/:id/attachments/:attachment_id` | 附件详情 |
-| GET | `/:id/attachments/:attachment_id/preview` | 预览 |
-| DELETE | `/:id/attachments/:attachment_id` | 删除 |
+| POST | `/:session_id/attachments` | Upload an attachment |
+| GET | `/:id/attachments` | List attachments for this session |
+| GET | `/:id/attachments/:attachment_id` | Attachment details |
+| GET | `/:id/attachments/:attachment_id/preview` | Preview |
+| DELETE | `/:id/attachments/:attachment_id` | Delete |
 
-行为要点：
+Key behaviors:
 
-- 状态机：`uploaded` → `processing` → `ready`，解析是异步的。发问时如果附件还没解析完，会等待到 `WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC`（默认 60 秒，扫描件建议调大）；
-- 解析产物保留 `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS`（默认 24 小时）后清理，附件不会长期占用存储；
-- 扫描件/图片型文档走 VLM OCR，并发与页数上限由 `WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY`（默认 8）与 `WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES`（默认 8）控制；
-- Agent 侧还有三个相关配置：`supported_file_types`（限定可传类型）、`attachment_image_understanding`（是否理解图片）、`chat_parser_engine_rules`（附件走哪个解析引擎），见 [Agent 引擎](07-agent.md)；
-- 临时附件与知识库文档是两套东西：它不进向量索引、不出现在知识库列表里，会话结束即失效。需要长期检索的资料应该正式入库。
+- State machine: `uploaded` → `processing` → `ready`; parsing is asynchronous. If an attachment hasn't finished parsing when the question is asked, the system waits up to `WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC` (default 60 seconds; recommended to increase for scanned documents);
+- Parsed output is cleaned up after `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS` (default 24 hours), so attachments don't occupy storage long-term;
+- Scanned documents/image-based documents go through VLM OCR; concurrency and page limits are controlled by `WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY` (default 8) and `WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES` (default 8);
+- There are three related Agent-side settings: `supported_file_types` (restricts allowed file types), `attachment_image_understanding` (whether to understand images), and `chat_parser_engine_rules` (which parsing engine attachments use) — see [Agent Engine](07-agent.md);
+- Temporary attachments and knowledge base documents are two separate things: attachments don't enter the vector index, don't appear in the knowledge base list, and expire once the session ends. Material that needs long-term retrieval should be formally ingested into a knowledge base.
 
-## 3. 渠道会话的可见性
+## 3. Visibility of channel sessions
 
-除了网页对话，IM 机器人、网页挂件访客、API Key 调用也都会产生会话。这些「渠道会话」在控制台里**默认不可见**，因为它们按 Key、访客、IM 身份各自隔离。
+Besides web chat, IM bots, web widget visitors, and API Key calls all generate sessions too. These "channel sessions" are **not visible by default** in the console, because they're isolated by Key, visitor, or IM identity respectively.
 
-规则在 `internal/application/service/session.go`：
+The rules live in `internal/application/service/session.go`:
 
-- 会话列表的 `source` 过滤器为空或 `web` 时，只返回调用者自己的会话；
-- 过滤 `api` / `im` / `embed` 属于**空间级视角**，要求 Admin+，否则返回 403（`listing channel sessions requires tenant admin or owner role`）。通过校验后会去掉按用户的收窄，管理员因此能观察到这些原本互相隔离的会话；
-- 侧栏里的 IM / 嵌入 / API 分组也是管理员专属，且会先探测数量，有会话才显示，避免给普通用户留一个永远空着的入口；
-- 即使是管理员，打开渠道会话也只是**只读观察**；API Key 产生的会话在写接口上始终按归属收窄。
+- When the session list's `source` filter is empty or `web`, only the caller's own sessions are returned;
+- Filtering by `api` / `im` / `embed` is a **space-level view**, requiring Admin+; otherwise it returns 403 (`listing channel sessions requires tenant admin or owner role`). Once the check passes, the per-user narrowing is dropped, so admins can then observe these otherwise mutually isolated sessions;
+- The IM / Embed / API groupings in the sidebar are also admin-only, and they first probe the count — only showing up if there are sessions, to avoid leaving an always-empty entry point for regular users;
+- Even for an admin, opening a channel session is **read-only observation**; sessions generated by an API Key are always scoped by ownership on write endpoints.
 
-这个设计的用意是：管理员需要排查「机器人昨天怎么答的」，但不该让普通成员翻到别人的客服对话。
+The intent of this design: admins need to be able to investigate "how did the bot answer yesterday," without letting regular members browse other people's support conversations.
 
-## 4. 跨会话历史搜索
+## 4. Cross-session history search
 
-聊天记录可以被索引并跨会话检索：
+Chat history can be indexed and searched across sessions:
 
-| 方法 | 路径 | 权限 |
+| Method | Path | Permission |
 | --- | --- | --- |
-| POST | `/api/v1/messages/search` | Viewer+；API Key 需 `message_history` 能力或 full-access |
-| GET | `/api/v1/messages/chat-history-stats` | 同上 |
-| GET | `/api/v1/messages/:session_id/load` | Viewer+；API Key 需 `chat` 能力（只能读自己会话） |
+| POST | `/api/v1/messages/search` | Viewer+; API Key requires `message_history` capability or full access |
+| GET | `/api/v1/messages/chat-history-stats` | Same as above |
+| GET | `/api/v1/messages/:session_id/load` | Viewer+; API Key requires `chat` capability (can only read its own sessions) |
 
-`message_history` 是一个独立能力，用意是让做数据分析的集成能搜历史元数据，而不必给它一把 full-access Key。开关与保留策略在「设置 → 聊天历史」（`chathistory` 分区，需 Admin）。
+`message_history` is a standalone capability, intended to let data-analysis integrations search historical metadata without needing to hand them a full-access Key. The toggle and retention policy live under "Settings → Chat History" (`chathistory` section, requires Admin).
 
-## 5. 相关章节
+## 5. Related chapters
 
-- 建议问题（开场问题与追问）：[Agent 引擎](07-agent.md)
-- 回答里的图片与文件怎么送到客户端：[API 总览](../04-api/01-api-overview.md)的「文件引用形式」
-- IM 与网页挂件各自的会话模型：[IM 集成](12-im-integration.md)、[网页嵌入](13-embed-channel.md)
-- 会话与消息的完整接口：[API 参考：会话与聊天](../04-api/02-api-chat.md)
+- Suggested questions (opening questions and follow-ups): [Agent Engine](07-agent.md)
+- How images and files in answers get sent to the client: the "File Reference Formats" section of [API Overview](../04-api/01-api-overview.md)
+- Session models for IM and web widgets: [IM Integration](12-im-integration.md), [Web Embed](13-embed-channel.md)
+- Full session and message interfaces: [API Reference: Sessions and Chat](../04-api/02-api-chat.md)
+
+--- DOCUMENT END ---

@@ -39,8 +39,8 @@ func (h *KnowledgeBaseHandler) KBCreatorLookup(c *gin.Context) (string, error) {
 	ctx := c.Request.Context()
 	tenantID, ok := types.TenantIDFromContext(ctx)
 	if !ok {
-		// 没有空间上下文意味着 auth 中间件未完成；当作 lookup 失败让上层 503，
-		// 而不是 silently 走 fail-open 给一个不该有的访问。
+		// no space context means the auth middleware didn't complete; treat it as a lookup failure and let the upper layer return 503,
+		// rather than silently failing open and granting access it shouldn't have.
 		return "", errors.New("workspace context missing")
 	}
 	kb, err := h.service.GetKnowledgeBaseByID(ctx, id)
@@ -53,9 +53,9 @@ func (h *KnowledgeBaseHandler) KBCreatorLookup(c *gin.Context) (string, error) {
 	if kb == nil {
 		return "", middleware.ErrResourceNotFound
 	}
-	// 显式重校验空间：repo.GetKnowledgeBaseByID 不带 tenant 过滤，
-	// 万一未来 :id 被攻击者从他人空间 UUID 试探到，也不会借由
-	// "ownership match" 通过中间件。
+	// explicitly re-verify the space: repo.GetKnowledgeBaseByID doesn't filter by tenant,
+	// so if :id is ever probed by an attacker using another space's UUID,
+	// it won't pass the middleware via an "ownership match."
 	if kb.TenantID != tenantID {
 		return "", middleware.ErrResourceNotFound
 	}
@@ -207,8 +207,8 @@ func (h *ChunkHandler) KBCreatorLookupFromChunkIDParam(c *gin.Context) (string, 
 	if chunk == nil {
 		return "", middleware.ErrResourceNotFound
 	}
-	// 显式重校验空间：GetChunkByIDOnly 无空间过滤，必须在此挡住跨空间 chunk
-	// id 撞库通过 ownership 匹配获取本不该有的访问。
+	// explicitly re-verify the space: GetChunkByIDOnly has no space filter, so this must block cross-space
+	// chunk ID collisions from gaining access they shouldn't have via ownership matching.
 	if chunk.TenantID != tenantID {
 		return "", middleware.ErrResourceNotFound
 	}

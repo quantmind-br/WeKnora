@@ -1,157 +1,157 @@
-# IM 集成开发文档
+# IM Integration Development Documentation
 
-WeKnora 的 IM 集成模块将企业即时通讯平台（企业微信、飞书、Lark、Slack、Telegram、钉钉、Mattermost）接入 WeKnora 知识问答管道，支持在 IM 中直接向 AI 提问并获得实时流式回答。
+WeKnora's IM integration module connects enterprise instant messaging platforms (WeCom, Feishu, Lark, Slack, Telegram, DingTalk, Mattermost) to the WeKnora knowledge Q&A pipeline, enabling users to ask AI questions directly within IM and receive real-time streaming answers.
 
-IM 渠道绑定到 Agent，一个 Agent 可接入多个 IM 渠道，所有配置通过前端 Agent 编辑器管理，存储在数据库中。
+IM channels are bound to an Agent — one Agent can connect to multiple IM channels, and all configuration is managed through the frontend Agent editor and stored in the database.
 
-## 目录
+## Table of Contents
 
-- [快速接入指南](#快速接入指南)
-  - [企业微信接入](#企业微信接入)
-  - [飞书接入](#飞书接入)
-  - [Lark 接入](#lark-接入)
-  - [Slack 接入](#slack-接入)
-  - [Telegram 接入](#telegram-接入)
-  - [钉钉接入](#钉钉接入)
-  - [Mattermost 接入](#mattermost-接入)
-- [前端管理](#前端管理)
-- [架构总览](#架构总览)
-- [数据模型](#数据模型)
-- [API 端点](#api-端点)
-- [核心概念](#核心概念)
-- [消息处理流程](#消息处理流程)
-- [接口定义](#接口定义)
-- [平台适配器详解](#平台适配器详解)
-  - [企业微信 (WeCom)](#企业微信-wecom)
-  - [飞书 (Feishu) 与 Lark](#飞书-feishu-与-lark)
-  - [Slack](#slack)
-  - [Telegram](#telegram)
-  - [钉钉 (DingTalk)](#钉钉-dingtalk)
-  - [Mattermost](#mattermost)
-- [斜杠指令系统](#斜杠指令系统)
-- [QA 队列与限流](#qa-队列与限流)
-- [流式输出机制](#流式输出机制)
-- [文件消息处理](#文件消息处理)
-- [关键参数与阈值](#关键参数与阈值)
-- [错误处理](#错误处理)
-- [扩展新平台](#扩展新平台)
+- [Quick Integration Guide](#quick-integration-guide)
+  - [WeCom Integration](#wecom-integration)
+  - [Feishu Integration](#feishu-integration)
+  - [Lark Integration](#lark-integration)
+  - [Slack Integration](#slack-integration)
+  - [Telegram Integration](#telegram-integration)
+  - [DingTalk Integration](#dingtalk-integration)
+  - [Mattermost Integration](#mattermost-integration)
+- [Frontend Management](#frontend-management)
+- [Architecture Overview](#architecture-overview)
+- [Data Model](#data-model)
+- [API Endpoints](#api-endpoints)
+- [Core Concepts](#core-concepts)
+- [Message Processing Flow](#message-processing-flow)
+- [Interface Definitions](#interface-definitions)
+- [Platform Adapter Details](#platform-adapter-details)
+  - [WeCom](#wecom)
+  - [Feishu and Lark](#feishu-and-lark)
+  - [Slack](#slack-1)
+  - [Telegram](#telegram-1)
+  - [DingTalk](#dingtalk)
+  - [Mattermost](#mattermost-1)
+- [Slash Command System](#slash-command-system)
+- [QA Queue and Rate Limiting](#qa-queue-and-rate-limiting)
+- [Streaming Output Mechanism](#streaming-output-mechanism)
+- [File Message Handling](#file-message-handling)
+- [Key Parameters and Thresholds](#key-parameters-and-thresholds)
+- [Error Handling](#error-handling)
+- [Extending to New Platforms](#extending-to-new-platforms)
 
 ---
 
-## 快速接入指南
+## Quick Integration Guide
 
-### 前置条件
+### Prerequisites
 
-- WeKnora 已部署并运行
-- 已创建至少一个 Agent（自定义智能体）
-- Agent 已配置好模型和知识库
+- WeKnora is deployed and running
+- At least one Agent (custom assistant) has been created
+- The Agent has a configured model and knowledge base
 
-> **回复图片需公网可达**：IM 显示知识库图片需让 IM 端拿到公网 http 图片 URL，二选一——
-> (A) 存储后端本身公网可达（对象存储公网 endpoint / `MINIO_ENDPOINT` 设为公网）；
-> (B) 配 `APP_EXTERNAL_URL`，图片走 WeKnora 的 `/r/` 短链（nginx 已内置 `/r/` 代理）。
-> 默认 MinIO 部署走 (B) 最简单。详见 `.env.example` 中 `APP_EXTERNAL_URL` 说明。
+> **Publicly reachable images are required for replies containing images**: for IM to display knowledge-base images, the IM side must be able to reach a publicly accessible HTTP image URL. Choose one of the following —
+> (A) The storage backend itself is publicly reachable (object storage's public endpoint / `MINIO_ENDPOINT` set to a public address);
+> (B) Configure `APP_EXTERNAL_URL` so images go through WeKnora's `/r/` short link (nginx already has the `/r/` proxy built in).
+> For the default MinIO deployment, option (B) is simplest. See the `APP_EXTERNAL_URL` description in `.env.example` for details.
 
-### 企业微信接入
+### WeCom Integration
 
-企业微信提供两种接入模式，根据你的应用类型选择：
+WeCom offers two integration modes — choose based on your application type:
 
-#### 方式一：WebSocket 模式（智能机器人，推荐）
+#### Method 1: WebSocket Mode (Smart Bot, Recommended)
 
-> 无需公网域名，适合快速验证和内网部署。
+> No public domain required — suitable for quick validation and intranet deployments.
 
-**第一步：创建智能机器人**
+**Step 1: Create a Smart Bot**
 
-1. 登录 [企业微信工作台]（确认已升级到最新版企业微信） → **智能机器人** → **创建机器人** → **手动创建** → **切换API模式创建** → **选择"使用长连接"**
-2. 创建完成后，在机器人详情页获取：
-   - **BotID** — 机器人唯一标识
-   - **BotSecret** — 机器人密钥（点击重置可重新生成）
+1. Log in to the [WeCom Workspace] (make sure you're on the latest version of WeCom) → **Smart Bot** → **Create Bot** → **Manual Creation** → **Switch to API Mode Creation** → **Select "Use Long Connection"**
+2. Once created, on the bot details page, obtain:
+   - **BotID** — the bot's unique identifier
+   - **BotSecret** — the bot's secret key (click reset to regenerate)
 
-**第二步：在 WeKnora 中添加 IM 渠道**
+**Step 2: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → 左侧导航选择 **IM 集成** 标签页
-2. 点击 **添加渠道**
-3. 填写配置：
-   - **平台**：选择「企业微信」
-   - **渠道名称**：自定义名称，方便辨识（如「客服机器人」）
-   - **接入模式**：选择「WebSocket」
-   - **输出模式**：选择「流式输出」（推荐）
-   - **Bot ID**：填入从企业微信获取的 BotID
-   - **Bot Secret**：填入从企业微信获取的 BotSecret
-4. 点击保存
+1. Go to the Agent editor → select the **IM Integration** tab in the left navigation
+2. Click **Add Channel**
+3. Fill in the configuration:
+   - **Platform**: select "WeCom"
+   - **Channel Name**: a custom name for easy identification (e.g. "Customer Service Bot")
+   - **Integration Mode**: select "WebSocket"
+   - **Output Mode**: select "Streaming" (recommended)
+   - **Bot ID**: enter the BotID obtained from WeCom
+   - **Bot Secret**: enter the BotSecret obtained from WeCom
+4. Click Save
 
-**第三步：验证**
+**Step 3: Verification**
 
-保存后 WeKnora 会自动建立到企业微信的 WebSocket 长连接。日志中出现以下内容表示连接成功：
+After saving, WeKnora will automatically establish a WebSocket long connection to WeCom. The following log entry indicates a successful connection:
 
 ```
 [IM] WeCom WebSocket connecting (bot_id=xxx)...
 ```
 
-此时在企业微信中给机器人发消息即可收到 AI 回复。
+At this point, sending a message to the bot in WeCom will get an AI reply.
 
 ---
 
-#### 方式二：Webhook 模式（自建应用）
+#### Method 2: Webhook Mode (Custom Application)
 
-> 需要公网可达的回调地址，适合已有自建应用的场景。
+> Requires a publicly reachable callback address — suitable for scenarios with an existing custom application.
 
-**第一步：创建自建应用**
+**Step 1: Create a Custom Application**
 
-1. 登录 [企业微信管理后台](https://work.weixin.qq.com/) → **应用管理** → **自建** → **创建应用**
-2. 记录以下信息：
-   - **CorpID** — 在 **我的企业** → **企业信息** 页面底部
-   - **AgentID** — 应用详情页中的 AgentId（整数）
-   - **Secret** — 应用详情页中的 Secret
+1. Log in to the [WeCom Admin Console](https://work.weixin.qq.com/) → **App Management** → **Custom Apps** → **Create App**
+2. Record the following information:
+   - **CorpID** — found at the bottom of the **My Company** → **Company Info** page
+   - **AgentID** — the AgentId (integer) on the app details page
+   - **Secret** — the Secret on the app details page
 
-**第二步：在 WeKnora 中添加 IM 渠道**
+**Step 2: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** 标签页 → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「企业微信」
-   - **接入模式**：选择「Webhook」
-   - **输出模式**：选择「流式输出」
-   - **Corp ID**：企业 ID
-   - **Agent Secret**：应用 Secret
-   - **Token**：自定义或随机生成（记录下来）
-   - **EncodingAESKey**：自定义或随机生成（记录下来）
-   - **Corp Agent ID**：应用 AgentID（整数）
-3. 保存后，渠道卡片上会显示**回调地址**，格式为 `https://你的域名/api/v1/im/callback/{channel_id}`
-4. 复制该回调地址
+1. Go to the Agent editor → **IM Integration** tab → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "WeCom"
+   - **Integration Mode**: select "Webhook"
+   - **Output Mode**: select "Streaming"
+   - **Corp ID**: the enterprise ID
+   - **Agent Secret**: the app's Secret
+   - **Token**: custom or randomly generated (record it)
+   - **EncodingAESKey**: custom or randomly generated (record it)
+   - **Corp Agent ID**: the app's AgentID (integer)
+3. After saving, the channel card will display a **callback address** in the format `https://your-domain/api/v1/im/callback/{channel_id}`
+4. Copy that callback address
 
-**第三步：配置企业微信接收消息**
+**Step 3: Configure WeCom to Receive Messages**
 
-1. 在应用详情页 → **接收消息** → **设置 API 接收**
-2. 填写：
-   - **URL**：粘贴上一步复制的回调地址
-   - **Token**：填入在 WeKnora 中设置的 Token
-   - **EncodingAESKey**：填入在 WeKnora 中设置的 EncodingAESKey
-3. 点击保存，企业微信会发送 GET 验证请求，WeKnora 会自动响应
+1. On the app details page → **Receive Messages** → **Set API Reception**
+2. Fill in:
+   - **URL**: paste the callback address copied in the previous step
+   - **Token**: enter the Token you set in WeKnora
+   - **EncodingAESKey**: enter the EncodingAESKey you set in WeKnora
+3. Click Save — WeCom will send a GET verification request, and WeKnora will respond automatically
 
-**第四步：配置可信域名（可选）**
+**Step 4: Configure Trusted Domains (Optional)**
 
-如需在群聊中使用，在应用详情页 → **网页授权及 JS-SDK** 中添加可信域名。
+If you need to use this in group chats, add trusted domains under the app details page → **Web Authorization and JS-SDK**.
 
 ---
 
-### 飞书接入
+### Feishu Integration
 
-飞书同样提供两种模式，WebSocket 模式配置更简单。
+Feishu also offers two modes; the WebSocket mode has simpler configuration.
 
-#### 方式一：WebSocket 模式（推荐）
+#### Method 1: WebSocket Mode (Recommended)
 
-> 无需公网域名，无需配置事件加密。
+> No public domain required, no event encryption configuration needed.
 
-**第一步：创建飞书应用**
+**Step 1: Create a Feishu App**
 
-1. 登录 [飞书开放平台](https://open.feishu.cn/) → **开发者后台** → **创建企业自建应用**
-2. 在 **凭证与基础信息** 页获取：
+1. Log in to the [Feishu Open Platform](https://open.feishu.cn/) → **Developer Console** → **Create Custom App**
+2. On the **Credentials & Basic Info** page, obtain:
    - **App ID**
    - **App Secret**
 
-**第二步：开通权限与事件**
+**Step 2: Enable Permissions and Events**
 
-1. **添加应用能力**：在应用详情页 → **添加应用能力** → 添加 **机器人** 能力
-2. **配置权限**：在 **权限管理** 中搜索并开通以下权限：你的应用 → 权限管理 → 批量导入，粘贴下面 JSON（原文内容不变）：
+1. **Add App Capabilities**: on the app details page → **Add App Capabilities** → add the **Bot** capability
+2. **Configure Permissions**: in **Permission Management**, search for and enable the following permissions: your app → Permission Management → Batch Import, paste the JSON below (content unchanged from the original):
 ```json
 {
   "scopes": {
@@ -187,26 +187,26 @@ IM 渠道绑定到 Agent，一个 Agent 可接入多个 IM 渠道，所有配置
   }
 }
 ```
-3. **配置事件订阅**：
-   - 在 **事件与回调** → **事件配置** 中，选择请求方式为 **使用长连接接收事件**
-   - 添加事件 `im.message.receive_v1`（接收消息）
+3. **Configure Event Subscriptions**:
+   - Under **Events & Callbacks** → **Event Configuration**, choose the request method **Use long connection to receive events**
+   - Add the event `im.message.receive_v1` (receive messages)
 
-**第三步：发布应用**
+**Step 3: Publish the App**
 
-在 **版本管理与发布** 中创建版本并提交审核。审核通过后用户才能与机器人交互。
+Create a version and submit it for review under **Version Management & Release**. Once approved, users will be able to interact with the bot.
 
-**第四步：在 WeKnora 中添加 IM 渠道**
+**Step 4: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「飞书」
-   - **接入模式**：选择「WebSocket」
-   - **输出模式**：选择「流式输出」（需开启 cardkit:card 权限）
-   - **App ID**：填入从飞书获取的 App ID
-   - **App Secret**：填入从飞书获取的 App Secret
-3. 保存
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "Feishu"
+   - **Integration Mode**: select "WebSocket"
+   - **Output Mode**: select "Streaming" (requires the cardkit:card permission to be enabled)
+   - **App ID**: enter the App ID obtained from Feishu
+   - **App Secret**: enter the App Secret obtained from Feishu
+3. Save
 
-启动后日志出现以下内容表示连接成功：
+The following log entry after startup indicates a successful connection:
 
 ```
 [IM] Feishu WebSocket connecting (app_id=xxx)...
@@ -214,52 +214,49 @@ IM 渠道绑定到 Agent，一个 Agent 可接入多个 IM 渠道，所有配置
 
 ---
 
-#### 方式二：Webhook 模式
+#### Method 2: Webhook Mode
 
-> 需要公网可达的回调地址。
+> Requires a publicly reachable callback address.
 
-**前置步骤**同上（创建应用、开通权限），额外需要：
+**Prerequisite steps** are the same as above (create the app, enable permissions), plus:
 
-**第一步：在 WeKnora 中添加 IM 渠道**
+**Step 1: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「飞书」
-   - **接入模式**：选择「Webhook」
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "Feishu"
+   - **Integration Mode**: select "Webhook"
    - **App ID** / **App Secret**
-   - **Verification Token**：从飞书事件订阅页面获取
-   - **Encrypt Key**：从飞书事件订阅页面获取
-3. 保存后，复制渠道卡片上显示的**回调地址**
+   - **Verification Token**: obtained from the Feishu event subscription page
+   - **Encrypt Key**: obtained from the Feishu event subscription page
+3. After saving, copy the **callback address** shown on the channel card
 
-**第二步：配置飞书事件订阅**
+**Step 2: Configure Feishu Event Subscription**
 
-1. 在 **事件与回调** → **事件配置** 中，选择请求方式为 **将事件发送到开发者服务器**
-2. **请求地址**：粘贴从 WeKnora 复制的回调地址
-3. 添加事件 `im.message.receive_v1`
-4. 点击保存时飞书会发送 URL 验证请求（challenge），WeKnora 会自动响应
+1. Under **Events & Callbacks** → **Event Configuration**, choose the request method **Send events to a developer server**
+2. **Request URL**: paste the callback address copied from WeKnora
+3. Add the event `im.message.receive_v1`
+4. When you click Save, Feishu will send a URL verification request (challenge), which WeKnora will respond to automatically
 
 ---
 
-### Lark 接入
+### Lark Integration
 
-Lark 是飞书的国际版。两者是同一产品部署在两朵相互隔离的云上，**IM 的 API 接口、事件结构、
-凭证字段、接入模式一致**，因此 WeKnora 中 Lark 与飞书共用同一套适配器代码。
+Lark is the international version of Feishu. Both are the same product deployed on two mutually isolated clouds — **the IM API, event structures, credential fields, and integration modes are identical**, so WeKnora shares the same adapter code between Lark and Feishu.
 
-但「代码一致」不等于「配置一致」，接入时有三处差别：
+However, "identical code" does not mean "identical configuration." There are three differences when integrating:
 
-| | 飞书 | Lark |
+| | Feishu | Lark |
 |---|---|---|
-| 开放平台 | <https://open.feishu.cn/> | <https://open.larksuite.com/> |
-| 添加渠道时的**平台**选项 | 「飞书」 | 「Lark（飞书国际版）」 |
-| 权限清单 | [飞书接入](#飞书接入)一节的 JSON | [Lark 权限配置](#lark-权限配置)一节的 JSON（**不可套用飞书的**） |
+| Open Platform | <https://open.feishu.cn/> | <https://open.larksuite.com/> |
+| **Platform** option when adding a channel | "Feishu" | "Lark (International Feishu)" |
+| Permission list | JSON in the [Feishu Integration](#feishu-integration) section | JSON in the [Lark Permission Configuration](#lark-permission-configuration) section (**cannot reuse the Feishu one**) |
 
-创建应用、添加机器人能力、订阅 `im.message.receive_v1` 事件、发布版本、填写
-App ID / App Secret 等步骤与[飞书接入](#飞书接入)一节相同。**唯独权限配置不同，见下。**
+The steps for creating the app, adding the bot capability, subscribing to the `im.message.receive_v1` event, publishing a version, and filling in App ID / App Secret are the same as in the [Feishu Integration](#feishu-integration) section. **Only the permission configuration differs — see below.**
 
-#### Lark 权限配置
+#### Lark Permission Configuration
 
-在 Lark 开放平台 **权限管理 → 批量导入** 粘贴下面的 JSON，覆盖 IM 机器人与知识库（Wiki）
-数据源两块功能：
+In the Lark Open Platform, under **Permission Management → Batch Import**, paste the JSON below, which covers both the IM bot and the Knowledge Base (Wiki) data source functionality:
 
 ```json
 {
@@ -281,86 +278,86 @@ App ID / App Secret 等步骤与[飞书接入](#飞书接入)一节相同。**�
 }
 ```
 
-> 不要套用[飞书接入](#飞书接入)一节的 JSON：其中 `aily:file:*`、`corehr:file:download`
-> 在 Lark 不存在，整份导入会失败。
+> Do not reuse the JSON from the [Feishu Integration](#feishu-integration) section: `aily:file:*` and `corehr:file:download`
+> do not exist in Lark, and the entire import will fail.
 
-> **注意**：飞书应用与 Lark 应用互不通用。在 open.feishu.cn 创建的应用无法用于 Lark 渠道，
-> 反之亦然——凭证只在创建它的那朵云上有效，跨云调用会认证失败。
+> **Note**: Feishu apps and Lark apps are not interchangeable. An app created at open.feishu.cn cannot be used for a Lark channel,
+> and vice versa — credentials are only valid on the cloud where they were created; cross-cloud calls will fail authentication.
 
-WebSocket 模式启动后日志出现以下内容表示连接成功：
+The following log entry after WebSocket mode starts up indicates a successful connection:
 
 ```
 [IM] Lark WebSocket connecting (app_id=xxx)...
 ```
 
-同一个 App ID 在两朵云上分别注册时，WeKnora 通过 `平台:app_id` 区分（如 `feishu:cli_xxx`
-与 `lark:cli_xxx`），两个渠道可以并存，会话互不干扰。
+When the same App ID is registered separately on both clouds, WeKnora distinguishes them via `platform:app_id` (e.g. `feishu:cli_xxx`
+and `lark:cli_xxx`), so the two channels can coexist without their sessions interfering with each other.
 
 ---
 
-### Slack 接入
+### Slack Integration
 
-Slack 提供两种接入模式，推荐使用 WebSocket (Socket Mode) 模式，无需公网域名。
+Slack offers two integration modes; the WebSocket (Socket Mode) mode is recommended since it requires no public domain.
 
-#### 方式一：WebSocket 模式（Socket Mode，推荐）
+#### Method 1: WebSocket Mode (Socket Mode, Recommended)
 
-> 无需公网域名，适合快速验证和内网部署。
+> No public domain required — suitable for quick validation and intranet deployments.
 
-**第一步：创建 Slack App**
+**Step 1: Create a Slack App**
 
-1. 登录 [Slack API](https://api.slack.com/apps) → **Create New App** → **From scratch**
-2. 填写 App Name 并选择要安装的 Workspace。
+1. Log in to [Slack API](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. Fill in the App Name and select the Workspace to install it to.
 
-**第二步：生成 App-Level Token**
+**Step 2: Generate an App-Level Token**
 
-1. 在应用详情页左侧导航栏选择 **Basic Information**。
-2. 滚动到 **App-Level Tokens** 区域，点击 **Generate Token and Scopes**。
-3. 填写 Token Name，添加 `connections:write` scope。
-4. 点击 Generate，复制生成的 Token（以 `xapp-` 开头），这就是 **App Token**。
+1. On the app details page's left navigation, select **Basic Information**.
+2. Scroll to the **App-Level Tokens** section and click **Generate Token and Scopes**.
+3. Fill in a Token Name and add the `connections:write` scope.
+4. Click Generate and copy the generated Token (starting with `xapp-`) — this is your **App Token**.
 
-**第三步：开启 Socket Mode**
+**Step 3: Enable Socket Mode**
 
-1. 在左侧导航栏选择 **Socket Mode**。
-2. 开启 **Enable Socket Mode** 开关。
+1. In the left navigation, select **Socket Mode**.
+2. Turn on the **Enable Socket Mode** toggle.
 
-**第四步：配置 Event Subscriptions**
+**Step 4: Configure Event Subscriptions**
 
-1. 在左侧导航栏选择 **Event Subscriptions**。
-2. 开启 **Enable Events** 开关。
-3. 展开 **Subscribe to bot events**，添加以下事件：
-   - `app_mention` (在频道中 @ 机器人)
-   - `message.channels` (频道消息)
-   - `message.groups` (私有频道消息)
-   - `message.im` (私聊消息)
-   - `message.mpim` (多人私聊消息)
-4. 点击 **Save Changes**。
+1. In the left navigation, select **Event Subscriptions**.
+2. Turn on the **Enable Events** toggle.
+3. Expand **Subscribe to bot events** and add the following events:
+   - `app_mention` (@ mentioning the bot in a channel)
+   - `message.channels` (channel messages)
+   - `message.groups` (private channel messages)
+   - `message.im` (direct messages)
+   - `message.mpim` (multi-person direct messages)
+4. Click **Save Changes**.
 
-**第五步：配置权限 (OAuth & Permissions)**
+**Step 5: Configure Permissions (OAuth & Permissions)**
 
-1. 在左侧导航栏选择 **OAuth & Permissions**。
-2. 滚动到 **Scopes** -> **Bot Token Scopes**，确保包含以下权限（添加事件时通常会自动添加）：
+1. In the left navigation, select **OAuth & Permissions**.
+2. Scroll to **Scopes** → **Bot Token Scopes**, and make sure the following permissions are included (these are usually added automatically when adding events):
    - `app_mentions:read`
    - `channels:history`
    - `chat:write`
    - `groups:history`
    - `im:history`
    - `mpim:history`
-   - `files:read` (用于接收文件)
-3. 滚动到顶部，点击 **Install to Workspace**。
-4. 授权后，复制 **Bot User OAuth Token**（以 `xoxb-` 开头），这就是 **Bot Token**。
+   - `files:read` (for receiving files)
+3. Scroll to the top and click **Install to Workspace**.
+4. After authorizing, copy the **Bot User OAuth Token** (starting with `xoxb-`) — this is your **Bot Token**.
 
-**第六步：在 WeKnora 中添加 IM 渠道**
+**Step 6: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「Slack」
-   - **接入模式**：选择「WebSocket」
-   - **输出模式**：选择「流式输出」
-   - **App Token**：填入以 `xapp-` 开头的 Token
-   - **Bot Token**：填入以 `xoxb-` 开头的 Token
-3. 保存
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "Slack"
+   - **Integration Mode**: select "WebSocket"
+   - **Output Mode**: select "Streaming"
+   - **App Token**: enter the token starting with `xapp-`
+   - **Bot Token**: enter the token starting with `xoxb-`
+3. Save
 
-启动后日志出现以下内容表示连接成功：
+The following log entry after startup indicates a successful connection:
 
 ```
 [IM] Slack WebSocket connecting...
@@ -368,91 +365,91 @@ Slack 提供两种接入模式，推荐使用 WebSocket (Socket Mode) 模式，�
 
 ---
 
-#### 方式二：Webhook 模式 (Events API)
+#### Method 2: Webhook Mode (Events API)
 
-> 需要公网可达的回调地址。
+> Requires a publicly reachable callback address.
 
-**第一步：创建 Slack App 并获取凭证**
+**Step 1: Create a Slack App and Obtain Credentials**
 
-1. 登录 [Slack API](https://api.slack.com/apps) 创建应用。
-2. 在 **Basic Information** 页面，滚动到 **App Credentials** 区域，复制 **Signing Secret**。
-3. 在 **OAuth & Permissions** 页面，配置 Bot Token Scopes（同上），安装到 Workspace，复制 **Bot User OAuth Token**（Bot Token）。
+1. Log in to [Slack API](https://api.slack.com/apps) and create an app.
+2. On the **Basic Information** page, scroll to the **App Credentials** section and copy the **Signing Secret**.
+3. On the **OAuth & Permissions** page, configure the Bot Token Scopes (as above), install to Workspace, and copy the **Bot User OAuth Token** (Bot Token).
 
-**第二步：在 WeKnora 中添加 IM 渠道**
+**Step 2: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「Slack」
-   - **接入模式**：选择「Webhook」
-   - **Bot Token**：填入以 `xoxb-` 开头的 Token
-   - **Signing Secret**：填入 Signing Secret
-3. 保存后，复制渠道卡片上显示的**回调地址**。
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "Slack"
+   - **Integration Mode**: select "Webhook"
+   - **Bot Token**: enter the token starting with `xoxb-`
+   - **Signing Secret**: enter the Signing Secret
+3. After saving, copy the **callback address** shown on the channel card.
 
-**第三步：配置 Event Subscriptions**
+**Step 3: Configure Event Subscriptions**
 
-1. 在 Slack App 设置页左侧导航栏选择 **Event Subscriptions**。
-2. 开启 **Enable Events** 开关。
-3. 在 **Request URL** 中粘贴从 WeKnora 复制的回调地址。Slack 会发送一个 challenge 请求，WeKnora 会自动响应并验证通过。
-4. 展开 **Subscribe to bot events**，添加需要的事件（同上）。
-5. 点击 **Save Changes**。
+1. On the Slack App settings page's left navigation, select **Event Subscriptions**.
+2. Turn on the **Enable Events** toggle.
+3. Paste the callback address copied from WeKnora into the **Request URL** field. Slack will send a challenge request, which WeKnora will automatically respond to and verify.
+4. Expand **Subscribe to bot events** and add the required events (as above).
+5. Click **Save Changes**.
 
 ---
 
-### Telegram 接入
+### Telegram Integration
 
-Telegram 提供两种接入模式，推荐使用 WebSocket（长轮询）模式，无需公网域名。
+Telegram offers two integration modes; the WebSocket (long polling) mode is recommended since it requires no public domain.
 
-#### 方式一：WebSocket 模式（长轮询，推荐）
+#### Method 1: WebSocket Mode (Long Polling, Recommended)
 
-> 无需公网域名，适合快速验证和内网部署。
+> No public domain required — suitable for quick validation and intranet deployments.
 
-**第一步：创建 Telegram Bot**
+**Step 1: Create a Telegram Bot**
 
-1. 在 Telegram 中搜索 [@BotFather](https://t.me/BotFather) 并开始对话
-2. 发送 `/newbot`，按提示填写 Bot 名称和用户名
-3. 创建完成后获取 **Bot Token**（格式如 `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）
+1. Search for [@BotFather](https://t.me/BotFather) in Telegram and start a conversation
+2. Send `/newbot` and follow the prompts to fill in the bot name and username
+3. Once created, obtain the **Bot Token** (in the format `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`)
 
-**第二步：在 WeKnora 中添加 IM 渠道**
+**Step 2: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「Telegram」
-   - **接入模式**：选择「WebSocket」
-   - **输出模式**：选择「流式输出」（推荐）
-   - **Bot Token**：填入从 BotFather 获取的 Token
-3. 保存
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "Telegram"
+   - **Integration Mode**: select "WebSocket"
+   - **Output Mode**: select "Streaming" (recommended)
+   - **Bot Token**: enter the token obtained from BotFather
+3. Save
 
-启动后日志出现以下内容表示连接成功：
+The following log entry after startup indicates a successful connection:
 
 ```
 [IM] Telegram long polling connecting...
 ```
 
-此时在 Telegram 中给 Bot 发送消息即可收到 AI 回复。
+At this point, sending a message to the bot in Telegram will get an AI reply.
 
 ---
 
-#### 方式二：Webhook 模式
+#### Method 2: Webhook Mode
 
-> 需要公网可达的回调地址（HTTPS）。
+> Requires a publicly reachable callback address (HTTPS).
 
-**第一步：创建 Telegram Bot 并获取凭证**
+**Step 1: Create a Telegram Bot and Obtain Credentials**
 
-同上，通过 BotFather 创建 Bot 并获取 Bot Token。
+Same as above — create the bot via BotFather and obtain the Bot Token.
 
-**第二步：在 WeKnora 中添加 IM 渠道**
+**Step 2: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「Telegram」
-   - **接入模式**：选择「Webhook」
-   - **Bot Token**：填入 Bot Token
-   - **Secret Token**（可选）：自定义密钥，用于验证回调请求的 `X-Telegram-Bot-Api-Secret-Token` 头
-3. 保存后，复制渠道卡片上显示的**回调地址**
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "Telegram"
+   - **Integration Mode**: select "Webhook"
+   - **Bot Token**: enter the Bot Token
+   - **Secret Token** (optional): a custom secret used to verify the `X-Telegram-Bot-Api-Secret-Token` header of callback requests
+3. After saving, copy the **callback address** shown on the channel card
 
-**第三步：配置 Webhook**
+**Step 3: Configure the Webhook**
 
-通过 Telegram Bot API 设置 Webhook：
+Set the webhook via the Telegram Bot API:
 
 ```bash
 curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
@@ -460,163 +457,162 @@ curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
   -d '{"url": "<YOUR_CALLBACK_URL>", "secret_token": "<YOUR_SECRET_TOKEN>"}'
 ```
 
-> 注意：Telegram Webhook 必须使用 HTTPS。
+> Note: Telegram webhooks must use HTTPS.
 
 ---
 
-### 钉钉接入
+### DingTalk Integration
 
-钉钉提供两种接入模式，推荐使用 Stream 模式（WebSocket），无需公网域名。
+DingTalk offers two integration modes; the Stream mode (WebSocket) is recommended since it requires no public domain.
 
-#### 方式一：WebSocket 模式（Stream，推荐）
+#### Method 1: WebSocket Mode (Stream, Recommended)
 
-> 无需公网域名，适合快速验证和内网部署。
+> No public domain required — suitable for quick validation and intranet deployments.
 
-**第一步：创建钉钉机器人**
+**Step 1: Create a DingTalk Bot**
 
-1. 登录 [钉钉开放平台](https://open-dev.dingtalk.com/) → **应用开发** → **创建应用**
-2. 在应用详情页 → **添加应用能力** → 添加 **机器人** 能力
-3. 在 **凭证与基础信息** 页获取：
-   - **Client ID**（AppKey）
-   - **Client Secret**（AppSecret）
+1. Log in to the [DingTalk Open Platform](https://open-dev.dingtalk.com/) → **App Development** → **Create App**
+2. On the app details page → **Add App Capabilities** → add the **Bot** capability
+3. On the **Credentials & Basic Info** page, obtain:
+   - **Client ID** (AppKey)
+   - **Client Secret** (AppSecret)
 
-**第二步：配置机器人**
+**Step 2: Configure the Bot**
 
-1. 在应用详情页 → **机器人** → 配置消息接收模式为 **Stream 模式**
-2.（可选）如需流式 AI 卡片效果，在 **互动卡片** 中创建一个 **AI 卡片模板**，记录 **Card Template ID**
+1. On the app details page → **Bot** → set the message reception mode to **Stream Mode**
+2. (Optional) If you want the streaming AI card effect, create an **AI Card Template** under **Interactive Cards** and record the **Card Template ID**
 
-**第三步：在 WeKnora 中添加 IM 渠道**
+**Step 3: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「钉钉」
-   - **接入模式**：选择「WebSocket」
-   - **输出模式**：选择「流式输出」（推荐）
-   - **Client ID**：填入 AppKey
-   - **Client Secret**：填入 AppSecret
-   - **Card Template ID**（可选）：填入 AI 卡片模板 ID，启用后流式回复将以 AI 卡片形式展示
-3. 保存
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "DingTalk"
+   - **Integration Mode**: select "WebSocket"
+   - **Output Mode**: select "Streaming" (recommended)
+   - **Client ID**: enter the AppKey
+   - **Client Secret**: enter the AppSecret
+   - **Card Template ID** (optional): enter the AI card template ID; once enabled, streaming replies will be displayed as AI cards
+3. Save
 
-启动后日志出现以下内容表示连接成功：
+The following log entry after startup indicates a successful connection:
 
 ```
 [IM] DingTalk Stream connecting...
 ```
 
-> **关于 AI 卡片**：配置 Card Template ID 后，流式回复将通过钉钉 AI 卡片实时展示打字效果；未配置时流式内容将在结束后一次性发送。
+> **About AI Cards**: once the Card Template ID is configured, streaming replies will show a real-time typing effect via DingTalk AI cards; without it, streaming content will be sent all at once after completion.
 
 ---
 
-#### 方式二：Webhook 模式
+#### Method 2: Webhook Mode
 
-> 需要公网可达的回调地址。
+> Requires a publicly reachable callback address.
 
-**第一步：创建钉钉机器人并获取凭证**
+**Step 1: Create a DingTalk Bot and Obtain Credentials**
 
-同上，创建应用并获取 Client ID 和 Client Secret。
+Same as above — create the app and obtain the Client ID and Client Secret.
 
-**第二步：在 WeKnora 中添加 IM 渠道**
+**Step 2: Add an IM Channel in WeKnora**
 
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**
-2. 填写配置：
-   - **平台**：选择「钉钉」
-   - **接入模式**：选择「Webhook」
-   - **Client ID**：填入 AppKey
-   - **Client Secret**：填入 AppSecret
-   - **Card Template ID**（可选）：同上
-3. 保存后，复制渠道卡片上显示的**回调地址**
+1. Go to the Agent editor → **IM Integration** → **Add Channel**
+2. Fill in the configuration:
+   - **Platform**: select "DingTalk"
+   - **Integration Mode**: select "Webhook"
+   - **Client ID**: enter the AppKey
+   - **Client Secret**: enter the AppSecret
+   - **Card Template ID** (optional): same as above
+3. After saving, copy the **callback address** shown on the channel card
 
-**第三步：配置钉钉事件订阅**
+**Step 3: Configure DingTalk Event Subscription**
 
-1. 在应用详情页 → **机器人** → 配置消息接收模式为 **HTTP 模式**
-2. **消息接收地址**：粘贴从 WeKnora 复制的回调地址
-3. 钉钉会通过 HmacSHA256 签名验证回调请求
-
----
-
-### Mattermost 接入
-
-Mattermost 为**自建部署**，当前仅支持 **Webhook** 模式：**出站 Webhook（Outgoing Webhook）** 将用户消息 POST 到 WeKnora，Bot 通过 **REST API v4** 发回频道/线程回复。与 Slack Events API 类似，回调需快速返回 `200`，实际回答由 Bot Token 异步调用接口完成。
-
-> 需要公网或内网可达的回调 URL（Mattermost 服务器能访问 WeKnora 的 `/api/v1/im/callback/{channel_id}`）。若 WeKnora 在内网，请在 Mattermost 中配置 [Trusted Internal Connections](https://docs.mattermost.com/configure/environment-configuration-settings.html) 或将回调地址加入允许列表。
-
-#### 第一步：创建 Bot 账户并获取 Token
-
-1. 在 Mattermost 中创建专用 Bot 账户（或使用个人账户的 **Personal Access Token**，不推荐生产环境）。
-2. 为 Bot 授予在目标频道/团队发消息、读取文件等所需权限（若需将用户上传的文件写入知识库，需能下载附件）。
-3. 在 **Profile → Security → Personal Access Tokens**（或 Bot 设置）生成 Token，复制保存为 **Bot Token**。
-
-#### 第二步：创建 Outgoing Webhook
-
-1. 打开 **产品菜单 → 集成 → 出站 Webhook**（若不可见，需系统管理员在 **系统控制台 → 集成** 中启用出站 Webhook）。
-2. 点击 **Add Outgoing Webhook**，填写标题与描述。
-3. **Content Type** 建议选择 **application/json**（也支持 `application/x-www-form-urlencoded`，WeKnora 两种均可解析）。
-4. 选择触发频道，或配置**触发词**（与频道组合规则以 Mattermost 说明为准）。
-5. **Callback URLs** 先留空或填占位；保存后在 WeKnora 创建渠道后会得到正式地址。
-6. 保存后复制页面上的 **Token**（出站 Webhook 密钥），即 **Outgoing Webhook Token**。
-
-#### 第三步：在 WeKnora 中添加 IM 渠道
-
-1. 进入 Agent 编辑器 → **IM 集成** → **添加渠道**。
-2. 填写配置：
-   - **平台**：选择「Mattermost」
-   - **接入模式**：固定为 **Webhook**（选择 Mattermost 后界面会禁用 WebSocket）
-   - **输出模式**：流式输出 / 完整输出（流式通过编辑帖子实现）
-   - **Site URL**：Mattermost 站点根地址，如 `https://mattermost.example.com`（无尾部 `/`）
-   - **Bot Token**：上一步生成的 Token
-   - **Outgoing Webhook Token**：出站 Webhook 页面复制的 Token（用于校验回调，且参与 `bot_identity` 去重）
-   - **Bot User ID**（可选）：Bot 在 Mattermost 中的用户 ID；填写后可忽略 Bot 自身触发的回调，避免自回复循环
-3. 保存后，复制渠道卡片上的 **回调地址**，回到 Mattermost 出站 Webhook 配置，将 **Callback URLs** 设为该地址并保存。
-
-#### 第四步：验证
-
-在绑定频道发送触发出站 Webhook 的消息，应收到 WeKnora 的回复；回复默认出现在**触发帖所在线程**（使用 Mattermost 的 `root_id` 与触发 `post_id` 对齐）。
-
-**参考文档：** [Outgoing webhooks](https://developers.mattermost.com/integrate/webhooks/outgoing/)
-
+1. On the app details page → **Bot** → set the message reception mode to **HTTP Mode**
+2. **Message Receiving Address**: paste the callback address copied from WeKnora
+3. DingTalk will verify callback requests using an HmacSHA256 signature
 
 ---
 
-## 前端管理
+### Mattermost Integration
 
-IM 渠道在 Agent 编辑器的 **IM 集成** 标签页中管理（仅编辑模式可见，创建 Agent 时不显示）。
+Mattermost is a **self-hosted deployment**, and currently only supports **Webhook** mode: an **Outgoing Webhook** POSTs user messages to WeKnora, and the bot sends channel/thread replies back via the **REST API v4**. Similar to the Slack Events API, the callback must return `200` quickly, with the actual answer delivered asynchronously via a Bot Token API call.
 
-### 渠道列表
+> A publicly or internally reachable callback URL is required (the Mattermost server must be able to reach WeKnora's `/api/v1/im/callback/{channel_id}`). If WeKnora is on an internal network, configure [Trusted Internal Connections](https://docs.mattermost.com/configure/environment-configuration-settings.html) in Mattermost, or add the callback address to the allow list.
 
-每个渠道以卡片形式展示，包含：
-- **平台标识**：企业微信（绿色）/ 飞书（青色）/ Lark（蓝色）/ Slack（紫色）/ Telegram（蓝色）/ 钉钉（蓝色）/ Mattermost（蓝色）
-- **渠道名称**：用户自定义
-- **接入模式**：WebSocket / Webhook
-- **输出模式**：流式输出 / 完整输出
-- **启用开关**：可即时启用/停用渠道
-- **回调地址**：Webhook 模式下显示，可一键复制
-- **编辑/删除**：管理渠道配置
+#### Step 1: Create a Bot Account and Obtain a Token
 
-### 渠道操作
+1. Create a dedicated bot account in Mattermost (or use a personal account's **Personal Access Token** — not recommended for production).
+2. Grant the bot the permissions needed to post in the target channel/team, read files, etc. (if you need to save user-uploaded files to the knowledge base, it needs to be able to download attachments).
+3. Under **Profile → Security → Personal Access Tokens** (or the bot's settings), generate a token and save it as the **Bot Token**.
 
-- **添加渠道**：选择平台 → 填写凭证 → 选择模式 → 保存
-- **编辑渠道**：可修改名称、模式、输出模式和凭证（平台不可更改）
-- **启用/停用**：通过开关即时切换，停用的渠道不会处理消息
-- **删除渠道**：删除后不可恢复
+#### Step 2: Create an Outgoing Webhook
+
+1. Open **Product Menu → Integrations → Outgoing Webhooks** (if not visible, a system administrator needs to enable Outgoing Webhooks under **System Console → Integrations**).
+2. Click **Add Outgoing Webhook** and fill in a title and description.
+3. It is recommended to set **Content Type** to **application/json** (`application/x-www-form-urlencoded` is also supported — WeKnora can parse both).
+4. Select the trigger channel, or configure **trigger words** (see Mattermost's documentation for how channel and trigger word rules combine).
+5. Leave **Callback URLs** blank or use a placeholder for now; you'll get the real address after creating the channel in WeKnora.
+6. After saving, copy the **Token** shown on the page (the outgoing webhook secret) — this is the **Outgoing Webhook Token**.
+
+#### Step 3: Add an IM Channel in WeKnora
+
+1. Go to the Agent editor → **IM Integration** → **Add Channel**.
+2. Fill in the configuration:
+   - **Platform**: select "Mattermost"
+   - **Integration Mode**: fixed to **Webhook** (the WebSocket option is disabled once Mattermost is selected)
+   - **Output Mode**: Streaming / Full (streaming is implemented by editing posts)
+   - **Site URL**: the Mattermost site's root address, e.g. `https://mattermost.example.com` (no trailing `/`)
+   - **Bot Token**: the token generated in the previous step
+   - **Outgoing Webhook Token**: the token copied from the outgoing webhook page (used to validate callbacks, and also participates in `bot_identity` deduplication)
+   - **Bot User ID** (optional): the bot's user ID in Mattermost; if filled in, callbacks triggered by the bot itself can be ignored, avoiding a self-reply loop
+3. After saving, copy the **callback address** on the channel card, go back to the Mattermost outgoing webhook configuration, set the **Callback URLs** to that address, and save.
+
+#### Step 4: Verify
+
+Send a message in the bound channel that triggers the outgoing webhook, and you should receive a reply from WeKnora; by default the reply appears in the **thread of the triggering post** (aligned via Mattermost's `root_id` and the triggering `post_id`).
+
+**Reference documentation:** [Outgoing webhooks](https://developers.mattermost.com/integrate/webhooks/outgoing/)
 
 ---
 
-## 架构总览
+## Frontend Management
+
+IM channels are managed in the **IM Integration** tab of the Agent editor (visible only in edit mode, not shown when creating a new Agent).
+
+### Channel List
+
+Each channel is displayed as a card containing:
+- **Platform badge**: WeCom (green) / Feishu (teal) / Lark (blue) / Slack (purple) / Telegram (blue) / DingTalk (blue) / Mattermost (blue)
+- **Channel name**: user-defined
+- **Integration mode**: WebSocket / Webhook
+- **Output mode**: Streaming / Full
+- **Enable toggle**: instantly enable/disable the channel
+- **Callback address**: shown in Webhook mode, one-click copy
+- **Edit/Delete**: manage the channel configuration
+
+### Channel Operations
+
+- **Add Channel**: select platform → fill in credentials → select mode → save
+- **Edit Channel**: name, mode, output mode, and credentials can be modified (platform cannot be changed)
+- **Enable/Disable**: toggle instantly; disabled channels will not process messages
+- **Delete Channel**: cannot be undone once deleted
+
+---
+
+## Architecture Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                              IM 集成架构                                     │
+│                              IM Integration Architecture                     │
 │                                                                              │
 │   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│   │ 企业微信  │  │   飞书    │  │  Slack   │  │ Telegram │  │   钉钉   │  IM层│
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
+│   │  WeCom   │  │  Feishu  │  │  Slack   │  │ Telegram │  │ DingTalk │  IM  │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘ layer│
 │        │ WH/WS       │ WH/WS      │ WH/WS       │ WH/LP       │ WH/Stream  │
 │   ─────┼─────────────┼────────────┼─────────────┼─────────────┼──────────   │
 │        ▼             ▼            ▼             ▼             ▼              │
 │   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│   │  WeCom   │  │  Feishu  │  │  Slack   │  │ Telegram │  │ DingTalk │ 适配 │
-│   │ Adapter  │  │ Adapter  │  │ Adapter  │  │ Adapter  │  │ Adapter  │ 器层 │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
+│   │  WeCom   │  │  Feishu  │  │  Slack   │  │ Telegram │  │ DingTalk │ Adap-│
+│   │ Adapter  │  │ Adapter  │  │ Adapter  │  │ Adapter  │  │ Adapter  │ ter  │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘ layer│
 │        │             │             │              │             │             │
 │   ─────┼─────────────┼─────────────┼──────────────┼─────────────┼────────   │
 │        └─────────────┼─────────────┼──────────────┘─────────────┘            │
@@ -633,247 +629,264 @@ IM 渠道在 Agent 编辑器的 **IM 集成** 标签页中管理（仅编辑模�
 │        ──────────────────┴────────────────────────────────────────────────────│
 │                        ▼                                                     │
 │   ┌──────────────────────────────────┐                                       │
-│   │         im.Service               │     服务编排层                        │
-│   │                                  │     · IM 渠道管理 (CRUD)              │
-│   │  ┌────────────────────────────┐  │     · Adapter Factory (动态创建)      │
-│   │  │ CommandRegistry            │  │     · 斜杠指令分发                    │
-│   │  │ qaQueue (Worker Pool)      │  │     · QA 队列调度 (有界, 异步)        │
-│   │  │ rateLimiter (滑动窗口)      │  │     · 滑动窗口限流                    │
-│   │  │ processedMsgs (去重)       │  │     · 消息去重 (MessageID + TTL)      │
-│   │  │ inflight (取消跟踪)         │  │     · 会话映射 (ChannelSession)       │
-│   │  └────────────────────────────┘  │     · 流式/全量路由                    │
-│   └──────────────┬───────────────────┘                                       │
-│                  │                                                           │
+│   │         im.Service               │     Service orchestration layer       │
+│   │                                  │     · IM channel management (CRUD)    │
+│   │  ┌────────────────────────────┐  │     · Adapter Factory (dynamic       │
+│   │  │ CommandRegistry            │  │       creation)                       │
+│   │  │ qaQueue (Worker Pool)      │  │     · Slash command dispatch          │
+│   │  │ rateLimiter (sliding win.) │  │     · QA queue scheduling (bounded,   │
+│   │  │ processedMsgs (dedup)      │  │       async)                          │
+│   │  │ inflight (cancel tracking) │  │     · Sliding window rate limiting    │
+│   │  └────────────────────────────┘  │     · Message deduplication           │
+│   └──────────────┬───────────────────┘       (MessageID + TTL)              │
+│                  │                          · Session mapping                │
+│                  │                            (ChannelSession)                │
+│                  │                          · Streaming/full-output routing  │
 │   ───────────────┼───────────────────────────────────────────────────────    │
 │                  ▼                                                           │
 │   ┌──────────────────────────────────────┐                                   │
-│   │     WeKnora Core (QA Pipeline)       │     核心层                       │
+│   │     WeKnora Core (QA Pipeline)       │     Core layer                   │
 │   │   SessionService · MessageService    │                                   │
 │   │   TenantService  · AgentService      │                                   │
-│   │   KnowledgeService (文件保存)         │                                   │
+│   │   KnowledgeService (file saving)     │                                   │
 │   └──────────────────────────────────────┘                                   │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**设计模式：**
+**Design patterns:**
 
-| 模式 | 用途 |
+| Pattern | Purpose |
 |------|------|
-| Adapter Pattern | 统一不同 IM 平台的差异，每个平台实现 `im.Adapter` 接口 |
-| Factory Pattern | 通过 `AdapterFactory` 从数据库渠道配置动态创建 Adapter 实例 |
-| Strategy Pattern | `StreamSender`、`FileDownloader` 可选接口，按需实现 |
-| Command Pattern | `Command` 接口 + `CommandRegistry` 实现可插拔的斜杠指令系统 |
-| Producer-Consumer | `qaQueue` 有界队列 + Worker Pool，解耦消息接收与 QA 执行 |
-| Event-Driven | 通过 `EventBus` 解耦 QA 管道与 IM 输出，支持实时块推送 |
+| Adapter Pattern | Unifies differences across IM platforms; each platform implements the `im.Adapter` interface |
+| Factory Pattern | `AdapterFactory` dynamically creates Adapter instances from database channel configuration |
+| Strategy Pattern | `StreamSender`, `FileDownloader` are optional interfaces, implemented as needed |
+| Command Pattern | The `Command` interface + `CommandRegistry` implement a pluggable slash command system |
+| Producer-Consumer | The `qaQueue` bounded queue + Worker Pool decouples message reception from QA execution |
+| Event-Driven | `EventBus` decouples the QA pipeline from IM output, enabling real-time chunk pushes |
 
 ---
 
-## 数据模型
+## Data Model
 
-### im_channels 表
+### im_channels Table
 
-IM 渠道配置存储在 `im_channels` 表中，绑定到 Agent：
+IM channel configuration is stored in the `im_channels` table, bound to an Agent:
 
 ```sql
 CREATE TABLE im_channels (
     id                VARCHAR(36) PRIMARY KEY,
     tenant_id         BIGINT NOT NULL,
-    agent_id          VARCHAR(36) NOT NULL,       -- 绑定的 Agent ID
+    agent_id          VARCHAR(36) NOT NULL,       -- bound Agent ID
     platform          VARCHAR(20) NOT NULL,       -- 'wecom' | 'feishu' | 'lark' | 'slack' | 'telegram' | 'dingtalk' | 'mattermost'
     name              VARCHAR(255) NOT NULL DEFAULT '',
     enabled           BOOLEAN NOT NULL DEFAULT true,
     mode              VARCHAR(20) NOT NULL DEFAULT 'websocket',  -- 'webhook' | 'websocket'
     output_mode       VARCHAR(20) NOT NULL DEFAULT 'stream',     -- 'stream' | 'full'
-    knowledge_base_id VARCHAR(36),                -- 可选，绑定知识库以接收文件消息
-    bot_identity      VARCHAR(255),               -- 计算字段，防止重复机器人
-    credentials       JSONB NOT NULL DEFAULT '{}',               -- 平台凭证
+    knowledge_base_id VARCHAR(36),                -- optional; bind a knowledge base to receive file messages
+    bot_identity      VARCHAR(255),               -- computed field, prevents duplicate bots
+    credentials       JSONB NOT NULL DEFAULT '{}',               -- platform credentials
     created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at        TIMESTAMPTZ
 );
 ```
 
-**credentials 字段结构：**
+**`credentials` field structure:**
 
-| 平台 | 模式 | 字段 |
+| Platform | Mode | Fields |
 |------|------|------|
-| 企业微信 | WebSocket | `bot_id`, `bot_secret` |
-| 企业微信 | Webhook | `corp_id`, `agent_secret`, `token`, `encoding_aes_key`, `corp_agent_id` |
-| 飞书 / Lark | WebSocket | `app_id`, `app_secret` |
-| 飞书 / Lark | Webhook | `app_id`, `app_secret`, `verification_token`, `encrypt_key` |
+| WeCom | WebSocket | `bot_id`, `bot_secret` |
+| WeCom | Webhook | `corp_id`, `agent_secret`, `token`, `encoding_aes_key`, `corp_agent_id` |
+| Feishu / Lark | WebSocket | `app_id`, `app_secret` |
+| Feishu / Lark | Webhook | `app_id`, `app_secret`, `verification_token`, `encrypt_key` |
 | Slack | WebSocket | `app_token`, `bot_token` |
 | Slack | Webhook | `bot_token`, `signing_secret` |
 | Telegram | WebSocket | `bot_token` |
-| Telegram | Webhook | `bot_token`, `secret_token`（可选） |
-| 钉钉 | WebSocket | `client_id`, `client_secret`, `card_template_id`（可选） |
-| 钉钉 | Webhook | `client_id`, `client_secret`, `card_template_id`（可选） |
-| Mattermost | Webhook（唯一支持） | `site_url`, `bot_token`, `outgoing_token`（必填）；`bot_user_id`（可选，过滤机器人自身消息） |
+| Telegram | Webhook | `bot_token`, `secret_token` (optional) |
+| DingTalk | WebSocket | `client_id`, `client_secret`, `card_template_id` (optional) |
+| DingTalk | Webhook | `client_id`, `client_secret`, `card_template_id` (optional) |
+| Mattermost | Webhook (only supported mode) | `site_url`, `bot_token`, `outgoing_token` (required); `bot_user_id` (optional, filters the bot's own messages) |
 
-`mattermost` 渠道的 `mode` 在数据库中固定为 `webhook`（创建时若未指定，服务端与模型钩子会默认 `webhook`）。`bot_identity` 形如 `mattermost:wh:{outgoing_token}`，用于防止同一出站 Webhook 重复绑定多个渠道。
+The `mode` of a `mattermost` channel is fixed to `webhook` in the database (if not specified at creation time, the server and model hooks default it to `webhook`). `bot_identity` takes the form `mattermost:wh:{outgoing_token}`, used to prevent the same outgoing webhook from being bound to multiple channels.
 
-### im_channel_sessions 表
+### im_channel_sessions Table
 
-将 IM 渠道中的用户会话映射到 WeKnora 会话：
+Maps user sessions from an IM channel to WeKnora sessions:
 
 ```
 (im_channel_id, Platform, UserID, ChatID, TenantID)  →  SessionID
 ```
 
-首次交互自动创建，后续消息复用同一会话。`/clear` 指令会软删除会话记录，下次消息重新创建。
+Created automatically on first interaction; subsequent messages reuse the same session. The `/clear` command soft-deletes the session record, and it is recreated on the next message.
 
 ---
 
-## API 端点
+## API Endpoints
 
-### IM 渠道管理 API（需认证）
+### IM Channel Management API (Authentication Required)
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 |------|------|------|
-| POST | `/api/v1/agents/:id/im-channels` | 创建 IM 渠道 |
-| GET | `/api/v1/agents/:id/im-channels` | 列出 Agent 的所有 IM 渠道 |
-| PUT | `/api/v1/im-channels/:id` | 更新 IM 渠道 |
-| DELETE | `/api/v1/im-channels/:id` | 删除 IM 渠道 |
-| POST | `/api/v1/im-channels/:id/toggle` | 启用/停用 IM 渠道 |
+| POST | `/api/v1/agents/:id/im-channels` | Create an IM channel |
+| GET | `/api/v1/agents/:id/im-channels` | List all IM channels for an Agent |
+| PUT | `/api/v1/im-channels/:id` | Update an IM channel |
+| DELETE | `/api/v1/im-channels/:id` | Delete an IM channel |
+| POST | `/api/v1/im-channels/:id/toggle` | Enable/disable an IM channel |
 
-### IM 回调端点（无需认证，平台签名验证）
+### IM Callback Endpoint (No Authentication, Platform Signature Verification)
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 |------|------|------|
-| GET/POST | `/api/v1/im/callback/:channel_id` | 通用回调（根据 channel_id 自动路由到对应 Adapter） |
+| GET/POST | `/api/v1/im/callback/:channel_id` | Generic callback (automatically routed to the corresponding Adapter based on channel_id) |
 
-> Webhook 模式下，每个渠道有唯一的回调地址 `/api/v1/im/callback/{channel_id}`，在前端渠道卡片上可一键复制。回调路由注册在认证中间件**之前**，由平台签名验证保护。
+> In Webhook mode, each channel has a unique callback address `/api/v1/im/callback/{channel_id}`, which can be copied with one click from the channel card in the frontend. The callback route is registered **before** the authentication middleware, and is protected by platform signature verification instead.
 
 ---
 
-## 核心概念
+## Core Concepts
 
-### IMChannel — IM 渠道
+### IMChannel
 
-每个 IM 渠道代表一个 IM 平台机器人与 WeKnora Agent 的绑定关系。一个 Agent 可以绑定多个渠道（如同时接入企业微信、飞书、Slack 与 Mattermost），同一平台也可以创建多个渠道（如不同的企业微信机器人）。
+Each IM channel represents a binding between an IM platform bot and a WeKnora Agent. An Agent can be bound to multiple channels (e.g. connecting WeCom, Feishu, Slack, and Mattermost simultaneously), and multiple channels can also be created for the same platform (e.g. different WeCom bots).
 
-渠道有一个计算字段 `BotIdentity`，由平台类型、模式和核心凭证推导，用于防止同一机器人被重复创建。
+A channel has a computed field, `BotIdentity`, derived from the platform type, mode, and core credentials, used to prevent the same bot from being created twice.
 
-渠道启动时，Service 通过 `AdapterFactory` 根据平台类型和凭证动态创建对应的 Adapter 实例。
+When a channel starts, the Service dynamically creates the corresponding Adapter instance via the `AdapterFactory`, based on the platform type and credentials.
 
-### IncomingMessage — 统一入站消息
+### IncomingMessage — Unified Inbound Message
 
-所有平台的消息在解密、解析后被归一化为 `IncomingMessage`，抹平平台差异：
+After decryption and parsing, messages from all platforms are normalized into an `IncomingMessage`, which smooths over platform differences:
 
 ```go
 type IncomingMessage struct {
     Platform    Platform          // "wecom" | "feishu" | "lark" | "slack" | "telegram" | "dingtalk" | "mattermost"
     MessageType MessageType       // "text" | "file" | "image"
-    UserID      string            // 平台用户标识
-    UserName    string            // 显示名 (可选)
-    ChatID      string            // 群聊 ID (私聊为空)
+    UserID      string            // platform user identifier
+    UserName    string            // display name (optional)
+    ChatID      string            // group chat ID (empty for direct messages)
     ChatType    ChatType          // "direct" | "group"
-    Content     string            // 纯文本内容
-    MessageID   string            // 平台消息 ID (用于去重)
-    FileKey     string            // 文件标识 (文件/图片消息)
-    FileName    string            // 文件名 (文件/图片消息)
-    FileSize    int64             // 文件大小 (字节)
-    Extra       map[string]string // 平台特有字段 (如 req_id、aes_key)
+    Content     string            // plain text content
+    MessageID   string            // platform message ID (for deduplication)
+    FileKey     string            // file identifier (file/image messages)
+    FileName    string            // file name (file/image messages)
+    FileSize    int64             // file size (bytes)
+    Extra       map[string]string // platform-specific fields (e.g. req_id, aes_key)
 }
 ```
 
-### ReplyMessage — 统一出站回复
+### ReplyMessage — Unified Outbound Reply
 
 ```go
 type ReplyMessage struct {
-    Content    string            // Markdown 文本
-    IsStreaming bool             // 是否为流式块
-    IsFinal    bool             // 是否为最后一块
-    Extra      map[string]string // 平台特有字段
+    Content    string            // Markdown text
+    IsStreaming bool             // whether this is a streaming chunk
+    IsFinal    bool             // whether this is the final chunk
+    Extra      map[string]string // platform-specific fields
 }
 ```
 
-### ChannelSession — 会话映射
+### ChannelSession — Session Mapping
 
-将 IM 渠道 (渠道 ID + 用户 + 群聊) 映射到 WeKnora 会话，实现对话上下文持续性。首次交互自动创建，后续消息复用同一会话。并发创建通过唯一约束 + fallback 查询处理。存储于 `im_channel_sessions` 表。
+Maps an IM channel (channel ID + user + group chat) to a WeKnora session, enabling conversational context continuity. Created automatically on first interaction; subsequent messages reuse the same session. Concurrent creation is handled via a unique constraint plus a fallback query. Stored in the `im_channel_sessions` table.
 
 ---
 
-## 消息处理流程
+## Message Processing Flow
 
-### 完整消息处理流程
+### Full Message Processing Flow
 
 ```
-用户在 IM 中发送消息
+User sends a message in IM
         │
         ▼
-┌─ HTTP Handler / WebSocket 回调 ─────────────────┐
-│  1. 根据 channel_id 查找渠道配置                   │
-│  2. 获取对应 Adapter                              │
-│  3. 签名验证 (VerifyCallback)                     │
-│  4. URL 验证处理 (HandleURLVerification)           │
-│  5. 解密 + 解析 → IncomingMessage (ParseCallback)  │
-│  6. 立即返回 HTTP 200 (异步处理)                    │
+┌─ HTTP Handler / WebSocket callback ─────────────┐
+│  1. Look up channel configuration by channel_id  │
+│  2. Get the corresponding Adapter                │
+│  3. Signature verification (VerifyCallback)      │
+│  4. URL verification handling                    │
+│     (HandleURLVerification)                      │
+│  5. Decrypt + parse → IncomingMessage             │
+│     (ParseCallback)                               │
+│  6. Immediately return HTTP 200 (async processing)│
 └──────────────────────────┬──────────────────────-┘
                            │ goroutine
                            ▼
 ┌─ im.Service.HandleMessage ──────────────────────┐
-│  1. 去重检查 (MessageID, 5 分钟 TTL)             │
-│  2. 内容长度校验 (≤ 4096 rune，超出截断)           │
-│  3. 斜杠指令检测 → 命中则分发到 CommandRegistry   │
-│  4. 限流检查 (滑动窗口, 10次/60s)                 │
-│  5. 从渠道配置获取 agent_id、tenant_id            │
-│  6. 解析/创建 ChannelSession                     │
-│  7. 获取 WeKnora Session                         │
-│  8. 加载 Agent 配置（获取知识库、模型等信息）       │
-│  9. 文件消息？→ 下载并保存到知识库                  │
-│ 10. 提交到 qaQueue (有界队列, 异步执行)            │
+│  1. Deduplication check (MessageID, 5-min TTL)   │
+│  2. Content length validation (≤ 4096 runes,     │
+│     truncated if exceeded)                       │
+│  3. Slash command detection → dispatched to      │
+│     CommandRegistry if matched                   │
+│  4. Rate limit check (sliding window, 10/60s)    │
+│  5. Get agent_id, tenant_id from channel config   │
+│  6. Resolve/create ChannelSession                 │
+│  7. Get the WeKnora Session                       │
+│  8. Load Agent configuration (knowledge base,     │
+│     model, etc.)                                  │
+│  9. File message? → download and save to          │
+│     knowledge base                                │
+│ 10. Submit to qaQueue (bounded queue, async        │
+│     execution)                                     │
 └───────────┬─────────────────────────────────────┘
             │
             ▼
 ┌─ qaQueue Worker ────────────────────────────────┐
-│  从队列取出请求，记录 inflight，判断流式/全量模式   │
+│  Pulls the request from the queue, records        │
+│  inflight, determines streaming/full mode          │
 └───────────┬─────────────────────┬───────────────┘
             │                     │
-     流式模式 ▼              全量模式 ▼
+    Streaming mode ▼        Full mode ▼
 ┌────────────────────┐  ┌─────────────────────┐
-│ handleMessageStream│  │ runQA (阻塞收集完整  │
-│                    │  │ 回答后一次性发送)     │
-│ · StartStream      │  └─────────────────────┘
-│ · EventBus 订阅    │
-│ · 300ms 批量刷新   │
-│ · 工具事件展示     │
-│ · UpdateStreamContent │
+│ handleMessageStream│  │ runQA (blocks until  │
+│                    │  │ the full answer is    │
+│ · StartStream      │  │ collected, then sends │
+│ · EventBus         │  │ it all at once)       │
+│   subscription     │  └─────────────────────┘
+│ · 300ms batched     │
+│   flushing          │
+│ · Tool event display│
+│ · UpdateStreamContent│
 │ · FinalizeStream      │
 │ · EndStream           │
 └────────────────────┘
             │
             ▼
-    消息持久化 (user + assistant)
+    Message persistence (user + assistant)
 ```
 
-### 渠道生命周期
+### Channel Lifecycle
 
 ```
-渠道创建/更新 (前端 UI)
+Channel created/updated (frontend UI)
         │
         ▼
 ┌─ im.Service ──────────────────────────┐
-│  1. 保存渠道配置到数据库                │
-│  2. 如果渠道已启用：                    │
-│     a. AdapterFactory 创建 Adapter     │
-│     b. WebSocket 模式：建立长连接       │
-│     c. Webhook 模式：注册回调处理       │
-│  3. 维护 channels map (channel_id →    │
+│  1. Save the channel configuration to  │
+│     the database                       │
+│  2. If the channel is enabled:         │
+│     a. AdapterFactory creates the      │
+│        Adapter                         │
+│     b. WebSocket mode: establish a     │
+│        long connection                 │
+│     c. Webhook mode: register the      │
+│        callback handler                │
+│  3. Maintain the channels map          │
+│     (channel_id →                      │
 │     channelState{Channel, Adapter})    │
 └────────────────────────────────────────┘
 
-服务启动时：
-  LoadAndStartChannels() → 从 DB 加载所有 enabled 的渠道 → 逐个 StartChannel()
+On service startup:
+  LoadAndStartChannels() → load all enabled channels from the DB → StartChannel() for each one
 
-渠道停用/删除时：
-  StopChannel() → 取消 Adapter 上下文 → 从 map 移除
+On channel disable/delete:
+  StopChannel() → cancel the Adapter context → remove from the map
 ```
 
 ---
 
-## 接口定义
+## Interface Definitions
 
-### im.Adapter — 平台适配器 (必须实现)
+### im.Adapter — Platform Adapter (Must Be Implemented)
 
 ```go
 type Adapter interface {
@@ -885,15 +898,15 @@ type Adapter interface {
 }
 ```
 
-| 方法 | 职责 |
+| Method | Responsibility |
 |------|------|
-| `Platform()` | 返回平台标识，用于路由和注册 |
-| `VerifyCallback()` | 验证回调请求的签名/Token |
-| `ParseCallback()` | 解密并解析回调为 `IncomingMessage`，非消息事件返回 `nil` |
-| `SendReply()` | 通过平台 API 发送完整回复 |
-| `HandleURLVerification()` | 处理平台初始 URL 验证（首次配置时调用） |
+| `Platform()` | Returns the platform identifier, used for routing and registration |
+| `VerifyCallback()` | Verifies the signature/token of the callback request |
+| `ParseCallback()` | Decrypts and parses the callback into an `IncomingMessage`; returns `nil` for non-message events |
+| `SendReply()` | Sends a full reply via the platform API |
+| `HandleURLVerification()` | Handles the platform's initial URL verification (called on first-time configuration) |
 
-### im.StreamSender — 流式推送 (可选)
+### im.StreamSender — Streaming Push (Optional)
 
 ```go
 type StreamSender interface {
@@ -904,12 +917,12 @@ type StreamSender interface {
 }
 ```
 
-- `UpdateStreamContent`：流式过程中用**当前可见全文**替换消息（replace 语义，非增量追加）
-- `FinalizeStream`：结束前最后一次替换，通常为折叠思考/工具进度后的最终展示（多为纯答案）
+- `UpdateStreamContent`: during streaming, replaces the message with the **currently visible full text** (replace semantics, not incremental appending)
+- `FinalizeStream`: the final replacement before ending, typically the final display after collapsing thinking/tool progress (usually the plain answer)
 
-实现此接口后，Service 会自动路由到流式模式。渠道配置 `output_mode: "full"` 可强制关闭。
+Once this interface is implemented, the Service automatically routes to streaming mode. Setting the channel configuration `output_mode: "full"` forces this off.
 
-### im.FileDownloader — 文件下载 (可选)
+### im.FileDownloader — File Download (Optional)
 
 ```go
 type FileDownloader interface {
@@ -917,91 +930,91 @@ type FileDownloader interface {
 }
 ```
 
-实现此接口后，当用户发送文件/图片消息且渠道配置了 `knowledge_base_id` 时，Service 会自动下载文件并保存到指定知识库。
+Once this interface is implemented, when a user sends a file/image message and the channel is configured with a `knowledge_base_id`, the Service automatically downloads the file and saves it to the specified knowledge base.
 
-### im.AdapterFactory — 适配器工厂
+### im.AdapterFactory — Adapter Factory
 
 ```go
 type AdapterFactory func(ctx context.Context, channel *IMChannel, msgHandler func(*IncomingMessage)) (Adapter, CancelFunc, error)
 ```
 
-每个平台注册一个工厂函数，Service 在启动渠道时调用工厂创建 Adapter 实例。工厂函数根据渠道的 `mode` 和 `credentials` 决定创建哪种 Adapter。
+Each platform registers a factory function; the Service calls the factory to create an Adapter instance when starting a channel. The factory function decides which type of Adapter to create based on the channel's `mode` and `credentials`.
 
 ---
 
-## 平台适配器详解
+## Platform Adapter Details
 
-### 企业微信 (WeCom)
+### WeCom
 
-提供两种连接模式，对应两套适配器实现：
+Offers two connection modes, corresponding to two adapter implementations:
 
-#### Webhook 模式 (`WebhookAdapter`)
+#### Webhook Mode (`WebhookAdapter`)
 
-适用于**自建应用**，需要公网可访问的回调地址。
+Suitable for **custom applications**, requires a publicly accessible callback address.
 
 ```
-企业微信服务器 ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
+WeCom server ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
                                       │
-                              解密 (AES-256-CBC)
-                              解析 XML → IncomingMessage
+                              Decrypt (AES-256-CBC)
+                              Parse XML → IncomingMessage
                                       │
-                              处理完成后调用 WeCom REST API 回复
+                              After processing, call the WeCom REST API to reply
 ```
 
-- **加密方案：** AES-256-CBC，Key 由 `encoding_aes_key` Base64 解码得到（32 字节），IV 为 Key 前 16 字节
-- **消息格式：** `random(16) + msg_len(4) + message + corp_id`，PKCS#7 填充
-- **签名验证：** SHA-1(`sort([token, timestamp, nonce, encrypt])`)，常量时间比较
-- **消息类型：** 支持 `text`（文本）和 `image`（图片，PicUrl 直接下载或 MediaId 临时素材 API）
-- **群聊回复：** 优先尝试 `appchat/send` 群聊 API，失败时降级到私聊直发
-- **回复方式：** 通过 `/cgi-bin/message/send` 接口发送 Markdown 消息
+- **Encryption scheme:** AES-256-CBC, with the Key obtained by Base64-decoding `encoding_aes_key` (32 bytes); the IV is the first 16 bytes of the Key
+- **Message format:** `random(16) + msg_len(4) + message + corp_id`, PKCS#7 padding
+- **Signature verification:** SHA-1(`sort([token, timestamp, nonce, encrypt])`), constant-time comparison
+- **Message types:** supports `text` (text) and `image` (image; PicUrl direct download or MediaId temporary media API)
+- **Group reply:** first tries the `appchat/send` group chat API, falling back to a direct private message on failure
+- **Reply method:** sends Markdown messages via the `/cgi-bin/message/send` interface
 
-#### WebSocket 模式 (`WSAdapter` + `LongConnClient`)
+#### WebSocket Mode (`WSAdapter` + `LongConnClient`)
 
-适用于**智能客服机器人**，无需公网域名，由客户端主动建立 WebSocket 长连接。
+Suitable for **smart customer service bots**, requires no public domain — the client actively establishes a WebSocket long connection.
 
 ```
 LongConnClient ══WebSocket══▶ wss://openws.work.weixin.qq.com
        │
-  1. 发送 aibot_subscribe (bot_id + secret)
-  2. 接收 aibot_msg_callback 消息帧
-  3. 通过 aibot_respond_msg 回复
-  4. 每 30s 心跳保活 (ping/pong)
-  5. 断连自动重连 (指数退避 1s → 30s)
+  1. Send aibot_subscribe (bot_id + secret)
+  2. Receive aibot_msg_callback message frames
+  3. Reply via aibot_respond_msg
+  4. Heartbeat every 30s to keep alive (ping/pong)
+  5. Automatic reconnect on disconnect (exponential backoff 1s → 30s)
 ```
 
-- **认证：** Bot ID + Bot Secret
-- **消息类型：** `text`（文本）、`image`（图片）、`file`（文件）、`voice`（语音，服务端已转文本）、`mixed`（混合，文本 + 图片）、`event`（服务器事件）
-- **文件解密：** 附件使用每消息独立 AES-256-CBC 密钥解密（IV 为密钥前 16 字节）
-- **流式回复：** 通过 WebSocket 帧发送累积全文，`finish=true` 标记结束
-- **容错：** 指数退避重连（基础 1s，上限 30s），读超时 = 3 × 心跳间隔（90s）
+- **Authentication:** Bot ID + Bot Secret
+- **Message types:** `text` (text), `image` (image), `file` (file), `voice` (voice, already converted to text server-side), `mixed` (mixed, text + image), `event` (server event)
+- **File decryption:** attachments are decrypted with a per-message unique AES-256-CBC key (IV is the first 16 bytes of the key)
+- **Streaming reply:** the accumulated full text is sent over WebSocket frames, with `finish=true` marking the end
+- **Fault tolerance:** exponential backoff reconnection (base 1s, cap 30s), read timeout = 3 × heartbeat interval (90s)
 
-#### 源码文件
+#### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/wecom/webhook_adapter.go` | Webhook 模式：回调解密、签名验证、REST API 回复、群聊发送、Token 缓存、文件下载 |
-| `internal/im/wecom/ws_adapter.go` | WebSocket 模式适配器壳，代理到 `LongConnClient` |
-| `internal/im/wecom/longconn.go` | WebSocket 客户端：连接管理、心跳、帧协议、自动重连、多消息类型解析、文件解密 |
+| `internal/im/wecom/webhook_adapter.go` | Webhook mode: callback decryption, signature verification, REST API replies, group sending, token caching, file downloads |
+| `internal/im/wecom/ws_adapter.go` | WebSocket mode adapter shell, proxies to `LongConnClient` |
+| `internal/im/wecom/longconn.go` | WebSocket client: connection management, heartbeat, frame protocol, automatic reconnection, multi-message-type parsing, file decryption |
 
 ---
 
-### 飞书 (Feishu) 与 Lark
+### Feishu and Lark
 
-统一适配器同时支持 Webhook 和 WebSocket 模式，且原生实现 `StreamSender` 和 `FileDownloader` 接口。
+The unified adapter supports both Webhook and WebSocket modes, and natively implements the `StreamSender` and `FileDownloader` interfaces.
 
-#### 双云共用一套适配器
+#### One Adapter Shared Across Two Clouds
 
-飞书与 Lark 是同一产品部署在两朵隔离的云上，API 与事件结构完全一致，因此 `internal/im/feishu`
-包同时服务两个平台，由 `Region` 决定具体连哪朵云：
+Feishu and Lark are the same product deployed on two isolated clouds, with identical APIs and event structures, so the `internal/im/feishu`
+package serves both platforms, with `Region` determining which cloud to connect to:
 
 ```go
 // internal/im/feishu/region.go
 type Region struct {
-    Platform           im.Platform  // "feishu" | "lark"，写入 IncomingMessage
+    Platform           im.Platform  // "feishu" | "lark", written into IncomingMessage
     OpenBaseURL        string       // https://open.feishu.cn | https://open.larksuite.com
-    Label              string       // 日志前缀 [Feishu] / [Lark]
-    ThinkingText       string       // 流式卡片占位文案（中文 / 英文）
-    ImageFallbackLabel string       // 图片上传失败时降级链接的文案
+    Label              string       // log prefix [Feishu] / [Lark]
+    ThinkingText       string       // streaming card placeholder text (Chinese / English)
+    ImageFallbackLabel string       // fallback link text when image upload fails
 }
 
 var (
@@ -1010,7 +1023,7 @@ var (
 )
 ```
 
-容器中注册为两个平台：
+Registered as two platforms in the container:
 
 ```go
 // internal/container/container.go
@@ -1018,639 +1031,643 @@ imService.RegisterAdapterFactory("feishu", feishu.NewFactory(feishu.RegionFeishu
 imService.RegisterAdapterFactory("lark", feishu.NewFactory(feishu.RegionLark))
 ```
 
-适配器所有 API 调用经 `a.api(path, args...)` 拼接 `region.OpenBaseURL`；WebSocket 模式通过
-`larkws.WithDomain(region.OpenBaseURL)` 指向对应云（SDK 默认连 open.feishu.cn，Lark 不指定会认证失败）。
+All adapter API calls are concatenated with `region.OpenBaseURL` via `a.api(path, args...)`; in WebSocket mode,
+`larkws.WithDomain(region.OpenBaseURL)` points to the corresponding cloud (the SDK connects to open.feishu.cn by default; Lark will fail authentication if not specified).
 
-> **跨云资源不通用**：`tenant_access_token`、`image_key`、`file_key`、`card_id` 均由单朵云的
-> 单个应用签发，跨云或跨应用使用会被拒绝。图片上传缓存因此以 `app_id` 为前缀分区。
+> **Cross-cloud resources are not interchangeable**: `tenant_access_token`, `image_key`, `file_key`, and `card_id` are all issued by a single
+> app on a single cloud; using them across clouds or across apps will be rejected. The image upload cache is therefore partitioned with an `app_id` prefix.
 
-#### IM 适配器实际调用的接口与所需权限
+#### APIs and Permissions Actually Used by the IM Adapter
 
-下表说明适配器**实际**依赖哪些权限。表中的权限标识已对照 Lark 官方 API 文档逐条核对，
-飞书侧同名。
+The table below explains which permissions the adapter **actually** depends on. The permission identifiers in the table have been cross-checked
+line by line against the official Lark API documentation; Feishu uses the same names.
 
-> **两朵云的权限清单并不等价。** API 与事件结构一致，不代表权限目录一致——飞书开放平台
-> 上存在的部分权限，Lark 开放平台并没有。因此各自的配置清单请分别参照
-> [飞书接入](#飞书接入)与 [Lark 权限配置](#lark-权限配置)，不要跨云复制粘贴。
+> **The permission lists for the two clouds are not equivalent.** Identical APIs and event structures do not mean identical permission
+> catalogs — some permissions that exist on the Feishu Open Platform do not exist on the Lark Open Platform. So refer to each cloud's
+> respective configuration list separately — [Feishu Integration](#feishu-integration) and
+> [Lark Permission Configuration](#lark-permission-configuration) — and do not copy-paste across clouds.
 >
-> 飞书一节的 JSON 还同时覆盖了**飞书数据源连接器**（Wiki 同步），所以包含
-> `wiki:wiki:readonly`、`docs:document.content:read`、`sheets:spreadsheet` 等 IM 用不到的权限。
+> The JSON in the Feishu section also covers the **Feishu data source connector** (Wiki sync), so it includes
+> `wiki:wiki:readonly`, `docs:document.content:read`, `sheets:spreadsheet`, and other permissions not used by IM.
 
-| 适配器调用 | 用途 | 所需权限（满足其一即可） |
+| Adapter call | Purpose | Required permission (any one suffices) |
 |---|---|---|
-| `POST /auth/v3/tenant_access_token/internal` | 换取 tenant access token | 无需权限（凭 App ID / Secret） |
-| `POST /im/v1/messages/{id}/reply` | 回复消息（主路径） | `im:message`、`im:message:send_as_bot` 或 `im:message:send` |
-| `POST /im/v1/messages` | 发送消息（回复失败时降级） | 同上 |
-| `GET /im/v1/messages/{id}/resources/{key}` | 下载用户发来的文件 / 图片 | `im:message` 或 `im:message:readonly` |
-| `POST /im/v1/images` | 上传图片以取得 `image_key` | `im:resource` 或 `im:resource:upload` |
-| `POST /cardkit/v1/cards`<br>`PUT /cardkit/v1/cards/{id}/elements/{eid}/content`<br>`PATCH /cardkit/v1/cards/{id}/settings` | 流式卡片（仅流式输出模式需要） | `cardkit:card:write` |
-| 订阅事件 `im.message.receive_v1`（单聊） | 接收私聊消息 | `im:message.p2p_msg` 或 `im:message.p2p_msg:readonly` |
-| 订阅事件 `im.message.receive_v1`（群聊 @） | 接收群内 @机器人 消息 | `im:message.group_at_msg` 或 `im:message.group_at_msg:readonly` |
+| `POST /auth/v3/tenant_access_token/internal` | Exchange for a tenant access token | No permission required (uses App ID / Secret) |
+| `POST /im/v1/messages/{id}/reply` | Reply to a message (primary path) | `im:message`, `im:message:send_as_bot`, or `im:message:send` |
+| `POST /im/v1/messages` | Send a message (fallback when reply fails) | Same as above |
+| `GET /im/v1/messages/{id}/resources/{key}` | Download a file/image sent by the user | `im:message` or `im:message:readonly` |
+| `POST /im/v1/images` | Upload an image to obtain an `image_key` | `im:resource` or `im:resource:upload` |
+| `POST /cardkit/v1/cards`<br>`PUT /cardkit/v1/cards/{id}/elements/{eid}/content`<br>`PATCH /cardkit/v1/cards/{id}/settings` | Streaming card (only needed for streaming output mode) | `cardkit:card:write` |
+| Subscribe to event `im.message.receive_v1` (direct message) | Receive direct messages | `im:message.p2p_msg` or `im:message.p2p_msg:readonly` |
+| Subscribe to event `im.message.receive_v1` (group @ mention) | Receive @-mention messages in groups | `im:message.group_at_msg` or `im:message.group_at_msg:readonly` |
 
-因此 IM 功能全开（私聊 + 群聊 @ + 文件 + 图片 + 流式卡片）最少需要 5 类权限：收私聊、收群 @、
-发消息、读写资源、写卡片。若关闭流式输出（输出模式选「完整输出」），`cardkit:card:write` 可省略。
+Therefore, to fully enable IM functionality (direct messages + group @ mentions + files + images + streaming cards), a minimum of 5 permission
+categories is required: receive direct messages, receive group @ mentions, send messages, read/write resources, and write cards. If streaming
+output is disabled (output mode set to "Full"), `cardkit:card:write` can be omitted.
 
-#### Webhook 模式
+#### Webhook Mode
 
 ```
-飞书服务器 ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
+Feishu server ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
                                    │
-                           解密 (AES-256-CBC，可选)
-                           解析 JSON → IncomingMessage
+                           Decrypt (AES-256-CBC, optional)
+                           Parse JSON → IncomingMessage
                                    │
-                           通过飞书 Open API 回复
+                           Reply via the Feishu Open API
 ```
 
-- **加密方案：** AES-256-CBC，Key 为 `SHA-256(encrypt_key)`，IV 为密文前 16 字节
-- **事件过滤：** 仅处理 `im.message.receive_v1` 事件，忽略其他事件类型
-- **消息类型：** `text`（文本）、`file`（文件）、`image`（图片）、`post`（富文本，提取标题 + 结构化内容）
-- **群消息处理：** 自动去除 `@_user_xxx` 提及前缀
+- **Encryption scheme:** AES-256-CBC, with the Key being `SHA-256(encrypt_key)` and the IV being the first 16 bytes of the ciphertext
+- **Event filtering:** only `im.message.receive_v1` events are processed; other event types are ignored
+- **Message types:** `text` (text), `file` (file), `image` (image), `post` (rich text, extracts title + structured content)
+- **Group message handling:** the `@_user_xxx` mention prefix is automatically stripped
 
-#### WebSocket 模式
+#### WebSocket Mode
 
-通过飞书官方 SDK (`github.com/larksuite/oapi-sdk-go`) 建立长连接，事件推送与 Webhook 等价，无需公网域名，内置自动重连。
+Establishes a long connection via the official Feishu SDK (`github.com/larksuite/oapi-sdk-go`); event delivery is equivalent to Webhook mode, requires no public domain, and has built-in automatic reconnection.
 
-#### 流式回复 (CardKit v1)
+#### Streaming Reply (CardKit v1)
 
-飞书的流式输出基于 **CardKit 卡片流式更新**，是官方推荐的最佳实践：
+Feishu's streaming output is based on **CardKit card streaming updates**, the officially recommended best practice:
 
 ```
 StartStream:
-  1. POST /cardkit/v1/cards              → 创建卡片实体 (streaming_mode: true)
-  2. POST /im/v1/messages                → 发送卡片消息到聊天
+  1. POST /cardkit/v1/cards              → create the card entity (streaming_mode: true)
+  2. POST /im/v1/messages                → send the card message to the chat
 
 UpdateStreamContent:
-  3. PUT /cardkit/v1/cards/{id}/elements/{eid}/content  → 更新元素内容 (累积全文)
+  3. PUT /cardkit/v1/cards/{id}/elements/{eid}/content  → update the element content (accumulated full text)
 
 FinalizeStream:
-  4. PUT /cardkit/v1/cards/{id}/elements/{eid}/content  → 最终可见内容（通常为纯答案）
+  4. PUT /cardkit/v1/cards/{id}/elements/{eid}/content  → final visible content (usually the plain answer)
 
 EndStream:
-  5. PATCH /cardkit/v1/cards/{id}/settings  → 设置 streaming_mode: false
+  5. PATCH /cardkit/v1/cards/{id}/settings  → set streaming_mode: false
 ```
 
-每次 `UpdateStreamContent` / `FinalizeStream` 发送的是**累积全文**而非增量，由 `feishuStreamState` 跟踪完整内容和严格递增的 `sequence` 序号。
+Each `UpdateStreamContent` / `FinalizeStream` call sends the **accumulated full text**, not an increment, tracked by `feishuStreamState`, which maintains the full content and a strictly increasing `sequence` number.
 
-**Think 块处理：** 流式输出中的 `<think>...</think>` 块会被转换为飞书 Markdown 引用块格式：
+**Think block handling:** `<think>...</think>` blocks in streaming output are converted into Feishu Markdown quote block format:
 
 ```
-> 💭 **思考过程**
+> 💭 **Thinking Process**
 > [thinking content line 1]
 > [thinking content line 2]
 ```
 
-> **已知限制**：`Region.ThinkingText` 只本地化了卡片的初始占位文案（Lark 显示 `Thinking...`）。
-> 一旦开始流式输出，think 块标题来自共享的 `MarkdownThinkStyle`，目前对所有平台
-> （Lark、Slack、Telegram、Mattermost 等）都是中文。本地化它需要把 locale 贯穿到
-> `FormatIMDisplayContent`，属于跨平台改动，不在 Lark 接入范围内。
+> **Known limitation**: `Region.ThinkingText` only localizes the card's initial placeholder text (Lark shows `Thinking...`).
+> Once streaming output begins, the think block title comes from the shared `MarkdownThinkStyle`, which is currently in Chinese
+> for all platforms (Lark, Slack, Telegram, Mattermost, etc.). Localizing it would require threading the locale through
+> `FormatIMDisplayContent`, which is a cross-platform change and out of scope for the Lark integration.
 
-**孤立流清理：** 后台协程每 1 分钟扫描超过 5 分钟未关闭的流式卡片，自动调用 `EndStream` 关闭（防止内存泄漏）。
+**Orphaned stream cleanup:** a background goroutine scans every 1 minute for streaming cards that have been open for more than 5 minutes without being closed, and automatically calls `EndStream` to close them (preventing memory leaks).
 
-#### 源码文件
+#### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/feishu/region.go` | `Region` 定义（飞书 / Lark 的域名、平台标识、日志前缀、本地化文案） |
-| `internal/im/feishu/adapter.go` | 事件解析、CardKit 流式实现、Token 缓存、AES 解密、Think 块转换、文件下载 |
-| `internal/im/feishu/longconn.go` | WebSocket 长连接（封装飞书 SDK）、事件分发 |
-| `internal/im/feishu/factory.go` | 按 `Region` 构造适配器与长连接客户端 |
+| `internal/im/feishu/region.go` | `Region` definition (Feishu / Lark domains, platform identifier, log prefix, localized text) |
+| `internal/im/feishu/adapter.go` | Event parsing, CardKit streaming implementation, token caching, AES decryption, think block conversion, file downloads |
+| `internal/im/feishu/longconn.go` | WebSocket long connection (wraps the Feishu SDK), event dispatch |
+| `internal/im/feishu/factory.go` | Constructs the adapter and long-connection client based on `Region` |
 
 ---
 
 ### Slack
 
-统一适配器同时支持 Webhook 和 WebSocket (Socket Mode) 模式，且原生实现 `StreamSender` 接口。
+The unified adapter supports both Webhook and WebSocket (Socket Mode) modes, and natively implements the `StreamSender` interface.
 
-#### Webhook 模式 (Events API)
+#### Webhook Mode (Events API)
 
 ```
-Slack 服务器 ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
+Slack server ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
                                    │
-                           签名验证 (HMAC-SHA256)
-                           解析 JSON → IncomingMessage
+                           Signature verification (HMAC-SHA256)
+                           Parse JSON → IncomingMessage
                                    │
-                           通过 Slack Web API 回复
+                           Reply via the Slack Web API
 ```
 
-- **签名验证：** 使用 `signing_secret` 对请求体进行 HMAC-SHA256 签名验证，防止伪造请求。
-- **事件过滤：** 仅处理 `message` 和 `app_mention` 事件，忽略机器人自己发送的消息。
-- **URL 验证：** 自动处理 Slack 的 `url_verification` challenge 请求。
+- **Signature verification:** uses `signing_secret` to perform HMAC-SHA256 signature verification on the request body, preventing forged requests.
+- **Event filtering:** only `message` and `app_mention` events are processed; messages sent by the bot itself are ignored.
+- **URL verification:** automatically handles Slack's `url_verification` challenge request.
 
-#### WebSocket 模式 (Socket Mode)
+#### WebSocket Mode (Socket Mode)
 
-通过 `slack-go/slack/socketmode` 建立长连接，事件推送与 Webhook 等价，无需公网域名，内置自动重连。
+Establishes a long connection via `slack-go/slack/socketmode`; event delivery is equivalent to Webhook mode, requires no public domain, and has built-in automatic reconnection.
 
 ```
 LongConnClient ══WebSocket══▶ wss://wss-primary.slack.com
        │
-  1. 使用 App Token 建立连接
-  2. 接收 Events API 消息帧
-  3. 确认消息 (Ack)
-  4. 通过 Slack Web API 回复
+  1. Establish the connection using the App Token
+  2. Receive Events API message frames
+  3. Acknowledge messages (Ack)
+  4. Reply via the Slack Web API
 ```
 
-#### 流式回复
+#### Streaming Reply
 
-Slack 的流式输出基于消息更新 (chat.update) 实现：
+Slack's streaming output is implemented via message updates (chat.update):
 
 ```
 StartStream:
-  1. POST /chat.postMessage              → 发送初始消息，获取 ts (timestamp)
+  1. POST /chat.postMessage              → send the initial message, obtain the ts (timestamp)
 
 UpdateStreamContent:
-  2. POST /chat.update                   → 根据 ts 更新消息内容 (累积全文)
+  2. POST /chat.update                   → update the message content based on ts (accumulated full text)
 
 FinalizeStream:
-  3. POST /chat.update                   → 最终可见内容替换
+  3. POST /chat.update                   → replace with the final visible content
 
 EndStream:
-  4. 无需特殊操作
+  4. No special action needed
 ```
 
-每次 `UpdateStreamContent` / `FinalizeStream` 发送的是**累积全文**而非增量。
+Each `UpdateStreamContent` / `FinalizeStream` call sends the **accumulated full text**, not an increment.
 
-#### 源码文件
+#### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/slack/adapter.go` | 事件解析、签名验证、流式实现、文件下载 |
-| `internal/im/slack/longconn.go` | WebSocket 长连接（封装 slack-go Socket Mode） |
+| `internal/im/slack/adapter.go` | Event parsing, signature verification, streaming implementation, file downloads |
+| `internal/im/slack/longconn.go` | WebSocket long connection (wraps slack-go Socket Mode) |
 
 ---
 
 ### Telegram
 
-统一适配器同时支持 Webhook 和长轮询模式，原生实现 `StreamSender` 和 `FileDownloader` 接口。
+The unified adapter supports both Webhook and long polling modes, natively implementing the `StreamSender` and `FileDownloader` interfaces.
 
-#### Webhook 模式
+#### Webhook Mode
 
 ```
-Telegram 服务器 ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
+Telegram server ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
                                    │
-                           Secret Token 验证（可选）
-                           解析 JSON → IncomingMessage
+                           Secret Token verification (optional)
+                           Parse JSON → IncomingMessage
                                    │
-                           通过 Telegram Bot API 回复
+                           Reply via the Telegram Bot API
 ```
 
-- **签名验证：** 通过 `X-Telegram-Bot-Api-Secret-Token` 请求头与配置的 `secret_token` 进行常量时间比较
-- **消息类型：** `text`（文本）、`document`（文件，通过 file_id 下载）、`photo`（图片，自动选择最大尺寸）
-- **群消息处理：** 自动去除 `@bot` 提及前缀
+- **Signature verification:** constant-time comparison of the `X-Telegram-Bot-Api-Secret-Token` header against the configured `secret_token`
+- **Message types:** `text` (text), `document` (file, downloaded via file_id), `photo` (image, automatically selects the largest size)
+- **Group message handling:** the `@bot` mention prefix is automatically stripped
 
-#### 长轮询模式 (Long Polling)
+#### Long Polling Mode
 
-Telegram 的 WebSocket 模式实际使用长轮询（Long Polling）而非真正的 WebSocket，通过持续调用 `getUpdates` API 获取新消息。
+Telegram's WebSocket mode actually uses long polling rather than a true WebSocket, continuously calling the `getUpdates` API to fetch new messages.
 
 ```
 LongConnClient ──HTTP POST──▶ https://api.telegram.org/bot<token>/getUpdates
        │
-  1. 发送 getUpdates (timeout=30s，长轮询)
-  2. 解析返回的 Update 列表
-  3. 更新 offset 以确认已处理
-  4. 循环继续
-  5. 错误时退避 3 秒重试
+  1. Send getUpdates (timeout=30s, long polling)
+  2. Parse the returned Update list
+  3. Update the offset to confirm processed messages
+  4. Loop
+  5. Back off 3 seconds on error and retry
 ```
 
-- **超时设置：** HTTP 客户端 35s，长轮询 timeout 30s
-- **消息确认：** 通过 `offset` 参数自动确认已处理的消息
+- **Timeout settings:** 35s HTTP client timeout, 30s long polling timeout
+- **Message acknowledgment:** processed messages are automatically confirmed via the `offset` parameter
 
-#### 流式回复
+#### Streaming Reply
 
-Telegram 的流式输出基于消息编辑 (editMessageText) 实现：
+Telegram's streaming output is implemented via message editing (editMessageText):
 
 ```
 StartStream:
-  1. POST sendMessage               → 发送初始 "正在思考..." 消息，获取 message_id
+  1. POST sendMessage               → send the initial "Thinking..." message, obtain the message_id
 
 UpdateStreamContent:
-  2. POST editMessageText            → 根据 message_id 更新消息内容（累积全文，纯文本）
+  2. POST editMessageText            → update the message content based on message_id (accumulated full text, plain text)
 
 FinalizeStream:
-  3. POST editMessageText            → 最终可见内容替换（与流式阶段相同，纯文本）
+  3. POST editMessageText            → replace with the final visible content (same as during streaming, plain text)
 
 EndStream:
-  4. 清理流状态
+  4. Clean up stream state
 ```
 
-每次 `UpdateStreamContent` / `FinalizeStream` 发送的是**累积全文**而非增量，最小编辑间隔 500ms（避免触发 Telegram 速率限制）。中间态与终态均使用纯文本，避免 Markdown 解析失败。
+Each `UpdateStreamContent` / `FinalizeStream` call sends the **accumulated full text**, not an increment, with a minimum edit interval of 500ms (to avoid triggering Telegram's rate limits). Both intermediate and final states use plain text, avoiding Markdown parsing failures.
 
-**Think 块处理：** 流式输出中的 `<think>...</think>` 块会被转换为 Telegram 引用块格式：
+**Think block handling:** `<think>...</think>` blocks in streaming output are converted into Telegram quote block format:
 
 ```
-> 💭 *思考过程*
+> 💭 *Thinking Process*
 > [thinking content line 1]
 > [thinking content line 2]
 ```
 
-**孤立流清理：** 后台协程每 1 分钟扫描超过 5 分钟未关闭的流式消息，自动清理（防止内存泄漏）。
+**Orphaned stream cleanup:** a background goroutine scans every 1 minute for streaming messages that have been open for more than 5 minutes without being closed, and automatically cleans them up (preventing memory leaks).
 
-#### 文件下载
+#### File Download
 
-Telegram 支持文件和图片消息的下载，流程：
-1. 调用 `getFile` API 获取文件路径
-2. 通过 `https://api.telegram.org/file/bot<token>/<file_path>` 下载文件
+Telegram supports downloading file and image messages, via the following flow:
+1. Call the `getFile` API to obtain the file path
+2. Download the file via `https://api.telegram.org/file/bot<token>/<file_path>`
 
-#### 源码文件
+#### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/telegram/adapter.go` | 事件解析、Secret Token 验证、流式实现（editMessage）、文件下载 |
-| `internal/im/telegram/longconn.go` | 长轮询客户端：getUpdates 循环、offset 管理、错误退避 |
+| `internal/im/telegram/adapter.go` | Event parsing, Secret Token verification, streaming implementation (editMessage), file downloads |
+| `internal/im/telegram/longconn.go` | Long polling client: getUpdates loop, offset management, error backoff |
 
 ---
 
-### 钉钉 (DingTalk)
+### DingTalk
 
-统一适配器同时支持 Webhook 和 Stream 模式，原生实现 `StreamSender` 接口。支持可选的 AI 卡片流式输出。
+The unified adapter supports both Webhook and Stream modes, natively implementing the `StreamSender` interface. Supports optional AI card streaming output.
 
-#### Webhook 模式
+#### Webhook Mode
 
 ```
-钉钉服务器 ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
+DingTalk server ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
                                    │
-                           HmacSHA256 签名验证
-                           解析 JSON → IncomingMessage
+                           HmacSHA256 signature verification
+                           Parse JSON → IncomingMessage
                                    │
-                           通过 sessionWebhook 或 OpenAPI 回复
+                           Reply via sessionWebhook or the OpenAPI
 ```
 
-- **签名验证：** 使用 `client_secret` 对 `timestamp + "\n" + secret` 进行 HmacSHA256 签名，Base64 编码后与请求头 `Sign` 比较，时间戳 1 小时内有效
-- **回复方式：** 优先使用回调消息体中的 `sessionWebhook` 回复（适用于群聊场景），失败或不可用时降级到 OpenAPI
-  - 群聊：`/v1.0/robot/groupMessages/send`
-  - 私聊：`/v1.0/robot/oToMessages/batchSend`
-- **消息格式：** Markdown 格式（`sampleMarkdown`）
-- **认证：** 通过 `/v1.0/oauth2/accessToken` 获取 Access Token，带缓存（提前 5 分钟刷新）
+- **Signature verification:** uses `client_secret` to compute an HmacSHA256 signature over `timestamp + "\n" + secret`, Base64-encoded and compared against the `Sign` request header; the timestamp is valid for 1 hour
+- **Reply method:** prefers replying via the `sessionWebhook` in the callback message body (suitable for group chats); falls back to the OpenAPI when unavailable or on failure
+  - Group chat: `/v1.0/robot/groupMessages/send`
+  - Direct message: `/v1.0/robot/oToMessages/batchSend`
+- **Message format:** Markdown format (`sampleMarkdown`)
+- **Authentication:** obtains an Access Token via `/v1.0/oauth2/accessToken`, with caching (refreshed 5 minutes before expiry)
 
-#### Stream 模式 (WebSocket)
+#### Stream Mode (WebSocket)
 
-通过钉钉官方 SDK (`github.com/open-dingtalk/dingtalk-stream-sdk-go`) 建立 Stream 连接，事件推送与 Webhook 等价，无需公网域名，内置自动重连。
+Establishes a Stream connection via the official DingTalk SDK (`github.com/open-dingtalk/dingtalk-stream-sdk-go`); event delivery is equivalent to Webhook mode, requires no public domain, and has built-in automatic reconnection.
 
 ```
-LongConnClient ══Stream══▶ 钉钉 Stream 服务
+LongConnClient ══Stream══▶ DingTalk Stream service
        │
-  1. 使用 ClientID + ClientSecret 建立连接
-  2. 注册 ChatBot 回调处理
-  3. 接收消息事件
-  4. SDK 内置重连和心跳
+  1. Establish the connection using ClientID + ClientSecret
+  2. Register the ChatBot callback handler
+  3. Receive message events
+  4. Reconnection and heartbeat built into the SDK
 ```
 
-#### 流式回复 (AI 卡片)
+#### Streaming Reply (AI Cards)
 
-钉钉的流式输出基于 **AI 互动卡片** 实现（需配置 `card_template_id`）：
+DingTalk's streaming output is implemented via **AI interactive cards** (requires configuring `card_template_id`):
 
 ```
 StartStream:
-  1. POST /v1.0/card/instances/createAndDeliver  → 创建并投递 AI 卡片
+  1. POST /v1.0/card/instances/createAndDeliver  → create and deliver the AI card
 
 UpdateStreamContent:
-  2. PUT /v1.0/card/streaming                     → 流式更新卡片内容（累积全文）
+  2. PUT /v1.0/card/streaming                     → streaming update of the card content (accumulated full text)
 
 FinalizeStream:
-  3. PUT /v1.0/card/streaming                     → 最终可见内容替换
+  3. PUT /v1.0/card/streaming                     → replace with the final visible content
 
 EndStream:
-  4. PUT /v1.0/card/streaming (isFinalize=true)   → 标记流式结束
+  4. PUT /v1.0/card/streaming (isFinalize=true)   → mark the stream as finished
 ```
 
-每次 `UpdateStreamContent` / `FinalizeStream` 发送的是**累积全文**（`isFull: true`），最小更新间隔 500ms。
+Each `UpdateStreamContent` / `FinalizeStream` call sends the **accumulated full text** (`isFull: true`), with a minimum update interval of 500ms.
 
-**无卡片模板时的降级策略：** 未配置 `card_template_id` 时，流式内容在内存中累积，`EndStream` 时一次性通过 `sessionWebhook` 或 OpenAPI 发送完整回复。
+**Fallback strategy without a card template:** when `card_template_id` is not configured, streaming content is accumulated in memory, and `EndStream` sends the complete reply all at once via `sessionWebhook` or the OpenAPI.
 
-**Think 块处理：** 使用与飞书相同的 Markdown 引用块格式（`MarkdownThinkStyle`）：
+**Think block handling:** uses the same Markdown quote block format as Feishu (`MarkdownThinkStyle`):
 
 ```
-> 💭 **思考过程**
+> 💭 **Thinking Process**
 > [thinking content line 1]
 > [thinking content line 2]
 ```
 
-**孤立流清理：** 后台协程每 1 分钟扫描超过 5 分钟未关闭的流，自动清理防止内存泄漏。
+**Orphaned stream cleanup:** a background goroutine scans every 1 minute for streams that have been open for more than 5 minutes without being closed, and automatically cleans them up to prevent memory leaks.
 
-#### 源码文件
+#### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/dingtalk/adapter.go` | 事件解析、HmacSHA256 签名验证、AI 卡片流式实现、Access Token 缓存、OpenAPI 调用 |
-| `internal/im/dingtalk/longconn.go` | Stream 客户端（封装钉钉 SDK）、ChatBot 消息分发 |
+| `internal/im/dingtalk/adapter.go` | Event parsing, HmacSHA256 signature verification, AI card streaming implementation, Access Token caching, OpenAPI calls |
+| `internal/im/dingtalk/longconn.go` | Stream client (wraps the DingTalk SDK), ChatBot message dispatch |
 
 ---
 
 ### Mattermost
 
-仅支持 **Webhook** 模式：Mattermost **Outgoing Webhook** 将请求体 POST 到 WeKnora 统一回调地址；适配器实现 `Adapter`、`StreamSender`、`FileDownloader`（标准库 HTTP 调用 REST API，无第三方 SDK）。
+Only supports **Webhook** mode: a Mattermost **Outgoing Webhook** POSTs the request body to WeKnora's unified callback address; the adapter implements `Adapter`, `StreamSender`, and `FileDownloader` (using standard library HTTP calls to the REST API, no third-party SDK).
 
-#### Webhook 模式（Outgoing Webhook）
+#### Webhook Mode (Outgoing Webhook)
 
 ```
-Mattermost 服务器 ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
+Mattermost server ──HTTP POST──▶ /api/v1/im/callback/{channel_id}
                                         │
-                                校验 body 中 token = outgoing_token
-                                解析 JSON 或 x-www-form-urlencoded
+                                Validate that body's token = outgoing_token
+                                Parse JSON or x-www-form-urlencoded
                                         │
-                                通过 REST API v4 回复（Bearer Bot Token）
+                                Reply via REST API v4 (Bearer Bot Token)
 ```
 
-- **安全校验：** 请求体中的 `token` 必须与渠道凭证中的 `outgoing_token` 一致（创建渠道时工厂会校验 `outgoing_token` 非空）。
-- **载荷格式：** 支持 `application/json` 与 `application/x-www-form-urlencoded`（与 [官方文档](https://developers.mattermost.com/integrate/webhooks/outgoing/) 一致）。
-- **机器人过滤：** 若配置了 `bot_user_id`，且 `user_id` 与之相同，则返回 `nil` 消息，避免自激。
-- **线程回复：** `IncomingMessage.Extra` 中保存 `thread_root_id`（有 `root_id` 时用其值，否则用触发帖 `post_id`）；`SendReply` / `CreatePost` 时设置 `root_id`，使回复出现在同一线程。
-- **消息去重：** `MessageID` 使用触发帖的 `post_id`。
-- **文件消息：** 若载荷含 `file_ids`，取首个文件 ID 作为 `FileKey`；`DownloadFile` 先 `GET /api/v4/files/{id}/info` 再 `GET /api/v4/files/{id}` 下载内容。
+- **Security validation:** the `token` in the request body must match the `outgoing_token` in the channel credentials (the factory validates that `outgoing_token` is non-empty when the channel is created).
+- **Payload format:** supports both `application/json` and `application/x-www-form-urlencoded` (consistent with the [official documentation](https://developers.mattermost.com/integrate/webhooks/outgoing/)).
+- **Bot filtering:** if `bot_user_id` is configured and `user_id` matches it, a `nil` message is returned to avoid self-triggering.
+- **Thread reply:** `IncomingMessage.Extra` stores `thread_root_id` (uses the value of `root_id` if present, otherwise the triggering post's `post_id`); `root_id` is set when calling `SendReply` / `CreatePost`, so the reply appears in the same thread.
+- **Message deduplication:** `MessageID` uses the triggering post's `post_id`.
+- **File messages:** if the payload contains `file_ids`, the first file ID is used as `FileKey`; `DownloadFile` first calls `GET /api/v4/files/{id}/info` and then `GET /api/v4/files/{id}` to download the content.
 
-#### 流式回复
+#### Streaming Reply
 
-与 Slack 类似，通过**编辑同一条帖子**展示累积全文：
+Similar to Slack, the accumulated full text is shown by **editing the same post**:
 
 ```
 StartStream:
-  1. POST /api/v4/posts                    → 创建占位帖（如「正在思考...」），得到 post id
+  1. POST /api/v4/posts                    → create a placeholder post (e.g. "Thinking..."), obtain the post id
 
 UpdateStreamContent:
-  2. PUT /api/v4/posts/{post_id}/patch     → Patch message 字段（累积全文）
+  2. PUT /api/v4/posts/{post_id}/patch     → patch the message field (accumulated full text)
 
 FinalizeStream:
-  3. PUT /api/v4/posts/{post_id}/patch     → 最终可见内容替换
+  3. PUT /api/v4/posts/{post_id}/patch     → replace with the final visible content
 
 EndStream:
-  4. 清理流状态
+  4. Clean up stream state
 ```
 
-流式刷新间隔由 Service 侧 `streamFlushInterval`（300ms）批量合并，以降低编辑频率、减轻 API 压力。
+The streaming refresh interval is batched by the Service-side `streamFlushInterval` (300ms), reducing edit frequency and API load.
 
-#### URL 验证
+#### URL Verification
 
-Mattermost 出站 Webhook 无 Slack/Feishu 类 challenge 流程，`HandleURLVerification` 恒为 `false`。
+Mattermost outgoing webhooks have no Slack/Feishu-style challenge flow; `HandleURLVerification` always returns `false`.
 
-#### 源码文件
+#### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/mattermost/adapter.go` | 出站 Webhook 解析、Token 校验、发帖/补丁流式、文件下载 |
-| `internal/im/mattermost/client.go` | REST v4：`CreatePost`、`PatchPostMessage`、文件 info/下载 |
-| `internal/im/mattermost/form_parse.go` | 表单编码 body 与 `file_ids` 辅助解析 |
+| `internal/im/mattermost/adapter.go` | Outgoing webhook parsing, token validation, posting/patching for streaming, file downloads |
+| `internal/im/mattermost/client.go` | REST v4: `CreatePost`, `PatchPostMessage`, file info/download |
+| `internal/im/mattermost/form_parse.go` | Form-encoded body and `file_ids` parsing helpers |
 
 ---
 
-## 斜杠指令系统
+## Slash Command System
 
-IM 渠道支持斜杠指令（Slash Commands），用户在聊天中输入 `/指令名` 即可触发，无需经过 QA 管道，且不受限流约束。
+IM channels support slash commands — users type `/commandname` in chat to trigger them, bypassing the QA pipeline and not subject to rate limiting.
 
-### 内置指令
+### Built-in Commands
 
-| 指令 | 参数 | 说明 |
+| Command | Arguments | Description |
 |------|------|------|
-| `/help` | `[指令名]` | 显示所有可用指令列表；带参数时显示指定指令的详细用法 |
-| `/info` | — | 查看当前绑定智能体的名称、角色设定、知识库列表等信息 |
-| `/search` | `<关键词>` | 对绑定的知识库执行混合检索（向量 + 关键词），返回最多 5 条原文片段，不经过 AI 总结 |
-| `/stop` | — | 取消当前排队中或正在执行的 QA 请求 |
-| `/clear` | — | 清空当前对话记忆（软删除 ChannelSession），下次消息开始全新会话 |
+| `/help` | `[command name]` | Shows a list of all available commands; with an argument, shows detailed usage for the specified command |
+| `/info` | — | Shows the name, persona/role settings, knowledge base list, and other information of the currently bound assistant |
+| `/search` | `<keyword>` | Performs a hybrid search (vector + keyword) against the bound knowledge base, returning up to 5 raw text snippets without AI summarization |
+| `/stop` | — | Cancels the currently queued or executing QA request |
+| `/clear` | — | Clears the current conversation memory (soft-deletes the ChannelSession); a new session starts on the next message |
 
-### 指令分发流程
+### Command Dispatch Flow
 
 ```
-用户消息 ──▶ HandleMessage
+User message ──▶ HandleMessage
                │
-               ├─ 以 "/" 开头？
+               ├─ Starts with "/"?
                │      │
-               │      ├─ 已注册指令 → CommandRegistry.Parse → Command.Execute → 回复结果
+               │      ├─ Registered command → CommandRegistry.Parse → Command.Execute → reply with result
                │      │                                             │
-               │      │                                     ActionClear → 软删除 ChannelSession
-               │      │                                     ActionStop  → 取消排队/执行中的 QA
+               │      │                                     ActionClear → soft-delete the ChannelSession
+               │      │                                     ActionStop  → cancel a queued/executing QA request
                │      │
-               │      └─ LooksLikeCommand() = true 但未注册
-               │             → 回复 "未知指令，发送 /help 查看"
-               │         LooksLikeCommand() = false (如 "/api/v2/users")
-               │             → 当作普通消息，进入 QA 管道
+               │      └─ LooksLikeCommand() = true but not registered
+               │             → reply "Unknown command, send /help to see available commands"
+               │         LooksLikeCommand() = false (e.g. "/api/v2/users")
+               │             → treated as a normal message, enters the QA pipeline
                │
-               └─ 普通消息 → 限流检查 → qaQueue → QA 管道
+               └─ Normal message → rate limit check → qaQueue → QA pipeline
 ```
 
-> `LooksLikeCommand()` 通过检查首 token 是否含有 `/` 分隔符来区分指令尝试和 URL 路径，避免误拦截。
+> `LooksLikeCommand()` checks whether the first token contains a `/` separator to distinguish command attempts from URL paths, avoiding false interception.
 
-### 扩展自定义指令
+### Extending with Custom Commands
 
-实现 `im.Command` 接口并在 Service 初始化时注册到 `CommandRegistry`：
+Implement the `im.Command` interface and register it with the `CommandRegistry` during Service initialization:
 
 ```go
 type Command interface {
-    Name() string        // 指令名 (不含 "/")
-    Description() string // 一行描述，用于 /help 输出
+    Name() string        // command name (without "/")
+    Description() string // one-line description, used for /help output
     Execute(ctx context.Context, cmdCtx *CommandContext, args []string) (*CommandResult, error)
 }
 ```
 
-**设计约定：**
-- 依赖（DB、Service）通过构造函数注入，不放在 `CommandContext` 中
-- 用户输入错误通过 `CommandResult` 返回友好提示，`error` 仅用于基础设施故障（DB 异常、网络错误等）
-- 通过 `CommandResult.Action` 声明副作用意图（如清空会话），由 Service 执行
-- 重复注册同名指令会在启动时 panic，确保配置错误尽早暴露
+**Design conventions:**
+- Dependencies (DB, Services) are injected via the constructor, not placed in `CommandContext`
+- User input errors are returned as friendly messages via `CommandResult`; `error` is used only for infrastructure failures (DB errors, network errors, etc.)
+- Side-effect intentions (such as clearing a session) are declared via `CommandResult.Action` and executed by the Service
+- Registering a duplicate command name will panic at startup, ensuring configuration errors are surfaced early
 
-### 源码文件
+### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/command.go` | Command 接口、CommandAction、CommandContext 定义 |
-| `internal/im/command_registry.go` | CommandRegistry：指令注册、解析、分发、LooksLikeCommand |
-| `internal/im/cmd_help.go` | `/help` 指令实现 |
-| `internal/im/cmd_info.go` | `/info` 指令实现（展示 Agent 信息、知识库列表） |
-| `internal/im/cmd_search.go` | `/search` 指令实现（混合检索，最多 5 条，内容截断 200 rune） |
-| `internal/im/cmd_stop.go` | `/stop` 指令实现 |
-| `internal/im/cmd_clear.go` | `/clear` 指令实现 |
+| `internal/im/command.go` | `Command` interface, `CommandAction`, `CommandContext` definitions |
+| `internal/im/command_registry.go` | `CommandRegistry`: command registration, parsing, dispatch, `LooksLikeCommand` |
+| `internal/im/cmd_help.go` | `/help` command implementation |
+| `internal/im/cmd_info.go` | `/info` command implementation (shows Agent info, knowledge base list) |
+| `internal/im/cmd_search.go` | `/search` command implementation (hybrid search, up to 5 results, content truncated to 200 runes) |
+| `internal/im/cmd_stop.go` | `/stop` command implementation |
+| `internal/im/cmd_clear.go` | `/clear` command implementation |
 
 ---
 
-## QA 队列与限流
+## QA Queue and Rate Limiting
 
-### QA 队列 (qaQueue)
+### QA Queue (qaQueue)
 
-有界工作池队列管理 QA 请求，防止并发过载：
+A bounded worker pool queue manages QA requests, preventing concurrency overload:
 
 ```
-消息 ──▶ Enqueue ──▶ [ 等待队列 (≤50) ] ──▶ Worker Pool (5 workers) ──▶ QA 管道
+Message ──▶ Enqueue ──▶ [ Waiting queue (≤50) ] ──▶ Worker Pool (5 workers) ──▶ QA pipeline
               │                                      │
-              ├─ 队列已满 → 拒绝并回复提示               │
-              ├─ 用户排队超限 (≤3) → 拒绝               ├─ 等待超时 (>60s) → 丢弃并通知
-              └─ /stop → Remove(userKey) 取消           └─ 正常执行 QA
+              ├─ Queue full → reject and reply with a message │
+              ├─ User queue limit exceeded (≤3) → reject       ├─ Wait timeout (>60s) → dropped and user notified
+              └─ /stop → Remove(userKey) to cancel             └─ Executes QA normally
 ```
 
-**设计要点：**
+**Design highlights:**
 
-- **有界队列**：最大容量 50，防止内存无限增长
-- **Per-User 背压**：单用户最多同时排队 3 个请求，避免单用户刷屏占满队列
-- **排队等待提示**：入队成功且队列非空时，回复 "前面还有 N 条消息在处理，请稍候"
-- **排队超时**：请求在队列中等待超过 60 秒自动丢弃，回复超时提示
-- **可取消**：`/stop` 指令通过 `qaQueue.Remove(userKey)` 取消排队请求，通过 `inflight` map 中的 `context.CancelFunc` 取消执行中请求
-- **指标监控**：每 30 秒输出队列深度、活跃 Worker 数、入队/处理/拒绝/超时计数（仅在有活动时输出）
+- **Bounded queue**: maximum capacity 50, preventing unbounded memory growth
+- **Per-user backpressure**: each user can have at most 3 requests queued at once, preventing a single user from flooding and filling the queue
+- **Queue wait notification**: on successful enqueue when the queue is non-empty, replies "There are N messages ahead of you being processed, please wait"
+- **Queue timeout**: a request waiting in the queue for more than 60 seconds is automatically dropped, with a timeout notification sent
+- **Cancelable**: the `/stop` command cancels a queued request via `qaQueue.Remove(userKey)`, and cancels an executing request via the `context.CancelFunc` in the `inflight` map
+- **Metrics monitoring**: every 30 seconds, outputs queue depth, active worker count, and enqueue/processed/rejected/timeout counts (only when there is activity)
 
-### 滑动窗口限流 (rateLimiter)
+### Sliding Window Rate Limiting (rateLimiter)
 
-在消息进入 QA 队列之前，按 `channelID:userID:chatID` 维度进行滑动窗口限流：
+Before a message enters the QA queue, it is rate-limited using a sliding window keyed by `channelID:userID:chatID`:
 
-| 参数 | 值 | 说明 |
+| Parameter | Value | Description |
 |------|------|------|
-| 窗口大小 | 60s | 滑动时间窗口 |
-| 最大请求数 | 10 次/窗口 | 每个用户每分钟最多 10 条消息进入 QA |
-| 清理周期 | 1 min | 自动清理过期条目，防止内存泄漏 |
+| Window size | 60s | Sliding time window |
+| Max requests | 10 per window | Each user can send at most 10 messages into QA per minute |
+| Cleanup interval | 1 min | Automatically clears expired entries, preventing memory leaks |
 
-超出限流时回复提示消息，不计入队列。斜杠指令不受限流约束。
+When the rate limit is exceeded, a notification message is sent in reply and the message does not enter the queue. Slash commands are not subject to rate limiting.
 
-### 源码文件
+### Source Files
 
-| 文件 | 职责 |
+| File | Responsibility |
 |------|------|
-| `internal/im/qaqueue.go` | qaQueue：有界队列、Worker Pool、QueueMetrics、指标上报 |
-| `internal/im/ratelimit.go` | slidingWindowLimiter：per-key 滑动窗口限流、并发安全清理 |
+| `internal/im/qaqueue.go` | qaQueue: bounded queue, worker pool, QueueMetrics, metrics reporting |
+| `internal/im/ratelimit.go` | slidingWindowLimiter: per-key sliding window rate limiting, concurrency-safe cleanup |
 
 ---
 
-## 流式输出机制
+## Streaming Output Mechanism
 
-流式模式通过 `EventBus` 实时收集 QA 管道产生的内容块，以 **300ms 间隔批量推送**，在延迟与 API 限频之间取得平衡：
+Streaming mode collects content chunks produced by the QA pipeline in real time via the `EventBus`, pushing them in **batches every 300ms**, balancing latency against API rate limits:
 
 ```
-QA 管道 ──chunk──chunk──chunk──▶ EventBus
+QA pipeline ──chunk──chunk──chunk──▶ EventBus
                                     │
-                              每 300ms 刷新
+                              Flush every 300ms
                                     │
                         ┌───────────▼───────────┐
-                        │ 累积内容 → 完整替换推送 │
-                        │ (非增量，每次发送全文)   │
+                        │ Accumulate content →   │
+                        │ push a full replacement │
+                        │ (not incremental, sends │
+                        │ the full text each time)│
                         └───────────────────────┘
 ```
 
-### 内容处理
+### Content Handling
 
-- **Think 块过滤/转换**：`<think>...</think>` 块在飞书和钉钉中转换为 Markdown 引用块展示，在 Telegram 中转换为引用块（斜体标题），在其他平台中过滤
-- **工具事件展示**：Agent 工具调用实时展示调用状态
-  - 调用中：`⏳ [工具名]`（包裹在 think 块内）
-  - 调用成功：`✅ [工具名] · [摘要]`
-  - 调用失败：`⚠️ [工具名] 失败`
-  - 内部工具（thinking、todo_write 等）不展示给用户
-- **空内容回退**：流式过程中无可见内容产生时，回退到完整回复模式 (`fallbackNonStream`)
-- **完整持久化**：完整内容（含 thinking）持久化到数据库，确保历史完整
+- **Think block filtering/conversion**: `<think>...</think>` blocks are converted into Markdown quote blocks for display in Feishu and DingTalk, converted into quote blocks with an italic title in Telegram, and filtered out on other platforms
+- **Tool event display**: Agent tool calls are shown in real time with their invocation status
+  - In progress: `⏳ [tool name]` (wrapped inside a think block)
+  - Succeeded: `✅ [tool name] · [summary]`
+  - Failed: `⚠️ [tool name] failed`
+  - Internal tools (thinking, todo_write, etc.) are not shown to the user
+- **Empty content fallback**: if streaming produces no visible content, it falls back to full-reply mode (`fallbackNonStream`)
+- **Full persistence**: the full content (including thinking) is persisted to the database, ensuring complete history
 
-### 平台流式特殊处理
+### Platform-Specific Streaming Handling
 
-- **"正在思考..." 占位**：飞书和 Telegram 在流式初始化后立即显示占位文本，提升用户感知
-- **孤立流清理**：飞书、Telegram、钉钉的后台协程每 `streamReaperInterval`（1 分钟）扫描超过 `streamOrphanTTL`（5 分钟）未关闭的流，自动关闭防止内存泄漏
-- **Think 块转换**：飞书和钉钉将 `<think>` 标签转换为 Markdown 引用块（`> 💭 **思考过程**`），Telegram 使用斜体标题（`> 💭 *思考过程*`）
+- **"Thinking..." placeholder**: Feishu and Telegram immediately show placeholder text right after streaming initialization, improving perceived responsiveness
+- **Orphaned stream cleanup**: background goroutines for Feishu, Telegram, and DingTalk scan every `streamReaperInterval` (1 minute) for streams open longer than `streamOrphanTTL` (5 minutes) without being closed, and automatically close them to prevent memory leaks
+- **Think block conversion**: Feishu and DingTalk convert `<think>` tags into Markdown quote blocks (`> 💭 **Thinking Process**`); Telegram uses an italic title (`> 💭 *Thinking Process*`)
 
 ---
 
-## 文件消息处理
+## File Message Handling
 
-当用户在 IM 中发送文件或图片消息时，如果渠道配置了 `knowledge_base_id`，Service 会自动将文件保存到对应知识库：
+When a user sends a file or image message in IM, if the channel is configured with `knowledge_base_id`, the Service automatically saves the file to the corresponding knowledge base:
 
 ```
-用户发送文件/图片消息
+User sends a file/image message
         │
         ▼
-  消息类型 = file/image？
-  渠道配置了 knowledge_base_id？
-  Adapter 实现了 FileDownloader？
-        │ 全部满足
+  Message type = file/image?
+  Channel configured with knowledge_base_id?
+  Does the Adapter implement FileDownloader?
+        │ All satisfied
         ▼
   1. adapter.DownloadFile(msg) → io.ReadCloser + fileName
-  2. 通知用户 "正在处理文件..."
+  2. Notify the user "Processing file..."
   3. knowledgeService.Save(file, knowledgeBaseID)
-  4. 通知用户 "文件已保存到知识库"
+  4. Notify the user "File saved to knowledge base"
 ```
 
-**各平台文件下载方式：**
+**File download methods by platform:**
 
-| 平台 | 方式 |
+| Platform | Method |
 |------|------|
-| 飞书 | GetMessageResource API（通过 FileKey） |
-| 企业微信 Webhook | PicUrl 直接下载 或 MediaId 临时素材 API |
-| 企业微信 WebSocket | 加密附件 URL + per-message AES 密钥解密 |
-| Telegram | getFile API 获取文件路径 + HTTPS 下载（支持文档和图片） |
-| Mattermost | `GET /api/v4/files/{file_id}/info` + `GET /api/v4/files/{file_id}`（Bearer Bot Token） |
+| Feishu | GetMessageResource API (via FileKey) |
+| WeCom Webhook | Direct PicUrl download or MediaId temporary media API |
+| WeCom WebSocket | Encrypted attachment URL + per-message AES key decryption |
+| Telegram | getFile API to obtain the file path + HTTPS download (supports documents and images) |
+| Mattermost | `GET /api/v4/files/{file_id}/info` + `GET /api/v4/files/{file_id}` (Bearer Bot Token) |
 
 ---
 
-## 关键参数与阈值
+## Key Parameters and Thresholds
 
-| 参数 | 值 | 说明 |
+| Parameter | Value | Description |
 |------|------|------|
-| `qaTimeout` | 120s | QA 管道最大执行时间 |
-| `dedupTTL` | 5 min | 消息去重 ID 保留时长 |
-| `dedupCleanupInterval` | 1 min | 去重清理周期 |
-| `maxContentLength` | 4096 | 消息最大长度 (rune)，超出截断 |
-| `streamFlushInterval` | 300ms | 流式内容批量刷新间隔 |
-| `defaultMaxQueueSize` | 50 | QA 队列最大容量 |
-| `defaultMaxPerUser` | 3 | 单用户最大排队请求数 |
-| `defaultWorkers` | 5 | QA 并发 Worker 数 |
-| `queueTimeout` | 60s | 请求在队列中的最大等待时间 |
-| `rateLimitWindow` | 60s | 限流滑动窗口大小 |
-| `rateLimitMaxRequests` | 10 | 每用户每窗口最大请求数 |
-| `metricsLogInterval` | 30s | 队列指标日志上报周期 |
-| `streamOrphanTTL` | 5 min | 飞书/Telegram/钉钉 孤立流超时时间 |
-| `streamReaperInterval` | 1 min | 飞书/Telegram/钉钉 孤立流清理扫描周期 |
-| Telegram 编辑间隔 | 500ms | editMessageText 最小调用间隔（避免速率限制）|
-| Telegram 长轮询超时 | 30s | getUpdates timeout 参数 |
-| Telegram 错误退避 | 3s | getUpdates 失败后等待时间 |
-| DingTalk 卡片更新间隔 | 500ms | AI 卡片流式更新最小间隔 |
-| DingTalk 签名有效期 | 1h | Webhook 回调签名时间戳有效窗口 |
-| WeCom WS 心跳 | 30s | WebSocket 保活频率 |
-| WeCom WS 读超时 | 90s | 3 × 心跳间隔，允许一次心跳丢失 |
-| WeCom WS 重连退避 | 1s → 30s | 指数退避，上限 30 秒 |
-| Token 缓存安全余量 | 5 min | Token 过期前提前刷新 |
+| `qaTimeout` | 120s | Maximum execution time for the QA pipeline |
+| `dedupTTL` | 5 min | Message deduplication ID retention duration |
+| `dedupCleanupInterval` | 1 min | Deduplication cleanup cycle |
+| `maxContentLength` | 4096 | Maximum message length (runes); truncated if exceeded |
+| `streamFlushInterval` | 300ms | Streaming content batch flush interval |
+| `defaultMaxQueueSize` | 50 | Maximum capacity of the QA queue |
+| `defaultMaxPerUser` | 3 | Maximum queued requests per user |
+| `defaultWorkers` | 5 | Number of concurrent QA workers |
+| `queueTimeout` | 60s | Maximum wait time for a request in the queue |
+| `rateLimitWindow` | 60s | Rate limit sliding window size |
+| `rateLimitMaxRequests` | 10 | Maximum requests per user per window |
+| `metricsLogInterval` | 30s | Queue metrics logging cycle |
+| `streamOrphanTTL` | 5 min | Feishu/Telegram/DingTalk orphaned stream timeout |
+| `streamReaperInterval` | 1 min | Feishu/Telegram/DingTalk orphaned stream cleanup scan cycle |
+| Telegram edit interval | 500ms | Minimum interval between editMessageText calls (avoids rate limits) |
+| Telegram long polling timeout | 30s | getUpdates timeout parameter |
+| Telegram error backoff | 3s | Wait time after a getUpdates failure |
+| DingTalk card update interval | 500ms | Minimum interval for AI card streaming updates |
+| DingTalk signature validity | 1h | Valid window for the webhook callback signature timestamp |
+| WeCom WS heartbeat | 30s | WebSocket keep-alive frequency |
+| WeCom WS read timeout | 90s | 3 × heartbeat interval, tolerates one missed heartbeat |
+| WeCom WS reconnect backoff | 1s → 30s | Exponential backoff, capped at 30 seconds |
+| Token cache safety margin | 5 min | Token refreshed this long before expiry |
 
 ---
 
-## 错误处理
+## Error Handling
 
-| 场景 | 处理策略 |
+| Scenario | Handling Strategy |
 |------|---------|
-| 流式初始化失败 | 自动降级到全量模式 (`fallbackNonStream`) |
-| QA 管道异常 | 回复 "抱歉，处理您的问题时出现了异常，请稍后再试。" |
-| QA 超时 (>120s) | 标记消息完成，回复超时提示 |
-| 空回答 | 回复 "抱歉，我暂时无法回答这个问题。" |
-| 空流式内容 | 无可见内容时回退到完整回复 |
-| WebSocket 断连 | 指数退避自动重连 |
-| 平台重试 | MessageID 去重，5 分钟内自动跳过 |
-| 渠道启动失败 | 日志记录错误，不影响其他渠道 |
-| QA 队列已满 | 拒绝请求并回复 "当前排队人数较多，请稍后再试。" |
-| 用户排队超限 | 拒绝请求并回复提示（单用户 ≤3） |
-| 排队等待超时 | 超过 60s 自动丢弃，回复 "您的消息等待超时，请重新发送。" |
-| 消息限流 | 滑动窗口内超过 10 次，回复限流提示 |
-| 飞书孤立流 | 每分钟扫描，超过 5 分钟未关闭的自动结束 |
-| Telegram/钉钉孤立流 | 同飞书，每分钟扫描并自动清理 |
-| 企业微信群聊回复失败 | appchat API 失败时降级到用户私聊 |
-| 钉钉 AI 卡片创建失败 | 降级到 sessionWebhook 或 OpenAPI 回复 |
-| 钉钉 sessionWebhook 不可用 | 降级到 OpenAPI（群聊/私聊分别调用不同端点） |
+| Streaming initialization failure | Automatically falls back to full-reply mode (`fallbackNonStream`) |
+| QA pipeline exception | Replies "Sorry, an error occurred while processing your question, please try again later." |
+| QA timeout (>120s) | Marks the message complete, replies with a timeout notice |
+| Empty answer | Replies "Sorry, I'm unable to answer this question right now." |
+| Empty streaming content | Falls back to full reply when no visible content is produced |
+| WebSocket disconnect | Automatic reconnection with exponential backoff |
+| Platform retry | Deduplicated by MessageID, automatically skipped within 5 minutes |
+| Channel startup failure | Error logged, does not affect other channels |
+| QA queue full | Request rejected with reply "There are currently many people in the queue, please try again later." |
+| User queue limit exceeded | Request rejected with a notification (per-user limit ≤3) |
+| Queue wait timeout | Automatically dropped after 60s, replies "Your message wait timed out, please resend." |
+| Message rate-limited | Replies with a rate-limit notice when the sliding window limit (10) is exceeded |
+| Feishu orphaned stream | Scanned every minute; streams open more than 5 minutes are automatically closed |
+| Telegram/DingTalk orphaned stream | Same as Feishu, scanned and cleaned up automatically every minute |
+| WeCom group reply failure | Falls back to a private message to the user when the appchat API fails |
+| DingTalk AI card creation failure | Falls back to sessionWebhook or OpenAPI reply |
+| DingTalk sessionWebhook unavailable | Falls back to the OpenAPI (separate endpoints for group chat/direct message) |
 
 ---
 
-## 扩展新平台
+## Extending to New Platforms
 
-接入新的 IM 平台只需 3 步：
+Integrating a new IM platform only takes 3 steps:
 
-### 1. 实现 `im.Adapter` 接口
+### 1. Implement the `im.Adapter` Interface
 
-在 `internal/im/<platform>/` 下创建适配器：
+Create an adapter under `internal/im/<platform>/`:
 
 ```go
 package myplatform
 
-type Adapter struct { /* 平台配置 */ }
+type Adapter struct { /* platform configuration */ }
 
 func (a *Adapter) Platform() im.Platform     { return "myplatform" }
-func (a *Adapter) VerifyCallback(c *gin.Context) error { /* 签名验证 */ }
-func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) { /* 解析消息 */ }
-func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error { /* 发送回复 */ }
-func (a *Adapter) HandleURLVerification(c *gin.Context) bool { /* URL 验证 */ }
+func (a *Adapter) VerifyCallback(c *gin.Context) error { /* signature verification */ }
+func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) { /* parse the message */ }
+func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error { /* send the reply */ }
+func (a *Adapter) HandleURLVerification(c *gin.Context) bool { /* URL verification */ }
 ```
 
-可选接口：
-- 实现 `im.StreamSender` 以支持流式输出
-- 实现 `im.FileDownloader` 以支持文件消息自动保存到知识库
+Optional interfaces:
+- Implement `im.StreamSender` to support streaming output
+- Implement `im.FileDownloader` to support automatically saving file messages to the knowledge base
 
-> 可参考已有的 Telegram（纯 HTTP API）和 DingTalk（SDK + AI 卡片）适配器作为实现参考。
+> You can refer to the existing Telegram (pure HTTP API) and DingTalk (SDK + AI cards) adapters as implementation references.
 
-### 2. 注册适配器工厂
+### 2. Register the Adapter Factory
 
-在 `internal/container/container.go` 的 `registerIMAdapterFactories` 中注册工厂函数：
+Register the factory function in `registerIMAdapterFactories` in `internal/container/container.go`:
 
 ```go
 imService.RegisterAdapterFactory("myplatform", func(ctx context.Context, channel *im.IMChannel, msgHandler func(*im.IncomingMessage)) (im.Adapter, im.CancelFunc, error) {
@@ -1660,7 +1677,7 @@ imService.RegisterAdapterFactory("myplatform", func(ctx context.Context, channel
 
     adapter := myplatform.NewAdapter(appKey, appSecret)
 
-    // WebSocket 模式需要启动长连接
+    // WebSocket mode needs to start a long connection
     if channel.Mode == "websocket" {
         cancelCtx, cancel := context.WithCancel(ctx)
         go adapter.StartLongConn(cancelCtx, msgHandler)
@@ -1671,12 +1688,16 @@ imService.RegisterAdapterFactory("myplatform", func(ctx context.Context, channel
 })
 ```
 
-### 3. 前端添加平台选项
+### 3. Add the Platform Option to the Frontend
 
-在 `IMChannelPanel.vue` 中：
-- 添加平台 radio 选项
-- 添加该平台的凭证表单字段
+In `IMChannelPanel.vue`:
+- Add a platform radio option
+- Add the credential form fields for that platform
 
-在 i18n 文件中添加平台名称翻译。
+Add the platform name translation to the i18n files.
 
-Service 层 (`im.Service`) 不需要任何修改 — 渠道管理、指令分发、消息编排、会话管理、QA 调度、限流、流式控制全部由 Service 统一处理。
+The Service layer (`im.Service`) needs no modification at all — channel management, command dispatch, message orchestration, session management, QA scheduling, rate limiting, and streaming control are all handled uniformly by the Service.
+
+---
+
+Feito. Traduzido doc IM inteiro, estrutura markdown intacta, code/URLs/paths não tocados.

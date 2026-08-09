@@ -1,44 +1,44 @@
-# Chrome 插件（知识管理助手）
+# Chrome Extension (Knowledge Management Assistant)
 
-浏览器插件解决的是「看到有用的东西，但懒得复制粘贴进知识库」这件事。装上之后可以在任意网页的侧边栏直接向知识库提问，也可以把当前页面剪藏进去。
+The browser extension solves the problem of "seeing something useful but being too lazy to copy-paste it into the knowledge base." Once installed, you can ask questions directly against your knowledge base from the sidebar on any webpage, and also clip the current page into it.
 
-插件本身在 [Chrome 应用商店](https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd)（名为「知识管理助手」），配合你自建的 WeKnora 服务使用——它不自带后端，所有数据都写进你自己的实例。
+The extension itself is available on the [Chrome Web Store](https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd) (named "Knowledge Management Assistant") and works together with your self-hosted WeKnora service — it doesn't come with its own backend; all data is written into your own instance.
 
 <Screenshot
   src="/screenshots/chrome-extension.png"
-  caption="Chrome 插件：网页侧边栏问答与内容剪藏"
-  hint="展示插件侧边栏在某个网页上展开的样子（问答面板与知识库选择器），以及剪藏时的区域选择。" />
+  caption="Chrome extension: web page sidebar Q&A and content clipping"
+  hint="Show the extension sidebar expanded on a web page (the Q&A panel and knowledge base selector), along with region selection during clipping." />
 
-## 能做什么
+## What It Can Do
 
-| 能力 | 说明 |
+| Capability | Description |
 | --- | --- |
-| 知识库问答 | 侧边栏对话面板，可切换多个知识库，支持快速 / 深度 / 精确三种回答模式，边浏览边问不打断当前工作 |
-| 网页剪藏 | 保存页面 URL、由 AI 智能提取正文，或手动框选区域，写入指定知识库 |
-| Markdown 速记 | 内置编辑器随手记想法，一键存进知识库 |
-| 快捷键 | 提问、开侧边栏等操作都可自定义快捷键 |
+| Knowledge base Q&A | A sidebar chat panel that lets you switch between multiple knowledge bases, with three answer modes — quick, deep, and precise — so you can ask questions while browsing without interrupting your current work |
+| Web page clipping | Save the page URL, have the AI intelligently extract the main content, or manually select a region, and write it into a specified knowledge base |
+| Markdown quick notes | A built-in editor for jotting down ideas on the fly, saved to the knowledge base with one click |
+| Keyboard shortcuts | Actions like asking questions or opening the sidebar can all be bound to custom shortcuts |
 
-## 怎么配
+## Setup
 
-WeKnora 界面里有一个引导页：「设置 → 集成 → Chrome 扩展」，会直接显示当前实例的 API 地址与复制按钮。步骤：
+The WeKnora interface has a guided setup page: "Settings → Integrations → Chrome Extension," which directly displays your current instance's API address along with a copy button. Steps:
 
-1. **拿 API 凭证**：在「设置 → API 信息」复制 API Key 与 API 地址。建议单独建一个 Key 并按需收窄能力（至少需要检索与入库相关能力，见[租户、用户与认证授权](../03-features/01-tenant-auth.md)的 API Key 章节）；
-2. **桌面版建议先固定端口**：用 WeKnora 桌面版时，在 API 信息里设一个固定端口（例如 37841）。否则每次启动端口变化，插件会连不上；
-3. **安装插件**：从 Chrome 应用商店安装；
-4. **在插件里连接**：打开插件设置，选「企业/开发者」模式，填入 API 地址与 API Key。
+1. **Get your API credentials**: In "Settings → API Info," copy the API Key and API address. It's recommended to create a dedicated key and scope its permissions as needed (at minimum it needs retrieval and ingestion-related permissions — see the API Key section of [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md));
+2. **For the desktop version, fix the port first**: When using the WeKnora desktop version, set a fixed port (e.g. 37841) in the API Info settings. Otherwise, the port changes on every startup and the extension won't be able to connect;
+3. **Install the extension**: Install it from the Chrome Web Store;
+4. **Connect within the extension**: Open the extension settings, select "Enterprise/Developer" mode, and enter the API address and API Key.
 
-配置完成后建议先让它列一次知识库或问一个问题，确认凭证与网络都通。
+Once configured, it's recommended to have it list your knowledge bases or ask a test question to confirm both the credentials and network connectivity are working.
 
-## 排查
+## Troubleshooting
 
-| 现象 | 检查点 |
+| Symptom | Things to check |
 | --- | --- |
-| 插件提示连不上 | API 地址是否可从浏览器所在机器访问（容器内地址、`localhost` 在远程部署下都不行）；桌面版是否固定了端口 |
-| 401 / 403 | API Key 是否被吊销；Key 的能力是否覆盖了检索与入库；如果 Key 限定了知识库范围，目标库是否在名单里 |
-| 剪藏后知识库里没有 | 到知识库文档列表看解析状态，`processing` 说明在解析中；失败原因见文档详情 |
+| Extension reports it can't connect | Whether the API address is reachable from the machine running the browser (in-container addresses and `localhost` won't work for remote deployments); whether the desktop version has a fixed port set |
+| 401 / 403 | Whether the API Key has been revoked; whether the key's permissions cover retrieval and ingestion; if the key is scoped to specific knowledge bases, whether the target base is on the list |
+| Nothing shows up in the knowledge base after clipping | Check the parsing status in the knowledge base's document list — `processing` means it's still parsing; failure reasons are shown in the document detail view |
 
-## 相关
+## Related
 
-- 凭证与能力：[租户、用户与认证授权](../03-features/01-tenant-auth.md)
-- 剪藏内容的入库流程：[文档入库流程](../02-architecture/03-document-pipeline.md)
-- 其它集成方式：[Claw Skill](07-claw-skill.md)、[命令行工具](02-cli.md)、[Go SDK](03-go-sdk.md)
+- Credentials and permissions: [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md)
+- Ingestion pipeline for clipped content: [Document Ingestion Pipeline](../02-architecture/03-document-pipeline.md)
+- Other integration methods: [Claw Skill](07-claw-skill.md), [CLI Tool](02-cli.md), [Go SDK](03-go-sdk.md)

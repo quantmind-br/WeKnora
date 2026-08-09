@@ -99,8 +99,8 @@ func TestFormat_TemplateReplacesAllPlaceholders(t *testing.T) {
 }
 
 func TestFormat_TemplateGoroutineIDSkippedWhenNotReferenced(t *testing.T) {
-	// 模板未引用 %thread 时，threadNeeded 应为 false，运行时不应取 goroutine ID。
-	// 这里通过观察输出中不含数字-only goroutine ID 段来间接验证；更重要的是确保不 panic。
+	// When the template doesn't reference %thread, threadNeeded should be false, and the runtime shouldn't fetch the goroutine ID.
+	// This is verified indirectly by checking the output doesn't contain a numeric-only goroutine ID segment; more importantly, it ensures no panic occurs.
 	f := &CustomFormatter{
 		Template:     "[%d] %level | %msg",
 		threadNeeded: false,
@@ -111,9 +111,9 @@ func TestFormat_TemplateGoroutineIDSkippedWhenNotReferenced(t *testing.T) {
 	}
 }
 
-// TestFormat_ColorDoesNotPolluteMessage 是修复 colorize 误染 bug 的回归测试。
-// 旧实现对整行做 ReplaceAll(line, "INFO", colored)，会把消息正文里的 "INFO"
-// 一并染色；新实现只在 %level 替换位置注入颜色。
+// TestFormat_ColorDoesNotPolluteMessage is a regression test for the colorize mis-coloring bug.
+// The old implementation did ReplaceAll(line, "INFO", colored) on the whole line, which would also colorize "INFO"
+// appearing in the message body itself; the new implementation only injects color at the %level substitution site.
 func TestFormat_ColorDoesNotPolluteMessage(t *testing.T) {
 	f := &CustomFormatter{
 		ForceColor:   true,
@@ -128,8 +128,8 @@ func TestFormat_ColorDoesNotPolluteMessage(t *testing.T) {
 	}
 	got := string(out)
 
-	// 输出中 ANSI 序列总数应恰好为 2（开头一对 color + reset），
-	// 而非旧实现下消息里的 "INFO" 也被替换导致出现 4 段。
+	// The total number of ANSI sequences in the output should be exactly 2 (one color+reset pair at the start),
+	// not 4 as under the old implementation, where "INFO" in the message was also replaced.
 	const ansiOpen = "\033[32m" // green for INFO
 	const ansiReset = "\033[0m"
 	if strings.Count(got, ansiOpen) != 1 {
@@ -138,22 +138,22 @@ func TestFormat_ColorDoesNotPolluteMessage(t *testing.T) {
 	if strings.Count(got, ansiReset) != 1 {
 		t.Errorf("expected exactly 1 reset sequence, got %d in %q", strings.Count(got, ansiReset), got)
 	}
-	// 消息正文中的 "INFO" 字面串应保持未染色（其前驱字符不是 ANSI 开头）。
+	// A literal "INFO" string in the message body should remain uncolored (its preceding character isn't an ANSI start).
 	idx := strings.Index(got, "user INFO loaded")
 	if idx < 0 {
 		t.Fatalf("message body not found verbatim in output: %q", got)
 	}
 }
 
-// TestFormat_TemplateNoCascadingReplace 验证使用 NewReplacer 单趟替换，
-// 字段值里含有占位符字面串（例如 traceId 值为 "%msg"）时不会被二次替换。
+// TestFormat_TemplateNoCascadingReplace verifies that using NewReplacer for a single-pass replacement
+// prevents a placeholder literal in a field value (e.g. traceId value "%msg") from being replaced again.
 func TestFormat_TemplateNoCascadingReplace(t *testing.T) {
 	f := &CustomFormatter{
 		Template:     "%traceId>%msg",
 		threadNeeded: false,
 	}
 	entry := newEntry(logrus.InfoLevel, "actual-msg", logrus.Fields{
-		"request_id": "%msg", // 恶意/巧合的字段值
+		"request_id": "%msg", // Malicious/coincidental field values
 	})
 
 	out, err := f.Format(entry)

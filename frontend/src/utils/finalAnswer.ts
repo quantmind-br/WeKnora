@@ -6,7 +6,7 @@
 // text. Many models — especially smaller ones or those SFT'd on different
 // conventions — wrap that answer inside <answer>…</answer>,
 // <final_answer>…</final_answer>, or prefix it with "Final Answer:" /
-// "最终答案：". When the agent loop accepts such a natural-stop response as the
+// "Final Answer:". When the agent loop accepts such a natural-stop response as the
 // final answer, those wrappers leak into the rendered output. This module
 // provides a single helper to strip them before the markdown renderer sees
 // the text.
@@ -33,7 +33,7 @@ const ANSWER_PREFIX_RE =
  * Recognised wrappers (must cover the entire trimmed content):
  *  - `<answer>…</answer>` / `<final_answer>…</final_answer>` (case-insensitive)
  *  - ```` ```final_answer\n…\n``` ```` fenced code block
- *  - Leading `Final Answer:` / `最终答案：` / `答：` prefix
+ * - Leading `Final Answer:` / `最终答案：` / `答：` prefix
  */
 export function unwrapFinalAnswerWrappers(content: string): string {
   if (!content || typeof content !== 'string') {
@@ -60,7 +60,7 @@ export function unwrapFinalAnswerWrappers(content: string): string {
     changed = true;
   }
 
-  // Strip a leading "Final Answer:" / "最终答案：" prefix when it is the very
+  // Strip a leading "Final Answer:" prefix when it is the very
   // first non-whitespace token. Only applied once.
   const prefixMatch = result.match(ANSWER_PREFIX_RE);
   if (prefixMatch) {

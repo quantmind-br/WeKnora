@@ -60,9 +60,9 @@ export const useMenuStore = defineStore('menuStore', () => {
 
   const liteHiddenPaths = new Set(['logout', 'organizations'])
 
-  // 共享空间 (organizations) 仅对当前空间的 admin / owner 暴露入口。
-  // viewer / contributor 即便在共享空间里拥有资源，也无需自行管理共享关系，
-  // 入口在侧栏只会徒增噪音；后端 RBAC 才是权限的最终来源（见 middleware/rbac.go）。
+  // Shared spaces (organizations) only expose an entry point to admins/owners of the current space.
+  // Even if viewers/contributors own resources within a shared space, they don't need to manage sharing relationships themselves,
+  // so an entry point in the sidebar would just add noise; backend RBAC is the ultimate source of truth for permissions (see middleware/rbac.go).
   const visibleMenuArr = computed(() => {
     const authStore = useAuthStore()
     return menuArr.filter(item => {

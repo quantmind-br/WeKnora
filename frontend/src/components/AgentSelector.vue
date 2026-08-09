@@ -11,7 +11,7 @@
         </div>
 
         <div class="agent-selector-content" @scroll="hideDetailPanel">
-          <!-- 内置智能体 -->
+          <!-- Built-in agents -->
           <div class="agent-group">
             <div class="agent-group-title">{{ $t('agent.builtinAgents') }}</div>
             <div v-for="agent in builtinAgents" :key="agent.id" class="agent-option"
@@ -36,7 +36,7 @@
             </div>
           </div>
 
-          <!-- 自定义智能体 -->
+          <!-- Custom agents -->
           <div v-if="customAgents.length > 0" class="agent-group">
             <div class="agent-group-title">{{ $t('agent.customAgents') }}</div>
             <div v-for="agent in customAgents" :key="agent.id" class="agent-option"
@@ -53,7 +53,7 @@
             </div>
           </div>
 
-          <!-- 共享给我 -->
+          <!-- Shared with me -->
           <div v-if="sharedAgentsList.length > 0" class="agent-group">
             <div class="agent-group-title">{{ $t('agent.tabs.sharedToMe') }}</div>
             <div v-for="shared in sharedAgentsList" :key="`${shared.agent.id}-${shared.source_tenant_id}`"
@@ -82,7 +82,7 @@
       </div>
     </div>
 
-    <!-- 详情浮层 -->
+    <!-- Detail overlay -->
     <div v-if="visible && activeDetail" ref="detailPanelRef" class="agent-detail-panel" :style="detailPanelStyle"
       @mouseenter="onDetailPanelEnter" @mouseleave="onDetailPanelLeave" @click.stop>
       <div class="agent-detail-panel-inner">
@@ -428,7 +428,7 @@ const updateDetailPanelPosition = () => {
   const rowRect = rectToCssPx(el.getBoundingClientRect(), zoom);
   const { width: vw, height: vh } = cssViewportSize(zoom);
 
-  // 浮层显示在列表右侧，保留小间隙；透明桥接区覆盖间隙，避免鼠标移入时浮层消失
+  // The overlay displays to the right of the list, keeping a small gap; a transparent bridge area covers the gap so the overlay doesn't disappear when the mouse moves in
   let left = rowRect.right + DETAIL_PANEL_GAP;
   if (left + DETAIL_PANEL_WIDTH > vw - 8) {
     left = Math.max(8, vw - DETAIL_PANEL_WIDTH - 8);
@@ -443,7 +443,7 @@ const updateDetailPanelPosition = () => {
   if (top < minTop) {
     top = minTop;
   } else if (top > maxTop) {
-    // 贴近当前行：优先让浮层与 hover 行在垂直方向仍有交集
+    // Stay close to the current row: prefer keeping the overlay vertically intersecting with the hovered row
     top = Math.min(rowRect.top, maxTop);
     top = Math.max(minTop, Math.min(top, rowRect.bottom - panelHeight));
     if (top + panelHeight < rowRect.top) {
@@ -829,14 +829,14 @@ watch(activeDetail, (detail) => {
   }
 }
 
-/* 详情浮层 */
+/* Detail overlay */
 .agent-detail-panel {
   box-sizing: border-box;
   position: relative;
   --detail-panel-gap: 8px;
   --detail-bridge-width: 8px;
 
-  // 左侧透明桥接区：承接从选项移入的鼠标，避免经过间隙时浮层消失
+  // Left transparent bridge area: catches the mouse moving in from the option, preventing the overlay from disappearing when crossing the gap
   &::before {
     content: '';
     position: absolute;

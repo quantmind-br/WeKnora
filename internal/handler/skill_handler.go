@@ -29,13 +29,13 @@ type SkillInfoResponse struct {
 }
 
 // ListSkills godoc
-// @Summary      获取预装Skills列表
-// @Description  获取所有预装的Agent Skills元数据
+// @Summary      Get pre-installed Skills list
+// @Description  Get metadata for all pre-installed Agent Skills
 // @Tags         Skills
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "Skills列表"
-// @Failure      500  {object}  errors.AppError         "服务器错误"
+// @Success      200  {object}  map[string]interface{}  "Skills list"
+// @Failure      500  {object}  errors.AppError         "Internal server error"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /skills [get]

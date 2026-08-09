@@ -1,7 +1,7 @@
 <template>
-  <!-- 自助创建新工作区弹窗。任意已登录用户均可调用 POST /api/v1/tenants
-       （后端 router 已去掉 g.CrossTenant() 守卫），handler 会自动把当前
-       用户 EnsureOwner 成新空间的 Owner。 -->
+  <!-- Self-service dialog for creating a new workspace. Any logged-in user can call POST /api/v1/tenants
+       (the backend router has already removed the g.CrossTenant() guard); the handler automatically
+       sets the current user as EnsureOwner of the new workspace. -->
   <t-dialog :visible="visible" width="480px" :on-confirm="handleSubmit" :on-close="handleClose"
     :confirm-btn="{ content: $t('tenant.create.submit'), loading: submitting, theme: 'primary' }"
     :cancel-btn="{ content: $t('tenant.create.cancel') }" :close-on-overlay-click="!submitting"
@@ -40,7 +40,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
-  // 创建成功后由父组件决定如何导航（切换到新空间、刷新本地列表等）。
+  // After successful creation, the parent component decides how to navigate (switch to the new workspace, refresh the local list, etc.).
   (e: 'created', tenant: TenantInfo): void
 }>()
 
@@ -54,9 +54,9 @@ const form = reactive({
   description: '',
 })
 
-// Trim-aware required check：t-input 的 required 不会去空白，全空格也算
-// 通过；这里手动校验 trim 后非空。max 长度由 :maxlength 在键入时硬限制，
-// 所以这里不再重复挂规则（避免与硬限制双重提示）。
+// Trim-aware required check: t-input's required doesn't trim whitespace, so an all-whitespace value would
+// pass; here we manually validate non-empty after trimming. Max length is hard-limited by :maxlength while typing,
+// so we don't attach a duplicate rule here (to avoid double warnings alongside the hard limit).
 const formRules: Record<string, FormRule[]> = {
   name: [
     {

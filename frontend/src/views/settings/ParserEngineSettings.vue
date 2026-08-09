@@ -25,10 +25,10 @@
         <p class="empty-text">{{ $t('settings.parser.noEngineDetected') }}</p>
       </div>
 
-      <!-- 与其它 settings 列表同形：左侧 monogram 徽章 + 标题 + 状态徽 + 两行描述。
-           整张卡片可点击，打开抽屉配置；当前抽屉对应的卡片获得品牌色描边。 -->
+      <!-- Same shape as other settings lists: left monogram badge + title + status badge + two-line description.
+           The whole card is clickable, opening the drawer for configuration; the card matching the current drawer gets a brand-colored outline. -->
       <div v-else class="engine-cards">
-        <!-- 当后端未返回 builtin 引擎项时，仍展示 DocReader 状态卡片 -->
+        <!-- When the backend doesn't return a builtin engine entry, still show the DocReader status card -->
         <button
           v-if="!hasBuiltinEngine"
           type="button"
@@ -93,7 +93,7 @@
 
     </template>
 
-    <!-- 配置抽屉 — 用 SettingDrawer 包装，保持与 ModelEditorDialog 同款视觉/交互 -->
+    <!-- Config drawer — wrapped with SettingDrawer, keeping the same look/interaction as ModelEditorDialog -->
     <SettingDrawer
       v-model:visible="drawerVisible"
       :title="drawerTitle"
@@ -104,17 +104,17 @@
       @cancel="drawerVisible = false"
     >
       <!--
-        Header icon — 与列表卡片同款 monogram 徽章：首字母 + per-engine 配色，
-        通过 .parser-engine-drawer--{name} .setting-drawer__header-icon 在
-        非 scoped 块里覆盖背景与文字色。Parser 引擎没有真实 logo，所以这
-        里只渲染字母；存储引擎那边走的是 logo 图片/mask，pattern 一致。
+        Header icon — same monogram badge as the list card: initial letter + per-engine color,
+        Override background and text color in a non-scoped block via .parser-engine-drawer--{name} .setting-drawer__header-icon
+        Parser engines have no real logo, so we
+        only render the letter here; the storage engine side uses a logo image/mask — same pattern.
       -->
       <template v-if="currentEngine" #headerIcon>
         <span class="header-icon__text">{{ engineInitial(currentEngine.Name) }}</span>
       </template>
       <!--
-        Subtitle slot: 引擎描述 + 内联文档链接。我们把"参考资料"从一个
-        独立 section 收回到头部副标题里 — 一个外链不值得占一整个 section。
+        Subtitle slot: engine description + inline doc link. We pulled "reference material" back
+        from its own section into the header subtitle — one external link doesn't deserve a whole section.
       -->
       <template v-if="currentEngine" #subtitle>
         <span>{{ getEngineDisplayDesc(currentEngine.Name, currentEngine.Description) }}</span>
@@ -130,9 +130,9 @@
         </a>
       </template>
       <!--
-        Footer-left slot: 测试连接按钮 + 状态文案 — 主操作栏沿底边对齐，
-        与 ModelEditorDialog 远程模型抽屉保持一致。仅在引擎有可校验的
-        配置/状态时才挂载。
+        Footer-left slot: test connection button + status text — the main action bar aligns along the bottom edge,
+        consistent with ModelEditorDialog's remote model drawer. Only mounted when the engine has
+        verifiable config/status.
       -->
       <template v-if="needsTestButton" #footer-left>
         <t-button variant="outline" :loading="checking" @click="onCheck">
@@ -151,14 +151,14 @@
 
       <div v-if="currentEngine">
         <!--
-          Section 1 — 支持文件类型。放在内容开头作为引擎"能干什么"的
-          一目了然概览，对所有引擎都有意义；与状态/配置区分开。
+          Section 1 — Supported file types. Placed at the start of the content as the engine's "what it can do"
+          Clear overview at a glance, meaningful across all engines; kept separate from status/config.
         -->
         <section
           v-if="currentEngine.FileTypes && currentEngine.FileTypes.length"
           class="setting-drawer__section"
         >
-          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.supportedFileTypes', '支持文件类型') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.supportedFileTypes', 'Supported file types') }}</h4>
           <div class="file-types">
             <span v-for="ft in currentEngine.FileTypes" :key="ft" class="file-type-chip">
               {{ ft }}
@@ -167,16 +167,16 @@
         </section>
 
         <!--
-          Section 2 — 状态信息（DocReader 连接 / WeKnoraCloud 凭证）
-          只有有内容时才渲染，避免空 section 空底部分隔线。
+          Section 2 — status info (DocReader connection / WeKnoraCloud credentials)
+          Only render when there's content, to avoid an empty section with a stray bottom divider.
         -->
         <section
           v-if="currentEngine.Name === 'builtin' || currentEngine.Name === 'weknoracloud'"
           class="setting-drawer__section"
         >
-          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.statusSection', '状态信息') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.statusSection', 'Status') }}</h4>
 
-          <!-- builtin: DocReader 连接信息 -->
+          <!-- builtin: DocReader connection info -->
           <div v-if="currentEngine.Name === 'builtin'" class="docreader-block">
             <div class="status-line">
               <t-tag v-if="connected" theme="success" variant="light" size="small">
@@ -196,9 +196,9 @@
           </div>
 
           <!--
-            weknoracloud: 凭证状态 — 不再用大块卡片。已配置 / 加载中 / 未配置
-            统一用 inline alert：图标 + 一行文案 + 行尾跳转 link，体量
-            匹配"一条信息"该有的样子。
+            weknoracloud: credential status — no more bulky cards. Configured / Loading / Not configured
+            Unified inline alert: icon + one-line text + trailing link, sized
+            to match what "a single piece of info" should look like.
           -->
           <template v-if="currentEngine.Name === 'weknoracloud'">
             <div v-if="wkcState === 'configured'" class="inline-alert inline-alert--ok">
@@ -223,9 +223,9 @@
           </template>
         </section>
 
-        <!-- Section 3 — mineru 自建配置 -->
+        <!-- Section 3 — mineru self-hosted config -->
         <section v-if="currentEngine.Name === 'mineru'" class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', '配置') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', 'Configuration') }}</h4>
 
           <div class="form-item">
             <label class="form-label">{{ t('settings.parser.selfHostedEndpoint') }}</label>
@@ -264,7 +264,7 @@
             <p class="form-desc">{{ $t('settings.parser.parseMethodHint') }}</p>
           </div>
           <div class="form-item">
-            <label class="form-label">{{ $t('settings.parser.featuresLabel', '识别选项') }}</label>
+            <label class="form-label">{{ $t('settings.parser.featuresLabel', 'Recognition options') }}</label>
             <div class="form-toggles">
               <t-checkbox v-model="config.mineru_enable_formula">{{ $t('settings.parser.formulaRecognition') }}</t-checkbox>
               <t-checkbox v-model="config.mineru_enable_table">{{ $t('settings.parser.tableRecognition') }}</t-checkbox>
@@ -280,9 +280,9 @@
           </div>
         </section>
 
-        <!-- Section 3 — mineru_cloud 云 API 配置 -->
+        <!-- Section 3 — mineru_cloud API config -->
         <section v-if="currentEngine.Name === 'mineru_cloud'" class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', '配置') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', 'Configuration') }}</h4>
 
           <div class="form-item">
             <label class="form-label required">API Key</label>
@@ -304,7 +304,7 @@
             </t-select>
           </div>
           <div class="form-item">
-            <label class="form-label">{{ $t('settings.parser.featuresLabel', '识别选项') }}</label>
+            <label class="form-label">{{ $t('settings.parser.featuresLabel', 'Recognition options') }}</label>
             <div class="form-toggles">
               <t-checkbox v-model="config.mineru_cloud_enable_formula">{{ $t('settings.parser.formulaRecognition') }}</t-checkbox>
               <t-checkbox v-model="config.mineru_cloud_enable_table">{{ $t('settings.parser.tableRecognition') }}</t-checkbox>
@@ -321,9 +321,9 @@
           </div>
         </section>
 
-        <!-- Section 3 — paddleocr_vl 自建配置 -->
+        <!-- Section 3 — paddleocr_vl self-hosted config -->
         <section v-if="currentEngine.Name === 'paddleocr_vl'" class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', '配置') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', 'Configuration') }}</h4>
 
           <div class="form-item">
             <label class="form-label required">{{ t('settings.parser.selfHostedEndpoint') }}</label>
@@ -335,7 +335,7 @@
             <p class="form-desc">{{ $t('settings.parser.paddleocrVlEndpointHint') }}</p>
           </div>
           <div class="form-item">
-            <label class="form-label">{{ $t('settings.parser.featuresLabel', '识别选项') }}</label>
+            <label class="form-label">{{ $t('settings.parser.featuresLabel', 'Recognition options') }}</label>
             <div class="form-toggles">
               <t-checkbox v-model="config.paddleocr_vl_use_seal_recognition">{{ $t('settings.parser.sealRecognition') }}</t-checkbox>
               <t-checkbox v-model="config.paddleocr_vl_use_chart_recognition">{{ $t('settings.parser.chartRecognition') }}</t-checkbox>
@@ -343,9 +343,9 @@
           </div>
         </section>
 
-        <!-- Section 3 — paddleocr_vl_cloud 云 API 配置 -->
+        <!-- Section 3 — paddleocr_vl_cloud API config -->
         <section v-if="currentEngine.Name === 'paddleocr_vl_cloud'" class="setting-drawer__section">
-          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', '配置') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ $t('settings.parser.configSection', 'Configuration') }}</h4>
 
           <div class="form-item">
             <label class="form-label required">Token</label>
@@ -367,7 +367,7 @@
             />
           </div>
           <div class="form-item">
-            <label class="form-label">{{ $t('settings.parser.featuresLabel', '识别选项') }}</label>
+            <label class="form-label">{{ $t('settings.parser.featuresLabel', 'Recognition options') }}</label>
             <div class="form-toggles">
               <t-checkbox v-model="config.paddleocr_vl_cloud_use_seal_recognition">{{ $t('settings.parser.sealRecognition') }}</t-checkbox>
               <t-checkbox v-model="config.paddleocr_vl_cloud_use_chart_recognition">{{ $t('settings.parser.chartRecognition') }}</t-checkbox>
@@ -402,7 +402,7 @@ const authStore = useAuthStore()
 
 const CONFIGURABLE_ENGINES = new Set(['mineru', 'mineru_cloud', 'paddleocr_vl', 'paddleocr_vl_cloud'])
 
-/** 各解析引擎的项目/官方文档地址 */
+/** Project/official doc URLs for each parsing engine */
 const ENGINE_DOC_LINKS: Record<string, string> = {
   weknoracloud: 'https://developers.weixin.qq.com/doc/aispeech/knowledge/atomic_capability/atomic_interface.html',
   markitdown: 'https://github.com/microsoft/markitdown',
@@ -412,7 +412,7 @@ const ENGINE_DOC_LINKS: Record<string, string> = {
   paddleocr_vl_cloud: 'https://aistudio.baidu.com/paddleocr',
 }
 
-/** 解析引擎配置默认值（与 DocReader/Python 侧一致） */
+/** Default parsing engine config values (kept in sync with DocReader/Python side) */
 const DEFAULT_PARSER_CONFIG: ParserEngineConfig = {
   docreader_addr: '',
   docreader_transport: 'grpc',
@@ -461,8 +461,8 @@ const drawerTitle = computed(() => {
   return currentEngine.value ? getEngineDisplayName(currentEngine.value.Name) : ''
 })
 
-// SettingDrawer 头部图标走 #headerIcon 槽（首字母 monogram + per-engine
-// 配色，与列表卡片完全一致），不再需要 t-icon name 兜底。
+// SettingDrawer header icon uses the #headerIcon slot (initial monogram + per-engine
+// coloring, matching the list card exactly) — no more need for a t-icon name fallback.
 
 // Whether the footer test-connection button should appear. Engines without
 // configurable fields and that aren't the builtin DocReader (whose connection
@@ -473,7 +473,7 @@ const needsTestButton = computed(() => {
   return hasConfigFields(currentEngine.value.Name) || currentEngine.value.Name === 'builtin'
 })
 
-/** 固定展示顺序，未列出的引擎排在末尾按名称排序 */
+/** Fixed display order; engines not listed are appended, sorted by name */
 const ENGINE_ORDER: Record<string, number> = {
   builtin: 0,
   weknoracloud: 1,
@@ -506,8 +506,8 @@ function engineDocLabel(_name: string): string {
   return t('settings.parser.docs')
 }
 
-// 卡片徽章首字母。优先用本地化名称的首字符（覆盖如「内置/简易」等中文场景），
-// 兜底回到 engine name；保证英文/中文都能显示一个稳定的可读 monogram。
+// Card badge initial. Prefer the first character of the localized name (covers cases like Chinese "内置/简易"),
+// fall back to engine name; ensures a stable, readable monogram in both English and Chinese.
 function engineInitial(engineName: string): string {
   const display = getEngineDisplayName(engineName)
   return (display.trim().charAt(0) || engineName.charAt(0) || '?').toUpperCase()
@@ -635,35 +635,35 @@ async function onCheck() {
     if (currentEngine.value) {
       if (currentEngine.value.Name === 'builtin') {
         if (connected.value) {
-          checkMessage.value = t('settings.parser.checkSuccess', '测试连接成功')
+          checkMessage.value = t('settings.parser.checkSuccess', 'Connection test succeeded')
           saveSuccess.value = true
         } else {
-          checkMessage.value = t('settings.parser.checkFailed', '测试连接失败')
+          checkMessage.value = t('settings.parser.checkFailed', 'Connection test failed')
           saveSuccess.value = false
         }
       } else {
         const updatedEngine = engines.value.find(e => e.Name === currentEngine.value!.Name)
         if (updatedEngine) {
           if (updatedEngine.Available) {
-            checkMessage.value = t('settings.parser.checkSuccess', '测试连接成功')
+            checkMessage.value = t('settings.parser.checkSuccess', 'Connection test succeeded')
             saveSuccess.value = true
           } else {
-            checkMessage.value = updatedEngine.UnavailableReason || t('settings.parser.checkFailed', '测试连接失败')
+            checkMessage.value = updatedEngine.UnavailableReason || t('settings.parser.checkFailed', 'Connection test failed')
             saveSuccess.value = false
           }
         } else {
-          checkMessage.value = t('settings.parser.checkFailed', '引擎状态未知')
+          checkMessage.value = t('settings.parser.checkFailed', 'Engine status unknown')
           saveSuccess.value = false
         }
       }
     } else {
-      checkMessage.value = t('settings.parser.checkDoneStatusUpdated', '检测已完成，状态已更新')
+      checkMessage.value = t('settings.parser.checkDoneStatusUpdated', 'Check finished; status updated')
       saveSuccess.value = true
     }
 
     setTimeout(() => { checkMessage.value = '' }, 3000)
   } catch (e: any) {
-    checkMessage.value = e?.message || t('settings.parser.checkFailed', '测试连接失败')
+    checkMessage.value = e?.message || t('settings.parser.checkFailed', 'Connection test failed')
     saveSuccess.value = false
   } finally {
     checking.value = false
@@ -687,7 +687,7 @@ async function onSave() {
   }
 }
 
-// ---- WeKnoraCloud 凭证状态 ----
+// ---- WeKnoraCloud credential status ----
 const wkcState = ref<'loading' | 'unconfigured' | 'configured' | 'expired'>('loading')
 
 async function checkWkcStatus() {
@@ -765,7 +765,7 @@ onMounted(loadAll)
   }
 }
 
-// ---- 引擎卡片布局 ----
+// ---- Engine card layout ----
 .engine-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -773,8 +773,8 @@ onMounted(loadAll)
   margin-top: 24px;
 }
 
-// 与 ModelSettings / WebSearchSettings / McpSettings 同形的提供者卡片。
-// 这里整张卡是一个 button —— 单击即打开配置抽屉；active 状态用品牌色描边。
+// Provider cards shaped like ModelSettings / WebSearchSettings / McpSettings.
+// The whole card here is a button — a single click opens the config drawer; active state uses a brand-color outline.
 .engine-card {
   display: flex;
   align-items: flex-start;
@@ -817,7 +817,7 @@ onMounted(loadAll)
   color: #0052D9;
 }
 
-// 解析引擎徽章配色 —— 内置/官方系绿，外部工具按性质各取一色。
+// Parsing engine badge colors — built-in/official get green, external tools each get their own color by nature.
 .engine-card--builtin .engine-card__badge,
 .engine-card--weknoracloud .engine-card__badge {
   background: rgba(7, 192, 95, 0.12);
@@ -867,7 +867,7 @@ onMounted(loadAll)
   white-space: nowrap;
 }
 
-// 与 McpSettings 一致的 dot+文字状态徽章。on=绿、err=红、help 用 cursor:help 提示。
+// Dot+text status badge, consistent with McpSettings. on=green, err=red, help uses cursor:help for a tooltip.
 .engine-card__status {
   flex-shrink: 0;
   display: inline-flex;
@@ -914,9 +914,9 @@ onMounted(loadAll)
   overflow: hidden;
 }
 
-// ---- 抽屉内容 — 与 ModelEditorDialog 同款约定 ----
+// ---- Drawer content — same convention as ModelEditorDialog ----
 // .form-item / .form-label / .form-desc / .weknoracloud-hint / .api-test
-// 参照 frontend/src/components/ModelEditorDialog.vue 的命名与字号/间距
+// Follows the naming and font size/spacing conventions of frontend/src/components/ModelEditorDialog.vue
 .form-item {
   margin-bottom: 0;
 }
@@ -929,7 +929,7 @@ onMounted(loadAll)
   color: var(--td-text-color-primary);
   line-height: 1.4;
 
-  // 与 ModelEditorDialog 一致：必填星号前置
+  // Consistent with ModelEditorDialog: required-field asterisk placed before the label
   &.required::before {
     content: '*';
     color: var(--td-error-color);
@@ -946,7 +946,7 @@ onMounted(loadAll)
   color: var(--td-text-color-placeholder);
 }
 
-// 输入框统一字号
+// Uniform input font size
 :deep(.t-input),
 :deep(.t-select),
 :deep(.t-textarea),
@@ -964,7 +964,7 @@ onMounted(loadAll)
   }
 }
 
-// ---- DocReader 连接信息（builtin 引擎） ----
+// ---- DocReader connection info (builtin engine) ----
 .docreader-block {
   display: flex;
   flex-direction: column;
@@ -992,7 +992,7 @@ onMounted(loadAll)
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
-// ---- 文件类型 chip ----
+// ---- File type chips ----
 .file-types {
   display: flex;
   flex-wrap: wrap;
@@ -1013,9 +1013,9 @@ onMounted(loadAll)
   letter-spacing: 0.02em;
 }
 
-// ---- Inline alert（替代之前的 .weknoracloud-hint 卡片） ----
-// 一行内表达 "状态信号 + 一句话 + 跳转 link"，无外框/无 3px 左边，
-// 视觉重量与一行文字相当，section 内不会再被一个独立卡片打断。
+// ---- Inline alert (replaces the previous .weknoracloud-hint card) ----
+// Express "status signal + one sentence + link" in a single line, no border/no 3px left edge,
+// visual weight equivalent to one line of text; no longer interrupted by a standalone card within the section.
 .inline-alert {
   display: flex;
   align-items: center;
@@ -1049,7 +1049,7 @@ onMounted(loadAll)
   min-width: 0;
 }
 
-// 行尾 link：跟普通 doc-link 一致的主题色，但更紧凑，行内排版
+// Trailing link: same theme color as a regular doc-link, but more compact, inline layout
 .inline-alert__action {
   display: inline-flex;
   align-items: center;
@@ -1079,7 +1079,7 @@ onMounted(loadAll)
   animation: spin 1s linear infinite;
 }
 
-// ---- 表单切换组（公式/表格/OCR） ----
+// ---- Form toggle group (formula/table/OCR) ----
 .form-toggles {
   display: flex;
   flex-wrap: wrap;
@@ -1087,7 +1087,7 @@ onMounted(loadAll)
   padding: 8px 0 0;
 }
 
-// ---- footer-left 测试连接消息（与 ModelEditorDialog 同款） ----
+// ---- footer-left test connection message (same style as ModelEditorDialog) ----
 .footer-test-message {
   font-size: 12px;
   line-height: 1.4;
@@ -1119,7 +1119,7 @@ onMounted(loadAll)
   }
 }
 
-// ---- 文档外链 ----
+// ---- External doc link ----
 .doc-link {
   display: inline-flex;
   align-items: center;
@@ -1138,7 +1138,7 @@ onMounted(loadAll)
     font-size: 14px;
   }
 
-  // 副标题里的 inline 文档链接：与描述文字平铺一行，体量等同小字
+  // Inline doc link in the subtitle: flows in line with the description text, sized like small text
   &--inline {
     margin-left: 6px;
     font-size: 12px;
@@ -1151,7 +1151,7 @@ onMounted(loadAll)
   }
 }
 
-// ---- Header 图标的首字母 monogram（per-engine 配色见非 scoped 块）----
+// ---- Header icon initial monogram (per-engine coloring in the non-scoped block) ----
 .header-icon__text {
   font-size: 15px;
   font-weight: 600;

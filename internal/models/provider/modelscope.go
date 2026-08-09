@@ -7,22 +7,22 @@ import (
 )
 
 const (
-	// ModelScopeBaseURL ModelScope API BaseURL (OpenAI 兼容模式)
+	// ModelScopeBaseURL ModelScope API BaseURL (OpenAI-compatible mode)
 	ModelScopeBaseURL = "https://api-inference.modelscope.cn/v1"
 )
 
-// ModelScopeProvider 实现 ModelScope (魔搭) 的 Provider 接口
+// ModelScopeProvider implements the Provider interface for ModelScope
 type ModelScopeProvider struct{}
 
 func init() {
 	Register(&ModelScopeProvider{})
 }
 
-// Info 返回 ModelScope provider 的元数据
+// Info returns metadata for the ModelScope provider
 func (p *ModelScopeProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderModelScope,
-		DisplayName: "魔搭 ModelScope",
+		DisplayName: "ModelScope",
 		Description: "Qwen/Qwen3-8B, Qwen/Qwen3-Embedding-8B, etc.",
 		DefaultURLs: map[types.ModelType]string{
 			types.ModelTypeKnowledgeQA: ModelScopeBaseURL,
@@ -38,7 +38,7 @@ func (p *ModelScopeProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证 ModelScope provider 配置
+// ValidateConfig validates the ModelScope provider configuration
 func (p *ModelScopeProvider) ValidateConfig(config *Config) error {
 	if config.BaseURL == "" {
 		return fmt.Errorf("base URL is required for ModelScope provider")

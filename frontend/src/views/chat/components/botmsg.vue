@@ -1,7 +1,7 @@
 <template>
     <div class="bot_msg" :class="{ 'is-embedded': embeddedMode }">
         <div style="display: flex;flex-direction: column; gap:8px">
-            <!-- 显示@的知识库和文件（非 Agent 模式下显示） -->
+            <!-- Display @-mentioned knowledge bases and files (shown in non-Agent mode) -->
             <div v-if="!session.isAgentMode && mentionedItems && mentionedItems.length > 0" class="mentioned_items">
                 <span v-for="item in mentionedItems" :key="item.id" class="mentioned_tag" :class="[
                     mentionTagClass(item)
@@ -28,15 +28,15 @@
             </template>
             <deepThink :deepSession="session" v-if="session.showThink && !session.isAgentMode"></deepThink>
         </div>
-        <!-- 非 Agent 模式下才显示传统的 markdown 渲染 -->
+        <!-- Traditional markdown rendering is only shown in non-Agent mode -->
         <div ref="parentMd" v-if="!session.hideContent && !session.isAgentMode">
-            <!-- 直接渲染完整内容，避免切分导致的问题，样式与 thinking 一致 -->
-            <!-- 只有当有实际内容时才显示包围框 -->
+            <!-- Render the full content directly, avoiding issues caused by splitting; style matches thinking -->
+            <!-- Only show the surrounding border when there is actual content -->
             <div class="content-wrapper" v-if="hasActualContent">
                 <div class="ai-markdown-template markdown-content" v-stable-html="renderedHTML">
                 </div>
             </div>
-            <!-- 复制和添加到知识库按钮 - 非 Agent 模式下显示 -->
+            <!-- Copy and add-to-knowledge-base buttons - shown in non-Agent mode -->
             <div v-if="answerFullyRendered && (content || session.content)" class="answer-toolbar">
                 <t-button size="small" variant="outline" shape="round" @click.stop="handleCopyAnswer"
                     :title="$t('agent.copy')">
@@ -46,7 +46,7 @@
                     :title="$t('agent.addToKnowledgeBase')">
                     <t-icon name="bookmark-add" />
                 </t-button>
-                <!-- Fallback 提示图标 -->
+                <!-- Fallback icon -->
                 <t-tooltip v-if="session.is_fallback" :content="$t('chat.fallbackHint')" placement="top">
                     <t-button size="small" variant="outline" shape="round" class="fallback-icon-btn">
                         <t-icon name="info-circle" />
@@ -131,7 +131,7 @@ let reviewUrl = ref('')
 let reviewImg = ref(false)
 let isImgLoading = ref(false);
 const props = defineProps({
-    // 必填项
+    // Required field
     content: {
         type: String,
         required: false
@@ -184,7 +184,7 @@ const markdownRenderer = createChatMarkdownRenderer({
     isValidImageUrl: isValidImageURL,
 });
 
-// 计算属性：将 Markdown 文本转换为 tokens
+// Computed property: convert Markdown text into tokens
 const mentionedItems = computed(() => {
     return props.session?.mentioned_items || [];
 });
@@ -215,7 +215,7 @@ watch(
     { immediate: true },
 );
 
-// 单次渲染整个 Markdown 内容（替代 token-by-token，修复 KaTeX 公式在 streaming 时闪烁消失的问题）
+// Render the entire Markdown content in a single pass (replaces token-by-token, fixes KaTeX formulas flickering and disappearing during streaming)
 const renderedHTML = computed(() => {
     const text = typedAnswer.value;
     if (!text || typeof text !== 'string') return '';
@@ -228,18 +228,18 @@ const renderedHTML = computed(() => {
     });
 });
 
-// 计算属性：判断是否有实际内容（非空且不只是空白）
+// Computed property: determine whether there is actual content (non-empty and not just whitespace)
 const hasActualContent = computed(() => {
     const text = props.content || props.session?.content || '';
     return text && text.trim().length > 0;
 });
 
-// 获取实际内容
+// Get the actual content
 const getActualContent = () => {
     return (props.content || props.session?.content || '').trim();
 };
 
-// 复制回答内容
+// Copy the answer content
 const handleCopyAnswer = async () => {
     const content = getActualContent();
     if (!content) {
@@ -251,12 +251,12 @@ const handleCopyAnswer = async () => {
         await copyTextToClipboard(content);
         MessagePlugin.success(t('chat.copySuccess'));
     } catch (err) {
-        console.error('复制失败:', err);
+        console.error('Copy failed:', err);
         MessagePlugin.error(t('chat.copyFailed'));
     }
 };
 
-// 添加到知识库
+// Add to knowledge base
 const handleAddToKnowledge = () => {
     const content = getActualContent();
     if (!content) {
@@ -278,7 +278,7 @@ const handleAddToKnowledge = () => {
     MessagePlugin.info(t('chat.editorOpened'));
 };
 
-// 处理 markdown-content 中图片的点击事件
+// Handle click events for images in markdown-content
 const handleMarkdownImageClick = (e) => {
     const target = e.target;
     if (target && target.tagName === 'IMG') {
@@ -297,7 +297,7 @@ watch(renderedHTML, () => {
     });
 });
 
-// 渲染 Mermaid 图表的函数
+// Function to render Mermaid diagrams
 onUpdated(() => {
     nextTick(async () => {
         await hydrateProtectedFileImages(parentMd.value);
@@ -309,7 +309,7 @@ onUpdated(() => {
 });
 
 onMounted(async () => {
-    // 为 markdown-content 中的图片添加点击事件
+    // Add click events to images in markdown-content
     nextTick(async () => {
         if (parentMd.value) {
             parentMd.value.addEventListener('click', handleMarkdownImageClick, true);
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
     gap: 0;
 }
 
-// 内容包装器 - 与 Agent 模式的 answer 样式一致
+// Content wrapper - matches the answer style in Agent mode
 .content-wrapper {
     padding: 2px 0;
 }

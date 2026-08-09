@@ -123,8 +123,8 @@ var registry = map[string]settingSpec{
 		EnvName:  "SSRF_WHITELIST",
 		Default:  []string{},
 		Category: "security",
-		Description: "SSRF 防护白名单。可填入 example.com / *.foo.com / 10.0.0.0/8 / 2001:db8::1。" +
-			"修改后立即生效。SSRF_WHITELIST_EXTRA 环境变量仍由部署方维护，不在此处覆盖。",
+		Description: "SSRF protection allowlist. You may enter example.com / *.foo.com / 10.0.0.0/8 / 2001:db8::1." +
+			"Changes take effect immediately. The SSRF_WHITELIST_EXTRA environment variable remains deployment-owned and is not overridden here.",
 	},
 	"auth.registration_mode": {
 		Type:     "string",
@@ -132,8 +132,8 @@ var registry = map[string]settingSpec{
 		Default:  "self_serve",
 		Enum:     []string{"self_serve", "invite_only"},
 		Category: "auth",
-		Description: "自助注册模式。self_serve = 任何人可注册账号；invite_only = 关闭公网注册，" +
-			"仅 Owner/Admin 可邀请。修改后立即生效，但谨慎对待 self_serve（公网会接受 spam）。",
+		Description: "Self-service registration mode. self_serve = anyone can register; invite_only = public registration is closed," +
+			"and only Owner/Admin can invite. Changes take effect immediately; use self_serve carefully on public deployments (spam risk).",
 	},
 	"auth.default_tenant_mode": {
 		Type:     "string",
@@ -141,8 +141,8 @@ var registry = map[string]settingSpec{
 		Default:  "create_personal",
 		Enum:     []string{"create_personal", "tenantless"},
 		Category: "auth",
-		Description: "公开注册成功后的默认空间策略。create_personal = 自动创建个人空间并设为 Owner；" +
-			"tenantless = 仅创建用户，等待接受邀请或主动创建空间。修改后只影响新注册用户。",
+		Description: "Default workspace policy after public registration succeeds. create_personal = automatically create a personal workspace and set the user as Owner;" +
+			"tenantless = only create the user and wait for an invitation or self-created workspace. Changes only affect newly registered users.",
 	},
 	// tenant.max_owned_per_user caps how many tenants a single non-superuser
 	// can create (and Own) via self-service POST /tenants. Read on every
@@ -156,16 +156,16 @@ var registry = map[string]settingSpec{
 		EnvName:  "WEKNORA_TENANT_MAX_OWNED_PER_USER",
 		Default:  int64(10),
 		Category: "tenant",
-		Description: "每个非超管用户通过自助创建可拥有的最大空间数。每次创建空间时实时读取，" +
-			"修改后立即生效。0 表示使用内置默认值 10；负数表示完全关闭限制（不建议在公开部署使用）。",
+		Description: "Maximum workspaces each non-super-admin user can own via self-service creation. Read live on every workspace creation," +
+			"changes take effect immediately. 0 uses the built-in default of 10; a negative value disables the limit entirely (not recommended for public deployments).",
 	},
 	"tenant.self_service_creation_enabled": {
 		Type:     "bool",
 		EnvName:  "WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED",
 		Default:  true,
 		Category: "tenant",
-		Description: "是否允许非超管用户主动创建空间。关闭后，普通用户只能通过邀请加入已有空间；" +
-			"跨空间超管仍可创建。修改后立即生效。",
+		Description: "Whether non-super-admin users may create workspaces. When disabled, regular users can only join existing workspaces by invitation;" +
+			"cross-workspace super-admins can still create workspaces. Changes take effect immediately.",
 	},
 	// tenant.default_storage_quota_gb is the default storage quota (in GB)
 	// applied to a newly-created tenant when the caller doesn't specify
@@ -179,9 +179,9 @@ var registry = map[string]settingSpec{
 		EnvName:  "WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB",
 		Default:  int64(10),
 		Category: "tenant",
-		Description: "新建空间时默认分配的存储配额（GB），包含向量、原文、文本、索引等。" +
-			"仅在创建时读取，修改后只对之后新建的空间生效，不会回写已存在的空间。" +
-			"0 或负数表示使用内置默认值 10GB。",
+		Description: "Default storage quota (GB) allocated when creating a workspace, including vectors, originals, text, indexes, and more." +
+			"Read only at creation time; changes apply only to workspaces created afterwards and do not rewrite existing ones. " +
+			"0 or a negative value uses the built-in default of 10GB.",
 	},
 	// tenant.auto_create_api_key restores the legacy behaviour where creating
 	// a tenant also minted a full-access API key and returned its plaintext
@@ -196,9 +196,9 @@ var registry = map[string]settingSpec{
 		EnvName:  "WEKNORA_TENANT_AUTO_CREATE_API_KEY",
 		Default:  false,
 		Category: "tenant",
-		Description: "创建空间时是否自动生成一个全量权限（full_access）的 API Key，并在创建接口的响应中返回其明文 token。" +
-			"用于兼容旧版本「创建空间即下发默认 API Key」的行为（属于破坏性变更的回退开关）。" +
-			"每次创建空间时实时读取，修改后立即生效。默认 false（不自动创建，需通过 API Key 管理显式创建）。",
+		Description: "Whether to automatically generate a full_access API Key when creating a workspace and return its plaintext token in the create response." +
+			"Compatibility fallback for the legacy behavior of issuing a default API Key on workspace creation (rollback switch for a breaking change). " +
+			"Read live on every workspace creation; changes take effect immediately. Default false (do not auto-create; create explicitly via API Key management).",
 	},
 	"asynq.core_concurrency": {
 		Type:            "int",
@@ -206,7 +206,7 @@ var registry = map[string]settingSpec{
 		Default:         int64(types.DefaultCoreWorkerConcurrency),
 		Category:        "worker",
 		RequiresRestart: true,
-		Description:     "文档解析、手工重解析等核心任务的每实例保底并发。可额外使用共享弹性池；修改后需重启。",
+		Description:     "Per-instance reserved concurrency for core tasks such as document parsing and manual reparse. May also use the shared elastic pool; restart required after changes.",
 	},
 	"asynq.postprocess_concurrency": {
 		Type:            "int",
@@ -214,7 +214,7 @@ var registry = map[string]settingSpec{
 		Default:         int64(types.DefaultPostProcessWorkerConcurrency),
 		Category:        "worker",
 		RequiresRestart: true,
-		Description:     "解析完成后的轻量编排与富化扇出专用并发，避免被长时间文档解析阻塞；修改后需重启。",
+		Description:     "Dedicated concurrency for lightweight post-parse orchestration and enrichment fan-out, so long document parsing does not block it; restart required after changes.",
 	},
 	"asynq.enrichment_concurrency": {
 		Type:            "int",
@@ -222,7 +222,7 @@ var registry = map[string]settingSpec{
 		Default:         int64(types.DefaultEnrichmentWorkerConcurrency),
 		Category:        "worker",
 		RequiresRestart: true,
-		Description:     "摘要、图片、图谱和问题生成的每实例保底并发。可额外使用共享弹性池；修改后需重启。",
+		Description:     "Per-instance reserved concurrency for summary, image, graph, and question generation. May also use the shared elastic pool; restart required after changes.",
 	},
 	"asynq.maintenance_concurrency": {
 		Type:            "int",
@@ -230,7 +230,7 @@ var registry = map[string]settingSpec{
 		Default:         int64(types.DefaultMaintenanceWorkerConcurrency),
 		Category:        "worker",
 		RequiresRestart: true,
-		Description:     "数据源同步、批处理、移动和删除清理的每实例保底并发，与用户面流水线硬隔离；修改后需重启。",
+		Description:     "Per-instance reserved concurrency for data-source sync, batch jobs, move, and delete cleanup, hard-isolated from the user-facing pipeline; restart required after changes.",
 	},
 	"asynq.shared_concurrency": {
 		Type:            "int",
@@ -238,7 +238,7 @@ var registry = map[string]settingSpec{
 		Default:         int64(types.DefaultSharedWorkerConcurrency),
 		Category:        "worker",
 		RequiresRestart: true,
-		Description:     "核心解析与内容富化共用的每实例弹性并发。空闲容量由有积压的一侧借用；修改后需重启。",
+		Description:     "Per-instance elastic concurrency shared by core parsing and content enrichment. Idle capacity is borrowed by the side with backlog; restart required after changes.",
 	},
 	// asynq.wiki_concurrency is the size of the DEDICATED wiki worker pool,
 	// separate from the upstream pools. Read once when the wiki asynq server
@@ -250,9 +250,9 @@ var registry = map[string]settingSpec{
 		Default:         int64(types.DefaultWikiWorkerConcurrency),
 		Category:        "worker",
 		RequiresRestart: true,
-		Description: "Wiki 生成专用池的 worker 并发数（与文档解析池相互隔离）。" +
-			"Wiki 生成以合成大模型调用为主，独立并发预算可避免上传高峰期被解析任务饿死，" +
-			"同时不会因 Wiki 洪峰拖慢用户面解析。修改后需重启服务进程方可生效。",
+		Description: "Worker concurrency for the dedicated Wiki generation pool (isolated from the document parsing pool)." +
+			"Wiki generation is mostly synthetic LLM calls; a separate concurrency budget prevents parse tasks from starving it during upload peaks, " +
+			"and also keeps Wiki bursts from slowing user-facing parsing. Restart the service process for changes to take effect.",
 	},
 	// model.max_concurrency is the DEFAULT per-model cap on concurrent
 	// background (ingestion/enrichment) LLM/embedding/VLM calls, keyed by
@@ -267,9 +267,9 @@ var registry = map[string]settingSpec{
 		EnvName:  "WEKNORA_MODEL_MAX_CONCURRENCY",
 		Default:  int64(32),
 		Category: "worker",
-		Description: "后台任务（文档入库/富化）对单个模型的默认并发上限，按模型 ID 全副本共享。" +
-			"每次调用实时读取，修改后立即生效、无需重启。0 或负数表示关闭默认限制" +
-			"（各模型仍会尊重自身在模型管理里配置的上限）。仅影响后台任务，不影响交互式对话。",
+		Description: "Default per-model concurrency cap for background tasks (document ingestion/enrichment), shared across replicas by model ID." +
+			"Read live on every call; changes take effect immediately without restart. 0 or a negative value disables the default limit " +
+			"(each model still respects its own cap configured in model management). Affects background tasks only, not interactive chat.",
 	},
 }
 

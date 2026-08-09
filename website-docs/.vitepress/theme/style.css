@@ -1,6 +1,6 @@
 /* ==========================================================================
-   WeKnora 文档站主题
-   墨蓝（logo 主色）· 纸白 · 鎏金（帆浪点缀）
+   WeKnora Documentation Site Theme
+   Ink Blue (logo primary color) · Paper White · Gilded Gold (sail wave accent)
    ========================================================================== */
 
 :root {
@@ -24,7 +24,7 @@
   --wk-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
     Consolas, "Liberation Mono", monospace;
 
-  /* —— 覆盖 VitePress 默认变量 —— */
+  /* —— Override VitePress default variables —— */
   --vp-font-family-base: var(--wk-font-sans);
   --vp-font-family-mono: var(--wk-font-mono);
 
@@ -46,17 +46,17 @@
   --vp-c-gutter: var(--wk-rule);
   --vp-c-border: var(--wk-rule);
 
-  /* 铺满视口。默认主题用这个值给 .VPContent 算左右内边距
-     （padding-right: (100vw - max-width) / 2），任何小于视口的定值都会在两侧留出
-     大片空白；给一个大于视口的定值又会让左内边距被钳到 0、正文钻到侧栏底下。
-     取 100vw 时右侧内边距为 0、左侧正好等于侧栏宽度。 */
+  /* Fill the full viewport. The default theme uses this value to calculate .VPContent's left/right padding
+     (padding-right: (100vw - max-width) / 2); any fixed value smaller than the viewport leaves
+     large blank areas on both sides; a fixed value larger than the viewport clamps the left padding to 0 and pushes the content under the sidebar.
+     Using 100vw makes the right padding 0 and the left padding exactly equal to the sidebar width. */
   --vp-layout-max-width: 100vw;
   --vp-nav-height: 68px;
   --vp-sidebar-width: 288px;
   --vp-code-block-bg: #fbf9f5;
 
   --vp-home-hero-name-color: var(--wk-ink);
-  --vp-code-copy-copied-text-content: "已复制";
+  --vp-code-copy-copied-text-content: "Copied";
 }
 
 .dark {
@@ -93,7 +93,7 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   顶栏
+   Top bar
    -------------------------------------------------------------------------- */
 
 .VPNav {
@@ -104,14 +104,14 @@ body {
   background-color: color-mix(in srgb, var(--wk-paper) 82%, transparent);
 }
 
-/* 导航栏与正文之间不要任何分隔线或渐变 */
+/* No divider line or gradient should appear between the navbar and the content */
 .VPNavBar .divider,
 .VPNavBar .curtain {
   display: none;
 }
 
-/* 默认主题在有侧栏时把标题块撑到侧栏宽、搜索框推到正文列起点，
-   这里让它与首页（无侧栏）共用同一套居中容器，两种页面的 logo 与搜索位置才一致 */
+/* The default theme stretches the title block to the sidebar width and pushes the search box to the start of the content column when there's a sidebar;
+   here we make it share the same centered container as the homepage (no sidebar), so the logo and search position are consistent across both page types */
 @media (min-width: 960px) {
   .VPNavBar.has-sidebar .wrapper {
     padding: 0 32px;
@@ -178,10 +178,10 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   侧边栏
+   Sidebar
    -------------------------------------------------------------------------- */
 
-/* 默认公式在视口窄于 layout-max-width 时会把侧栏压窄，这里给它一个下限 */
+/* The default formula narrows the sidebar when the viewport is narrower than layout-max-width; here we give it a lower bound */
 @media (min-width: 1440px) {
   .VPSidebar {
     width: calc(
@@ -194,10 +194,10 @@ body {
   border-right: 1px solid var(--wk-rule-soft);
 }
 
-/* 桌面侧栏透明，让正文背景贯通；窄屏抽屉必须不透明，否则会透出正文 */
+/* Desktop sidebar is transparent so the content background shows through; the narrow-screen drawer must be opaque, otherwise the content would show through */
 @media (min-width: 960px) {
   .VPSidebar {
-    /* 与默认主题一致：正好让出顶栏高度，首组标题紧贴顶栏下沿 */
+    /* Consistent with the default theme: leave exactly enough room for the top bar's height, so the first heading group sits flush against the bottom edge of the top bar */
     padding-top: var(--vp-nav-height) !important;
     background: transparent !important;
   }
@@ -214,20 +214,20 @@ body {
     background: var(--wk-paper) !important;
   }
 
-  /* 移动端不需要顶部 curtain */
+  /* No top curtain needed on mobile */
   .VPSidebar .curtain {
     display: none;
   }
 }
 
-/* 默认主题的 curtain 用负 margin 铺满侧栏宽度，会盖住滚动条顶部 */
+/* The default theme's curtain uses a negative margin to fill the sidebar width, which covers the top of the scrollbar */
 @media (min-width: 960px) {
   .VPSidebar .curtain {
-    /* 默认写死 -64px，本站 nav-height 为 68px，对齐以免 sticky 错位 */
+    /* The default is hardcoded to -64px; this site's nav-height is 68px, aligned to avoid sticky positioning misalignment */
     top: calc(var(--vp-nav-height) * -1);
     margin-right: 0;
     width: calc(100% + 32px);
-    /* 叠加滚动条画在内容区右侧，需裁掉一条竖向通道 */
+    /* The overlaid scrollbar is drawn on the right side of the content area, so a vertical channel needs to be clipped out */
     clip-path: inset(0 14px 0 0);
     background-color: color-mix(in srgb, var(--wk-paper) 82%, transparent);
     backdrop-filter: saturate(140%) blur(14px);
@@ -239,15 +239,15 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   中等屏「本页目录」条（960–1279px）
-   默认通栏 + 底边会横穿侧栏，看起来像多余的线
+   Medium-screen "on-this-page" bar (960–1279px)
+   The default full-width bar + bottom border crosses through the sidebar, which looks like a stray line
    -------------------------------------------------------------------------- */
 
 @media (min-width: 960px) and (max-width: 1279px) {
   .VPLocalNav.has-sidebar {
     width: calc(100% - var(--vp-sidebar-width));
     margin-left: var(--vp-sidebar-width);
-    /* 盖过默认主题 scoped 的 padding-left: sidebar-width，否则会双重偏移居中 */
+    /* Overrides the default theme's scoped padding-left: sidebar-width, otherwise it would double-offset the centering */
     padding-left: 0 !important;
     background-color: color-mix(in srgb, var(--wk-paper) 82%, transparent);
     backdrop-filter: saturate(140%) blur(14px);
@@ -264,7 +264,7 @@ body {
     padding-left: 0;
   }
 
-  /* 默认 left 按通栏算了 sidebar+32；LocalNav 已右移，再加一次会落到中间 */
+  /* The default left is calculated as sidebar+32 for the full-width bar; LocalNav has already been shifted right, so adding it again would land it in the middle */
   .VPLocalNav.has-sidebar .VPLocalNavOutlineDropdown .items {
     left: 32px;
     right: auto;
@@ -322,16 +322,16 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   正文排版
+   Content typography
    -------------------------------------------------------------------------- */
 
 .VPDoc {
   padding-top: 44px !important;
 }
 
-/* 默认主题用 scoped 选择器把正文锁死在 688px，覆盖它需要 !important。
-   这里让正文列吃满侧栏与右侧目录之间的空间，只在超宽屏留一个上限，
-   免得一行拉到两千像素。 */
+/* The default theme locks the content to 688px with a scoped selector; overriding it requires !important.
+   Here we let the content column fill the space between the sidebar and the right-side TOC, with an upper bound only on ultra-wide screens,
+   so a single line doesn't stretch to two thousand pixels. */
 @media (min-width: 1280px) {
   .VPDoc .content-container,
   .VPDoc.has-aside .content-container {
@@ -446,7 +446,7 @@ body {
   margin: 52px 0;
 }
 
-/* 代码 */
+/* Code */
 
 .vp-doc :not(pre) > code {
   font-size: 0.86em;
@@ -474,7 +474,7 @@ body {
   line-height: 1.72;
 }
 
-/* 复制按钮：默认隐形，悬停时才出现的细线方钮 */
+/* Copy button: invisible by default, a thin-line square button that only appears on hover */
 .vp-doc [class*="language-"] > button.copy {
   top: 9px;
   right: 9px;
@@ -531,10 +531,10 @@ body {
   color: var(--wk-ink-mute);
 }
 
-/* 表格 */
+/* Table */
 
-/* 滚动交给包裹层（见 config.mts 的 table_open 规则），表格本身保持
-   display:table + width:100%，所有表格宽度一致地撑满正文列 */
+/* Scrolling is delegated to the wrapper layer (see the table_open rule in config.mts); the table itself keeps
+   display:table + width:100%, so all tables consistently fill the width of the content column */
 .vp-doc .wk-table {
   overflow-x: auto;
   margin: 28px 0;
@@ -544,7 +544,7 @@ body {
 .vp-doc .wk-table > table {
   display: table;
   width: 100%;
-  /* 窄屏下宁可横向滚动，也不要把列挤成一字一行 */
+  /* On narrow screens, prefer horizontal scrolling over squeezing columns into one character per line */
   min-width: 420px;
   margin: 0;
   font-size: 13.5px;
@@ -593,7 +593,7 @@ body {
   padding-right: 0;
 }
 
-/* 自定义容器 */
+/* Custom containers */
 
 .vp-doc .custom-block {
   border-radius: 3px;
@@ -615,7 +615,7 @@ body {
   text-transform: uppercase;
 }
 
-/* Mermaid 图 */
+/* Mermaid diagrams */
 
 .vp-doc .mermaid {
   position: relative;
@@ -635,7 +635,7 @@ body {
 }
 
 .vp-doc .mermaid::after {
-  content: "点击放大";
+  content: "Click to zoom";
   position: absolute;
   right: 12px;
   bottom: 10px;
@@ -651,7 +651,7 @@ body {
   opacity: 1;
 }
 
-/* 页脚区 */
+/* Footer area */
 
 .VPDocFooter {
   margin-top: 72px;
@@ -734,7 +734,7 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   首页容器：去掉默认 page 布局的边距限制
+   Homepage container: remove the default page layout's margin constraints
    -------------------------------------------------------------------------- */
 
 .landing-page .VPPage {

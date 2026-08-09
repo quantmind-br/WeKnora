@@ -277,11 +277,11 @@ type SharedAgentInfo struct {
 type SourceFromAgentInfo struct {
 	AgentID         string `json:"agent_id"`
 	AgentName       string `json:"agent_name"`
-	KBSelectionMode string `json:"kb_selection_mode"` // "all" | "selected" | "none"; for drawer copy "该智能体对知识库的策略"
+	KBSelectionMode string `json:"kb_selection_mode"` // "all" | "selected" | "none"; for drawer copy "agent policy for knowledge bases"
 }
 
 // OrganizationSharedKnowledgeBaseItem is used by GET /organizations/:id/shared-knowledge-bases (space-scoped list including mine).
-// When SourceFromAgent is set, the KB is from a shared agent's config (no direct KB share); show as read-only and "来自智能体 XXX".
+// When SourceFromAgent is set, the KB is from a shared agent's config (no direct KB share); show as read-only and "From agent XXX".
 type OrganizationSharedKnowledgeBaseItem struct {
 	SharedKnowledgeBaseInfo
 	IsMine          bool                 `json:"is_mine"`
@@ -420,12 +420,12 @@ type OrganizationResponse struct {
 	Searchable              bool       `json:"searchable"`
 	MemberLimit             int        `json:"member_limit"` // 0 = unlimited
 	MemberCount             int        `json:"member_count"`
-	ShareCount              int        `json:"share_count"`                // 共享到该组织的知识库数量
-	AgentShareCount         int        `json:"agent_share_count"`          // 共享到该组织的智能体数量
-	PendingJoinRequestCount int        `json:"pending_join_request_count"` // 待审批加入申请数（仅管理员可见）
+	ShareCount              int        `json:"share_count"`                // Number of knowledge bases shared to this organization
+	AgentShareCount         int        `json:"agent_share_count"`          // Number of agents shared to this organization
+	PendingJoinRequestCount int        `json:"pending_join_request_count"` // Pending join request count (admin only)
 	IsOwner                 bool       `json:"is_owner"`
 	MyRole                  string     `json:"my_role,omitempty"`
-	HasPendingUpgrade       bool       `json:"has_pending_upgrade"` // 当前用户是否有待处理的权限升级申请
+	HasPendingUpgrade       bool       `json:"has_pending_upgrade"` // Whether the current user has a pending permission upgrade request
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 }
@@ -513,7 +513,7 @@ type AgentShareResponse struct {
 type ListOrganizationsResponse struct {
 	Organizations  []OrganizationResponse       `json:"organizations"`
 	Total          int64                        `json:"total"`
-	ResourceCounts *ResourceCountsByOrgResponse `json:"resource_counts,omitempty"` // 各空间内知识库/智能体数量，供列表侧栏展示
+	ResourceCounts *ResourceCountsByOrgResponse `json:"resource_counts,omitempty"` // Per-workspace KB/agent counts for the list sidebar
 }
 
 // ResourceCountsByOrgResponse is the response for GET /me/resource-counts (sidebar counts per space)
@@ -535,7 +535,7 @@ type SearchableOrganizationItem struct {
 	MemberCount     int    `json:"member_count"`
 	MemberLimit     int    `json:"member_limit"` // 0 = unlimited
 	ShareCount      int    `json:"share_count"`
-	AgentShareCount int    `json:"agent_share_count"` // 共享到该组织的智能体数量
+	AgentShareCount int    `json:"agent_share_count"` // Number of agents shared to this organization
 	IsAlreadyMember bool   `json:"is_already_member"`
 	RequireApproval bool   `json:"require_approval"`
 }

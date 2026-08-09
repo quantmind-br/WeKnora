@@ -86,9 +86,9 @@ type CustomAgent struct {
 	UpdatedAt time.Time      `yaml:"updated_at" json:"updated_at"`
 	DeletedAt gorm.DeletedAt `yaml:"deleted_at" json:"deleted_at" gorm:"index"`
 
-	// CreatorName 由 list handler 在返回前批量回填，作用同 KnowledgeBase.CreatorName：
-	// 让前端列表卡片区分「我创建」与「同空间其他成员创建」。不落库，内建 agent / 老数据
-	// 仍可能为空。
+	// CreatorName is bulk-filled by the list handler before returning, serving the same purpose as KnowledgeBase.CreatorName:
+	// Lets the frontend list cards distinguish "created by me" from "created by other members of the same space". Not persisted to the DB; built-in agents / legacy data
+	// may still be empty.
 	CreatorName string `yaml:"-" json:"creator_name,omitempty" gorm:"-"`
 }
 
@@ -533,13 +533,13 @@ func (a *CustomAgent) IsAgentMode() bool {
 	return a.Config.AgentMode == AgentModeSmartReasoning
 }
 
-// SuggestedQuestion 推荐问题
+// SuggestedQuestion represents a suggested question
 type SuggestedQuestion struct {
-	// 问题文本
+	// Question text
 	Question string `json:"question"`
-	// 来源类型: "agent_config", "faq", "document", "wiki"
+	// Source type: "agent_config", "faq", "document", "wiki"
 	Source string `json:"source"`
-	// 来源知识库ID（仅 faq/document/wiki 来源时有值）
+	// Source knowledge base ID (only set for faq/document/wiki sources)
 	KnowledgeBaseID string `json:"knowledge_base_id,omitempty"`
 }
 

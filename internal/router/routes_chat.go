@@ -7,7 +7,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/handler/session"
 )
 
-// RegisterMessageRoutes 注册消息相关的路由。
+// RegisterMessageRoutes registers message-related routes
 //
 // Per-session ownership is already enforced inside each handler (the
 // user must own the session). We add Viewer+ here so non-members
@@ -32,7 +32,7 @@ func RegisterMessageRoutes(r *gin.RouterGroup, handler *handler.MessageHandler, 
 	}
 }
 
-// RegisterSessionRoutes 注册路由。
+// RegisterSessionRoutes registers routes.
 //
 // Sessions are per-user resources; the handler enforces user ownership.
 // We gate at Viewer+ to keep non-members out once RBAC is on, matching
@@ -70,7 +70,7 @@ func RegisterSessionRoutes(
 		// tree to avoid "wildcard conflicts" panic at route registration.
 		sessions.POST("/:session_id/pin", handler.PinSession)
 		sessions.DELETE("/:id/pin", handler.UnpinSession)
-		// 继续接收活跃流
+		// Keep receiving the active stream
 		sessions.GET("/continue-stream/:session_id", handler.ContinueStream)
 		if suggestionHandler != nil {
 			// Gin requires wildcard names to be identical within the same HTTP-method
@@ -82,7 +82,7 @@ func RegisterSessionRoutes(
 	}
 }
 
-// RegisterChatRoutes 注册路由。Chat endpoints are tenant-member usage
+// RegisterChatRoutes registers routes. Chat endpoints are tenant-member usage
 // surfaces; Viewer+ is sufficient because per-session/per-agent
 // authorisation is enforced inside the handlers.
 func RegisterChatRoutes(r *gin.RouterGroup, handler *session.Handler, g *rbacGuards) {
@@ -99,7 +99,7 @@ func RegisterChatRoutes(r *gin.RouterGroup, handler *session.Handler, g *rbacGua
 		agentChat.POST("/:session_id", handler.AgentQA)
 	}
 
-	// 新增知识检索接口，不需要session_id
+	// New knowledge retrieval endpoint, doesn't need session_id
 	knowledgeSearch := g.apiKeyGroup(r.Group("/knowledge-search", g.Viewer()), apiKeyRetrieve(apiKeyFullAccess()))
 	{
 		knowledgeSearch.POST("", handler.SearchKnowledge)

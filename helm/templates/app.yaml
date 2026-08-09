@@ -121,8 +121,8 @@ spec:
               value: {{ .Values.app.env.CONCURRENCY_POOL_SIZE | quote }}
             {{- if .Values.neo4j.enabled }}
             # Neo4j configuration (for GraphRAG)
-            # NEO4J_ENABLE 是知识图谱的唯一开关（Go 代码认它，不认 ENABLE_GRAPH_RAG）。
-            # neo4j.enabled=true 时自动注入，无需用户单独设置。
+            # NEO4J_ENABLE is the single switch for the knowledge graph (the Go code reads it, not ENABLE_GRAPH_RAG).
+            # Auto-injected when neo4j.enabled=true; no separate user setting needed.
             - name: NEO4J_ENABLE
               value: "true"
             - name: NEO4J_URI

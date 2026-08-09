@@ -79,7 +79,7 @@
           <div class="legend-actions">
             <div class="legend-action" @click="fitGraphToView" title="Fit to View">
               <span class="legend-action-icon"><t-icon name="focus" /></span>
-              <span>{{ $t('knowledgeEditor.wikiBrowser.fitView') || '适应屏幕' }}</span>
+              <span>{{ $t('knowledgeEditor.wikiBrowser.fitView') || 'Fit to screen' }}</span>
             </div>
             <div class="legend-action" @click="toggleArrows">
               <span class="legend-action-icon"><t-icon :name="showArrows ? 'browse-off' : 'browse'" /></span>
@@ -196,7 +196,7 @@
               </div>
             </div>
             <div v-if="searchResults.length === 0 && !loading" class="wiki-empty-state">
-              <p class="wiki-empty-desc">{{ $t('knowledgeEditor.wikiBrowser.searchNoResults') || '没有找到匹配的页面' }}</p>
+              <p class="wiki-empty-desc">{{ $t('knowledgeEditor.wikiBrowser.searchNoResults') || 'No matching pages found' }}</p>
             </div>
           </template>
 
@@ -843,10 +843,10 @@ const { t } = useI18n()
 const props = defineProps<{
   knowledgeBaseId: string
   view?: 'browser' | 'graph'
-  // canEdit 由父组件 KnowledgeBase.vue 透传（与 canEdit computed 同源）。
-  // 控制 AutoFix / FixIssue / IgnoreIssue 三个写操作按钮的可见性，
-  // 对应后端 g.OwnedWikiKBOrAdmin() 守卫（KB creator OR Admin+ OR
-  // org-share editor）。父组件没传时按 false 兜底，避免漏 gate。
+  // canEdit is passed through from the parent component KnowledgeBase.vue (same source as the canEdit computed).
+  // Controls the visibility of the three write-action buttons: AutoFix / FixIssue / IgnoreIssue,
+  // corresponding to the backend g.OwnedWikiKBOrAdmin() guard (KB creator OR Admin+ OR
+  // org-share editor). Defaults to false when the parent doesn't pass it, to avoid missing the gate.
   canEdit?: boolean
 }>()
 
@@ -865,7 +865,7 @@ const kbFileAccess = computed<ProtectedFileAccessContext>(() => ({
 const pages = ref<WikiPage[]>([])
 const selectedPage = ref<WikiPage | null>(null)
 
-// Per-type pagination state for the sidebar. 4万-page wikis used to load
+// Per-type pagination state for the sidebar. 40k-page wikis used to load
 // the entire page list into `pages.value` at startup (50 pages of 500 =
 // 25k rows of JSON fetched even when the user only wants to glance at
 // one type). Instead we now keep one bucket per page_type and lazy-load
@@ -1369,7 +1369,7 @@ const graphDrawerNeighborHint = computed(() => {
     return t('knowledgeEditor.wikiBrowser.neighborsAllShown', { total: status.total })
   }
   if (status.isEgoCenter) {
-    // hidden > 0 but can't be loaded — distinguish from "未加载".
+    // hidden > 0 but can't be loaded — distinguish from "not loaded".
     return t('knowledgeEditor.wikiBrowser.neighborsCenterUnreachable', {
       visible: status.visible,
       total: status.total,
@@ -1430,21 +1430,21 @@ const graphFrontierCount = computed(() => {
 
 // graphStatusCard drives the little summary panel below the legend.
 //
-// The old design ("以 A 为中心 · 1 跳 · 7 个节点" / "showing 500 / 40000,
+// The old design ("centered on A · 1 hop · 7 nodes" / "showing 500 / 40000,
 // click a node to expand neighbors") crammed four pieces of info into a
 // single line of running prose — the most important bit (what page the
-// user is focused on) got lost between the jargon ("1 跳") and the
+// user is focused on) got lost between the jargon ("1 hop") and the
 // imperative tail ("click a node...").
 //
 // The card version separates the three jobs into visible slots:
 //   header  → icon + short mode name, tells the user "am I looking at
 //             the whole wiki or at one page's neighborhood"
 //   primary → the noun that identifies the current view (page title in
-//             ego mode, "X / Y 个节点" in overview)
+// ego mode, "X / Y nodes" in overview)
 //   secondary → optional subline with type badge / hint / progress
 //
 // We also resolve `meta.center` (a slug) to the actual page title via
-// graphData.nodes so users see "北京市昌职…" instead of "entity/beijing-..."
+// graphData.nodes so users see "Beijing Changping..." instead of "entity/beijing-..."
 // — a common complaint with the old hint.
 // graphHelpRows is the content of the ? popup. Keeping it in a computed
 // rather than the template lets us i18n each action/description in one
@@ -2802,7 +2802,7 @@ onUnmounted(() => {
 // cheap because each bucket caps at WIKI_SIDEBAR_PAGE_SIZE rows.
 //
 // Historically this function looped listWikiPages({page:1..50}) and
-// accumulated up to 25k rows in `pages.value`. On a 4万-page KB that
+// accumulated up to 25k rows in `pages.value`. On a 40k-page KB that
 // was multiple seconds of network + serialization + O(n) group
 // computation before the user saw anything.
 async function loadPages() {
@@ -3193,7 +3193,7 @@ async function loadGraph() {
 
 // loadEgoGraph fetches the neighborhood around a center slug and re-renders
 // the canvas. Invoked when the user clicks "expand neighbors" in the drawer
-// so they can drill into a page on a 4万+ wiki without ever having to
+// so they can drill into a page on a 40k+ wiki without ever having to
 // download the full graph. Returning to the global top-N view is handled by
 // loadGraph() again.
 async function loadEgoGraph(slug: string, depth = GRAPH_EGO_DEFAULT_DEPTH) {
@@ -3392,7 +3392,7 @@ function evictBloomOverflow(data: WikiGraphData, protect: Set<string>) {
 
 // GROW_FRONTIER_CONCURRENCY is the number of parallel ego fetches we
 // allow when the user asks us to expand the whole frontier at once. A
-// 4万-page wiki can have ~100 frontier nodes; firing all 100 requests in
+// A 40k-page wiki can have ~100 frontier nodes; firing all 100 requests in
 // parallel would hammer the backend and most responses would compete for
 // the same DB connection pool anyway. 6 is chosen empirically: it keeps
 // latency for the "whole frontier" op under ~2s for typical frontiers
@@ -4621,7 +4621,7 @@ function clearHighlight(
 // browse the most-connected pages without typing — matching the old
 // client-filter UX. Once the user types we switch to a remote full-text
 // search against the wiki API so the dropdown can reach pages that sit
-// outside the canvas (up to the whole 4万-page KB).
+// outside the canvas (up to the whole 40k-page KB).
 const graphSearchOptions = ref<{ label: string; value: string }[]>([])
 const graphSearchLoading = ref(false)
 let graphSearchDebounce: ReturnType<typeof setTimeout> | null = null
@@ -4688,8 +4688,8 @@ let graphAdjacencyRef = new Map<string, Set<string>>()
 
 // handleGraphSearchSelect is the single entry point every "jump to this
 // slug" path funnels through — the graph search select, drawer wiki-link
-// clicks, the ?slug= query param, and the global issues "去处理" button.
-// On a 4万-page wiki, the current render contains at most GRAPH_OVERVIEW_LIMIT
+// clicks, the ?slug= query param, and the global issues "Resolve" button.
+// On a 40k-page wiki, the current render contains at most GRAPH_OVERVIEW_LIMIT
 // (500) nodes, so most of the wiki is NOT on screen at any given moment.
 // If the requested slug is missing from the current canvas we reload the
 // graph as an ego view centered on that slug, then finish the highlight
@@ -6464,7 +6464,7 @@ onUnmounted(() => {
   padding-right: 4px;
 }
 
-/* 优化描述区域的滚动条样式 */
+/* Optimize the scrollbar style for the description area */
 .wiki-issue-popup-desc::-webkit-scrollbar {
   width: 4px;
 }

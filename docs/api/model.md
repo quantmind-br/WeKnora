@@ -1,72 +1,76 @@
-# 模型管理 API
+Segue a tradução completa do documento para inglês, com toda a estrutura markdown preservada.
 
-[返回目录](./README.md)
+---
 
-模型管理接口用于维护当前空间下可用的 LLM / Embedding / Rerank / VLLM / ASR 模型配置。
+# Model Management API
 
-| 方法   | 路径                | 描述                  |
-| ------ | ------------------- | --------------------- |
-| GET    | `/models/providers` | 获取模型服务商列表    |
-| POST   | `/models`           | 创建模型              |
-| GET    | `/models`           | 获取模型列表          |
-| GET    | `/models/:id`       | 获取模型详情          |
-| PUT    | `/models/:id`       | 更新模型              |
-| DELETE | `/models/:id`       | 删除模型              |
+[Back to directory](./README.md)
 
-## 服务商支持 (Provider Support)
+The model management endpoints are used to maintain the LLM / Embedding / Rerank / VLLM / ASR model configurations available in the current space.
 
-WeKnora 支持多种主流 AI 模型服务商，在创建模型时可通过 `parameters.provider` 字段指定服务商类型以获得更好的兼容性。
+| Method | Path                | Description                |
+| ------ | ------------------- | --------------------------- |
+| GET    | `/models/providers` | Get the list of model providers |
+| POST   | `/models`           | Create a model              |
+| GET    | `/models`           | Get the list of models      |
+| GET    | `/models/:id`       | Get model details           |
+| PUT    | `/models/:id`       | Update a model               |
+| DELETE | `/models/:id`       | Delete a model               |
 
-### 支持的服务商列表
+## Provider Support
 
-| 服务商标识     | 名称                         | 支持的模型类型                  |
-| -------------- | ---------------------------- | ------------------------------- |
-| `generic`      | 自定义 (OpenAI 兼容接口)     | Chat, Embedding, Rerank, VLLM   |
-| `openai`       | OpenAI                       | Chat, Embedding, Rerank, VLLM   |
-| `aliyun`       | 阿里云 DashScope             | Chat, Embedding, Rerank, VLLM   |
-| `zhipu`        | 智谱 BigModel                | Chat, Embedding, Rerank, VLLM   |
-| `volcengine`   | 火山引擎 Volcengine          | Chat, Embedding, Rerank, VLLM   |
-| `hunyuan`      | 腾讯混元 Hunyuan             | Chat, Embedding                 |
-| `deepseek`     | DeepSeek                     | Chat                            |
-| `minimax`      | MiniMax                      | Chat                            |
-| `mimo`         | 小米 MiMo                    | Chat                            |
-| `siliconflow`  | 硅基流动 SiliconFlow         | Chat, Embedding, Rerank, VLLM   |
-| `jina`         | Jina                         | Embedding, Rerank               |
-| `openrouter`   | OpenRouter                   | Chat, VLLM                      |
-| `requesty`     | Requesty                     | Chat, Embedding, VLLM           |
-| `gemini`       | Google Gemini                | Chat                            |
-| `modelscope`   | 魔搭 ModelScope              | Chat, Embedding, VLLM           |
-| `moonshot`     | 月之暗面 Moonshot            | Chat, VLLM                      |
-| `qianfan`      | 百度千帆 Baidu Cloud         | Chat, Embedding, Rerank, VLLM   |
-| `qiniu`        | 七牛云 Qiniu                 | Chat                            |
-| `longcat`      | LongCat AI                   | Chat                            |
-| `gpustack`     | GPUStack                     | Chat, Embedding, Rerank, VLLM   |
+WeKnora supports multiple mainstream AI model providers. When creating a model, you can specify the provider type via the `parameters.provider` field for better compatibility.
 
-> 实际可用的服务商以 `GET /models/providers` 返回为准。
+### List of supported providers
 
-## GET `/models/providers` - 获取模型服务商列表
+| Provider ID    | Name                          | Supported model types           |
+| -------------- | ----------------------------- | -------------------------------- |
+| `generic`      | Custom (OpenAI-compatible interface) | Chat, Embedding, Rerank, VLLM |
+| `openai`       | OpenAI                        | Chat, Embedding, Rerank, VLLM    |
+| `aliyun`       | Alibaba Cloud DashScope        | Chat, Embedding, Rerank, VLLM    |
+| `zhipu`        | Zhipu BigModel                 | Chat, Embedding, Rerank, VLLM    |
+| `volcengine`   | Volcengine                     | Chat, Embedding, Rerank, VLLM    |
+| `hunyuan`      | Tencent Hunyuan                | Chat, Embedding                  |
+| `deepseek`     | DeepSeek                       | Chat                              |
+| `minimax`      | MiniMax                        | Chat                              |
+| `mimo`         | Xiaomi MiMo                    | Chat                              |
+| `siliconflow`  | SiliconFlow                    | Chat, Embedding, Rerank, VLLM    |
+| `jina`         | Jina                            | Embedding, Rerank                |
+| `openrouter`   | OpenRouter                     | Chat, VLLM                        |
+| `requesty`     | Requesty                       | Chat, Embedding, VLLM             |
+| `gemini`       | Google Gemini                  | Chat                              |
+| `modelscope`   | ModelScope                     | Chat, Embedding, VLLM             |
+| `moonshot`     | Moonshot AI                    | Chat, VLLM                        |
+| `qianfan`      | Baidu Cloud Qianfan            | Chat, Embedding, Rerank, VLLM     |
+| `qiniu`        | Qiniu Cloud                    | Chat                              |
+| `longcat`      | LongCat AI                     | Chat                              |
+| `gpustack`     | GPUStack                       | Chat, Embedding, Rerank, VLLM     |
 
-根据模型类型获取支持的服务商列表及配置信息（系统级元数据，与空间无关）。
+> The actually available providers are determined by the response of `GET /models/providers`.
 
-**查询参数**:
+## GET `/models/providers` - Get the list of model providers
 
-| 字段       | 类型   | 必填 | 说明                                                |
-| ---------- | ------ | ---- | --------------------------------------------------- |
-| model_type | string | 否   | 模型类型，可选值：`chat` / `embedding` / `rerank` / `vllm` / `asr`；省略则返回全部 |
+Get the list of supported providers and their configuration information based on the model type (system-level metadata, unrelated to any specific space).
 
-**请求**:
+**Query parameters**:
+
+| Field      | Type   | Required | Description                                                |
+| ---------- | ------ | -------- | ------------------------------------------------------------ |
+| model_type | string | No       | Model type, possible values: `chat` / `embedding` / `rerank` / `vllm` / `asr`; if omitted, all types are returned |
+
+**Request**:
 
 ```curl
-# 获取所有服务商
+# Get all providers
 curl --location 'http://localhost:8080/api/v1/models/providers' \
 --header 'X-API-Key: your_api_key'
 
-# 获取支持 Embedding 类型的服务商
+# Get providers that support the Embedding type
 curl --location 'http://localhost:8080/api/v1/models/providers?model_type=embedding' \
 --header 'X-API-Key: your_api_key'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -98,25 +102,25 @@ curl --location 'http://localhost:8080/api/v1/models/providers?model_type=embedd
 }
 ```
 
-## POST `/models` - 创建模型
+## POST `/models` - Create a model
 
-为当前空间创建一个新的模型配置。
+Creates a new model configuration for the current space.
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段        | 类型   | 必填 | 说明                                                            |
-| ----------- | ------ | ---- | --------------------------------------------------------------- |
-| name        | string | 是   | 模型名称（远程模型对应服务商的 model id，本地模型为 Ollama tag）|
-| type        | string | 是   | 模型类型，可选值：`KnowledgeQA` / `Embedding` / `Rerank` / `VLLM` / `ASR` |
-| source      | string | 是   | 模型来源，可选值：`local` / `remote`                            |
-| description | string | 否   | 模型描述                                                        |
-| parameters  | object | 是   | 模型参数，详见下方 [Parameters](#parameters-模型参数)           |
+| Field       | Type   | Required | Description                                                            |
+| ----------- | ------ | -------- | ------------------------------------------------------------------------ |
+| name        | string | Yes      | Model name (for remote models, this is the model id from the corresponding provider; for local models, this is the Ollama tag) |
+| type        | string | Yes      | Model type, possible values: `KnowledgeQA` / `Embedding` / `Rerank` / `VLLM` / `ASR` |
+| source      | string | Yes      | Model source, possible values: `local` / `remote`                        |
+| description | string | No       | Model description                                                        |
+| parameters  | object | Yes      | Model parameters, see [Parameters](#parameters-model-parameters) below   |
 
-> 当 `parameters.base_url` 不为空时，后端会执行 SSRF 校验，校验失败将返回 400。
+> When `parameters.base_url` is not empty, the backend performs SSRF validation; if validation fails, a 400 response is returned.
 
-### 创建对话模型（KnowledgeQA）
+### Create a chat model (KnowledgeQA)
 
-**本地 Ollama 模型**:
+**Local Ollama model**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -134,7 +138,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-**远程 API 模型（指定服务商）**:
+**Remote API model (specific provider)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -153,9 +157,9 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-### 创建嵌入模型（Embedding）
+### Create an embedding model (Embedding)
 
-**本地 Ollama 模型**:
+**Local Ollama model**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -177,7 +181,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-**远程 API 模型（阿里云 DashScope）**:
+**Remote API model (Alibaba Cloud DashScope)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -200,7 +204,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-**远程 API 模型（Jina AI）**:
+**Remote API model (Jina AI)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -223,9 +227,9 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-### 创建排序模型（Rerank）
+### Create a rerank model (Rerank)
 
-**远程 API 模型（阿里云 DashScope）**:
+**Remote API model (Alibaba Cloud DashScope)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -244,7 +248,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-**远程 API 模型（Jina AI）**:
+**Remote API model (Jina AI)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -263,10 +267,10 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-**远程 API 模型（火山引擎 VikingDB）**:
+**Remote API model (Volcengine VikingDB)**:
 
-火山 Rerank 使用 AK/SK 签名，不使用方舟 API Key。`api_key` 保存 Access Key ID，
-`app_secret` 保存 Secret Access Key；两项均按模型凭证加密存储。
+Volcengine Rerank uses AK/SK signing rather than an Ark API Key. `api_key` stores the Access Key ID, and
+`app_secret` stores the Secret Access Key; both are encrypted and stored as model credentials.
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -286,7 +290,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-### 创建视觉模型（VLLM）
+### Create a vision model (VLLM)
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -305,7 +309,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -335,11 +339,11 @@ curl --location 'http://localhost:8080/api/v1/models' \
 }
 ```
 
-## GET `/models` - 获取模型列表
+## GET `/models` - Get the list of models
 
-返回当前空间下的所有模型。内置模型（`is_builtin = true`）的 `base_url` 与 `api_key` 会被清空以隐藏敏感信息。
+Returns all models in the current space. For built-in models (`is_builtin = true`), the `base_url` and `api_key` fields are cleared to hide sensitive information.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models' \
@@ -347,17 +351,17 @@ curl --location 'http://localhost:8080/api/v1/models' \
 --header 'X-API-Key: your_api_key'
 ```
 
-**响应**: `data` 为数组，每个元素的字段结构同 `POST /models` 响应。内置模型的 `base_url` 与 `api_key` 字段为空字符串。
+**Response**: `data` is an array; each element has the same field structure as the `POST /models` response. For built-in models, the `base_url` and `api_key` fields are empty strings.
 
-## GET `/models/:id` - 获取模型详情
+## GET `/models/:id` - Get model details
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明     |
-| ---- | ------ | ---- | -------- |
-| id   | string | 是   | 模型 ID  |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| id    | string | Yes      | Model ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/models/dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3' \
@@ -365,29 +369,29 @@ curl --location 'http://localhost:8080/api/v1/models/dff7bc94-7885-4dd1-bfd5-bd9
 --header 'X-API-Key: your_api_key'
 ```
 
-**响应**: 字段结构同 `POST /models` 响应。404 表示模型不存在。
+**Response**: Same field structure as the `POST /models` response. A 404 indicates the model does not exist.
 
-## PUT `/models/:id` - 更新模型
+## PUT `/models/:id` - Update a model
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明     |
-| ---- | ------ | ---- | -------- |
-| id   | string | 是   | 模型 ID  |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| id    | string | Yes      | Model ID     |
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段        | 类型   | 必填 | 说明                                                            |
-| ----------- | ------ | ---- | --------------------------------------------------------------- |
-| name        | string | 否   | 模型名称（为空字符串时保留原值）                                |
-| description | string | 否   | 模型描述（始终覆盖，传空字符串会清空）                          |
-| type        | string | 否   | 模型类型，取值同创建接口                                        |
-| source      | string | 否   | 模型来源，取值同创建接口                                        |
-| parameters  | object | 否   | 模型参数；`parameter_size` 由后端管理，请求中无需提供；`extra_config` 为空时会沿用旧值 |
+| Field       | Type   | Required | Description                                                            |
+| ----------- | ------ | -------- | ------------------------------------------------------------------------ |
+| name        | string | No       | Model name (leaving it as an empty string preserves the original value) |
+| description | string | No       | Model description (always overwritten; passing an empty string clears it) |
+| type        | string | No       | Model type, same values as the create endpoint                          |
+| source      | string | No       | Model source, same values as the create endpoint                        |
+| parameters  | object | No       | Model parameters; `parameter_size` is managed by the backend and does not need to be provided in the request; if `extra_config` is empty, the previous value is retained |
 
-> 同样会对 `parameters.base_url` 做 SSRF 校验，失败时返回 400。
+> `parameters.base_url` also undergoes SSRF validation; a 400 response is returned on failure.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/models/8fdc464d-8eaa-44d4-a85b-094b28af5330' \
@@ -406,17 +410,17 @@ curl --location --request PUT 'http://localhost:8080/api/v1/models/8fdc464d-8eaa
 }'
 ```
 
-**响应**: 字段结构同 `POST /models` 响应，返回更新后的完整模型对象。
+**Response**: Same field structure as the `POST /models` response, returning the full, updated model object.
 
-## DELETE `/models/:id` - 删除模型
+## DELETE `/models/:id` - Delete a model
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明     |
-| ---- | ------ | ---- | -------- |
-| id   | string | 是   | 模型 ID  |
+| Field | Type   | Required | Description |
+| ----- | ------ | -------- | ------------ |
+| id    | string | Yes      | Model ID     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/models/8fdc464d-8eaa-44d4-a85b-094b28af5330' \
@@ -424,7 +428,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/models/8fdc464d-8
 --header 'X-API-Key: your_api_key'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -433,46 +437,46 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/models/8fdc464d-8
 }
 ```
 
-404 表示模型不存在。
+A 404 indicates the model does not exist.
 
-## 参数说明
+## Parameter description
 
-### ModelType (模型类型)
+### ModelType (model type)
 
-| 值          | 前端别名    | 说明         | 用途                           |
-| ----------- | ----------- | ------------ | ------------------------------ |
-| KnowledgeQA | `chat`      | 对话模型     | 知识库问答、对话生成           |
-| Embedding   | `embedding` | 嵌入模型     | 文本向量化、知识库检索         |
-| Rerank      | `rerank`    | 排序模型     | 检索结果重排序、相关性优化     |
-| VLLM        | `vllm`      | 视觉语言模型 | 多模态分析、图文理解           |
-| ASR         | `asr`       | 语音识别模型 | 音频转写                       |
+| Value       | Frontend alias | Description             | Use case                              |
+| ----------- | --------------- | ------------------------ | -------------------------------------- |
+| KnowledgeQA | `chat`          | Chat model                | Knowledge base Q&A, conversation generation |
+| Embedding   | `embedding`     | Embedding model           | Text vectorization, knowledge base retrieval |
+| Rerank      | `rerank`        | Rerank model               | Reranking retrieval results, relevance optimization |
+| VLLM        | `vllm`          | Vision-language model      | Multimodal analysis, image-text understanding |
+| ASR         | `asr`           | Speech recognition model   | Audio transcription                    |
 
-> 创建/更新接口请求体的 `type` 字段使用第一列的后端枚举值（如 `KnowledgeQA`）；`GET /models/providers?model_type=` 查询参数使用第二列的前端别名（如 `chat`）。
+> The `type` field in the create/update endpoint request body uses the backend enum values in the first column (e.g. `KnowledgeQA`); the `model_type` query parameter of `GET /models/providers?model_type=` uses the frontend alias in the second column (e.g. `chat`).
 
-### ModelSource (模型来源)
+### ModelSource (model source)
 
-| 值       | 说明       | 配置要求                         |
-| -------- | ---------- | -------------------------------- |
-| local    | 本地模型   | 需要已安装 Ollama 并拉取模型     |
-| remote   | 远程 API   | 需要提供 `base_url` 和 `api_key` |
+| Value  | Description   | Configuration requirements            |
+| ------ | -------------- | --------------------------------------- |
+| local  | Local model    | Requires Ollama to be installed with the model pulled |
+| remote | Remote API     | Requires `base_url` and `api_key` to be provided |
 
-### Parameters (模型参数)
+### Parameters (model parameters)
 
-| 字段                 | 类型              | 必填 | 说明                                                       |
-| -------------------- | ----------------- | ---- | ---------------------------------------------------------- |
-| base_url             | string            | 否   | API 服务地址；远程模型必填，会经过 SSRF 校验               |
-| api_key              | string            | 否   | API 密钥；远程模型必填，存储时使用 AES-256 加密            |
-| provider             | string            | 否   | 服务商标识（见上方支持列表），用于选择特定的 API 适配器    |
-| interface_type       | string            | 否   | 接口风格标识（OpenAI 兼容请留空）                          |
-| embedding_parameters | object            | 否   | Embedding 模型专用参数，见下方                             |
-| parameter_size       | string            | 否   | 模型参数规模（如 `7B`/`13B`/`70B`），通常由后端写入        |
-| extra_config         | object<string,string> | 否 | 服务商特定的额外配置                                       |
-| custom_headers       | object<string,string> | 否 | 调用上游 API 时附加的自定义 HTTP 头；保留头会被忽略        |
-| supports_vision      | bool              | 否   | 模型是否支持图像/多模态输入                                |
+| Field                 | Type                   | Required | Description                                                       |
+| --------------------- | ----------------------- | -------- | -------------------------------------------------------------------- |
+| base_url              | string                  | No       | API service address; required for remote models, subject to SSRF validation |
+| api_key               | string                  | No       | API key; required for remote models, encrypted with AES-256 when stored |
+| provider              | string                  | No       | Provider identifier (see the supported list above), used to select a specific API adapter |
+| interface_type        | string                  | No       | Interface style identifier (leave empty for OpenAI-compatible)      |
+| embedding_parameters  | object                  | No       | Parameters specific to Embedding models, see below                  |
+| parameter_size        | string                  | No       | Model parameter scale (e.g. `7B`/`13B`/`70B`), usually written by the backend |
+| extra_config          | object<string,string>   | No       | Provider-specific extra configuration                                |
+| custom_headers        | object<string,string>   | No       | Custom HTTP headers appended when calling the upstream API; reserved headers are ignored |
+| supports_vision       | bool                    | No       | Whether the model supports image/multimodal input                    |
 
-### EmbeddingParameters (嵌入参数)
+### EmbeddingParameters (embedding parameters)
 
-| 字段                   | 类型 | 必填 | 说明                            |
-| ---------------------- | ---- | ---- | ------------------------------- |
-| dimension              | int  | 否   | 向量维度（如 768、1024）        |
-| truncate_prompt_tokens | int  | 否   | 截断 Token 数（0 表示不截断）   |
+| Field                   | Type | Required | Description                        |
+| ------------------------ | ---- | -------- | ------------------------------------ |
+| dimension                | int  | No       | Vector dimension (e.g. 768, 1024)    |
+| truncate_prompt_tokens   | int  | No       | Number of tokens to truncate (0 means no truncation) |

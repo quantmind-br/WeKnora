@@ -1,373 +1,373 @@
-# 配置详解
+# Configuration Explained
 
-WeKnora 的配置由四层组成，**优先级从低到高**：
+WeKnora's configuration consists of four layers, **from lowest to highest priority**:
 
-| 层 | 位置 | 什么时候用 |
+| Layer | Location | When to use |
 | --- | --- | --- |
-| 主配置文件 | `config/config.yaml` | 结构化的默认值，随镜像分发 |
-| 模板 / 预设 | `config/prompt_templates/*.yaml`、`builtin_agents.yaml`、`agent_type_presets.yaml`、`builtin_models.yaml` | 提示词、内置 Agent、内置模型 |
-| 环境变量 | `.env` / 容器 environment | 部署级覆盖，改完需重启 |
-| 运行时系统设置 | 数据库 `system_settings` 表，界面在「设置 → 系统」 | 一部分开关可以在线改，**盖过环境变量**，绝大多数立即生效 |
+| Main configuration file | `config/config.yaml` | Structured default values, distributed with the image |
+| Templates / presets | `config/prompt_templates/*.yaml`, `builtin_agents.yaml`, `agent_type_presets.yaml`, `builtin_models.yaml` | Prompts, built-in Agents, built-in models |
+| Environment variables | `.env` / container environment | Deployment-level overrides, requires restart after changes |
+| Runtime system settings | Database `system_settings` table, UI at "Settings → System" | Some switches can be changed online, **overriding environment variables**, and most take effect immediately |
 
-最后一层容易被忽略，却是排查「改了 env 没生效」的第一现场：注册模式、空间策略与配额、SSRF 白名单、各 worker pool 并发、模型并发上限这些键一旦在界面上改过，数据库里就留下一行记录，此后环境变量不再起作用；把该项重置（`DELETE /api/v1/system/admin/settings/:key`）才会回落到环境变量或内置默认值。完整键表与语义见[租户、用户与认证授权](../03-features/01-tenant-auth.md)的「运行时可改的系统设置」。
+The last layer is easily overlooked, yet it's the first thing to check when troubleshooting "I changed the env but it didn't take effect": once keys like registration mode, space policies and quotas, the SSRF whitelist, worker pool concurrency, or model concurrency limits have been changed via the UI, a record is left in the database, and environment variables no longer take effect for that key afterward. Resetting the item (`DELETE /api/v1/system/admin/settings/:key`) is required to fall back to the environment variable or built-in default value. For the complete key table and semantics, see the "Runtime-modifiable system settings" section of [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md).
 
-下文对照 `internal/config/config.go` 中的结构体逐段解读，并在末尾汇总环境变量。
+The sections below walk through the structs in `internal/config/config.go` one by one, with environment variables summarized at the end.
 
-## 配置加载机制
+## Configuration Loading Mechanism
 
-`internal/config/config.go` 的 `LoadConfig()` 流程：
+The `LoadConfig()` flow in `internal/config/config.go`:
 
-1. viper 按顺序查找 `config.yaml`：当前目录 → `./config` → `$HOME/.appname` → `/etc/appname/`；
-2. **环境变量展开**：对文件内容做正则替换，`${ENV_VAR}` 会被同名环境变量的值替换；变量未设置时保留字面量 `${ENV_VAR}` 原样（便于暴露配置错误）；
-3. viper 开启 `AutomaticEnv()` 且 key 分隔符 `.` 映射为 `_`（即 `server.port` 可被环境变量 `SERVER_PORT` 覆盖）；
-4. 从 `config/prompt_templates/*.yaml` 加载提示词模板，并按 `xxx_prompt_id` 字段**回填**到 conversation 配置（`backfillConversationDefaults`）；
-5. 加载 `builtin_agents.yaml`（内置 Agent）与 `agent_type_presets.yaml`（Agent 类型预设），并解析其中的 `system_prompt_id` 引用；
-6. 应用环境变量覆盖（OIDC、Agent、KnowledgeBase、Auth/Tenant、Audit 各组）并执行 `ValidateConfig` 校验。
+1. viper searches for `config.yaml` in order: current directory → `./config` → `$HOME/.appname` → `/etc/appname/`;
+2. **Environment variable expansion**: a regex substitution is applied to the file content, replacing `${ENV_VAR}` with the value of the environment variable of the same name; if the variable is not set, the literal `${ENV_VAR}` is kept as-is (to make configuration errors visible);
+3. viper enables `AutomaticEnv()`, and the key separator `.` maps to `_` (i.e., `server.port` can be overridden by the environment variable `SERVER_PORT`);
+4. Prompt templates are loaded from `config/prompt_templates/*.yaml` and **backfilled** into the conversation configuration according to the `xxx_prompt_id` fields (`backfillConversationDefaults`);
+5. `builtin_agents.yaml` (built-in Agents) and `agent_type_presets.yaml` (Agent type presets) are loaded, and the `system_prompt_id` references within them are resolved;
+6. Environment variable overrides are applied (for the OIDC, Agent, KnowledgeBase, Auth/Tenant, and Audit groups) and `ValidateConfig` validation is executed.
 
 ```mermaid
 flowchart LR
-    Y["config/config.yaml"] --> EXP["展开 dollar-brace 环境变量引用"]
-    EXP --> V["viper Unmarshal 为 Config 结构体"]
-    PT["config/prompt_templates/*.yaml"] --> BF["backfillConversationDefaults (按 *_prompt_id 解析为文本)"]
+    Y["config/config.yaml"] --> EXP["Expand dollar-brace environment variable references"]
+    EXP --> V["viper Unmarshal into Config struct"]
+    PT["config/prompt_templates/*.yaml"] --> BF["backfillConversationDefaults (resolved to text via *_prompt_id)"]
     V --> BF
     BA["config/builtin_agents.yaml"] --> LD["LoadBuiltinAgentsConfig"]
     AP["config/agent_type_presets.yaml"] --> LD2["LoadAgentTypePresetsConfig"]
     BF --> OV["applyOIDCEnvOverrides / applyAgentEnvOverrides / applyKnowledgeBaseEnvOverrides / applyAuthAndTenantDefaults / applyAuditDefaults"]
     LD --> OV
     LD2 --> OV
-    OV --> VC["ValidateConfig"] --> CFG["最终 *config.Config"]
+    OV --> VC["ValidateConfig"] --> CFG["Final *config.Config"]
 ```
 
-## config/config.yaml 逐段解读
+## config/config.yaml Section by Section
 
-### server（`ServerConfig`）
+### server (`ServerConfig`)
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `server.port` | int | 8080 | HTTP 监听端口，校验范围 1–65535 |
-| `server.host` | string | "0.0.0.0" | 监听地址 |
-| `server.log_path` | string | 空 | 日志文件路径（也可用环境变量 `LOG_PATH`） |
-| `server.shutdown_timeout` | duration | 30s | 优雅停机超时 |
+| `server.port` | int | 8080 | HTTP listening port, validated range 1–65535 |
+| `server.host` | string | "0.0.0.0" | Listening address |
+| `server.log_path` | string | empty | Log file path (can also use environment variable `LOG_PATH`) |
+| `server.shutdown_timeout` | duration | 30s | Graceful shutdown timeout |
 
-### conversation（`ConversationConfig`）——检索问答管线
+### conversation (`ConversationConfig`) — Retrieval Q&A Pipeline
 
-| 名称 | 类型 | 默认值（config.yaml） | 说明 |
+| Name | Type | Default (config.yaml) | Description |
 | --- | --- | --- | --- |
-| `max_rounds` | int | 5 | 携带的多轮历史轮数 |
-| `keyword_threshold` | float | 0.3 | 关键词检索最低分 |
-| `embedding_top_k` | int | 30 | 向量检索召回条数（>=0） |
-| `vector_threshold` | float | 0.2 | 向量相似度阈值（0–1） |
-| `rerank_top_k` | int | 30 | 重排后保留条数 |
-| `rerank_threshold` | float | 0.3 | 重排最低分（-10–10） |
-| `fallback_strategy` | string | "model" | 召回为空时策略：`model`（让模型兜底）或固定回复 |
-| `fallback_response` | string | "Sorry, I am unable to answer this question." | 固定兜底文案 |
-| `enable_rewrite` | bool | true | 多轮指代消解 / 查询改写 |
-| `enable_query_expansion` | bool | true | 查询扩展 |
-| `enable_rerank` | bool | true | 启用 Rerank |
-| `fallback_prompt_id` | string | "default_fallback_prompt" | 兜底 prompt 模板 ID（`prompt_templates/fallback.yaml`，mode:"model"） |
-| `rewrite_prompt_id` | string | "default_rewrite" | 改写模板 ID（含 content 系统侧 + user 用户侧） |
-| `generate_summary_prompt_id` | string | "default_summary" | 文档摘要模板 ID |
-| `generate_session_title_prompt_id` | string | "default_session_title" | 会话标题生成模板 ID |
-| `extract_entities_prompt_id` / `extract_relationships_prompt_id` | string | "default_extract_entities" / "default_extract_relationships" | 图谱抽取模板 ID（`graph_extraction.yaml`） |
-| `generate_questions_prompt_id` | string | "default_generate_questions" | 预生成问题模板 ID |
+| `max_rounds` | int | 5 | Number of multi-turn history rounds carried |
+| `keyword_threshold` | float | 0.3 | Minimum score for keyword retrieval |
+| `embedding_top_k` | int | 30 | Number of results recalled by vector retrieval (>=0) |
+| `vector_threshold` | float | 0.2 | Vector similarity threshold (0–1) |
+| `rerank_top_k` | int | 30 | Number of results kept after reranking |
+| `rerank_threshold` | float | 0.3 | Minimum rerank score (-10–10) |
+| `fallback_strategy` | string | "model" | Strategy when recall is empty: `model` (let the model handle it as a fallback) or a fixed reply |
+| `fallback_response` | string | "Sorry, I am unable to answer this question." | Fixed fallback text |
+| `enable_rewrite` | bool | true | Multi-turn coreference resolution / query rewriting |
+| `enable_query_expansion` | bool | true | Query expansion |
+| `enable_rerank` | bool | true | Enable reranking |
+| `fallback_prompt_id` | string | "default_fallback_prompt" | Fallback prompt template ID (`prompt_templates/fallback.yaml`, mode:"model") |
+| `rewrite_prompt_id` | string | "default_rewrite" | Rewrite template ID (includes system-side content + user-side user) |
+| `generate_summary_prompt_id` | string | "default_summary" | Document summary template ID |
+| `generate_session_title_prompt_id` | string | "default_session_title" | Session title generation template ID |
+| `extract_entities_prompt_id` / `extract_relationships_prompt_id` | string | "default_extract_entities" / "default_extract_relationships" | Graph extraction template ID (`graph_extraction.yaml`) |
+| `generate_questions_prompt_id` | string | "default_generate_questions" | Pre-generated question template ID |
 
-`conversation.summary`（`SummaryConfig`，答案生成参数）：
+`conversation.summary` (`SummaryConfig`, answer generation parameters):
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `max_input_chars` | int | 16384 | 送入 LLM 的最大字符数 |
-| `temperature` | float | 0.3 | 生成温度 |
-| `repeat_penalty` | float | 1.0 | 重复惩罚 |
-| `max_completion_tokens` | int | 2048 | 最大生成 token |
-| `no_match_prefix` | string | `<think>\n</think>\nNO_MATCH` | 模型输出以此为前缀时判定「未命中」触发 fallback |
-| `prompt_id` | string | "default_kb" | 系统 Prompt 模板 ID（`system_prompt.yaml`） |
-| `context_template_id` | string | "default_context" | 上下文拼装模板 ID（`context_template.yaml`） |
-| `max_tokens` / `top_k` / `top_p` / `frequency_penalty` / `presence_penalty` / `seed` / `thinking` | 多种 | 未设置 | 透传给模型的可选采样参数；`thinking` 为 `*bool` 控制思考模式 |
+| `max_input_chars` | int | 16384 | Maximum number of characters fed into the LLM |
+| `temperature` | float | 0.3 | Generation temperature |
+| `repeat_penalty` | float | 1.0 | Repetition penalty |
+| `max_completion_tokens` | int | 2048 | Maximum number of generated tokens |
+| `no_match_prefix` | string | `<think>\n</think>\nNO_MATCH` | When the model output starts with this prefix, it's judged as a "miss" and triggers fallback |
+| `prompt_id` | string | "default_kb" | System prompt template ID (`system_prompt.yaml`) |
+| `context_template_id` | string | "default_context" | Context assembly template ID (`context_template.yaml`) |
+| `max_tokens` / `top_k` / `top_p` / `frequency_penalty` / `presence_penalty` / `seed` / `thinking` | various | unset | Optional sampling parameters passed through to the model; `thinking` is a `*bool` controlling thinking mode |
 
-### knowledge_base（`KnowledgeBaseConfig`）——全局默认分块
+### knowledge_base (`KnowledgeBaseConfig`) — Global Default Chunking
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `chunk_size` | int | 512 | 默认分块大小（>0，且 > overlap） |
-| `chunk_overlap` | int | 50 | 分块重叠 |
-| `split_markers` | []string | `["\n\n", "\n", "。"]` | 分割标记 |
-| `keep_separator` | bool | false | 保留分隔符 |
-| `document_process_timeout` | duration | 2h | 单文档处理任务总超时（env `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` 可覆盖） |
-| `docreader_call_timeout` | duration | 30m | 单次 DocReader RPC 超时（env `WEKNORA_DOCREADER_CALL_TIMEOUT`），须小于上一项 |
-| `image_processing.enable_multimodal` | bool | true | 上传时启用图片多模态处理（OCR/Caption） |
+| `chunk_size` | int | 512 | Default chunk size (>0, and > overlap) |
+| `chunk_overlap` | int | 50 | Chunk overlap |
+| `split_markers` | []string | `["\n\n", "\n", "。"]` | Split markers |
+| `keep_separator` | bool | false | Keep separator |
+| `document_process_timeout` | duration | 2h | Total timeout for a single document processing task (overridable via env `WEKNORA_DOCUMENT_PROCESS_TIMEOUT`) |
+| `docreader_call_timeout` | duration | 30m | Timeout for a single DocReader RPC call (env `WEKNORA_DOCREADER_CALL_TIMEOUT`), must be less than the item above |
+| `image_processing.enable_multimodal` | bool | true | Enable multimodal image processing (OCR/Caption) on upload |
 
-> 每个知识库的 `ChunkingConfig` 会覆盖这里的全局默认值。
+> Each knowledge base's `ChunkingConfig` overrides the global defaults here.
 
-### extract（`ExtractManagerConfig`）——知识图谱抽取模板
+### extract (`ExtractManagerConfig`) — Knowledge Graph Extraction Templates
 
-`extract.extract_graph` / `extract.extract_entity` / `extract.fabri_text` 定义图谱抽取的说明文（`description`）、允许的关系标签（`tags`，默认 `Author`、`Alias`）与 few-shot 示例（`examples`：`text` + `node` + `relation`）。初始化向导中的「试抽取 / 生成示例文本」即使用这些配置（`fabri_text.with_tag` / `with_no_tag` 中的 `%s` 会被标签列表替换）。
+`extract.extract_graph` / `extract.extract_entity` / `extract.fabri_text` define the descriptive text (`description`) for graph extraction, the allowed relationship labels (`tags`, default `Author`, `Alias`), and few-shot examples (`examples`: `text` + `node` + `relation`). The "trial extraction / generate example text" feature in the initialization wizard uses this configuration (`%s` in `fabri_text.with_tag` / `with_no_tag` is replaced by the tag list).
 
-### tenant（`TenantConfig`）
+### tenant (`TenantConfig`)
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `enable_cross_tenant_access` | bool | false | 允许具备 `CanAccessAllTenants` 的用户跨空间访问（内网可开） |
-| `enable_rbac` | *bool | true | 空间角色强制鉴权；显式 `false` 进入仅记录不拦截的灰度模式（env `WEKNORA_TENANT_ENABLE_RBAC`） |
-| `max_owned_per_user` | int | 0（走 handler 默认） | 单个非超管可自建空间数上限；<0 关闭限制（env `WEKNORA_TENANT_MAX_OWNED_PER_USER`） |
-| `self_service_creation_enabled` | *bool | true | 普通用户能否自建空间（env `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED`） |
-| `default_session_name` / `default_session_title` / `default_session_description` | string | 空 | 新会话默认文案 |
+| `enable_cross_tenant_access` | bool | false | Allow users with `CanAccessAllTenants` to access across spaces (can be enabled on an internal network) |
+| `enable_rbac` | *bool | true | Enforce space role-based authorization; explicitly setting `false` enters a gray-scale mode that only logs without blocking (env `WEKNORA_TENANT_ENABLE_RBAC`) |
+| `max_owned_per_user` | int | 0 (falls back to handler default) | Maximum number of spaces a single non-admin user can create; <0 disables the limit (env `WEKNORA_TENANT_MAX_OWNED_PER_USER`) |
+| `self_service_creation_enabled` | *bool | true | Whether regular users can create their own spaces (env `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED`) |
+| `default_session_name` / `default_session_title` / `default_session_description` | string | empty | Default text for new sessions |
 
-### 结构体支持但默认文件未写出的段
+### Sections Supported by the Struct but Not Written to the Default File
 
-以下段落在 `Config` 结构体中存在，可按需追加到 `config.yaml`（多数也有环境变量入口）：
+The following sections exist in the `Config` struct and can be appended to `config.yaml` as needed (most also have an environment variable entry point):
 
-| 段 | 结构体 | 关键字段与默认值 |
+| Section | Struct | Key fields and defaults |
 | --- | --- | --- |
-| `auth` | `AuthConfig` | `registration_mode`：`self_serve`（默认）/ `invite_only`（`DISABLE_REGISTRATION=true` 时强制）；`default_tenant_mode`：`create_personal`（默认）/ `tenantless` |
-| `audit` | `AuditConfig` | `retention_days`：审计日志保留天数，段落省略时默认 90；0 禁用清理；<0 校验报错（env `WEKNORA_AUDIT_RETENTION_DAYS`） |
-| `oidc_auth` | `OIDCAuthConfig` | `enable`、`issuer_url`、`discovery_url`（缺省由 issuer 拼 `/.well-known/openid-configuration`）、`client_id`、`client_secret`、`authorization_endpoint`、`token_endpoint`、`user_info_endpoint`、`scopes`（默认 `openid profile email`）、`user_info_mapping.username`（默认 `name`）/`email`（默认 `email`）；全部可用 `OIDC_AUTH_*` 环境变量覆盖 |
-| `agent` | `AgentConfig` | `llm_call_timeout`：单次 LLM 调用超时秒数（默认 120，env `WEKNORA_AGENT_LLM_TIMEOUT`）；`tool_approval_timeout_seconds`：MCP 工具人工审批等待（默认 600，env `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT`） |
-| `im` | `IMConfig` | IM 渠道 QA 并发：`workers`（5）、`global_max_workers`（0=不限，需 Redis）、`max_queue_size`（50）、`max_per_user`（3）、`rate_limit_window`（60s）、`rate_limit_max`（10） |
-| `docreader` | `DocReaderConfig` | `addr`（gRPC 地址如 `docreader:50051` 或 HTTP base URL）、`transport`：`grpc`（默认）/ `http`；通常用 env `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` |
-| `vector_database` | `VectorDatabaseConfig` | `driver`（通常用 env `RETRIEVE_DRIVER`） |
-| `stream_manager` | `StreamManagerConfig` | `type`：`memory` / `redis`；`redis.address/username/password/db/prefix/ttl`；`cleanup_timeout`（通常用 env `STREAM_MANAGER_TYPE`、`REDIS_*`） |
-| `web_search` | `WebSearchConfig` | `timeout`：Web 搜索超时秒数 |
-| `models` | `[]ModelConfig` | 历史遗留的静态模型清单（`type`/`source`/`model_name`/`parameters`）；现推荐用 `builtin_models.yaml` 或界面配置 |
-| `frontend_base_url` | string | 空 | SPA 对外 origin，用于生成邀请等绝对链接（env `FRONTEND_BASE_URL`） |
+| `auth` | `AuthConfig` | `registration_mode`: `self_serve` (default) / `invite_only` (forced when `DISABLE_REGISTRATION=true`); `default_tenant_mode`: `create_personal` (default) / `tenantless` |
+| `audit` | `AuditConfig` | `retention_days`: audit log retention in days, defaults to 90 when the section is omitted; 0 disables cleanup; <0 fails validation (env `WEKNORA_AUDIT_RETENTION_DAYS`) |
+| `oidc_auth` | `OIDCAuthConfig` | `enable`, `issuer_url`, `discovery_url` (if omitted, built from issuer by appending `/.well-known/openid-configuration`), `client_id`, `client_secret`, `authorization_endpoint`, `token_endpoint`, `user_info_endpoint`, `scopes` (default `openid profile email`), `user_info_mapping.username` (default `name`) / `email` (default `email`); all can be overridden with `OIDC_AUTH_*` environment variables |
+| `agent` | `AgentConfig` | `llm_call_timeout`: single LLM call timeout in seconds (default 120, env `WEKNORA_AGENT_LLM_TIMEOUT`); `tool_approval_timeout_seconds`: MCP tool manual approval wait time (default 600, env `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT`) |
+| `im` | `IMConfig` | IM channel Q&A concurrency: `workers` (5), `global_max_workers` (0=unlimited, requires Redis), `max_queue_size` (50), `max_per_user` (3), `rate_limit_window` (60s), `rate_limit_max` (10) |
+| `docreader` | `DocReaderConfig` | `addr` (gRPC address such as `docreader:50051` or an HTTP base URL), `transport`: `grpc` (default) / `http`; typically set via env `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` |
+| `vector_database` | `VectorDatabaseConfig` | `driver` (typically set via env `RETRIEVE_DRIVER`) |
+| `stream_manager` | `StreamManagerConfig` | `type`: `memory` / `redis`; `redis.address/username/password/db/prefix/ttl`; `cleanup_timeout` (typically set via env `STREAM_MANAGER_TYPE`, `REDIS_*`) |
+| `web_search` | `WebSearchConfig` | `timeout`: web search timeout in seconds |
+| `models` | `[]ModelConfig` | Legacy static model list (`type`/`source`/`model_name`/`parameters`); now recommended to use `builtin_models.yaml` or UI configuration instead |
+| `frontend_base_url` | string | empty | The SPA's external origin, used to generate absolute links such as invitations (env `FRONTEND_BASE_URL`) |
 
-## 重要环境变量
+## Important Environment Variables
 
-以下变量来自 `docker-compose.yml` 的 app/docreader `environment` 段、`.env.example` 与代码中的 `os.Getenv`。生产部署至少要改：`DB_USER/DB_PASSWORD/DB_NAME`、`REDIS_PASSWORD`、`JWT_SECRET`、`SYSTEM_AES_KEY`。
+The following variables come from the app/docreader `environment` section of `docker-compose.yml`, `.env.example`, and `os.Getenv` calls in the code. At minimum, production deployments must change: `DB_USER/DB_PASSWORD/DB_NAME`, `REDIS_PASSWORD`, `JWT_SECRET`, `SYSTEM_AES_KEY`.
 
-### 运行时基础
+### Runtime Basics
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `GIN_MODE` | release | `debug` 开发模式（启用 Swagger）/ `release` 生产 |
-| `LOG_LEVEL` / `LOG_PATH` / `LOG_FORMAT` | debug / 空 / 空 | 日志级别、文件路径（空则仅 stdout）、自定义格式 |
-| `LLM_DEBUG_LOG` | false | true 时在 LOG_PATH 同目录写 `llm_debug.log` |
-| `TZ` | Asia/Shanghai | 时区 |
-| `WEKNORA_LANGUAGE` | 空 | 文档处理语言（问题/摘要生成）。优先级：本变量 > 请求的 `Accept-Language` > 内置 `zh-CN`。**它压过请求头**是刻意的：界面语言与文档处理语言是两件事，允许「英文界面 + 处理韩文文档」 |
-| `AUTO_MIGRATE` | true | 启动时自动执行数据库迁移 |
-| `AUTO_RECOVER_DIRTY` | true | 自动修复 golang-migrate 的 dirty 状态（上次迁移中断留下的）。手工排查迁移问题时应临时设为 false，否则启动会自动改写迁移版本记录，见[数据库与迁移](../06-development/02-database-schema.md) |
-| `WEKNORA_TRUSTED_PROXIES` | 空 | gin 信任代理 CIDR（逗号分隔） |
-| `MAX_FILE_SIZE_MB` | 50 | 上传文件大小限制（app/frontend/docreader 三处共用） |
-| `CONCURRENCY_POOL_SIZE` | 5 | 通用并发池 |
-| `APP_EXTERNAL_URL` / `FRONTEND_BASE_URL` | 空 | IM 渠道图片/文件外链的外部可达 URL / 前端外部 origin |
-| `RESOURCE_URL_MODE` | handle | API 响应里文件引用的默认形式：`handle` 返回内部 `resource://`，`public` 返回可直接加载的限时外链。单次请求可用 `?resource_urls=` 覆盖，详见 [API 总览](../04-api/01-api-overview.md) |
+| `GIN_MODE` | release | `debug` for development mode (enables Swagger) / `release` for production |
+| `LOG_LEVEL` / `LOG_PATH` / `LOG_FORMAT` | debug / empty / empty | Log level, file path (stdout only if empty), custom format |
+| `LLM_DEBUG_LOG` | false | If true, writes `llm_debug.log` in the same directory as LOG_PATH |
+| `TZ` | Asia/Shanghai | Time zone |
+| `WEKNORA_LANGUAGE` | empty | Document processing language (question/summary generation). Priority: this variable > the request's `Accept-Language` > built-in `zh-CN`. **It overrides the request header** intentionally: UI language and document processing language are two different things, allowing "English UI + processing Korean documents" |
+| `AUTO_MIGRATE` | true | Automatically run database migrations on startup |
+| `AUTO_RECOVER_DIRTY` | true | Automatically repair golang-migrate's dirty state (left behind by an interrupted previous migration). Should be temporarily set to false when manually troubleshooting migration issues, otherwise startup will automatically rewrite the migration version record — see [Database and Migrations](../06-development/02-database-schema.md) |
+| `WEKNORA_TRUSTED_PROXIES` | empty | gin trusted proxy CIDRs (comma-separated) |
+| `MAX_FILE_SIZE_MB` | 50 | Upload file size limit (shared across app/frontend/docreader) |
+| `CONCURRENCY_POOL_SIZE` | 5 | General-purpose concurrency pool |
+| `APP_EXTERNAL_URL` / `FRONTEND_BASE_URL` | empty | Externally reachable URL for IM channel image/file links / external origin of the frontend |
+| `RESOURCE_URL_MODE` | handle | Default form of file references in API responses: `handle` returns an internal `resource://`, `public` returns a directly loadable, time-limited external link. Can be overridden per-request with `?resource_urls=`; see [API Overview](../04-api/01-api-overview.md) for details |
 
-`APP_EXTERNAL_URL` 影响 IM 渠道能否渲染知识库图片。IM 平台需要拿到公网 http(s) URL，二选一：
+`APP_EXTERNAL_URL` affects whether IM channels can render knowledge base images. IM platforms need a publicly reachable http(s) URL — there are two options:
 
-1. 存储后端本身公网可达（对象存储用公网 endpoint，或把 `MINIO_ENDPOINT` 设成公网 host），此时 `resource://` 回退到后端预签名 URL，不需要本变量；
-2. 设置 `APP_EXTERNAL_URL`，`resource://` 图片被改写成 `<APP_EXTERNAL_URL>/r/<token>` 走 WeKnora 自身（需要 nginx 代理 `/r/`，官方前端镜像已内置该 location）。
+1. The storage backend itself is publicly reachable (use a public endpoint for object storage, or set `MINIO_ENDPOINT` to a public host); in this case `resource://` falls back to the backend's presigned URL, and this variable is not needed;
+2. Set `APP_EXTERNAL_URL`, and `resource://` images will be rewritten to `<APP_EXTERNAL_URL>/r/<token>`, routed through WeKnora itself (requires nginx to proxy `/r/`, which is already built into the official frontend image).
 
-默认的 MinIO 内网部署与 `local` 后端都只能走第二种。IM 渠道已启用但本变量为空时，服务启动会打印一次 WARN；改写结果若不是 http(s) URL 会保留原引用并记录可操作的告警，而不是发出 IM 端无法访问的链接。
+The default MinIO intranet deployment and the `local` backend can only use the second option. If IM channels are enabled but this variable is empty, the service will print a WARN once on startup; if the rewritten result isn't an http(s) URL, the original reference is kept and an actionable warning is logged, instead of emitting a link the IM side can't access.
 
-四种 URL 形式与各渠道的取法见[图片与文件的对外访问](../03-features/21-file-access.md)。
+See [External Access to Images and Files](../03-features/21-file-access.md) for the four URL forms and how each channel obtains them.
 
-### 数据库与队列
+### Database and Queue
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `DB_DRIVER` | postgres | `postgres` / `sqlite`（Lite） |
-| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | postgres / 5432 / 空 / 空 / 空 | PostgreSQL 连接（必填） |
-| `DB_PATH` | — | `DB_DRIVER=sqlite` 时的数据库文件路径 |
-| `STREAM_MANAGER_TYPE` | 空（compose 实际走 redis） | `redis` / `memory` |
-| `REDIS_ADDR` / `REDIS_USERNAME` / `REDIS_PASSWORD` / `REDIS_DB` / `REDIS_PREFIX` | redis:6379 / … | Redis 连接 |
-| `REDIS_USE_TLS` | false | **启用 TLS 的总开关**，托管 Redis（如 AWS ElastiCache）需要打开；`REDIS_TLS_SERVER_NAME` 指定校验与 SNI 用的服务器名（地址是 IP 时有用），`REDIS_TLS_INSECURE_SKIP_VERIFY` 跳过证书校验（不安全，仅自签证书的开发环境用） |
-| `WEKNORA_REDIS_NAMESPACE` | 空 | 多部署共用 Redis 时的频道命名空间后缀 |
-| `WEKNORA_ASYNQ_CORE_CONCURRENCY` 等 | 8 / 2 / 12 / 4 / 6 | Asynq 各队列并发（core/postprocess/enrichment/maintenance/shared），另有 `WEKNORA_WIKI_ASYNQ_CONCURRENCY=8`、`WEKNORA_MODEL_MAX_CONCURRENCY=32` |
+| `DB_DRIVER` | postgres | `postgres` / `sqlite` (Lite) |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | postgres / 5432 / empty / empty / empty | PostgreSQL connection (required) |
+| `DB_PATH` | — | Database file path when `DB_DRIVER=sqlite` |
+| `STREAM_MANAGER_TYPE` | empty (compose actually uses redis) | `redis` / `memory` |
+| `REDIS_ADDR` / `REDIS_USERNAME` / `REDIS_PASSWORD` / `REDIS_DB` / `REDIS_PREFIX` | redis:6379 / … | Redis connection |
+| `REDIS_USE_TLS` | false | **Master switch for enabling TLS**, needed for managed Redis (e.g. AWS ElastiCache); `REDIS_TLS_SERVER_NAME` specifies the server name used for validation and SNI (useful when the address is an IP), `REDIS_TLS_INSECURE_SKIP_VERIFY` skips certificate validation (insecure, only for self-signed dev environments) |
+| `WEKNORA_REDIS_NAMESPACE` | empty | Channel naming namespace suffix when multiple deployments share a Redis instance |
+| `WEKNORA_ASYNQ_CORE_CONCURRENCY` etc. | 8 / 2 / 12 / 4 / 6 | Asynq per-queue concurrency (core/postprocess/enrichment/maintenance/shared), plus `WEKNORA_WIKI_ASYNQ_CONCURRENCY=8`, `WEKNORA_MODEL_MAX_CONCURRENCY=32` |
 
-### 检索引擎与向量库
+### Retrieval Engine and Vector Database
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `RETRIEVE_DRIVER` | postgres | 检索引擎：`postgres` / `elasticsearch_v7` / `elasticsearch_v8` / `qdrant` / `milvus` / `weaviate` / `opensearch` / `doris` / `tencent_vectordb` / `sqlite`（Lite）；可逗号分隔多引擎并行 |
-| `ELASTICSEARCH_ADDR/USERNAME/PASSWORD/INDEX` | 空 | Elasticsearch |
-| `QDRANT_HOST/PORT/COLLECTION/API_KEY/USE_TLS` | qdrant / 6334 / weknora_embeddings / 空 / false | Qdrant |
+| `RETRIEVE_DRIVER` | postgres | Retrieval engine: `postgres` / `elasticsearch_v7` / `elasticsearch_v8` / `qdrant` / `milvus` / `weaviate` / `opensearch` / `doris` / `tencent_vectordb` / `sqlite` (Lite); multiple engines can run in parallel, comma-separated |
+| `ELASTICSEARCH_ADDR/USERNAME/PASSWORD/INDEX` | empty | Elasticsearch |
+| `QDRANT_HOST/PORT/COLLECTION/API_KEY/USE_TLS` | qdrant / 6334 / weknora_embeddings / empty / false | Qdrant |
 | `MILVUS_ADDRESS/COLLECTION/METRIC_TYPE/...` | milvus:19530 / weknora_embeddings / IP | Milvus |
-| `OPENSEARCH_ADDR/USERNAME/PASSWORD/INDEX/INSECURE_SKIP_VERIFY` | 空 | OpenSearch |
-| `WEAVIATE_HOST/GRPC_ADDRESS/SCHEME/AUTH_ENABLED/API_KEY` | 空 | Weaviate |
-| `DORIS_ADDR/HTTP_PORT/DATABASE/USERNAME/PASSWORD/TABLE_PREFIX/COMPAT_MODE` | 空 | Apache Doris 4.1+ |
-| `TENCENT_VECTORDB_ADDR/USERNAME/API_KEY/DATABASE/COLLECTION/REPLICA_NUMBER` | 空 | 腾讯云 VectorDB |
-| `MULTI_STORE_RETRIEVE_TIMEOUT_SEC` | 空 | 多引擎并行检索超时 |
-| `NEO4J_ENABLE` / `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` | 空 / bolt://neo4j:7687 / neo4j / password | 知识图谱唯一开关（`ENABLE_GRAPH_RAG` 自 v0.1.6 起废弃） |
+| `OPENSEARCH_ADDR/USERNAME/PASSWORD/INDEX/INSECURE_SKIP_VERIFY` | empty | OpenSearch |
+| `WEAVIATE_HOST/GRPC_ADDRESS/SCHEME/AUTH_ENABLED/API_KEY` | empty | Weaviate |
+| `DORIS_ADDR/HTTP_PORT/DATABASE/USERNAME/PASSWORD/TABLE_PREFIX/COMPAT_MODE` | empty | Apache Doris 4.1+ |
+| `TENCENT_VECTORDB_ADDR/USERNAME/API_KEY/DATABASE/COLLECTION/REPLICA_NUMBER` | empty | Tencent Cloud VectorDB |
+| `MULTI_STORE_RETRIEVE_TIMEOUT_SEC` | empty | Timeout for parallel multi-engine retrieval |
+| `NEO4J_ENABLE` / `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` | empty / bolt://neo4j:7687 / neo4j / password | Sole switch for the knowledge graph (`ENABLE_GRAPH_RAG` deprecated since v0.1.6) |
 
-### 文件存储
+### File Storage
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
 | `STORAGE_TYPE` | local | `local` / `minio` / `cos` / `tos` / `s3` / `obs` / `oss` |
-| `STORAGE_ALLOW_LIST` | 空 | 允许用户选择的存储类型白名单（逗号分隔） |
-| `LOCAL_STORAGE_BASE_DIR` | /data/files | 本地存储根目录 |
-| `MINIO_ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY/BUCKET_NAME/USE_SSL` | minio:9000 / minioadmin / minioadmin / 空 / false | MinIO |
-| `COS_SECRET_ID/SECRET_KEY/REGION/BUCKET_NAME/APP_ID/PATH_PREFIX` | 空 | 腾讯云 COS（另有 TEMP_BUCKET/TEMP_REGION） |
-| `S3_*` / `OBS_*` / `OSS_*` / `TOS_*` | 见 `.env.example` B4 节 | AWS S3 / 华为 OBS / 阿里 OSS / 火山 TOS，均含 ENDPOINT/REGION/KEY/BUCKET/PATH_PREFIX 等 |
+| `STORAGE_ALLOW_LIST` | empty | Whitelist of storage types users may select (comma-separated) |
+| `LOCAL_STORAGE_BASE_DIR` | /data/files | Local storage root directory |
+| `MINIO_ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY/BUCKET_NAME/USE_SSL` | minio:9000 / minioadmin / minioadmin / empty / false | MinIO |
+| `COS_SECRET_ID/SECRET_KEY/REGION/BUCKET_NAME/APP_ID/PATH_PREFIX` | empty | Tencent Cloud COS (also has TEMP_BUCKET/TEMP_REGION) |
+| `S3_*` / `OBS_*` / `OSS_*` / `TOS_*` | see `.env.example` section B4 | AWS S3 / Huawei OBS / Alibaba OSS / Volcano Engine TOS, each including ENDPOINT/REGION/KEY/BUCKET/PATH_PREFIX etc. |
 
-AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 AWS SDK 默认凭证链，支持 EC2/ECS/EKS IAM Role、IRSA/Web Identity、环境变量与共享配置文件——在 AWS 上部署时不必再往环境变量里塞长期密钥。两者必须同填或同空。`S3_ENDPOINT` 留空则使用 Region 对应的标准端点。
+AWS S3's `S3_ACCESS_KEY` / `S3_SECRET_KEY` can **both be left empty**, in which case the AWS SDK default credential chain is used, supporting EC2/ECS/EKS IAM Roles, IRSA/Web Identity, environment variables, and shared config files — when deploying on AWS, there's no need to stuff long-lived keys into environment variables. The two must be either both set or both empty. If `S3_ENDPOINT` is left empty, the standard endpoint for the Region is used.
 
-### 模型与推理
+### Models and Inference
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `OLLAMA_BASE_URL` | http://host.docker.internal:11434 | Ollama 地址 |
-| `OLLAMA_OPTIONAL` | true | Ollama 不可用时仅告警不阻断启动 |
-| `BATCH_EMBED_SIZE` | 空 | 批量 embedding 大小 |
-| `VLM_HTTP_TIMEOUT_SECONDS` | 180 | VLM 单次请求超时 |
-| `BUILTIN_MODELS_CONFIG` | config/builtin_models.yaml | 内置模型声明文件路径（见下文） |
-| `WEKNORA_LLM_STREAM_RAW_DUMP` / `_DIR` | 空 | LLM 流原始转储（排障用） |
+| `OLLAMA_BASE_URL` | http://host.docker.internal:11434 | Ollama address |
+| `OLLAMA_OPTIONAL` | true | If Ollama is unavailable, only warn without blocking startup |
+| `BATCH_EMBED_SIZE` | empty | Batch embedding size |
+| `VLM_HTTP_TIMEOUT_SECONDS` | 180 | Timeout for a single VLM request |
+| `BUILTIN_MODELS_CONFIG` | config/builtin_models.yaml | Path to the built-in model declaration file (see below) |
+| `WEKNORA_LLM_STREAM_RAW_DUMP` / `_DIR` | empty | LLM stream raw dump (for troubleshooting) |
 
-### 认证、租户与安全
+### Authentication, Tenancy, and Security
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `JWT_SECRET` | 空 | JWT 签名密钥（必填） |
-| `SYSTEM_AES_KEY` | 空 | 敏感字段落盘加密的 AES-256 主密钥，**必须 32 字节**；丢失则已加密数据（租户 API Key、模型 key、向量库凭证等）不可恢复。v0.4.0 起取代 `TENANT_AES_KEY`/`CRYPTO_MASTER_KEY`/`CRYPTO_SALT` |
-| `DISABLE_REGISTRATION` | false | true 时强制 `registration_mode=invite_only` |
-| `WEKNORA_AUTH_DEFAULT_TENANT_MODE` | create_personal | 注册后建空间策略（`create_personal` / `tenantless`） |
-| `WEKNORA_TENANT_ENABLE_RBAC` | （默认 true） | 空间角色强制鉴权开关 |
-| `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS` | false | 跨空间访问 |
-| `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED` | true | 普通用户自建空间 |
-| `WEKNORA_TENANT_MAX_OWNED_PER_USER` | 空 | 自建空间上限 |
-| `WEKNORA_TENANT_AUTO_CREATE_API_KEY` | false | 建空间时自动下发 full_access API Key（兼容旧行为） |
-| `WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB` | 10 | 新空间默认存储配额 |
-| `WEKNORA_INVITATION_TTL` | 168h | 邀请链接有效期 |
-| `WEKNORA_AUDIT_RETENTION_DAYS` | 90 | 审计日志保留天数 |
-| `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL` | 空 | 引导第一个系统管理员。**不会创建用户**：该邮箱需先自行注册，下次启动时若部署内还没有任何系统管理员，才把它提升；已有管理员后本变量不再生效。详见[租户、用户与认证授权](../03-features/01-tenant-auth.md) |
-| `OIDC_AUTH_ENABLE` 及 `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_*` | false / 空 | OIDC 单点登录全套配置 |
-| `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | 空 / `searxng,qdrant,milvus,weaviate,doris-fe,doris-be` | 出站请求 SSRF 白名单（app 与 docreader 共用） |
-| `IMAGE_HOST_KEEP_URL` | 空 | 保留原始 URL 的图片域名白名单 |
+| `JWT_SECRET` | empty | JWT signing secret (required) |
+| `SYSTEM_AES_KEY` | empty | AES-256 master key for encrypting sensitive fields at rest, **must be 32 bytes**; if lost, already-encrypted data (tenant API keys, model keys, vector database credentials, etc.) cannot be recovered. Replaces `TENANT_AES_KEY`/`CRYPTO_MASTER_KEY`/`CRYPTO_SALT` as of v0.4.0 |
+| `DISABLE_REGISTRATION` | false | If true, forces `registration_mode=invite_only` |
+| `WEKNORA_AUTH_DEFAULT_TENANT_MODE` | create_personal | Space creation policy after registration (`create_personal` / `tenantless`) |
+| `WEKNORA_TENANT_ENABLE_RBAC` | (default true) | Space role-based authorization enforcement switch |
+| `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS` | false | Cross-space access |
+| `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED` | true | Regular users creating their own spaces |
+| `WEKNORA_TENANT_MAX_OWNED_PER_USER` | empty | Maximum number of self-created spaces |
+| `WEKNORA_TENANT_AUTO_CREATE_API_KEY` | false | Automatically issue a full_access API Key when creating a space (compatibility with old behavior) |
+| `WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB` | 10 | Default storage quota for new spaces |
+| `WEKNORA_INVITATION_TTL` | 168h | Invitation link validity period |
+| `WEKNORA_AUDIT_RETENTION_DAYS` | 90 | Audit log retention in days |
+| `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL` | empty | Bootstraps the first system administrator. **Does not create a user**: this email must first register on its own; on next startup, if there is no system administrator yet in the deployment, it is promoted; once an admin exists, this variable no longer has any effect. See [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md) for details |
+| `OIDC_AUTH_ENABLE` and `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_*` | false / empty | Full OIDC single sign-on configuration |
+| `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | empty / `searxng,qdrant,milvus,weaviate,doris-fe,doris-be` | SSRF whitelist for outbound requests (shared by app and docreader) |
+| `IMAGE_HOST_KEEP_URL` | empty | Whitelist of image domains for which the original URL is preserved |
 
-### Docreader 解析（docreader 容器）
+### Docreader Parsing (docreader container)
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` | docreader:50051 / grpc | app 侧连接地址与传输（`grpc`/`http`） |
-| `DOCREADER_GRPC_MAX_WORKERS` / `DOCREADER_GRPC_PORT` / `DOCREADER_GRPC_MAX_FILE_SIZE_MB` | 4 / 50051 / 跟随 MAX_FILE_SIZE_MB | gRPC 服务参数 |
-| `GRPC_TLS_ENABLED/CERT/KEY/CA/SERVER_NAME`、`GRPC_MTLS_REQUIRE_CLIENT_CERT`、`GRPC_AUTH_TOKEN` | false / 空 | app↔docreader 链路 TLS/mTLS 与 token 认证 |
-| `DOCREADER_PDF_RENDER_DPI` / `DOCREADER_PDF_JPEG_QUALITY` / `DOCREADER_PDF_RENDER_MAX_EDGE` | 200 / 85 / 2000 | PDF 渲染 |
-| `DOCREADER_PDF_FORCE_SCANNED` / `DOCREADER_PDF_SCAN_IMAGE_RATIO` / `DOCREADER_PDF_SCAN_MIN_CHARS` | false / 代码默认 | 扫描件判定 |
-| `DOCREADER_ODL_HYBRID` / `DOCREADER_ODL_HYBRID_URL` / `DOCREADER_ODL_HYBRID_MODE` / `DOCREADER_ODL_HYBRID_FALLBACK` | off / http://odl-hybrid:5002 / auto / false | OpenDataLoader 混合解析 |
-| 其余 `DOCREADER_PDF_*`（词距/边栏/隐藏文本/嵌入图/图表区等 20+ 项） | 见 `docker-compose.yml` docreader 段注释 | PDF 版式与抽取精调 |
-| `DOCREADER_EXTERNAL_HTTP_PROXY` / `_HTTPS_PROXY` | 空 | docreader 出站抓取代理 |
+| `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` | docreader:50051 / grpc | Address and transport the app side connects with (`grpc`/`http`) |
+| `DOCREADER_GRPC_MAX_WORKERS` / `DOCREADER_GRPC_PORT` / `DOCREADER_GRPC_MAX_FILE_SIZE_MB` | 4 / 50051 / follows MAX_FILE_SIZE_MB | gRPC service parameters |
+| `GRPC_TLS_ENABLED/CERT/KEY/CA/SERVER_NAME`, `GRPC_MTLS_REQUIRE_CLIENT_CERT`, `GRPC_AUTH_TOKEN` | false / empty | TLS/mTLS and token authentication for the app↔docreader link |
+| `DOCREADER_PDF_RENDER_DPI` / `DOCREADER_PDF_JPEG_QUALITY` / `DOCREADER_PDF_RENDER_MAX_EDGE` | 200 / 85 / 2000 | PDF rendering |
+| `DOCREADER_PDF_FORCE_SCANNED` / `DOCREADER_PDF_SCAN_IMAGE_RATIO` / `DOCREADER_PDF_SCAN_MIN_CHARS` | false / code default | Scanned document detection |
+| `DOCREADER_ODL_HYBRID` / `DOCREADER_ODL_HYBRID_URL` / `DOCREADER_ODL_HYBRID_MODE` / `DOCREADER_ODL_HYBRID_FALLBACK` | off / http://odl-hybrid:5002 / auto / false | OpenDataLoader hybrid parsing |
+| Remaining `DOCREADER_PDF_*` (word spacing/sidebar/hidden text/embedded images/chart regions, and 20+ others) | see comments in the docreader section of `docker-compose.yml` | Fine-tuning of PDF layout and extraction |
+| `DOCREADER_EXTERNAL_HTTP_PROXY` / `_HTTPS_PROXY` | empty | Outbound fetch proxy for docreader |
 
-### Agent、Skills 与附件
+### Agent, Skills, and Attachments
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `WEKNORA_SANDBOX_MODE` | disabled（代码默认；标准 compose 里设为 docker） | Skills 沙箱：`docker` / `local` / `disabled` |
-| `WEKNORA_SANDBOX_TIMEOUT` / `WEKNORA_SANDBOX_DOCKER_IMAGE` | 60 / wechatopenai/weknora-sandbox:latest | 沙箱执行超时与镜像 |
-| `WEKNORA_SKILLS_DIR` | 空（镜像内 /app/skills/preloaded） | 自定义 Skills 目录 |
-| `WEKNORA_AGENT_LLM_TIMEOUT` | 120s | Agent 单次 LLM 调用超时（Go duration 或纯数字秒） |
-| `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT` / `_FAIL_OPEN` | 600s / fail-close | MCP 工具人工审批等待与失败策略 |
-| `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS` / `_WAIT_TIMEOUT_SEC` / `_OCR_CONCURRENCY` / `_OCR_MAX_PAGES` | 24 / 60 / 8 / 8 | 聊天附件解析保留时长、等待超时与 OCR 并发/页数上限 |
-| `WEKNORA_HOUSEKEEPING_ENABLED` | 启用 | 回收卡在 processing 的脏数据 |
-| `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` / `WEKNORA_DOCREADER_CALL_TIMEOUT` | 2h / 30m | 文档处理任务与单次 RPC 超时 |
+| `WEKNORA_SANDBOX_MODE` | disabled (code default; set to docker in the standard compose file) | Skills sandbox: `docker` / `local` / `disabled` |
+| `WEKNORA_SANDBOX_TIMEOUT` / `WEKNORA_SANDBOX_DOCKER_IMAGE` | 60 / wechatopenai/weknora-sandbox:latest | Sandbox execution timeout and image |
+| `WEKNORA_SKILLS_DIR` | empty (/app/skills/preloaded inside the image) | Custom Skills directory |
+| `WEKNORA_AGENT_LLM_TIMEOUT` | 120s | Agent single LLM call timeout (Go duration or plain number of seconds) |
+| `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT` / `_FAIL_OPEN` | 600s / fail-close | MCP tool manual approval wait time and failure policy |
+| `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS` / `_WAIT_TIMEOUT_SEC` / `_OCR_CONCURRENCY` / `_OCR_MAX_PAGES` | 24 / 60 / 8 / 8 | Chat attachment parsing retention duration, wait timeout, and OCR concurrency/page limits |
+| `WEKNORA_HOUSEKEEPING_ENABLED` | enabled | Reclaims dirty data stuck in processing state |
+| `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` / `WEKNORA_DOCREADER_CALL_TIMEOUT` | 2h / 30m | Document processing task and single RPC timeouts |
 
-### 可观测性（Langfuse）
+### Observability (Langfuse)
 
-`LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` 同时设置即自动启用；`LANGFUSE_HOST`（默认 `https://cloud.langfuse.com`，自建栈填 `http://langfuse-web:3000`）、`LANGFUSE_ENABLED`、`LANGFUSE_RELEASE`、`LANGFUSE_ENVIRONMENT`、`LANGFUSE_SAMPLE_RATE`、`LANGFUSE_FLUSH_AT/FLUSH_INTERVAL/QUEUE_SIZE/REQUEST_TIMEOUT/DEBUG` 为调优项；`--profile langfuse` 自建栈另有 `LANGFUSE_SALT`、`LANGFUSE_ENCRYPTION_KEY`、`LANGFUSE_NEXTAUTH_SECRET`、`LANGFUSE_INIT_*`（首启自动建组织/项目/管理员）等，见 `.env.example` I1/I2 节。
+Setting both `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` automatically enables it; `LANGFUSE_HOST` (default `https://cloud.langfuse.com`, set to `http://langfuse-web:3000` for a self-hosted stack), `LANGFUSE_ENABLED`, `LANGFUSE_RELEASE`, `LANGFUSE_ENVIRONMENT`, `LANGFUSE_SAMPLE_RATE`, `LANGFUSE_FLUSH_AT/FLUSH_INTERVAL/QUEUE_SIZE/REQUEST_TIMEOUT/DEBUG` are tuning options; the self-hosted stack under `--profile langfuse` additionally has `LANGFUSE_SALT`, `LANGFUSE_ENCRYPTION_KEY`, `LANGFUSE_NEXTAUTH_SECRET`, `LANGFUSE_INIT_*` (automatically creates an organization/project/admin on first startup), etc. — see sections I1/I2 of `.env.example`.
 
-### 可选服务：SearXNG 与 MCP Server
+### Optional Services: SearXNG and MCP Server
 
-这两组变量只在启用对应 compose profile 时才需要，独立于主服务。
+These two groups of variables are only needed when enabling the corresponding compose profile, independent of the main service.
 
-**SearXNG**（自托管元搜索，`--profile searxng` / `full`）：
+**SearXNG** (self-hosted metasearch, `--profile searxng` / `full`):
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `SEARXNG_PORT` | 8888 | 宿主机端口 |
-| `SEARXNG_BIND` | 127.0.0.1 | **默认只监听本机**。WeKnora 打包的配置关掉了 SearXNG 自身的限流（否则后端会被节流），所以不应直接暴露到 LAN；确实要开放请显式改成 `0.0.0.0` 并自行加固 |
-| `SEARXNG_SECRET` | 空 | 入口脚本用它替换 `settings.yml` 里的 `secret_key`，对外开放时必须设 |
+| `SEARXNG_PORT` | 8888 | Host port |
+| `SEARXNG_BIND` | 127.0.0.1 | **Listens only on localhost by default**. WeKnora's bundled configuration disables SearXNG's own rate limiting (otherwise the backend would get throttled), so it should not be exposed directly to the LAN; if you really need to open it up, explicitly change it to `0.0.0.0` and harden it yourself |
+| `SEARXNG_SECRET` | empty | Used by the entrypoint script to replace the `secret_key` in `settings.yml`; must be set when exposed externally |
 
-自建 SearXNG 时记得把 `127.0.0.1` 加进 `SSRF_WHITELIST`，否则后端的 SSRF 防护会拦掉本机地址。用法见[网络搜索与网页抓取](../03-features/11-web-search.md)。
+When self-hosting SearXNG, remember to add `127.0.0.1` to `SSRF_WHITELIST`, otherwise the backend's SSRF protection will block the local address. See [Web Search and Web Scraping](../03-features/11-web-search.md) for usage.
 
-**MCP Server**（把 WeKnora 暴露给 Claude Desktop 等 MCP 客户端，`--profile full`）：
+**MCP Server** (exposes WeKnora to MCP clients such as Claude Desktop, `--profile full`):
 
-| 名称 | 默认值 | 说明 |
+| Name | Default | Description |
 | --- | --- | --- |
-| `WEKNORA_API_KEY` | 空 | mcp-server 反过来调 WeKnora REST 用的 Key，在「设置 → API Keys」生成 |
-| `MCP_SERVER_AUTH_TOKEN` | 空 | **HTTP/SSE 传输必填**，缺失时进程直接拒绝启动；客户端以 `Authorization: Bearer` 携带 |
-| `WEKNORA_CHAT_TIMEOUT` | 300 | 调 WeKnora REST 的读超时（秒） |
-| `WEKNORA_VERIFY_SSL` | true | 是否校验后端 TLS 证书，自签证书可设 false |
-| `MCP_ALLOWED_UPLOAD_DIRS` | 空 | 允许上传的目录白名单（逗号分隔），留空即禁用文件上传工具 |
+| `WEKNORA_API_KEY` | empty | The Key used by mcp-server to call the WeKnora REST API; generate it under "Settings → API Keys" |
+| `MCP_SERVER_AUTH_TOKEN` | empty | **Required for HTTP/SSE transport**; the process refuses to start if missing; clients pass it as `Authorization: Bearer` |
+| `WEKNORA_CHAT_TIMEOUT` | 300 | Read timeout for calls to the WeKnora REST API (seconds) |
+| `WEKNORA_VERIFY_SSL` | true | Whether to validate the backend's TLS certificate; can be set to false for self-signed certificates |
+| `MCP_ALLOWED_UPLOAD_DIRS` | empty | Whitelist of directories allowed for uploads (comma-separated); leaving it empty disables the file upload tool |
 
-完整说明见 [MCP 集成](../03-features/08-mcp.md)。
+See [MCP Integration](../03-features/08-mcp.md) for full details.
 
-## config/prompt_templates/：提示词模板
+## config/prompt_templates/: Prompt Templates
 
-每类 Prompt 一个 YAML 文件，统一结构为 `templates:` 列表；单个模板字段（`PromptTemplate` 结构体，`internal/config/config.go`）：
+One YAML file per category of Prompt, with a unified structure of a `templates:` list; fields of an individual template (the `PromptTemplate` struct, `internal/config/config.go`):
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `id` | 唯一 ID，被 config.yaml 的 `*_prompt_id`、内置 Agent 的 `system_prompt_id`、类型预设引用 |
-| `name` / `description` | 展示名与说明 |
-| `content` | 系统侧 Prompt 正文（所有模板必备） |
-| `user` | 用户侧 Prompt（仅 system+user 配对模板使用，如 rewrite、keywords_extraction） |
-| `default` | 是否为该类默认模板 |
-| `mode` | 子类区分（如 fallback 中 `model` 表示模型兜底 prompt） |
-| `has_knowledge_base` / `has_web_search` | 模板适用场景标记 |
-| `i18n` | 多语言 name/description（键为 locale，如 `zh-CN`） |
+| `id` | Unique ID, referenced by config.yaml's `*_prompt_id`, built-in Agents' `system_prompt_id`, and type presets |
+| `name` / `description` | Display name and description |
+| `content` | System-side prompt body (required for all templates) |
+| `user` | User-side prompt (only used by system+user paired templates, such as rewrite, keywords_extraction) |
+| `default` | Whether this is the default template for its category |
+| `mode` | Subcategory distinction (e.g., `model` in fallback indicates a model-based fallback prompt) |
+| `has_knowledge_base` / `has_web_search` | Flags marking the template's applicable scenarios |
+| `i18n` | Multi-language name/description (keyed by locale, e.g. `zh-CN`) |
 
-各文件用途与内含模板 ID：
+Purpose and included template IDs for each file:
 
-| 文件 | 用途 | 模板 ID |
+| File | Purpose | Template IDs |
 | --- | --- | --- |
-| `system_prompt.yaml` | 问答系统 Prompt（quick-answer / RAG） | `default_kb`（默认）、`expert_assistant`、`customer_service`、`technical_support`、`pure_chat`、`web_search_assistant` |
-| `context_template.yaml` | 检索结果拼装为上下文的模板 | `default_context`、`detailed_context`、`simple_context`、`qa_context` |
-| `rewrite.yaml` | 多轮查询改写（content+user 成对） | `default_rewrite`、`standard_rewrite`、`strict_rewrite` |
-| `fallback.yaml` | 未命中兜底（固定回复 + `mode:"model"` 模型兜底） | `default_fallback`、`polite_fallback`、`brief_fallback`、`model_fallback`、`default_fallback_prompt` |
-| `generate_session_title.yaml` | 会话标题生成 | `default_session_title` |
-| `generate_summary.yaml` | 文档摘要生成 | `default_summary` |
-| `generate_questions.yaml` | 文档预生成问题 | `default_generate_questions` |
-| `keywords_extraction.yaml` | 关键词抽取 | `default_keywords_extraction` |
-| `graph_extraction.yaml` | 图谱实体/关系抽取 | `default_extract_entities`、`default_extract_relationships` |
-| `agent_system_prompt.yaml` | Agent（smart-reasoning）系统 Prompt | `pure_agent`、`progressive_rag_agent`、`data_analyst`、`wiki_researcher`、`wiki_fixer`、`hybrid_rag_wiki_agent` |
-| `intent_prompts.yaml` | 意图路由的分意图系统 Prompt（模板 ID = 意图值） | `greeting`、`chitchat`、`follow_up`、`image_only`、`summarize`、`web_search`、`doc_only` |
+| `system_prompt.yaml` | Q&A system prompt (quick-answer / RAG) | `default_kb` (default), `expert_assistant`, `customer_service`, `technical_support`, `pure_chat`, `web_search_assistant` |
+| `context_template.yaml` | Template for assembling retrieval results into context | `default_context`, `detailed_context`, `simple_context`, `qa_context` |
+| `rewrite.yaml` | Multi-turn query rewriting (content+user pair) | `default_rewrite`, `standard_rewrite`, `strict_rewrite` |
+| `fallback.yaml` | Fallback for misses (fixed reply + `mode:"model"` model-based fallback) | `default_fallback`, `polite_fallback`, `brief_fallback`, `model_fallback`, `default_fallback_prompt` |
+| `generate_session_title.yaml` | Session title generation | `default_session_title` |
+| `generate_summary.yaml` | Document summary generation | `default_summary` |
+| `generate_questions.yaml` | Pre-generated document questions | `default_generate_questions` |
+| `keywords_extraction.yaml` | Keyword extraction | `default_keywords_extraction` |
+| `graph_extraction.yaml` | Graph entity/relationship extraction | `default_extract_entities`, `default_extract_relationships` |
+| `agent_system_prompt.yaml` | Agent (smart-reasoning) system prompt | `pure_agent`, `progressive_rag_agent`, `data_analyst`, `wiki_researcher`, `wiki_fixer`, `hybrid_rag_wiki_agent` |
+| `intent_prompts.yaml` | Intent-specific system prompts for intent routing (template ID = intent value) | `greeting`, `chitchat`, `follow_up`, `image_only`, `summarize`, `web_search`, `doc_only` |
 
-**可定制点**：直接编辑模板 `content`，或新增模板条目并把 config.yaml 中对应 `*_prompt_id` 改为新 ID；重启（compose 已挂载 `./config/config.yaml`，模板目录随镜像/挂载）即生效。ID 找不到时启动日志会输出 `Warning: xxx_prompt_id not found`。
+**Customization points**: edit the template `content` directly, or add a new template entry and change the corresponding `*_prompt_id` in config.yaml to the new ID; restarting (compose already mounts `./config/config.yaml`, and the template directory travels with the image/mount) applies the change. If an ID cannot be found, the startup log will print `Warning: xxx_prompt_id not found`.
 
-## config/agent_type_presets.yaml：Agent 类型预设
+## config/agent_type_presets.yaml: Agent Type Presets
 
-为 smart-reasoning 模式的自定义 Agent 提供「一键预填」：每个预设（`AgentTypePresetEntry`，`internal/types/agent_type_preset.go`）包含 `id`、`i18n`（label/description 多语言）、`config`（预填值，零值不生效）与可选 `kb_filter`（限定可选知识库的能力谓词 `any_of` / `all_of` / `none_of`，能力名：`vector`、`keyword`、`wiki`、`graph`、`faq`）。前端经 `GET /agents/type-presets` 读取。
+Provides "one-click prefill" for custom Agents in smart-reasoning mode: each preset (`AgentTypePresetEntry`, `internal/types/agent_type_preset.go`) contains `id`, `i18n` (multi-language label/description), `config` (prefill values, zero values have no effect), and an optional `kb_filter` (capability predicate restricting selectable knowledge bases: `any_of` / `all_of` / `none_of`, capability names: `vector`, `keyword`, `wiki`, `graph`, `faq`). The frontend reads these via `GET /agents/type-presets`.
 
-内置五种预设：
+Five built-in presets:
 
-| id | 系统 Prompt | 工具白名单 | 备注 |
+| id | System Prompt | Tool whitelist | Notes |
 | --- | --- | --- | --- |
-| `rag-qa` | `progressive_rag_agent` | knowledge_search、grep_chunks、list_knowledge_chunks、get_document_info | temperature 0.7、max_iterations 30、FAQ 优先 |
-| `wiki-qa` | `wiki_researcher` | wiki_search、wiki_read_page、wiki_read_source_doc、wiki_flag_issue | 需 Wiki 已启用的知识库 |
-| `hybrid-rag-wiki` | `hybrid_rag_wiki_agent` | Wiki + RAG 工具全集 | max_iterations 40，最灵活的预设 |
-| `data-analysis` | `data_analyst` | data_schema、data_analysis | temperature 0.3；`kb_filter: none_of: [faq]`；支持 csv/xlsx |
-| `custom` | 无 | 无预填 | 完全手动配置 |
+| `rag-qa` | `progressive_rag_agent` | knowledge_search, grep_chunks, list_knowledge_chunks, get_document_info | temperature 0.7, max_iterations 30, FAQ prioritized |
+| `wiki-qa` | `wiki_researcher` | wiki_search, wiki_read_page, wiki_read_source_doc, wiki_flag_issue | Requires a knowledge base with Wiki enabled |
+| `hybrid-rag-wiki` | `hybrid_rag_wiki_agent` | Full set of Wiki + RAG tools | max_iterations 40, the most flexible preset |
+| `data-analysis` | `data_analyst` | data_schema, data_analysis | temperature 0.3; `kb_filter: none_of: [faq]`; supports csv/xlsx |
+| `custom` | none | no prefill | Fully manual configuration |
 
-## config/builtin_agents.yaml：内置 Agent
+## config/builtin_agents.yaml: Built-in Agents
 
-定义随系统分发、对所有租户可见的 Agent（`BuiltinAgentEntry`，`internal/types/builtin_agent_config.go`）。每条含 `id`、`avatar`、`is_builtin: true`、`i18n`（default/zh-CN/zh-TW/ja-JP/ko-KR 的名称与描述）与完整 `config`（`CustomAgentConfig`）。文件内置五个 Agent：
+Defines Agents distributed with the system and visible to all tenants (`BuiltinAgentEntry`, `internal/types/builtin_agent_config.go`). Each entry contains `id`, `avatar`, `is_builtin: true`, `i18n` (names and descriptions for default/zh-CN/zh-TW/ja-JP/ko-KR), and a complete `config` (`CustomAgentConfig`). The file has five built-in Agents:
 
-- `builtin-quick-answer`：`agent_mode: quick-answer`，引用 `system_prompt_id: default_kb` 与 `context_template_id: default_context`，带完整检索参数（`embedding_top_k: 10`、`vector_threshold: 0.5`、`rerank_threshold: 0.3`、FAQ 直答阈值 0.9 等）；
-- `builtin-smart-reasoning`：`agent_mode: smart-reasoning`、`agent_type: rag-qa`、`max_iterations: 50`；
-- `builtin-data-analyst`、`builtin-wiki-researcher`、`builtin-wiki-fixer`：分别面向表格分析与 Wiki 场景。
+- `builtin-quick-answer`: `agent_mode: quick-answer`, references `system_prompt_id: default_kb` and `context_template_id: default_context`, with full retrieval parameters (`embedding_top_k: 10`, `vector_threshold: 0.5`, `rerank_threshold: 0.3`, FAQ direct-answer threshold 0.9, etc.);
+- `builtin-smart-reasoning`: `agent_mode: smart-reasoning`, `agent_type: rag-qa`, `max_iterations: 50`;
+- `builtin-data-analyst`, `builtin-wiki-researcher`, `builtin-wiki-fixer`: targeted at tabular analysis and Wiki scenarios, respectively.
 
-`config` 中的 `system_prompt_id` 在启动时由 `resolveBuiltinAgentPromptIDs` 解析为 `agent_system_prompt.yaml` 中的实际内容。修改此文件并重启即可调整内置 Agent 行为。
+The `system_prompt_id` in `config` is resolved at startup by `resolveBuiltinAgentPromptIDs` into the actual content from `agent_system_prompt.yaml`. Modify this file and restart to adjust built-in Agent behavior.
 
-## config/builtin_models.yaml.example：声明式内置模型
+## config/builtin_models.yaml.example: Declarative Built-in Models
 
-复制为 `config/builtin_models.yaml`（或用 `BUILTIN_MODELS_CONFIG` 指定路径）后，其中条目会在**每次启动时**写入 `models` 表并标记 `is_builtin=true`，对所有租户可见（compose 中取消 `- ./config/builtin_models.yaml:/app/config/builtin_models.yaml:ro` 挂载行的注释）。格式：
+After copying it to `config/builtin_models.yaml` (or specifying a path via `BUILTIN_MODELS_CONFIG`), its entries are written into the `models` table **on every startup** and marked `is_builtin=true`, visible to all tenants (uncomment the `- ./config/builtin_models.yaml:/app/config/builtin_models.yaml:ro` mount line in compose). Format:
 
 ```yaml
 builtin_models:
-  - id: builtin-llm-default        # 稳定 ID，重复启动按 ID 幂等更新
+  - id: builtin-llm-default        # Stable ID, repeated startups update idempotently by ID
     type: KnowledgeQA              # KnowledgeQA | Embedding | Rerank | VLLM | ASR
-    source: remote                 # remote（默认）| local
-    is_default: true               # 是否设为该类型默认模型
-    name: ${LLM_MODEL_NAME}        # 字符串字段均支持 ${ENV} 引用（.env 经 env_file 注入容器）
+    source: remote                 # remote (default) | local
+    is_default: true               # Whether to set as the default model for this type
+    name: ${LLM_MODEL_NAME}        # String fields all support ${ENV} references (.env injected into the container via env_file)
     parameters:
       base_url: ${LLM_BASE_URL}
       api_key: ${LLM_API_KEY}
       provider: ${LLM_PROVIDER}    # openai | generic | aliyun | moonshot | ...
-      embedding_parameters:        # 仅 Embedding 类型
+      embedding_parameters:        # Embedding type only
         dimension: 1536
         truncate_prompt_tokens: 0
 ```
 
-注意：未设置的 `${ENV}` 会保留字面量以便暴露配置错误；非字符串字段（`type`、`source`、`is_default`、`dimension` 等）必须写字面值；从文件删除条目**不会**自动删库，需手动清理。
+Note: unset `${ENV}` variables keep the literal text to make configuration errors visible; non-string fields (`type`, `source`, `is_default`, `dimension`, etc.) must be written as literal values; deleting an entry from the file **does not** automatically delete it from the database — manual cleanup is required.
 
-## 配置优先级速记
+## Configuration Priority Quick Reference
 
-对同一语义的配置，生效优先级为：**数据库 `system_settings`（仅注册在表内的键）> 环境变量 > config.yaml > 代码内置默认值**；租户/知识库级配置（`RetrievalConfig`、`ChunkingConfig` 等，存于数据库）在运行时覆盖全局默认。修改 `.env` 后需重启容器（`docker compose up -d app`）；开发模式 air 热重载不会重读 `.env`，需重启 dev 脚本。
+For the same semantic configuration, the effective priority is: **database `system_settings` (only keys registered in the table) > environment variables > config.yaml > built-in code defaults**; tenant/knowledge-base-level configuration (`RetrievalConfig`, `ChunkingConfig`, etc., stored in the database) overrides global defaults at runtime. After modifying `.env`, the container needs to be restarted (`docker compose up -d app`); in development mode, air hot reload does not re-read `.env`, so the dev script needs to be restarted.

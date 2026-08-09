@@ -1,10 +1,10 @@
 # DocReader Service
 
-DocReader 是 WeKnora 项目中负责文档解析和处理的 gRPC 服务。它支持多种文档格式的读取、OCR 识别、多模态处理等功能。
+DocReader is the gRPC service in the WeKnora project responsible for document parsing and processing. It supports reading multiple document formats, OCR recognition, multimodal processing, and more.
 
-## Docker Compose 环境变量配置
+## Docker Compose Environment Variable Configuration
 
-在 `docker-compose.yml` 文件中，docreader 服务配置了以下环境变量：
+In the `docker-compose.yml` file, the docreader service is configured with the following environment variables:
 
 ```yaml
 docreader:
@@ -16,127 +16,127 @@ docreader:
     - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-}
 ```
 
-### 环境变量说明
+### Environment Variable Descriptions
 
 #### 1. MINIO_ENDPOINT
 
-- **说明**: MinIO 服务的内部访问地址（容器间通信）
-- **默认值**: `minio:9000`
-- **用途**: DocReader 服务使用此地址连接到 MinIO 对象存储服务，用于读取和存储文档处理过程中的文件
-- **配置示例**:
+- **Description**: The internal access address for the MinIO service (inter-container communication)
+- **Default**: `minio:9000`
+- **Purpose**: The DocReader service uses this address to connect to the MinIO object storage service, for reading and storing files during document processing
+- **Configuration example**:
   ```yaml
-  - MINIO_ENDPOINT=minio:9000  # Docker 网络内部地址
+  - MINIO_ENDPOINT=minio:9000  # Internal Docker network address
   ```
 
 #### 2. MINIO_PUBLIC_ENDPOINT
 
-- **说明**: MinIO 服务的公开访问地址（外部访问）
-- **默认值**: `http://localhost:9000`
-- **用途**: 用于生成可从外部访问的文件 URL，例如在文档解析后返回图片链接时使用
-- **重要提示**: 
-  - 如果需要从其他设备或容器访问，需要将 `localhost` 替换为实际的 IP 地址
-  - 可以在 `.env` 文件中配置 `MINIO_PORT` 来自定义端口
-- **配置示例**:
+- **Description**: The public access address for the MinIO service (external access)
+- **Default**: `http://localhost:9000`
+- **Purpose**: Used to generate externally accessible file URLs, for example when returning image links after document parsing
+- **Important notes**:
+  - If access is needed from other devices or containers, replace `localhost` with the actual IP address
+  - You can configure `MINIO_PORT` in the `.env` file to customize the port
+- **Configuration example**:
   ```bash
-  # .env 文件
+  # .env file
   MINIO_PORT=9000
   ```
-  或直接在 docker-compose.yml 中修改：
+  Or modify it directly in docker-compose.yml:
   ```yaml
-  - MINIO_PUBLIC_ENDPOINT=http://192.168.1.100:9000  # 使用实际 IP
+  - MINIO_PUBLIC_ENDPOINT=http://192.168.1.100:9000  # Use the actual IP
   ```
 
 #### 3. MINERU_ENDPOINT
 
-- **说明**: MinerU 服务的访问地址（可选）
-- **默认值**: 空（不使用 MinerU）
-- **用途**: MinerU 是一个高级文档解析服务，支持更复杂的文档结构识别和处理。配置此变量后，DocReader 可以调用 MinerU 进行文档解析
-- **配置示例**:
+- **Description**: The access address for the MinerU service (optional)
+- **Default**: Empty (MinerU not used)
+- **Purpose**: MinerU is an advanced document parsing service that supports more complex document structure recognition and processing. Once this variable is configured, DocReader can call MinerU for document parsing
+- **Configuration example**:
   ```bash
-  # .env 文件
+  # .env file
   MINERU_ENDPOINT=http://mineru-service:8080
   ```
 
 #### 4. MAX_FILE_SIZE_MB
 
-- **说明**: 允许上传的最大文件大小（单位：MB）
-- **默认值**: `50` MB
-- **用途**: 限制 gRPC 服务接收的文件大小，防止过大的文件导致服务崩溃或性能问题
-- **配置示例**:
+- **Description**: The maximum allowed upload file size (in MB)
+- **Default**: `50` MB
+- **Purpose**: Limits the file size accepted by the gRPC service, preventing overly large files from causing service crashes or performance issues
+- **Configuration example**:
   ```bash
-  # .env 文件
-  MAX_FILE_SIZE_MB=100  # 允许最大 100MB 的文件
+  # .env file
+  MAX_FILE_SIZE_MB=100  # Allow files up to 100MB
   ```
 
-## 其他可配置的环境变量
+## Other Configurable Environment Variables
 
-除了 docker-compose.yml 中已配置的变量外，DocReader 还支持以下环境变量（可根据需要添加）：
+In addition to the variables already configured in docker-compose.yml, DocReader also supports the following environment variables (which can be added as needed):
 
-### gRPC 配置
+### gRPC Configuration
 
-- `DOCREADER_GRPC_MAX_WORKERS`: gRPC 服务的最大工作线程数（默认：4）
-- `DOCREADER_GRPC_PORT`: gRPC 服务监听端口（默认：50051）
+- `DOCREADER_GRPC_MAX_WORKERS`: Maximum number of worker threads for the gRPC service (default: 4)
+- `DOCREADER_GRPC_PORT`: The port the gRPC service listens on (default: 50051)
 
-### 解析器资源控制
+### Parser Resource Control
 
-- `DOCREADER_MARKITDOWN_MAX_WORKERS`: MarkItDown 解析的最大并发数（默认：1，设为 0 可关闭限流）
-- `DOCREADER_PDF_RENDER_MAX_WORKERS`: 扫描 PDF 渲染为图片的最大并发数（默认：1，设为 0 可关闭限流）
-- `DOCREADER_PDF_RENDER_DPI`: 扫描 PDF 渲染 DPI（默认：200）
-- `DOCREADER_PDF_JPEG_QUALITY`: 扫描 PDF 输出 JPEG 质量（默认：85，范围会自动限制在 1-95）
+- `DOCREADER_MARKITDOWN_MAX_WORKERS`: Maximum concurrency for MarkItDown parsing (default: 1; set to 0 to disable throttling)
+- `DOCREADER_PDF_RENDER_MAX_WORKERS`: Maximum concurrency for rendering scanned PDFs into images (default: 1; set to 0 to disable throttling)
+- `DOCREADER_PDF_RENDER_DPI`: DPI for rendering scanned PDFs (default: 200)
+- `DOCREADER_PDF_JPEG_QUALITY`: JPEG output quality for scanned PDFs (default: 85; automatically clamped to the 1–95 range)
 
 ### OCR / VLM
 
-DocReader 自身不再内置 OCR 与 VLM 后端。扫描 PDF 会被渲染为 JPEG 图片后交由 Go App 侧调用 OCR/VLM 服务处理，相关配置请参考主项目文档。
+DocReader no longer bundles its own OCR and VLM backends. Scanned PDFs are rendered into JPEG images and then handed off to the Go App side to call the OCR/VLM services — see the main project documentation for related configuration.
 
-### 存储配置
+### Storage Configuration
 
-DocReader 支持多种存储后端：
+DocReader supports multiple storage backends:
 
-#### MinIO/S3 存储（推荐）
+#### MinIO/S3 Storage (recommended)
 
-- `STORAGE_TYPE`: 设置为 `minio`
-- `MINIO_ACCESS_KEY_ID`: MinIO 访问密钥 ID（默认：minioadmin）
-- `MINIO_SECRET_ACCESS_KEY`: MinIO 访问密钥（默认：minioadmin）
-- `MINIO_BUCKET_NAME`: MinIO 存储桶名称（默认：WeKnora）
-- `MINIO_PATH_PREFIX`: 文件路径前缀
-- `MINIO_USE_SSL`: 是否使用 SSL（默认：false）
+- `STORAGE_TYPE`: Set to `minio`
+- `MINIO_ACCESS_KEY_ID`: MinIO access key ID (default: minioadmin)
+- `MINIO_SECRET_ACCESS_KEY`: MinIO secret access key (default: minioadmin)
+- `MINIO_BUCKET_NAME`: MinIO bucket name (default: WeKnora)
+- `MINIO_PATH_PREFIX`: File path prefix
+- `MINIO_USE_SSL`: Whether to use SSL (default: false)
 
-#### 腾讯云 COS 存储
+#### Tencent Cloud COS Storage
 
-- `STORAGE_TYPE`: 设置为 `cos`
-- `COS_SECRET_ID`: COS 访问密钥 ID
-- `COS_SECRET_KEY`: COS 访问密钥
-- `COS_REGION`: COS 区域
-- `COS_BUCKET_NAME`: COS 存储桶名称
-- `COS_APP_ID`: COS 应用 ID
-- `COS_PATH_PREFIX`: 文件路径前缀
-- `COS_ENABLE_OLD_DOMAIN`: 是否使用旧域名（默认：true）
+- `STORAGE_TYPE`: Set to `cos`
+- `COS_SECRET_ID`: COS access key ID
+- `COS_SECRET_KEY`: COS access key
+- `COS_REGION`: COS region
+- `COS_BUCKET_NAME`: COS bucket name
+- `COS_APP_ID`: COS app ID
+- `COS_PATH_PREFIX`: File path prefix
+- `COS_ENABLE_OLD_DOMAIN`: Whether to use the legacy domain (default: true)
 
-#### 阿里云 OSS 存储
+#### Alibaba Cloud OSS Storage
 
-- `STORAGE_TYPE`: 设置为 `oss`
-- `OSS_ACCESS_KEY_ID`: OSS 访问密钥 ID
-- `OSS_ACCESS_KEY_SECRET`: OSS 访问密钥
-- `OSS_ENDPOINT`: OSS 端点（如 `oss-cn-hangzhou.aliyuncs.com`）
-- `OSS_BUCKET_NAME`: OSS 存储桶名称
-- `OSS_REGION`: OSS 区域（如 `cn-hangzhou`）
-- `OSS_PATH_PREFIX`: 文件路径前缀
+- `STORAGE_TYPE`: Set to `oss`
+- `OSS_ACCESS_KEY_ID`: OSS access key ID
+- `OSS_ACCESS_KEY_SECRET`: OSS access key secret
+- `OSS_ENDPOINT`: OSS endpoint (e.g. `oss-cn-hangzhou.aliyuncs.com`)
+- `OSS_BUCKET_NAME`: OSS bucket name
+- `OSS_REGION`: OSS region (e.g. `cn-hangzhou`)
+- `OSS_PATH_PREFIX`: File path prefix
 
-### 代理配置
+### Proxy Configuration
 
-如果需要通过代理访问外部服务：
+If external services need to be accessed through a proxy:
 
-- `EXTERNAL_HTTP_PROXY`: HTTP 代理地址
-- `EXTERNAL_HTTPS_PROXY`: HTTPS 代理地址
+- `EXTERNAL_HTTP_PROXY`: HTTP proxy address
+- `EXTERNAL_HTTPS_PROXY`: HTTPS proxy address
 
-### 图像处理配置
+### Image Processing Configuration
 
-扫描 PDF 会被渲染为 JPEG 图片后交给 Go App 侧 OCR 处理。如果在导入多个大 PDF 时出现资源占用过高，
-可以优先调低 `DOCREADER_PDF_RENDER_MAX_WORKERS` 或 `DOCREADER_MARKITDOWN_MAX_WORKERS`。
+Scanned PDFs are rendered into JPEG images and then handed off to the Go App side for OCR processing. If resource usage is too high when importing multiple large PDFs,
+try lowering `DOCREADER_PDF_RENDER_MAX_WORKERS` or `DOCREADER_MARKITDOWN_MAX_WORKERS` first.
 
-## 配置示例
+## Configuration Examples
 
-### 基础配置（使用 MinIO）
+### Basic Configuration (using MinIO)
 
 ```yaml
 docreader:
@@ -146,7 +146,7 @@ docreader:
     - MAX_FILE_SIZE_MB=50
 ```
 
-### 高级配置（启用 MinerU）
+### Advanced Configuration (enabling MinerU)
 
 ```yaml
 docreader:
@@ -157,7 +157,7 @@ docreader:
     - MAX_FILE_SIZE_MB=100
 ```
 
-### 使用腾讯云 COS
+### Using Tencent Cloud COS
 
 ```yaml
 docreader:
@@ -171,7 +171,7 @@ docreader:
     - MAX_FILE_SIZE_MB=50
 ```
 
-### 使用阿里云 OSS
+### Using Alibaba Cloud OSS
 
 ```yaml
 docreader:
@@ -185,25 +185,25 @@ docreader:
     - MAX_FILE_SIZE_MB=50
 ```
 
-## 常见问题
+## FAQ
 
-### 1. DocReader 服务无法启动？
+### 1. DocReader service fails to start?
 
-检查容器日志中是否存在依赖缺失或权限相关错误，必要时确认 `MINIO_ENDPOINT` / 存储相关环境变量是否正确配置。
+Check the container logs for missing dependencies or permission-related errors, and if necessary confirm that `MINIO_ENDPOINT` and related storage environment variables are configured correctly.
 
-### 2. 图片无法显示？
+### 2. Images not displaying?
 
-检查 `MINIO_PUBLIC_ENDPOINT` 配置：
-- 确保使用的是可从浏览器访问的地址
-- 如果从其他设备访问，不要使用 `localhost`，应使用实际 IP 地址
+Check the `MINIO_PUBLIC_ENDPOINT` configuration:
+- Make sure the address used is accessible from the browser
+- If accessing from another device, don't use `localhost` — use the actual IP address instead
 
-### 3. 文件上传失败？
+### 3. File upload failing?
 
-检查 `MAX_FILE_SIZE_MB` 配置，确保限制足够大。同时需要确保前端和后端服务的文件大小限制保持一致。
+Check the `MAX_FILE_SIZE_MB` configuration and make sure the limit is large enough. Also make sure the file size limits on the frontend and backend services are consistent.
 
-## 服务健康检查
+## Service Health Check
 
-DocReader 服务配置了健康检查：
+The DocReader service is configured with a health check:
 
 ```yaml
 healthcheck:
@@ -214,16 +214,16 @@ healthcheck:
   start_period: 60s
 ```
 
-可以通过以下命令检查服务状态：
+You can check the service status with the following commands:
 
 ```bash
 docker ps | grep docreader
 docker logs WeKnora-docreader
 ```
 
-## 更多信息
+## More Information
 
-- 服务端口：50051（gRPC）
-- 容器名称：WeKnora-docreader
-- 网络：WeKnora-network
-- 重启策略：unless-stopped
+- Service port: 50051 (gRPC)
+- Container name: WeKnora-docreader
+- Network: WeKnora-network
+- Restart policy: unless-stopped

@@ -104,8 +104,8 @@ export default function (knowledgeBaseId?: string) {
           if (onSuccess) {
             onSuccess();
           } else {
-            // 后端已将单条删除放入异步队列，立即拉列表仍可能包含待删项；
-            // 短轮询直到列表与后端一致或超时。
+            // The backend has already queued the single deletion asynchronously; fetching the list immediately may still include the pending item;
+            // Short-poll until the list matches the backend or it times out.
             const maxPolls = 30;
             const delayMs = 400;
             for (let i = 0; i < maxPolls; i++) {
@@ -144,7 +144,7 @@ export default function (knowledgeBaseId?: string) {
       return;
     }
     
-    // 获取当前知识库ID
+    // Get the current knowledge base ID
     let currentKbId: string | undefined = (route.params as any)?.kbId as string;
     if (!currentKbId && typeof window !== 'undefined') {
       const match = window.location.pathname.match(/knowledge-bases\/([^/]+)/);
@@ -158,7 +158,7 @@ export default function (knowledgeBaseId?: string) {
       return;
     }
     
-    // 获取当前选中的标签 ID
+    // Get the currently selected tag ID
     const uiStore = useUIStore();
     const tagIdsToUpload = uiStore.selectedTagIds.length > 0 ? [...uiStore.selectedTagIds] : undefined;
 

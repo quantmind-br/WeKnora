@@ -7,36 +7,36 @@ const { theme } = useData()
 const versionLabel = theme.value.weknoraVersion ?? 'unknown'
 
 const stats = [
-  { value: '25', unit: '种', label: '文件格式：文档、网页、扫描件、图片、音频' },
-  { value: '26', unit: '家+', label: '模型厂商，也可全部换成本地推理' },
-  { value: '9', unit: '个', label: '使用入口：Web、IM、插件、命令行、MCP' },
-  { value: '4', unit: '路', label: '索引同时生效：向量、关键词、Wiki、图谱' },
+  { value: '25', unit: 'types', label: 'File formats: documents, web pages, scanned files, images, audio' },
+  { value: '26', unit: '+', label: 'Model providers, all of which can also be swapped for local inference' },
+  { value: '9', unit: '', label: 'Access points: Web, IM, extension, command line, MCP' },
+  { value: '4', unit: '', label: 'Indexes active at once: vector, keyword, Wiki, graph' },
 ]
 
 const schema = [
   {
     step: '01',
-    name: '接入',
-    hint: '资料从哪里来',
-    items: ['文件上传', 'URL 抓取', '飞书', 'Notion', '语雀', 'RSS'],
+    name: 'Ingest',
+    hint: 'Where content comes from',
+    items: ['File upload', 'URL scraping', 'Feishu', 'Notion', 'Yuque', 'RSS'],
   },
   {
     step: '02',
-    name: '理解',
-    hint: '转成结构化文本',
-    items: ['版式分析', '扫描件 OCR', '表格抽取', '图片描述', '音频转写'],
+    name: 'Understand',
+    hint: 'Convert to structured text',
+    items: ['Layout analysis', 'Scanned-file OCR', 'Table extraction', 'Image description', 'Audio transcription'],
   },
   {
     step: '03',
-    name: '索引',
-    hint: '四路可同时开启',
-    items: ['自适应分块', '向量', '关键词', 'Wiki', '知识图谱'],
+    name: 'Index',
+    hint: 'All four paths can run at once',
+    items: ['Adaptive chunking', 'Vector', 'Keyword', 'Wiki', 'Knowledge graph'],
   },
   {
     step: '04',
-    name: '应用',
-    hint: '对外提供的能力',
-    items: ['知识问答', 'Agent 推理', 'Wiki 站点', '数据分析', 'FAQ'],
+    name: 'Apply',
+    hint: 'Capabilities exposed externally',
+    items: ['Knowledge Q&A', 'Agent reasoning', 'Wiki site', 'Data analysis', 'FAQ'],
   },
 ]
 
@@ -44,108 +44,108 @@ const chain = [
   {
     step: '01',
     icon: 'read',
-    title: '读懂文档',
-    desc: '扫描件走 OCR、插图交给视觉模型描述、音频由语音模型转写、Excel 合并单元格自动补齐。独立的 docreader 服务把 PDF、Office、网页、图片与音频还原成带版式的文本，而不是只抽出一段纯文字。',
+    title: 'Understand the document',
+    desc: 'Scanned files go through OCR, illustrations are described by a vision model, audio is transcribed by a speech model, and merged Excel cells are automatically filled in. A dedicated docreader service restores PDF, Office, web pages, images, and audio into text with layout preserved, rather than extracting a single block of plain text.',
     href: '/03-features/03-document-parsing',
   },
   {
     step: '02',
     icon: 'chunk',
-    title: '切好知识',
-    desc: '按文档特征在标题、启发式、递归三档策略间自动选择切法，父子分块让检索命中小块、送进模型的却是完整上下文。同一份文档可同时写入向量、关键词、Wiki 与知识图谱四路索引。',
+    title: 'Chunk the knowledge well',
+    desc: 'The chunking method is automatically chosen among three tiers—heading-based, heuristic, and recursive—based on document characteristics. Parent-child chunking lets retrieval hit small chunks while feeding the model the full context. The same document can be written simultaneously into four indexes: vector, keyword, Wiki, and knowledge graph.',
     href: '/02-architecture/03-document-pipeline',
   },
   {
     step: '03',
     icon: 'retrieve',
-    title: '找准证据',
-    desc: '先做意图识别与查询改写，向量与 BM25 并行召回后用 RRF 融合，再由重排模型定序；开启知识图谱时补一批实体关系证据，覆盖「A 和 B 什么关系」这类问题。',
+    title: 'Find the right evidence',
+    desc: 'Intent recognition and query rewriting run first; vector and BM25 recall run in parallel and are fused with RRF, then a rerank model orders the results. When the knowledge graph is enabled, a batch of entity-relationship evidence is added to cover questions like "what is the relationship between A and B."',
     href: '/03-features/05-retrieval-engines',
   },
   {
     step: '04',
     icon: 'answer',
-    title: '给出可核对的回答',
-    desc: '常规问题单轮检索直接生成；复杂任务交给 ReAct Agent 自行决定检索几轮、调哪些工具、要不要跑数据分析。回答流式返回，逐段标注出处，可点开原文核对。',
+    title: 'Give an answer that can be checked',
+    desc: 'Ordinary questions are answered directly with single-round retrieval; complex tasks are handed to a ReAct Agent, which decides on its own how many retrieval rounds to run, which tools to call, and whether to run data analysis. The answer streams back with sources annotated segment by segment, and the source text can be opened for verification.',
     href: '/03-features/07-agent',
   },
 ]
 
 const surfaces = [
-  { icon: 'console', name: 'Web 控制台', desc: '知识库管理、对话、Wiki 浏览与系统配置的完整界面。' },
-  { icon: 'extension', name: 'Chrome 插件', desc: '网页侧边栏问答，支持正文剪藏与 Markdown 速记入库。' },
-  { icon: 'embed', name: '网页嵌入挂件', desc: '一段 script 即可在自有站点提供悬浮问答，访客无需登录。' },
-  { icon: 'desktop', name: '桌面客户端', desc: '单机运行的桌面应用，自带后端与本地存储；尚未正式发布，需自行构建。' },
-  { icon: 'bot', name: 'IM 机器人', desc: '企业微信、飞书、钉钉、Slack 等 10 个平台的官方适配器。' },
-  { icon: 'mobile', name: '微信小程序', desc: '移动端入口，支持网页收藏入库与提问。' },
-  { icon: 'cli', name: '命令行 weknora', desc: '文档管理、检索与带引用的流式问答，默认 JSON 输出，便于脚本化。' },
-  { icon: 'api', name: 'REST API 与 Go SDK', desc: '完整 /api/v1 接口；API Key 支持按能力与知识库范围授权。' },
-  { icon: 'mcp', name: 'MCP Server', desc: '将 WeKnora 暴露为 MCP 工具，供 Claude、Cursor 等客户端检索。' },
+  { icon: 'console', name: 'Web console', desc: 'A complete interface for knowledge base management, chat, Wiki browsing, and system configuration.' },
+  { icon: 'extension', name: 'Chrome extension', desc: 'Q&A in a web page sidebar, with support for clipping page content and quick Markdown notes into the knowledge base.' },
+  { icon: 'embed', name: 'Web embed widget', desc: 'A single script line adds a floating Q&A widget to your own site; visitors don\u2019t need to log in.' },
+  { icon: 'desktop', name: 'Desktop client', desc: 'A standalone desktop app with its own backend and local storage; not yet officially released and must be built from source.' },
+  { icon: 'bot', name: 'IM bots', desc: 'Official adapters for 10 platforms including WeCom, Feishu, DingTalk, and Slack.' },
+  { icon: 'mobile', name: 'WeChat Mini Program', desc: 'A mobile entry point supporting saving web pages to the knowledge base and asking questions.' },
+  { icon: 'cli', name: 'weknora CLI', desc: 'Document management, retrieval, and streaming Q&A with citations, with JSON output by default for easy scripting.' },
+  { icon: 'api', name: 'REST API and Go SDK', desc: 'A complete /api/v1 interface; API keys support authorization scoped by capability and knowledge base.' },
+  { icon: 'mcp', name: 'MCP Server', desc: 'Exposes WeKnora as an MCP tool for retrieval by clients such as Claude and Cursor.' },
 ]
 
 const features = [
   {
     icon: 'wiki',
-    title: 'Wiki 模式',
-    desc: '由模型从文档中抽取实体与概念，生成互相链接且标注出处的页面，并自动组织为目录树与关系图谱。适用于资料分散、缺少整体索引的场景。',
+    title: 'Wiki mode',
+    desc: 'A model extracts entities and concepts from documents to generate cross-linked pages with cited sources, automatically organized into a table of contents and a relationship graph. Suited to scenarios where materials are scattered and lack an overall index.',
     href: '/03-features/14-wiki',
-    tag: '知识组织',
+    tag: 'Knowledge organization',
   },
   {
     icon: 'version',
-    title: '分块级编辑与版本管理',
-    desc: '解析结果可在分块粒度直接修正，保存后即时重建索引，每次修改保留历史版本并支持回滚。Wiki 页面同样具备版本历史，并区分管道、Agent 与人工三类编辑来源。',
+    title: 'Chunk-level editing and version management',
+    desc: 'Parsing results can be corrected directly at chunk granularity; the index rebuilds immediately on save, and every edit keeps a historical version with rollback support. Wiki pages also have version history and distinguish three edit sources: pipeline, Agent, and manual.',
     href: '/03-features/02-knowledge-base',
-    tag: '可维护性',
+    tag: 'Maintainability',
   },
   {
     icon: 'channels',
-    title: '多渠道统一接入',
-    desc: '同一个 Agent 可同时发布到 10 个 IM 平台、自有站点的嵌入挂件与浏览器插件，会话、权限与知识范围沿用同一套配置。',
+    title: 'Unified multi-channel access',
+    desc: 'The same Agent can be published simultaneously to 10 IM platforms, an embed widget on your own site, and a browser extension, all sharing the same session, permission, and knowledge scope configuration.',
     href: '/03-features/12-im-integration',
-    tag: '接入',
+    tag: 'Access',
   },
   {
     icon: 'mcp',
-    title: 'MCP 双向集成',
-    desc: '作为客户端接入外部 MCP 服务，支持 OAuth 授权与工具级人工审批；同时可作为 MCP Server 对外提供检索能力。',
+    title: 'Two-way MCP integration',
+    desc: 'Connects as a client to external MCP services, with support for OAuth authorization and per-tool manual approval; can also act as an MCP Server exposing retrieval capability externally.',
     href: '/03-features/08-mcp',
-    tag: '工具生态',
+    tag: 'Tool ecosystem',
   },
   {
     icon: 'govern',
-    title: '多空间隔离与审计',
-    desc: '工作空间级数据隔离与四级角色矩阵，API Key 可按能力与知识库范围收窄。操作行为写入审计日志，后台任务提供队列面板，问答链路支持 Langfuse 追踪。',
+    title: 'Multi-space isolation and auditing',
+    desc: 'Workspace-level data isolation and a four-tier role matrix; API keys can be narrowed by capability and knowledge base scope. Operations are written to an audit log, background tasks have a queue dashboard, and the Q&A pipeline supports Langfuse tracing.',
     href: '/03-features/20-platform-admin',
-    tag: '企业部署',
+    tag: 'Enterprise deployment',
   },
   {
     icon: 'pluggable',
-    title: '可插拔架构',
-    desc: '解析引擎、分块策略、检索引擎、模型厂商、搜索引擎与存储后端均以注册表接入，可按配置替换；知识库支持分别绑定不同的向量库与存储实例。',
+    title: 'Pluggable architecture',
+    desc: 'Parsing engines, chunking strategies, retrieval engines, model providers, search engines, and storage backends are all wired in through registries and can be swapped via configuration; a knowledge base can bind separate vector store and storage instances.',
     href: '/06-development/03-extension-points',
-    tag: '架构',
+    tag: 'Architecture',
   },
   {
     icon: 'graph',
-    title: '知识图谱增强检索',
-    desc: '入库时由模型抽取实体与关系存入图数据库，提问时顺着关系补充召回，用于回答「A 与 B 之间是什么关系」这类向量检索不擅长的问题。适合人物、组织、合同条款等关系密集的资料。',
+    title: 'Knowledge-graph-enhanced retrieval',
+    desc: 'On ingestion, a model extracts entities and relationships into a graph database; at query time, recall is supplemented by following those relationships, answering questions like "what is the relationship between A and B" that vector retrieval handles poorly. Well suited to relationship-dense material such as people, organizations, and contract terms.',
     href: '/03-features/09-knowledge-graph',
-    tag: '检索',
+    tag: 'Retrieval',
   },
   {
     icon: 'sync',
-    title: '数据源持续同步',
-    desc: '飞书、Notion、语雀与 RSS 绑定一次凭据后按计划自动同步：首次全量，之后按修改时间增量拉取，源端删除的文档同步下架，避免知识库随时间过期。',
+    title: 'Continuous data source sync',
+    desc: 'Feishu, Notion, Yuque, and RSS sync automatically on a schedule once credentials are bound: a full sync the first time, then incremental pulls by modification time; documents deleted at the source are taken down in sync, keeping the knowledge base from going stale over time.',
     href: '/03-features/10-datasource',
-    tag: '数据接入',
+    tag: 'Data ingestion',
   },
   {
     icon: 'faq',
-    title: 'FAQ 精确问答',
-    desc: '退货政策、报销流程这类答案固定的问题可直接维护成问答对，按「标准问 + 相似问 + 反例问」匹配问题而非文档片段。可与文档库被同一 Agent 检索，形成先查标准答案再翻文档的顺序。',
+    title: 'Precise FAQ answers',
+    desc: 'Questions with fixed answers, like return policy or reimbursement process, can be maintained directly as Q&A pairs, matched by "standard question + similar questions + counter-examples" rather than by document fragment. It can be retrieved by the same Agent as the document library, forming a sequence that checks the standard answer first before turning to the documents.',
     href: '/03-features/17-faq',
-    tag: '答案质量',
+    tag: 'Answer quality',
   },
 ]
 
@@ -153,114 +153,114 @@ const map = [
   {
     index: '01',
     icon: 'start',
-    title: '快速开始',
-    brief: '按顺序读完四篇，可完成部署并跑通首次问答。',
+    title: 'Getting started',
+    brief: 'Read these four in order to complete deployment and run your first Q&A.',
     items: [
-      { text: '产品介绍', link: '/01-getting-started/01-introduction' },
-      { text: '安装部署', link: '/01-getting-started/02-installation' },
-      { text: '快速上手', link: '/01-getting-started/03-quickstart' },
-      { text: '配置详解', link: '/01-getting-started/04-configuration' },
+      { text: 'Product introduction', link: '/01-getting-started/01-introduction' },
+      { text: 'Installation & deployment', link: '/01-getting-started/02-installation' },
+      { text: 'Quickstart', link: '/01-getting-started/03-quickstart' },
+      { text: 'Configuration reference', link: '/01-getting-started/04-configuration' },
     ],
   },
   {
     index: '02',
     icon: 'arch',
-    title: '架构',
-    brief: '系统全貌，以及文档入库与检索问答两条主干流水线。',
+    title: 'Architecture',
+    brief: 'The full system picture, plus the two main pipelines: document ingestion and retrieval Q&A.',
     items: [
-      { text: '总体架构', link: '/02-architecture/01-overview' },
-      { text: 'Go 后端设计', link: '/02-architecture/02-backend-design' },
-      { text: '文档入库流程', link: '/02-architecture/03-document-pipeline' },
-      { text: '检索问答流程', link: '/02-architecture/04-rag-pipeline' },
-      { text: '异步任务系统', link: '/02-architecture/05-async-tasks' },
+      { text: 'Overall architecture', link: '/02-architecture/01-overview' },
+      { text: 'Go backend design', link: '/02-architecture/02-backend-design' },
+      { text: 'Document ingestion pipeline', link: '/02-architecture/03-document-pipeline' },
+      { text: 'Retrieval Q&A pipeline', link: '/02-architecture/04-rag-pipeline' },
+      { text: 'Async task system', link: '/02-architecture/05-async-tasks' },
     ],
   },
   {
     index: '03',
     icon: 'modules',
-    title: '功能模块',
-    brief: '二十一项能力的配置项、行为约定与实现路径。',
+    title: 'Feature modules',
+    brief: 'Configuration options, behavior contracts, and implementation paths for twenty-one capabilities.',
     items: [
-      { text: '租户、用户与认证授权', link: '/03-features/01-tenant-auth' },
-      { text: '知识库与知识管理', link: '/03-features/02-knowledge-base' },
-      { text: '文档解析服务 docreader', link: '/03-features/03-document-parsing' },
-      { text: '分块机制', link: '/03-features/04-chunking' },
-      { text: '检索引擎与向量存储', link: '/03-features/05-retrieval-engines' },
-      { text: '模型管理', link: '/03-features/06-models' },
-      { text: 'Agent 引擎', link: '/03-features/07-agent' },
-      { text: 'MCP 集成', link: '/03-features/08-mcp' },
-      { text: '知识图谱', link: '/03-features/09-knowledge-graph' },
-      { text: '数据源导入', link: '/03-features/10-datasource' },
-      { text: '网络搜索与网页抓取', link: '/03-features/11-web-search' },
-      { text: 'IM 集成', link: '/03-features/12-im-integration' },
-      { text: '网页嵌入 Embed', link: '/03-features/13-embed-channel' },
-      { text: 'Wiki 能力', link: '/03-features/14-wiki' },
-      { text: '评估能力', link: '/03-features/15-evaluation' },
-      { text: '可观测性与审计', link: '/03-features/16-observability' },
-      { text: 'FAQ 能力', link: '/03-features/17-faq' },
-      { text: '会话与对话体验', link: '/03-features/18-chat-experience' },
-      { text: '存储后端', link: '/03-features/19-storage-backends' },
-      { text: '平台管理与系统管理员', link: '/03-features/20-platform-admin' },
-      { text: '图片与文件的对外访问', link: '/03-features/21-file-access' },
+      { text: 'Tenants, users, and auth', link: '/03-features/01-tenant-auth' },
+      { text: 'Knowledge base and knowledge management', link: '/03-features/02-knowledge-base' },
+      { text: 'docreader document parsing service', link: '/03-features/03-document-parsing' },
+      { text: 'Chunking mechanism', link: '/03-features/04-chunking' },
+      { text: 'Retrieval engines and vector storage', link: '/03-features/05-retrieval-engines' },
+      { text: 'Model management', link: '/03-features/06-models' },
+      { text: 'Agent engine', link: '/03-features/07-agent' },
+      { text: 'MCP integration', link: '/03-features/08-mcp' },
+      { text: 'Knowledge graph', link: '/03-features/09-knowledge-graph' },
+      { text: 'Data source import', link: '/03-features/10-datasource' },
+      { text: 'Web search and page scraping', link: '/03-features/11-web-search' },
+      { text: 'IM integration', link: '/03-features/12-im-integration' },
+      { text: 'Web embed', link: '/03-features/13-embed-channel' },
+      { text: 'Wiki capability', link: '/03-features/14-wiki' },
+      { text: 'Evaluation capability', link: '/03-features/15-evaluation' },
+      { text: 'Observability and auditing', link: '/03-features/16-observability' },
+      { text: 'FAQ capability', link: '/03-features/17-faq' },
+      { text: 'Session and chat experience', link: '/03-features/18-chat-experience' },
+      { text: 'Storage backends', link: '/03-features/19-storage-backends' },
+      { text: 'Platform administration and system admin', link: '/03-features/20-platform-admin' },
+      { text: 'External access to images and files', link: '/03-features/21-file-access' },
     ],
   },
   {
     index: '04',
     icon: 'api',
-    title: 'API 参考',
-    brief: '约 360 个端点，含权限要求、参数表与 curl 示例。',
+    title: 'API reference',
+    brief: 'About 360 endpoints, with permission requirements, parameter tables, and curl examples.',
     items: [
-      { text: 'API 总览', link: '/04-api/01-api-overview' },
-      { text: 'Agent、MCP 与技能', link: '/04-api/02-api-agent-mcp' },
-      { text: '认证与用户', link: '/04-api/02-api-auth' },
-      { text: 'IM、Embed 与文件', link: '/04-api/02-api-channels' },
-      { text: '会话、消息与聊天', link: '/04-api/02-api-chat' },
-      { text: 'FAQ 与 Wiki', link: '/04-api/02-api-faq-wiki' },
-      { text: '基础设施与数据源', link: '/04-api/02-api-infra' },
-      { text: '知识库与知识', link: '/04-api/02-api-knowledge' },
-      { text: '分块与标签', link: '/04-api/02-api-chunks' },
-      { text: '模型与初始化', link: '/04-api/02-api-model-system' },
-      { text: '系统与平台管理', link: '/04-api/02-api-system' },
-      { text: '组织与共享', link: '/04-api/02-api-org' },
-      { text: '租户与成员', link: '/04-api/02-api-tenant' },
+      { text: 'API overview', link: '/04-api/01-api-overview' },
+      { text: 'Agent, MCP, and skills', link: '/04-api/02-api-agent-mcp' },
+      { text: 'Auth and users', link: '/04-api/02-api-auth' },
+      { text: 'IM, Embed, and files', link: '/04-api/02-api-channels' },
+      { text: 'Sessions, messages, and chat', link: '/04-api/02-api-chat' },
+      { text: 'FAQ and Wiki', link: '/04-api/02-api-faq-wiki' },
+      { text: 'Infrastructure and data sources', link: '/04-api/02-api-infra' },
+      { text: 'Knowledge base and knowledge', link: '/04-api/02-api-knowledge' },
+      { text: 'Chunks and tags', link: '/04-api/02-api-chunks' },
+      { text: 'Models and initialization', link: '/04-api/02-api-model-system' },
+      { text: 'System and platform administration', link: '/04-api/02-api-system' },
+      { text: 'Organizations and sharing', link: '/04-api/02-api-org' },
+      { text: 'Tenants and members', link: '/04-api/02-api-tenant' },
     ],
   },
   {
     index: '05',
     icon: 'clients',
-    title: '客户端',
-    brief: '七种客户端：Web、CLI、SDK、小程序、桌面端、浏览器插件与 Skill。',
+    title: 'Clients',
+    brief: 'Seven clients: Web, CLI, SDK, Mini Program, desktop, browser extension, and Skill.',
     items: [
-      { text: 'Web 前端', link: '/05-clients/01-frontend' },
-      { text: '命令行工具 CLI', link: '/05-clients/02-cli' },
+      { text: 'Web frontend', link: '/05-clients/01-frontend' },
+      { text: 'CLI tool', link: '/05-clients/02-cli' },
       { text: 'Go SDK', link: '/05-clients/03-go-sdk' },
-      { text: '微信小程序', link: '/05-clients/04-miniprogram' },
-      { text: '桌面客户端', link: '/05-clients/05-desktop' },
-      { text: 'Chrome 插件', link: '/05-clients/06-chrome-extension' },
+      { text: 'WeChat Mini Program', link: '/05-clients/04-miniprogram' },
+      { text: 'Desktop client', link: '/05-clients/05-desktop' },
+      { text: 'Chrome extension', link: '/05-clients/06-chrome-extension' },
       { text: 'Claw Skill', link: '/05-clients/07-claw-skill' },
     ],
   },
   {
     index: '06',
     icon: 'dev',
-    title: '开发指南',
-    brief: '本地开发环境、数据库迁移，以及九类可插拔扩展点。',
+    title: 'Development guide',
+    brief: 'Local dev environment, database migrations, and nine categories of pluggable extension points.',
     items: [
-      { text: '开发指南', link: '/06-development/01-dev-guide' },
-      { text: '数据库与迁移', link: '/06-development/02-database-schema' },
-      { text: '扩展点指南', link: '/06-development/03-extension-points' },
+      { text: 'Development guide', link: '/06-development/01-dev-guide' },
+      { text: 'Database and migrations', link: '/06-development/02-database-schema' },
+      { text: 'Extension point guide', link: '/06-development/03-extension-points' },
     ],
   },
 ]
 
 const deployments = [
-  { icon: 'compose', name: 'Docker Compose', desc: '标准部署，12 个可选 profile 组合基础设施', note: '' },
-  { icon: 'helm', name: 'Helm', desc: 'Kubernetes 集群编排，适用于生产多副本', note: '' },
+  { icon: 'compose', name: 'Docker Compose', desc: 'Standard deployment, 12 optional profile combinations for infrastructure', note: '' },
+  { icon: 'helm', name: 'Helm', desc: 'Kubernetes cluster orchestration, suited to production multi-replica setups', note: '' },
   {
     icon: 'lite',
-    name: 'Lite（单二进制 / 桌面应用）',
-    desc: 'SQLite + 进程内队列，无需 Docker 与外部数据库；提供命令行与图形界面两种形式',
-    note: '桌面应用尚未正式发布，需自行构建',
+    name: 'Lite (single binary / desktop app)',
+    desc: 'SQLite + in-process queue, no Docker or external database required; available as both a CLI and a GUI',
+    note: 'The desktop app is not yet officially released and must be built from source',
   },
 ]
 </script>
@@ -271,22 +271,22 @@ const deployments = [
     <section class="hero">
       <div class="shell hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Tencent 开源 · WeKnora {{ versionLabel }} · 官方文档</p>
+          <p class="eyebrow">Tencent open source · WeKnora {{ versionLabel }} · Official docs</p>
           <h1 class="display">
-            开源的知识库问答系统
+            An open-source knowledge base Q&A system
           </h1>
-          <p class="lede">WeKnora（维娜拉）将 PDF、Word、网页与飞书 / Notion / 语雀等来源的资料汇入知识库，提供检索增强的问答能力，回答标注可追溯的出处。除基础问答外，还提供 <strong>Wiki 自动成书</strong>、<strong>ReAct Agent 与 MCP 双向集成</strong>、<strong>知识图谱增强检索</strong>，以及面向团队的<strong>多空间隔离、四级 RBAC、作用域 API Key 与审计日志</strong>。支持完整私有部署，模型可全部替换为本地推理。</p>
-          <p class="lede lede-sub">本文档覆盖部署与配置、功能说明、约 360 个 API 端点的接口参考，以及二次开发的扩展点。</p>
+          <p class="lede">WeKnora brings material from PDFs, Word documents, web pages, and sources like Feishu / Notion / Yuque into a knowledge base, providing retrieval-augmented Q&A that cites traceable sources in its answers. Beyond basic Q&A, it also offers <strong>automatic Wiki generation</strong>, <strong>two-way ReAct Agent and MCP integration</strong>, <strong>knowledge-graph-enhanced retrieval</strong>, and, for teams, <strong>multi-space isolation, four-tier RBAC, scoped API keys, and audit logs</strong>. It supports full private deployment, and models can all be swapped for local inference.</p>
+          <p class="lede lede-sub">This documentation covers deployment and configuration, feature descriptions, a reference for about 360 API endpoints, and extension points for further development.</p>
           <div class="actions">
-            <a class="btn btn-solid" :href="withBase('/01-getting-started/01-introduction')">开始阅读</a>
-            <a class="btn btn-ghost" :href="withBase('/02-architecture/01-overview')">系统架构</a>
+            <a class="btn btn-solid" :href="withBase('/01-getting-started/01-introduction')">Start reading</a>
+            <a class="btn btn-ghost" :href="withBase('/02-architecture/01-overview')">System architecture</a>
             <a
               class="btn btn-text"
               href="https://weknora.weixin.qq.com"
               target="_blank"
               rel="noreferrer"
             >
-              官方网站 ↗
+              Official website ↗
             </a>
             <a
               class="btn btn-text"
@@ -294,14 +294,14 @@ const deployments = [
               target="_blank"
               rel="noreferrer"
             >
-              GitHub 仓库 ↗
+              GitHub repository ↗
             </a>
           </div>
         </div>
 
         <aside class="hero-side">
-          <div class="schema" aria-label="能力分层">
-            <p class="schema-title">能力分层</p>
+          <div class="schema" aria-label="Capability layers">
+            <p class="schema-title">Capability layers</p>
             <ol class="schema-layers">
               <li v-for="layer in schema" :key="layer.name" class="layer">
                 <span class="layer-step">{{ layer.step }}</span>
@@ -316,7 +316,7 @@ const deployments = [
                 </div>
               </li>
             </ol>
-            <p class="schema-note">各层实现均可替换，未使用的能力可关闭；模型支持本地部署。</p>
+            <p class="schema-note">Each layer's implementation can be swapped out, and unused capabilities can be disabled; models support local deployment.</p>
           </div>
         </aside>
       </div>
@@ -346,18 +346,18 @@ const deployments = [
       </svg>
     </section>
 
-    <!-- ============================ 全景 ============================ -->
+    <!-- ============================ Panorama ============================ -->
     <section class="panorama">
       <div class="shell">
         <Illus name="flow" class="panorama-illus" />
         <p class="panorama-note">
-          资料从文件、网页、音频与图片进来，统一解析后并行写入向量、关键词、Wiki 与知识图谱四路索引；
-          同一套知识库与 Agent 再展开成九种客户端，换入口不用换一套系统。
+          Material comes in from files, web pages, audio, and images, is parsed uniformly, and is written in parallel into four indexes—vector, keyword, Wiki, and knowledge graph;
+          the same knowledge base and Agent then extend out into nine client types, so switching access points never means switching systems.
         </p>
       </div>
     </section>
 
-    <!-- ============================ 数字 ============================ -->
+    <!-- ============================ Stats ============================ -->
     <section class="stats">
       <div class="shell stats-row">
         <div v-for="s in stats" :key="s.label" class="stat">
@@ -367,13 +367,13 @@ const deployments = [
       </div>
     </section>
 
-    <!-- ============================ 主链路 ============================ -->
+    <!-- ============================ Main pipeline ============================ -->
     <section class="chapter">
       <div class="shell">
         <header class="chapter-head">
-          <span class="marker">处理流程</span>
-          <h2 class="chapter-title">从一份 PDF，到一句带出处的回答</h2>
-          <p class="chapter-sub">问答效果不好，问题往往不在模型，而在这条链路上：扫描件没读出文字、表格被切碎、召回的段落答非所问。下面四个环节各自对应一类失分点，且实现均可按需替换。</p>
+          <span class="marker">Processing pipeline</span>
+          <h2 class="chapter-title">From a single PDF to an answer with sources attached</h2>
+          <p class="chapter-sub">When Q&A quality is poor, the problem is often not the model but this pipeline: a scanned file's text wasn't extracted, a table got chopped up, or the retrieved passage doesn't match the question. Each of the four stages below corresponds to one class of failure point, and every implementation can be swapped out as needed.</p>
         </header>
 
         <ol class="chain">
@@ -391,13 +391,13 @@ const deployments = [
       </div>
     </section>
 
-    <!-- ============================ 特色能力 ============================ -->
+    <!-- ============================ Featured capabilities ============================ -->
     <section class="chapter chapter-alt">
       <div class="shell">
         <header class="chapter-head">
-          <span class="marker">核心能力</span>
-          <h2 class="chapter-title">超出基础检索问答的部分</h2>
-          <p class="chapter-sub">以下能力为 WeKnora 的主要投入方向，可作为技术选型时的对比维度。</p>
+          <span class="marker">Core capabilities</span>
+          <h2 class="chapter-title">Beyond basic retrieval Q&A</h2>
+          <p class="chapter-sub">The following capabilities are WeKnora's main areas of investment, and can serve as comparison points when evaluating technology choices.</p>
         </header>
 
         <div class="features">
@@ -413,13 +413,13 @@ const deployments = [
       </div>
     </section>
 
-    <!-- ============================ 触达方式 ============================ -->
+    <!-- ============================ Access methods ============================ -->
     <section class="chapter">
       <div class="shell">
         <header class="chapter-head">
-          <span class="marker">接入方式</span>
-          <h2 class="chapter-title">九种客户端与集成入口</h2>
-          <p class="chapter-sub">同一套知识库与 Agent 配置，可从浏览器、IM、自有站点、终端与外部智能体访问，无需为各入口重复搭建。</p>
+          <span class="marker">Access methods</span>
+          <h2 class="chapter-title">Nine clients and integration points</h2>
+          <p class="chapter-sub">The same knowledge base and Agent configuration can be accessed from browsers, IM, your own site, terminals, and external agents, with no need to rebuild for each entry point.</p>
         </header>
 
         <div class="surfaces">
@@ -433,20 +433,20 @@ const deployments = [
         </div>
 
         <div class="surfaces-actions">
-          <a class="btn btn-ghost" :href="withBase('/05-clients/01-frontend')">查看客户端文档</a>
-          <a class="btn btn-text" :href="withBase('/03-features/13-embed-channel')">网页嵌入 ↗</a>
-          <a class="btn btn-text" :href="withBase('/03-features/12-im-integration')">IM 集成 ↗</a>
+          <a class="btn btn-ghost" :href="withBase('/05-clients/01-frontend')">View client docs</a>
+          <a class="btn btn-text" :href="withBase('/03-features/13-embed-channel')">Web embed ↗</a>
+          <a class="btn btn-text" :href="withBase('/03-features/12-im-integration')">IM integration ↗</a>
         </div>
       </div>
     </section>
 
-    <!-- ============================ 文档地图 ============================ -->
+    <!-- ============================ Documentation map ============================ -->
     <section class="chapter chapter-alt">
       <div class="shell">
         <header class="chapter-head">
-          <span class="marker">文档地图</span>
-          <h2 class="chapter-title">六个部分，五十三篇</h2>
-          <p class="chapter-sub">覆盖部署上手、系统架构、功能说明、接口参考、客户端与二次开发。</p>
+          <span class="marker">Documentation map</span>
+          <h2 class="chapter-title">Six sections, fifty-three articles</h2>
+          <p class="chapter-sub">Covers deployment onboarding, system architecture, feature descriptions, API reference, clients, and further development.</p>
         </header>
 
         <div class="map">
@@ -474,13 +474,13 @@ const deployments = [
       </div>
     </section>
 
-    <!-- ============================ 部署 ============================ -->
+    <!-- ============================ Deployment ============================ -->
     <section class="chapter">
       <div class="shell deploy">
         <div class="deploy-copy">
-          <span class="marker">部署</span>
-          <h2 class="chapter-title">部署形态</h2>
-          <p class="chapter-sub">标准部署克隆代码、改两个密钥、一条命令拉起全套服务；本机试用可选 Lite 模式，不依赖 PostgreSQL 与 Redis。</p>
+          <span class="marker">Deployment</span>
+          <h2 class="chapter-title">Deployment forms</h2>
+          <p class="chapter-sub">Standard deployment: clone the code, change two secrets, and bring up the full set of services with one command; for local trials, choose Lite mode, which doesn't depend on PostgreSQL or Redis.</p>
           <ul class="deploy-list">
             <li v-for="d in deployments" :key="d.name">
               <span class="deploy-name">
@@ -493,40 +493,40 @@ const deployments = [
               </span>
             </li>
           </ul>
-          <a class="btn btn-ghost" :href="withBase('/01-getting-started/02-installation')">查看安装部署</a>
+          <a class="btn btn-ghost" :href="withBase('/01-getting-started/02-installation')">View installation & deployment</a>
         </div>
 
         <div class="deploy-code">
           <div class="code-bar">
-            <span>标准部署 · Docker Compose</span>
+            <span>Standard deployment · Docker Compose</span>
           </div>
-          <pre><code><span class="c"># 1 获取代码</span>
+          <pre><code><span class="c"># 1 Get the code</span>
 git clone https://github.com/Tencent/WeKnora.git
 cd WeKnora
 
-<span class="c"># 2 准备配置：至少修改 JWT_SECRET 与 SYSTEM_AES_KEY</span>
+<span class="c"># 2 Prepare configuration: at minimum change JWT_SECRET and SYSTEM_AES_KEY</span>
 cp .env.example .env
 
-<span class="c"># 3 拉起全部服务（首次需拉取镜像）</span>
+<span class="c"># 3 Bring up all services (first run needs to pull images)</span>
 docker compose up -d --pull always
 
-<span class="c"># 4 确认服务就绪</span>
+<span class="c"># 4 Confirm services are ready</span>
 docker compose ps
 curl http://localhost:8080/health
 
-<span class="c"># 5 打开前端（默认 80 端口，可用 FRONTEND_PORT 改）</span>
+<span class="c"># 5 Open the frontend (port 80 by default, changeable via FRONTEND_PORT)</span>
 open http://localhost
 
-<span class="c"># 停止：docker compose down</span></code></pre>
+<span class="c"># Stop: docker compose down</span></code></pre>
           <p class="deploy-code-note">
-            首次打开前端会落到注册页，注册后在初始化向导里配置对话模型与向量模型，即可建库提问。后端 API 与前端同域，走 <code>http://localhost/api/v1</code>。
-            完整步骤见<a :href="withBase('/01-getting-started/03-quickstart')">快速上手</a>，其余部署形态与参数见<a :href="withBase('/01-getting-started/02-installation')">安装部署</a>。
+            The first time you open the frontend you'll land on the sign-up page; after signing up, configure the chat model and embedding model in the initialization wizard, and you can create a knowledge base and start asking questions. The backend API shares the same domain as the frontend, at <code>http://localhost/api/v1</code>.
+            For full steps see the <a :href="withBase('/01-getting-started/03-quickstart')">quickstart</a>, and for other deployment forms and parameters see <a :href="withBase('/01-getting-started/02-installation')">installation & deployment</a>.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- ============================ 结尾 ============================ -->
+    <!-- ============================ Closing ============================ -->
     <footer class="closing">
       <div class="shell closing-inner">
         <div class="closing-brand">
@@ -550,11 +550,11 @@ open http://localhost
           </svg>
           <span>WeKnora</span>
         </div>
-        <p class="closing-note">文档基于仓库 {{ versionLabel }} 源码整理。源码路径均相对仓库根目录，API 路径默认带 <code>/api/v1</code> 前缀，配置示例中的密钥均为占位符。</p>
+        <p class="closing-note">This documentation is compiled from the {{ versionLabel }} source in the repository. Source paths are all relative to the repository root, API paths carry the <code>/api/v1</code> prefix by default, and the keys in configuration examples are all placeholders.</p>
         <div class="closing-links">
-          <a :href="withBase('/01-getting-started/01-introduction')">快速开始</a>
-          <a :href="withBase('/04-api/01-api-overview')">API 总览</a>
-          <a :href="withBase('/06-development/03-extension-points')">扩展点</a>
+          <a :href="withBase('/01-getting-started/01-introduction')">Getting started</a>
+          <a :href="withBase('/04-api/01-api-overview')">API overview</a>
+          <a :href="withBase('/06-development/03-extension-points')">Extension points</a>
           <a href="https://github.com/Tencent/WeKnora" target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <p class="closing-copy">© Tencent WeKnora · MIT License</p>
@@ -565,7 +565,7 @@ open http://localhost
 
 <style scoped>
 .landing {
-  /* 与文档页铺满视口的正文列保持同一量级，避免首页明显更窄 */
+  /* Matches the same order of magnitude as the doc pages' full-viewport content column, to avoid the homepage looking noticeably narrower */
   --shell: 1600px;
   color: var(--wk-ink);
 }
@@ -648,7 +648,7 @@ open http://localhost
   color: var(--wk-ink-soft);
 }
 
-/* 第二段说明这个站点本身是什么，弱化一档以免与定位句抢注意力 */
+/* The second paragraph explains what this site itself is; toned down a notch so it doesn't compete with the positioning sentence for attention */
 .lede-sub {
   margin-top: 14px;
   font-size: 15px;
@@ -706,10 +706,10 @@ open http://localhost
   color: var(--wk-ink);
 }
 
-/* 系统组件概览 */
+/* System component overview */
 
-/* 全景图：整条链路加九个客户端，横向铺得很开，
-   塞进首屏右栏那张卡片里只会挤成一团，所以单独占一条通栏 */
+/* Panorama: the full pipeline plus nine clients spans very wide horizontally,
+   and squeezing it into the hero's right-column card would crowd it, so it gets its own full-width band */
 .panorama {
   padding: clamp(18px, 3vw, 40px) 0 clamp(28px, 4vw, 56px);
 }
@@ -733,8 +733,8 @@ open http://localhost
   color: var(--wk-ink-mute);
 }
 
-/* 能力分层：序号列 + 贯穿的竖轴表达自上而下的流向，
-   原来只靠层间一个小箭头，读者看不出这是一条流水线 */
+/* Capability layers: an index column plus a connecting vertical axis express top-down flow,
+   since previously only a small arrow between layers left readers unable to tell this was a pipeline */
 .schema {
   padding: 26px 26px 22px;
   border: 1px solid var(--wk-rule);
@@ -769,7 +769,7 @@ open http://localhost
   padding-bottom: 0;
 }
 
-/* 竖轴连接各层序号；最后一层不再向下延伸 */
+/* The vertical axis connects each layer's index number; the last layer doesn't extend further down */
 .layer:not(:last-child)::before {
   content: "";
   position: absolute;
@@ -849,7 +849,7 @@ open http://localhost
   pointer-events: none;
 }
 
-/* ------------------------------- 数字 ------------------------------- */
+/* ------------------------------- Stats ------------------------------- */
 
 .stats {
   border-top: 1px solid var(--wk-rule-soft);
@@ -896,10 +896,10 @@ open http://localhost
 
 .stat-label {
   display: block;
-  /* 中文可在任意字符间断行，宽度卡在词中间就会拆出「扫描 / 件」这种断法。
-     放宽一档并让浏览器均衡两行长度，词组更容易落在同一行 */
+  /* Chinese text could break at any character; a width cutting off mid-word would previously split awkwardly.
+     Relaxed by one notch and let the browser balance the two lines so word groups more easily land on the same line */
   max-width: 26ch;
-  /* keep-all 让中文只在顿号、冒号处断行，不再从词中间劈开 */
+  /* keep-all lets Chinese text break only at commas/colons, not mid-word */
   word-break: keep-all;
   text-wrap: balance;
   margin: 12px auto 0;
@@ -909,7 +909,7 @@ open http://localhost
   color: var(--wk-ink-mute);
 }
 
-/* ------------------------------ 章节通用 ------------------------------ */
+/* ------------------------------ Common chapter styles ------------------------------ */
 
 .chapter {
   padding: clamp(72px, 9vw, 124px) 0;
@@ -944,7 +944,7 @@ open http://localhost
   color: var(--wk-ink-soft);
 }
 
-/* ------------------------------- 主链路 ------------------------------- */
+/* ------------------------------- Main pipeline ------------------------------- */
 
 .chain {
   list-style: none;
@@ -1015,7 +1015,7 @@ open http://localhost
   color: var(--wk-ink-soft);
 }
 
-/* ------------------------------ 特色能力 ------------------------------ */
+/* ------------------------------ Featured capabilities ------------------------------ */
 
 .features {
   display: grid;
@@ -1084,7 +1084,7 @@ open http://localhost
   color: var(--wk-ink-soft);
 }
 
-/* ------------------------------ 触达方式 ------------------------------ */
+/* ------------------------------ Access methods ------------------------------ */
 
 .surfaces {
   display: grid;
@@ -1129,7 +1129,7 @@ open http://localhost
   margin-top: 44px;
 }
 
-/* ------------------------------ 文档地图 ------------------------------ */
+/* ------------------------------ Documentation map ------------------------------ */
 
 .map {
   display: grid;
@@ -1220,7 +1220,7 @@ open http://localhost
   padding-left: 8px;
 }
 
-/* ------------------------------- 部署 ------------------------------- */
+/* ------------------------------- Deployment ------------------------------- */
 
 .deploy {
   display: grid;
@@ -1238,7 +1238,7 @@ open http://localhost
 
 .deploy-list li {
   display: grid;
-  /* 名称列要装下图标 + 「Lite（单二进制 / 桌面应用）」，比原来放宽一档 */
+  /* The name column needs to fit an icon plus "Lite (single binary / desktop app)", so it's a notch wider than before */
   grid-template-columns: 178px 1fr;
   gap: 16px;
   padding: 15px 0;
@@ -1261,8 +1261,8 @@ open http://localhost
   color: var(--wk-ink);
 }
 
-/* 「尚未正式发布」这类限定跟在说明之后。放在名称列会被 150px 的窄列挤断，
-   放这里既不断字，也仍然紧贴对应条目。 */
+/* A qualifier like "not yet officially released" follows the description. Placing it in the name column would get cut off by the 150px narrow column,
+   whereas here it stays adjacent to its item without breaking the wording. */
 .deploy-note {
   display: inline-block;
   margin-left: 6px;
@@ -1317,8 +1317,8 @@ open http://localhost
   color: rgba(217, 169, 79, 0.75);
 }
 
-/* 代码块本身只到「服务起来了」，后续动作与延伸阅读放在下面这行，
-   避免读者以为跑完命令就结束了 */
+/* The code block itself only gets to "the services are up"; follow-up actions and further reading go in the line below,
+   so readers don't mistake finishing the commands for being done */
 .deploy-code-note {
   margin: 0;
   padding: 16px 22px 20px;
@@ -1344,7 +1344,7 @@ open http://localhost
   border-bottom-color: var(--wk-gold-light);
 }
 
-/* ------------------------------- 结尾 ------------------------------- */
+/* ------------------------------- Closing ------------------------------- */
 
 .closing {
   border-top: 1px solid var(--wk-rule-soft);
@@ -1411,7 +1411,7 @@ open http://localhost
   color: var(--wk-ink-mute);
 }
 
-/* ------------------------------ 响应式 ------------------------------ */
+/* ------------------------------ Responsive ------------------------------ */
 
 @media (max-width: 1080px) {
   .hero-grid {

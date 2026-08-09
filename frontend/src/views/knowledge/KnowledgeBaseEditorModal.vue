@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div v-if="visible" class="settings-overlay" @click.self="handleClose">
         <div class="settings-modal">
-          <!-- 关闭按钮 -->
+          <!-- Close button -->
           <button class="close-btn" @click="handleClose" :aria-label="$t('general.close')">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -11,7 +11,7 @@
           </button>
 
           <div class="settings-container">
-            <!-- 左侧导航 -->
+            <!-- Left navigation -->
             <div class="settings-sidebar">
               <div class="sidebar-header">
                 <h2 class="sidebar-title">{{ editorMode === 'create' ? $t('knowledgeEditor.titleCreate') : $t('knowledgeEditor.titleEdit') }}</h2>
@@ -34,10 +34,10 @@
               </div>
             </div>
 
-            <!-- 右侧内容区域 -->
+            <!-- Right content area -->
             <div class="settings-content">
               <div class="content-wrapper">
-                <!-- 基本信息 -->
+                <!-- Basic information -->
                 <div v-show="currentSection === 'basic'" class="section">
                   <div v-if="formData" class="section-content">
                     <div class="section-header">
@@ -72,7 +72,7 @@
                         <p class="form-tip">{{ $t('knowledgeEditor.basic.typeDescription') }}</p>
                       </div>
 
-                      <!-- 索引策略 (紧跟类型选择) -->
+                      <!-- Indexing strategy (right after type selection) -->
                       <div v-if="!isFAQ" class="form-item">
                         <label class="form-label required">{{ $t('knowledgeEditor.indexing.title') }}</label>
                         <p class="form-tip">{{ $t('knowledgeEditor.indexing.description') }}</p>
@@ -113,7 +113,7 @@
                         </p>
                       </div>
 
-                      <!-- Wiki 提取粒度 (仅当 Wiki 启用时显示) -->
+                      <!-- Wiki extraction granularity (shown only when Wiki is enabled) -->
                       <div v-if="!isFAQ && formData.indexingStrategy.wikiEnabled" class="form-item">
                         <label class="form-label">{{ $t('knowledgeEditor.wiki.extractionGranularityLabel') }}</label>
                         <p class="form-tip">{{ $t('knowledgeEditor.wiki.extractionGranularityTip') }}</p>
@@ -175,12 +175,12 @@
                         />
                       </div>
 
-                      <!-- Wiki 合成模型移至模型配置页 -->
+                      <!-- Wiki synthesis model moved to the model configuration page -->
                     </div>
                   </div>
                 </div>
 
-                <!-- 模型配置 -->
+                <!-- Model configuration -->
                 <div v-show="currentSection === 'models'" class="section">
                   <KBModelConfig
                     ref="modelConfigRef"
@@ -194,7 +194,7 @@
                   />
                 </div>
 
-                <!-- VectorStore 绑定 -->
+                <!-- VectorStore binding -->
                 <div v-show="currentSection === 'vectorStore'" class="section">
                   <KBVectorStoreSettings
                     v-if="formData"
@@ -208,7 +208,7 @@
                   />
                 </div>
 
-                <!-- FAQ 配置 -->
+                <!-- FAQ configuration -->
                 <div v-if="isFAQ && formData" v-show="currentSection === 'faq'" class="section">
                   <div class="section-content">
                     <div class="section-header">
@@ -243,7 +243,7 @@
                   </div>
                 </div>
 
-                <!-- 解析引擎 -->
+                <!-- Parsing engine -->
                 <div v-if="!isFAQ && formData && currentSection === 'parser'" class="section">
                   <KBParserSettings
                     :parser-engine-rules="formData.chunkingConfig.parserEngineRules"
@@ -251,7 +251,7 @@
                   />
                 </div>
 
-                <!-- 存储引擎 -->
+                <!-- Storage engine -->
                 <div v-if="!isFAQ && formData && currentSection === 'storage'" class="section">
                   <KBStorageSettings
                     :storage-backend-id="formData.storageBackendId"
@@ -262,7 +262,7 @@
                   />
                 </div>
 
-                <!-- 分块设置 -->
+                <!-- Chunking settings -->
                 <div v-if="!isFAQ" v-show="currentSection === 'chunking'" class="section">
                   <KBChunkingSettings
                     v-if="formData"
@@ -271,7 +271,7 @@
                   />
                 </div>
 
-                <!-- 多模态配置 -->
+                <!-- Multimodal configuration -->
                 <div v-if="!isFAQ" v-show="currentSection === 'multimodal'" class="section">
                   <div v-if="formData" class="kb-multimodal-settings">
                     <div class="section-header">
@@ -280,7 +280,7 @@
                     </div>
 
                     <div class="settings-group">
-                      <!-- 多模态开关 -->
+                      <!-- Multimodal toggle -->
                       <div class="setting-row" data-guide="kb-create-multimodal-toggle">
                         <div class="setting-info">
                           <label>{{ $t('knowledgeEditor.advanced.multimodal.label') }}</label>
@@ -295,7 +295,7 @@
                         </div>
                       </div>
 
-                      <!-- VLLM 模型选择（多模态启用时） -->
+                      <!-- VLLM model selection (when multimodal is enabled) -->
                       <div v-if="formData.multimodalConfig.enabled" class="setting-row"
                         data-guide="kb-create-multimodal-vllm">
                         <div class="setting-info">
@@ -345,7 +345,7 @@
                   </div>
                 </div>
 
-                <!-- 音频处理（ASR）设置 -->
+                <!-- Audio processing (ASR) settings -->
                 <div v-if="!isFAQ" v-show="currentSection === 'asr'" class="section">
                   <div v-if="formData" class="kb-multimodal-settings">
                     <div class="section-header">
@@ -354,7 +354,7 @@
                     </div>
 
                     <div class="settings-group">
-                      <!-- ASR 开关 -->
+                      <!-- ASR toggle -->
                       <div class="setting-row">
                         <div class="setting-info">
                           <label>{{ $t('knowledgeEditor.asr.label') }}</label>
@@ -368,7 +368,7 @@
                         </div>
                       </div>
 
-                      <!-- ASR 模型选择 -->
+                      <!-- ASR model selection -->
                       <div v-if="formData.asrConfig.enabled" class="setting-row">
                         <div class="setting-info">
                           <label>{{ $t('knowledgeEditor.asr.modelLabel') }} <span class="required">*</span></label>
@@ -389,7 +389,7 @@
                   </div>
                 </div>
 
-                <!-- 知识图谱 -->
+                <!-- Knowledge graph -->
                 <div v-if="!isFAQ && currentSection === 'graph'" class="section">
                   <GraphSettings
                     v-if="formData"
@@ -400,7 +400,7 @@
                   />
                 </div>
 
-                <!-- 高级设置 -->
+                <!-- Advanced settings -->
                 <div v-if="!isFAQ" v-show="currentSection === 'advanced'" class="section">
                   <KBAdvancedSettings
                     ref="advancedSettingsRef"
@@ -416,23 +416,23 @@
                   />
                 </div>
 
-                <!-- 数据源管理（仅编辑模式） -->
+                <!-- Data source management (edit mode only) -->
                 <div v-if="editorMode === 'edit' && activeKbId && currentSection === 'datasource'" class="section">
                   <DataSourceSettings :kb-id="activeKbId" @count="dsCount = $event" />
                 </div>
 
-                <!-- 共享设置（仅编辑模式） -->
+                <!-- Sharing settings (edit mode only) -->
                 <div v-if="editorMode === 'edit' && activeKbId && currentSection === 'share'" class="section">
                   <KBShareSettings :kb-id="activeKbId" :can-share="canShareKB" />
                 </div>
 
-                <!-- 活动记录（仅编辑模式，KB 所属租户内 Owner/Admin） -->
+                <!-- Activity log (edit mode only, Owner/Admin within the KB's tenant) -->
                 <div v-if="editorMode === 'edit' && activeKbId && canViewActivity && currentSection === 'activity'" class="section">
                   <KnowledgeBaseActivitySettings :kb-id="activeKbId" :active="currentSection === 'activity'" />
                 </div>
               </div>
 
-              <!-- 保存按钮 -->
+              <!-- Save button -->
               <div class="settings-footer">
                 <p v-if="isPostCreateSession" class="settings-footer-note">
                   <t-icon name="check-circle-filled" class="settings-footer-note__icon" />
@@ -506,7 +506,7 @@ const emit = defineEmits<{
   (e: 'success', kbId: string): void
 }>()
 
-/** 首次保存创建成功后留在弹窗内，继续配置共享等设置 */
+/** Stay in the dialog after the first successful save/create, to continue configuring sharing and other settings */
 const savedKbId = ref<string | null>(null)
 const editorMode = computed(() => (savedKbId.value ? 'edit' : props.mode))
 const activeKbId = computed(() => savedKbId.value ?? props.kbId)
@@ -594,11 +594,11 @@ const canViewActivity = computed(() => {
   if (Number(kbTenantId.value || 0) !== Number(authStore.currentTenantId || 0)) return false
   return isKbOwner.value || authStore.hasRole('admin')
 })
-// 用户是否在分块设置中手动改过任何值。一旦为 true，就不再根据索引策略自动调整默认分块参数。
+// Whether the user has manually changed any value in the chunking settings. Once true, default chunking parameters are no longer auto-adjusted based on the indexing strategy.
 const chunkingDirty = ref(false)
 
-// 仅 Wiki 索引模式下的分块预设：更大 chunk、无 overlap、关闭父子分块。
-// 该预设只在「创建模式」下、且用户尚未手动调整分块参数时生效，避免覆盖既有 KB 的配置。
+// Chunking preset for Wiki-only indexing mode: larger chunks, no overlap, parent-child chunking disabled.
+// This preset only applies in "creation mode" and only when the user hasn't manually adjusted the chunking parameters, to avoid overriding an existing KB's configuration.
 const WIKI_ONLY_CHUNKING_PRESET = {
   chunkSize: 2048,
   chunkOverlap: 0,
@@ -649,7 +649,7 @@ const navItems = computed(() => {
   return items
 })
 
-// 左侧导航分组（与 AgentEditorModal 对齐）
+// Left-side navigation groups (aligned with AgentEditorModal)
 const navGroups = computed(() => {
   const itemMap = new Map(navItems.value.map((item) => [item.key, item]))
   const pickItems = (keys: string[]) =>
@@ -683,11 +683,11 @@ const navGroups = computed(() => {
   ].filter((group) => group.items.length > 0)
 })
 
-// 模型配置引用
+// Model configuration reference
 const modelConfigRef = ref<InstanceType<typeof KBModelConfig>>()
 const advancedSettingsRef = ref<InstanceType<typeof KBAdvancedSettings>>()
 
-// 表单数据
+// Form data
 const formData = ref<any>(null)
 const isFAQ = computed(() => formData.value?.type === 'faq')
 
@@ -730,7 +730,7 @@ watch(
   }
 )
 
-// 初始化表单数据
+// Initialize form data
 const initFormData = (type: 'document' | 'faq' = 'document') => {
   return {
     type,
@@ -826,7 +826,7 @@ const initFormData = (type: 'document' | 'faq' = 'document') => {
   }
 }
 
-// 加载所有模型
+// Load all models
 const loadAllModels = async (force = false) => {
   try {
     await chatResources.ensureModels(force)
@@ -838,7 +838,7 @@ const loadAllModels = async (force = false) => {
   }
 }
 
-// 加载知识库数据（编辑模式）
+// Load knowledge base data (edit mode)
 const loadKBData = async (kbIdOverride?: string) => {
   const kbId = kbIdOverride ?? activeKbId.value
   if (editorMode.value !== 'edit' || !kbId) return
@@ -859,7 +859,7 @@ const loadKBData = async (kbIdOverride?: string) => {
     kbCreatorId.value = (kb as any).creator_id || ''
     kbTenantId.value = Number((kb as any).tenant_id || 0)
 
-    // 设置表单数据
+    // Set form data
     const kbType = (kb.type as 'document' | 'faq') || 'document'
     formData.value = {
       type: kbType,
@@ -971,15 +971,15 @@ const loadKBData = async (kbIdOverride?: string) => {
   }
 }
 
-// 处理配置更新
+// Handle configuration updates
 const handleModelConfigUpdate = (config: any) => {
   if (formData.value) {
     formData.value.modelConfig = { ...config }
   }
 }
 
-// 粒度选择器：从 formData.wikiConfig 读出并规范化，未知值回退到 'standard'，
-// 与后端 WikiExtractionGranularity.Normalize() 的契约保持一致。
+// Granularity selector: read from formData.wikiConfig and normalize, falling back to 'standard' for unknown values,
+// keeping it consistent with the backend contract of WikiExtractionGranularity.Normalize().
 const resolvedGranularity = computed<'focused' | 'standard' | 'exhaustive'>(() => {
   const g = formData.value?.wikiConfig?.extractionGranularity
   if (g === 'focused' || g === 'standard' || g === 'exhaustive') {
@@ -1030,20 +1030,20 @@ const toggleWikiIndexing = () => {
 const handleChunkingConfigUpdate = (config: any) => {
   if (formData.value) {
     formData.value.chunkingConfig = { ...config }
-    // 用户已经手动触达分块设置，后续索引策略切换不再覆盖这些值
+    // The user has already manually touched the chunking settings, so subsequent indexing strategy switches no longer override these values
     chunkingDirty.value = true
   }
 }
 
-// 判断当前是否为「仅 Wiki 索引」：只开了 Wiki，关了向量/关键词检索
+// Determine whether the current mode is "Wiki-only indexing": Wiki enabled, vector/keyword retrieval disabled
 const isWikiOnlyStrategy = computed(() => {
   const s = formData.value?.indexingStrategy
   if (!s) return false
   return !!s.wikiEnabled && !s.vectorEnabled && !s.keywordEnabled
 })
 
-// 仅在创建模式、用户未改过分块设置时，随索引策略自动应用/撤销 Wiki-only 预设。
-// 编辑模式严格保持后端已有配置不变，避免误改。
+// Only auto-apply/revert the Wiki-only preset alongside indexing strategy changes in creation mode, when the user hasn't changed the chunking settings.
+// Edit mode strictly preserves the backend's existing configuration unchanged, to avoid unintended changes.
 watch(isWikiOnlyStrategy, (wikiOnly) => {
   if (editorMode.value !== 'create') return
   if (!formData.value) return
@@ -1142,18 +1142,18 @@ const handleNodeExtractUpdate = (config: any) => {
   }
 }
 
-// 验证表单
+// Validate form
 const validateForm = (): boolean => {
   if (!formData.value) return false
 
-  // 验证基本信息
+  // Validate basic information
   if (!formData.value.name || !formData.value.name.trim()) {
     MessagePlugin.warning(t('knowledgeEditor.messages.nameRequired'))
     currentSection.value = 'basic'
     return false
   }
 
-  // 验证索引策略 — 文档类型至少需要开启一种
+  // Validate indexing strategy — at least one document type must be enabled
   if (formData.value.type !== 'faq') {
     const s = formData.value.indexingStrategy
     if (s && !s.vectorEnabled && !s.keywordEnabled && !s.wikiEnabled && !s.graphEnabled) {
@@ -1163,7 +1163,7 @@ const validateForm = (): boolean => {
     }
   }
 
-  // 验证模型配置 - embedding 模型仅在检索索引启用时必须
+  // Validate model configuration - the embedding model is required only when retrieval indexing is enabled
   const needsEmbedding = formData.value.indexingStrategy?.vectorEnabled || formData.value.indexingStrategy?.keywordEnabled
   if (needsEmbedding && !formData.value.modelConfig.embeddingModelId) {
     MessagePlugin.warning(t('knowledgeEditor.indexing.embeddingRequired'))
@@ -1177,7 +1177,7 @@ const validateForm = (): boolean => {
     return false
   }
 
-  // 验证多模态配置（如果启用）
+  // Validate multimodal configuration (if enabled)
   if (formData.value.multimodalConfig.enabled && !formData.value.multimodalConfig.vllmModelId) {
     MessagePlugin.warning(t('knowledgeEditor.messages.multimodalInvalid'))
     currentSection.value = 'multimodal'
@@ -1193,7 +1193,7 @@ const validateForm = (): boolean => {
   return true
 }
 
-// 构建提交数据
+// Build submission data
 const buildSubmitData = () => {
   if (!formData.value) return null
 
@@ -1232,7 +1232,7 @@ const buildSubmitData = () => {
     data.vector_store_id = formData.value.vectorStoreId
   }
 
-  // 添加多模态配置
+  // Add multimodal configuration
   data.vlm_config = {
     enabled: formData.value.multimodalConfig.enabled,
     model_id: formData.value.multimodalConfig.enabled
@@ -1242,7 +1242,7 @@ const buildSubmitData = () => {
     custom_instructions: formData.value.multimodalConfig.customInstructions || ''
   }
 
-  // 添加ASR语音识别配置
+  // Add ASR speech recognition configuration
   data.asr_config = {
     enabled: formData.value.asrConfig?.enabled || false,
     model_id: formData.value.asrConfig?.enabled
@@ -1264,10 +1264,10 @@ const buildSubmitData = () => {
     provider: storageProvider
   }
 
-  // 添加知识图谱配置 — now synced via indexingStrategy.graphEnabled
+  // Add knowledge graph configuration — now synced via indexingStrategy.graphEnabled
   // extract_config is sent below along with indexing_strategy
 
-  // 添加问题生成配置
+  // Add question generation configuration
   if (formData.value.questionGenerationConfig?.enabled) {
     data.question_generation_config = {
       enabled: true,
@@ -1334,13 +1334,13 @@ const buildSubmitData = () => {
   return data
 }
 
-// 提交表单
+// Submit form
 const handleSubmit = async () => {
   if (!validateForm()) {
     return
   }
 
-  // 编辑模式下，若已有文件且存储引擎发生了变化，弹窗确认
+  // In edit mode, if a file already exists and the storage engine has changed, show a confirmation dialog
   if (
     editorMode.value === 'edit' &&
     hasFiles.value &&
@@ -1376,7 +1376,7 @@ const doSubmit = async () => {
     }
 
     if (editorMode.value === 'create') {
-      // 创建模式：一次性创建知识库及所有配置
+      // Create mode: create the knowledge base and all configuration in one go
       const result: any = await createKnowledgeBase(data)
       if (!result.success || !result.data?.id) {
         throw new Error(result.message || t('knowledgeEditor.messages.createFailed'))
@@ -1389,13 +1389,13 @@ const doSubmit = async () => {
       markContextualGuideDone('kbCreate')
       emit('success', createdKbId)
     } else {
-      // 编辑模式：分别更新基本信息和配置
+      // Edit mode: update basic info and configuration separately
       const kbId = activeKbId.value
       if (!kbId) {
         throw new Error(t('knowledgeEditor.messages.missingId'))
       }
 
-      // 1. 更新基本信息（名称、描述）和 FAQ/Wiki 配置
+      // 1. Update basic info (name, description) and FAQ/Wiki configuration
       const updateConfig: any = {}
       if (formData.value.type === 'faq' && formData.value.faqConfig) {
         updateConfig.faq_config = {
@@ -1427,7 +1427,7 @@ const doSubmit = async () => {
         config: updateConfig
       })
 
-      // 2. 更新完整配置（模型、分块、多模态、存储引擎、知识图谱等）
+      // 2. Update full configuration (model, chunking, multimodal, storage engine, knowledge graph, etc.)
       const config: KBModelConfigRequest = {
         llmModelId: data.summary_model_id,
         embeddingModelId: data.embedding_model_id,
@@ -1533,7 +1533,7 @@ const doSubmit = async () => {
   }
 }
 
-// 重置所有状态
+// Reset all state
 const resetState = () => {
   savedKbId.value = null
   currentSection.value = 'basic'
@@ -1549,7 +1549,7 @@ const resetState = () => {
   kbTenantId.value = 0
 }
 
-// 关闭弹窗
+// Close the dialog
 const handleClose = () => {
   emit('update:visible', false)
   setTimeout(() => {
@@ -1557,40 +1557,40 @@ const handleClose = () => {
   }, 300)
 }
 
-// 监听弹窗打开/关闭
+// Watch for dialog open/close
 watch(() => props.visible, async (newVal) => {
   if (newVal) {
-    // 打开弹窗时，先重置状态
+    // Reset state first when the dialog opens
     resetState()
     
-    // 检查是否有初始 section，如果有则跳转
+    // Check whether there's an initial section, and jump to it if so
     if (uiStore.kbEditorInitialSection) {
       currentSection.value = uiStore.kbEditorInitialSection
     }
     
-    // 加载模型列表与空间默认存储引擎（创建 KB 时即使用，不依赖是否打开「存储引擎」Tab）
+    // Load the model list and the space's default storage engine (used when creating a KB, regardless of whether the "Storage Engine" tab is open)
     await Promise.all([loadAllModels(), loadTenantDefaultStorageProvider()])
     
-    // 根据模式加载数据
+    // Load data based on mode
     if (props.mode === 'edit' && props.kbId) {
       await loadKBData()
     } else {
-      // 创建模式：初始化空表单，并预填空间默认存储引擎
+      // Create mode: initialize an empty form and prefill the space's default storage engine
       formData.value = initFormData(props.initialType || 'document')
       formData.value.storageProvider = tenantDefaultStorageProvider.value
       hasFiles.value = false
       applyDefaultModelsIfEmpty()
     }
   } else {
-    // 关闭弹窗时，延迟重置状态（等待动画结束）
+    // When the dialog closes, delay resetting state (wait for the animation to finish)
     setTimeout(() => {
       resetState()
-      currentSection.value = 'basic' // 重置为默认 section
+      currentSection.value = 'basic' // Reset to the default section
     }, 300)
   }
 })
 
-// 监听全局设置弹窗关闭后刷新模型列表
+// Watch for the global settings dialog to close, then refresh the model list
 watch(
   () => uiStore.showSettingsModal,
   async (visible, previous) => {
@@ -1602,7 +1602,7 @@ watch(
 </script>
 
 <style scoped lang="less">
-// 复用创建知识库的样式
+// Reuse the styling from creating a knowledge base
 .settings-overlay {
   position: fixed;
   top: 0;
@@ -1661,7 +1661,7 @@ watch(
   overflow: hidden;
 }
 
-/* 左侧导航：与 AgentEditorModal 对齐 */
+/* Left navigation: aligned with AgentEditorModal */
 .settings-sidebar {
   width: 208px;
   background-color: var(--td-bg-color-settings-modal);
@@ -1937,7 +1937,7 @@ watch(
   margin-top: 8px;
 }
 
-// 禁用内部 checkbox 自身的点击事件，统一由卡片处理
+// Disable the internal checkbox's own click event; let the card handle it uniformly
 .indexing-check-box {
   pointer-events: none;
 }
@@ -2022,7 +2022,7 @@ watch(
   flex-shrink: 0;
 }
 
-// 过渡动画
+// Transition animation
 .modal-enter-active,
 .modal-leave-active {
   transition: all 0.3s ease;
@@ -2037,7 +2037,7 @@ watch(
   }
 }
 
-// 多模态配置内联样式（与子组件 KBStorageSettings/KBAdvancedSettings 一致）
+// Multimodal configuration inline styles (consistent with the KBStorageSettings/KBAdvancedSettings subcomponents)
 .kb-multimodal-settings {
   width: 100%;
 

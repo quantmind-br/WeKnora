@@ -144,8 +144,9 @@ func (s *customAgentService) GetAgentByID(ctx context.Context, id string) (*type
 		// Try to get from database first (for customized config)
 		agent, err := s.repo.GetAgentByID(ctx, id, tenantID)
 		if err == nil {
-			// Found in database, return with customized config
+			// Found in database, return with customized config + localized identity
 			agent.EnsureDefaults()
+			localizeBuiltinAgentIdentity(ctx, agent, tenantID)
 			return agent, nil
 		}
 		// Not in database, return default built-in agent from registry (i18n-aware)
@@ -209,6 +210,9 @@ func (s *customAgentService) ListAgents(ctx context.Context) ([]*types.CustomAge
 		agent.EnsureDefaults()
 		if types.IsBuiltinAgentID(agent.ID) {
 			builtinInDB[agent.ID] = true
+			// Built-in name/description are locale-owned; re-localize for the request language
+			// so a Chinese-seeded DB row still renders correctly for English UI.
+			localizeBuiltinAgentIdentity(ctx, agent, tenantID)
 		}
 	}
 
@@ -219,7 +223,7 @@ func (s *customAgentService) ListAgents(ctx context.Context) ([]*types.CustomAge
 	// Add built-in agents in order
 	for _, builtinID := range builtinIDs {
 		if builtinInDB[builtinID] {
-			// Use customized config from database
+			// Use customized config from database (identity already localized above)
 			for _, agent := range allAgents {
 				if agent.ID == builtinID {
 					result = append(result, agent)
@@ -374,6 +378,28 @@ func (s *customAgentService) updateBuiltinAgent(ctx context.Context, agent *type
 	return newAgent, nil
 }
 
+// localizeBuiltinAgentIdentity overwrites Name/Description/Avatar on a built-in
+// agent with the locale-aware values from config/builtin_agents.yaml. Config and
+// other tenant customizations are preserved. No-op when YAML entry is missing.
+func localizeBuiltinAgentIdentity(ctx context.Context, agent *types.CustomAgent, tenantID uint64) {
+	if agent == nil || !types.IsBuiltinAgentID(agent.ID) {
+		return
+	}
+	localized := types.GetBuiltinAgentWithContext(ctx, agent.ID, tenantID)
+	if localized == nil {
+		return
+	}
+	if localized.Name != "" {
+		agent.Name = localized.Name
+	}
+	if localized.Description != "" {
+		agent.Description = localized.Description
+	}
+	if localized.Avatar != "" {
+		agent.Avatar = localized.Avatar
+	}
+}
+
 // DeleteAgent deletes an agent
 func (s *customAgentService) DeleteAgent(ctx context.Context, id string) error {
 	if id == "" {
@@ -441,7 +467,7 @@ func (s *customAgentService) CopyAgent(ctx context.Context, id string) (*types.C
 	// Create a new agent with copied data
 	newAgent := &types.CustomAgent{
 		ID:          uuid.New().String(),
-		Name:        sourceAgent.Name + " (副本)",
+		Name:        sourceAgent.Name + " (Copy)",
 		Description: sourceAgent.Description,
 		Avatar:      sourceAgent.Avatar,
 		IsBuiltin:   false, // Copied agents are never built-in
@@ -1036,7 +1062,7 @@ func (s *customAgentService) truncateQuestions(questions []types.SuggestedQuesti
 //     idempotency…).
 //   - entity / summary: "Tell me about <title>" is neutral and works for
 //     people, places, organizations, products and document summaries where
-//     "what is <name>?" would read awkwardly ("什么是张三？").
+// "what is <name>?" would read awkwardly ("什么是张三？").
 //   - everything else (synthesis, comparison, …): the raw title is already a
 //     good topical query on its own.
 func wikiSuggestionFromPage(page *types.WikiPage, locale string) string {
@@ -1052,12 +1078,12 @@ func wikiSuggestionFromPage(page *types.WikiPage, locale string) string {
 		if isEnglishLocale(locale) {
 			return "What is " + title + "?"
 		}
-		return "什么是" + title + "？"
+		return "What is" + title + "？"
 	case types.WikiPageTypeEntity, types.WikiPageTypeSummary:
 		if isEnglishLocale(locale) {
 			return "Tell me about " + title
 		}
-		return "介绍一下" + title
+		return "Introduce" + title
 	default:
 		return title
 	}

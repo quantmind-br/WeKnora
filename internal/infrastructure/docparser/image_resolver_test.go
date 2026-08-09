@@ -304,7 +304,7 @@ func TestResolveAndStoreMarkdownImageWithTitle(t *testing.T) {
 	if len(svc.saved) != 1 {
 		t.Fatalf("expected SaveBytes to be called once but got %d", len(svc.saved))
 	}
-	if !strings.Contains(out, `![图片](local://test/`) || !strings.Contains(out, ` "图片")`) {
+	if !strings.Contains(out, `![图片](local:// test/`) || !strings.Contains(out, ` "image")`) {
 		t.Fatalf("markdown image title was not preserved around stored URL: %s", out)
 	}
 	if strings.Contains(out, "images/test.png") {
@@ -335,7 +335,7 @@ func TestResolveAndStoreMarkdownImageWithSingleQuotedTitle(t *testing.T) {
 	if len(imgs) != 1 || len(svc.saved) != 1 {
 		t.Fatalf("expected one stored image, got imgs=%d saved=%d", len(imgs), len(svc.saved))
 	}
-	if !strings.Contains(out, `![图片](local://test/`) || !strings.Contains(out, ` '图片')`) {
+	if !strings.Contains(out, `![图片](local:// test/`) || !strings.Contains(out, ` 'image')`) {
 		t.Fatalf("markdown image title was not preserved around stored URL: %s", out)
 	}
 }
@@ -391,7 +391,7 @@ func TestResolveAndStoreMarkdownImageTitleContainingRightParen(t *testing.T) {
 	if len(imgs) != 1 || len(svc.saved) != 1 {
 		t.Fatalf("expected one stored image, got imgs=%d saved=%d", len(imgs), len(svc.saved))
 	}
-	if !strings.Contains(out, `![图片](local://test/`) || !strings.Contains(out, ` "阶段 1) 图片")`) {
+	if !strings.Contains(out, `![图片](local:// test/`) || !strings.Contains(out, ` "stage 1) image")`) {
 		t.Fatalf("right-paren title was not preserved around stored URL: %s", out)
 	}
 }
@@ -419,7 +419,7 @@ func TestResolveAndStoreMarkdownImageWithMultilineTitle(t *testing.T) {
 	if len(imgs) != 1 || len(svc.saved) != 1 {
 		t.Fatalf("expected one stored image, got imgs=%d saved=%d", len(imgs), len(svc.saved))
 	}
-	if !strings.Contains(out, "![图片](local://test/") || !strings.Contains(out, "\n  \"图片说明\")") {
+	if !strings.Contains(out, "![图片](local:// test/") || !strings.Contains(out, "\n  \"image caption\")") {
 		t.Fatalf("multiline title was not preserved around stored URL: %s", out)
 	}
 }
@@ -447,7 +447,7 @@ func TestResolveAndStoreMarkdownImageWithAngleDestination(t *testing.T) {
 	if len(imgs) != 1 || len(svc.saved) != 1 {
 		t.Fatalf("expected one stored image, got imgs=%d saved=%d", len(imgs), len(svc.saved))
 	}
-	if !strings.Contains(out, `![图片](<local://test/`) || !strings.Contains(out, `> "阶段 1) 图片")`) {
+	if !strings.Contains(out, `![图片](<local:// test/`) || !strings.Contains(out, `> "stage 1) image")`) {
 		t.Fatalf("angle destination wrapper or title was not preserved: %s", out)
 	}
 }

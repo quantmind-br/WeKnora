@@ -33,7 +33,7 @@ type Region struct {
 }
 
 var (
-	// RegionFeishu is the Chinese mainland cloud (飞书).
+	// RegionFeishu is the Chinese mainland cloud (Feishu).
 	RegionFeishu = Region{
 		ConnectorType: types.ConnectorTypeFeishu,
 		OpenBaseURL:   feishuOpenBaseURL,

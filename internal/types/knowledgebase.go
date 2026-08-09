@@ -142,9 +142,11 @@ type KnowledgeBase struct {
 	ProcessingCount int64 `yaml:"processing_count"        json:"processing_count"        gorm:"-"`
 	// ShareCount indicates the number of organizations this knowledge base is shared with (not stored in database)
 	ShareCount int64 `yaml:"share_count"             json:"share_count"             gorm:"-"`
-	// CreatorName 是 CreatorID 对应用户的展示名（username / email 等），
-	// 仅在列表场景由 handler 批量回填，不落库；为空表示创建者无法解析（用户已删除、
-	// CreatorID 为空的老数据等）。前端用它在卡片来源徽章上做 mine vs workspace 的二分。
+	// CreatorName is the display name of the user corresponding to CreatorID
+	// (username / email, etc.). It is only backfilled by the handler in list
+	// scenarios and is not persisted; empty means the creator cannot be
+	// resolved (deleted user, legacy data with empty CreatorID, etc.). The
+	// frontend uses it for the mine vs workspace split in the card source badge.
 	CreatorName string `yaml:"-"                       json:"creator_name,omitempty"  gorm:"-"`
 }
 
@@ -532,7 +534,7 @@ type VLMConfig struct {
 	// replacing the system-owned OCR and Markdown output contract.
 	CustomInstructions string `yaml:"custom_instructions,omitempty" json:"custom_instructions,omitempty"`
 
-	// 兼容老版本
+	// Backward compatibility
 	// Model Name
 	ModelName string `yaml:"model_name" json:"model_name"`
 	// Base URL
@@ -543,15 +545,15 @@ type VLMConfig struct {
 	InterfaceType string `yaml:"interface_type" json:"interface_type"`
 }
 
-// IsEnabled 判断多模态是否启用（兼容新老版本）
-// 新版本：Enabled && ModelID != ""
-// 老版本：ModelName != "" && BaseURL != ""
+// IsEnabled checks whether multimodal is enabled (new and legacy config)
+// New: Enabled && ModelID != ""
+// Legacy: ModelName != "" && BaseURL != ""
 func (c VLMConfig) IsEnabled() bool {
-	// 新版本配置
+	// New version config
 	if c.Enabled && c.ModelID != "" {
 		return true
 	}
-	// 兼容老版本配置
+	// Legacy configuration compatibility
 	if c.ModelName != "" && c.BaseURL != "" {
 		return true
 	}
@@ -662,7 +664,7 @@ func (e *ExtractConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, e)
 }
 
-// FAQConfig 存储 FAQ 知识库的特有配置
+// FAQConfig stores FAQ knowledge base-specific configuration
 type FAQConfig struct {
 	IndexMode         FAQIndexMode         `yaml:"index_mode"          json:"index_mode"`
 	QuestionIndexMode FAQQuestionIndexMode `yaml:"question_index_mode" json:"question_index_mode"`
@@ -685,7 +687,7 @@ func (f *FAQConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, f)
 }
 
-// EnsureDefaults 确保类型与配置具备默认值
+// EnsureDefaults ensures the type and config have default values
 func (kb *KnowledgeBase) EnsureDefaults() {
 	if kb == nil {
 		return
@@ -811,7 +813,7 @@ func (kb *KnowledgeBase) NeedsEmbeddingModel() bool {
 	return kb != nil && kb.IndexingStrategy.NeedsEmbedding()
 }
 
-// IsMultimodalEnabled 判断多模态是否启用，由 VLMConfig.IsEnabled() 决定。
+// IsMultimodalEnabled determines whether multimodal is enabled, decided by VLMConfig.IsEnabled().
 func (kb *KnowledgeBase) IsMultimodalEnabled() bool {
 	if kb == nil {
 		return false

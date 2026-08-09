@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-WeKnora MCP Server 模组测试脚本
+WeKnora MCP Server module test script
 
-测试模组的各种启动方式和功能。unittest discover 会收集本文件中的 TestCase；
-也可直接运行: python test_module.py
+Tests various startup methods and features of the module. unittest discover will collect the TestCase classes in this file;
+or run directly: python test_module.py
 """
 
 import os

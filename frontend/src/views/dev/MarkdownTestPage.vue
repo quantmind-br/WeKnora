@@ -92,17 +92,17 @@
       <div class="test-case shimmer-demo">
         <div class="action-card action-pending">
           <div class="action-title">
-            <span class="action-name">正在检索知识库…</span>
+            <span class="action-name">Searching knowledge base…</span>
           </div>
         </div>
         <div class="action-card action-pending">
           <div class="action-title">
-            <span class="action-name">正在生成回答…</span>
+            <span class="action-name">Generating answer…</span>
           </div>
         </div>
         <div class="action-card">
           <div class="action-title">
-            <span class="action-name is-done">检索完成（静态对照）</span>
+            <span class="action-name is-done">Search complete (static baseline)</span>
           </div>
         </div>
       </div>
@@ -179,18 +179,18 @@ const renderStreamMarkdown = (raw: string): string => {
 
 // --- Test Data ---
 
-const basicTextSample = `这是一段普通文本，包含 **加粗**、*斜体*、***加粗斜体***、~~删除线~~、行内 \`code\`。
+This is a plain text paragraph with **bold**, *italic*, ***bold italic***, ~~strikethrough~~, and inline `code`.
 
-也可以包含快捷键样式：<kbd>⌘</kbd> + <kbd>K</kbd>。
+Keyboard shortcuts are also supported: <kbd>⌘</kbd> + <kbd>K</kbd>.
 
-这里有一个链接：[GitHub](https://github.com)。
+Here is a link: [GitHub](https://github.com).
 
-> 一级引用
+> Level-1 quote
 >
-> > 嵌套引用，用于对比 GPT 的引用层级与字重。
+> > Nested quote used to compare GPT quote nesting levels and font weights.
 
-- [ ] 未完成任务
-- [x] 已完成任务
+- [ ] Unfinished task
+- [x] Completed task
 `;
 
 const latexCases = [
@@ -287,17 +287,17 @@ graph TD
 
 // --- Streaming Simulation ---
 const fullStreamText = `
-好的，以下是根据知识库中**《xxx》学程手册**整理的有关XXX的介绍：
+Sure. Based on the **《xxx》 course manual** in the knowledge base, here is an introduction to XXX:
 
-**XBRL（eXtensible Business Reporting Language，可扩展商业报告语言）**是一种基于XML的标准化标记语言，专门用于电子化商业和财务报告的编制、交换和分析
+**XBRL (eXtensible Business Reporting Language)** is an XML-based standardized markup language designed for creating, exchanging, and analyzing electronic business and financial reports.
 
-该数据集包含90个文本和方程对，挑战模型提取、解释和推理相互关联的财务术语和公式的能力，例如：
+The dataset contains 90 text-and-equation pairs, challenging a model's ability to extract, interpret, and reason about interrelated financial terms and formulas, for example:
 \`\`\`
 APR = ((Fees + Interest) / Principal) × (365 / Days in Loan Term)
 \`\`\`
 <kb doc="2502.08127v1.pdf" chunk_id="1ecdce8a-f922-4d0c-b124-257ab4634da2" />
 
-### 重要性
+### Importance
 
 
 1. **AAAAA**
@@ -314,9 +314,9 @@ APR = ((Fees + Interest) / Principal) × (365 / Days in Loan Term)
 8. **HHH**
 9. **III**
 
-**标题：JJJ**
+**Title: JJJ**
 
-**标题：KKK**
+**Title: KKK**
 
 
 The energy-mass equivalence is $E = mc^2$.

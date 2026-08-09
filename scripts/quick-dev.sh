@@ -1,15 +1,15 @@
 #!/bin/bash
-# 快速启动开发环境的一键脚本
-# 此脚本会在一个终端中启动所有必需的服务
+# A one-click script to quickly start the development environment
+# This script starts all required services in a single terminal
 
-# 设置颜色
+# Set colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
-NC='\033[0m' # 无颜色
+NC='\033[0m' # No color
 
-# 获取项目根目录
+# Get project root directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
@@ -31,93 +31,93 @@ log_warning() {
 
 echo ""
 printf "%b\n" "${GREEN}========================================${NC}"
-printf "%b\n" "${GREEN}  WeKnora 快速开发环境启动${NC}"
+printf "%b\n" "${GREEN}  WeKnora Quick Dev Environment Startup${NC}"
 printf "%b\n" "${GREEN}========================================${NC}"
 echo ""
 
-# 检查是否在项目根目录
+# Check whether we're in the project root directory
 cd "$PROJECT_ROOT"
 
-# 1. 启动基础设施
-log_info "步骤 1/3: 启动基础设施服务..."
+# Start infrastructure
+log_info "Step 1/3: Starting infrastructure services..."
 ./scripts/dev.sh start
 if [ $? -ne 0 ]; then
-    log_error "基础设施启动失败"
+    log_error "Failed to start infrastructure"
     exit 1
 fi
 
-# 等待服务就绪
-log_info "等待服务启动完成..."
+# Wait for services to be ready
+log_info "Waiting for services to finish starting..."
 sleep 5
 
-# 2. 询问是否启动后端
+# Ask whether to start the backend
 echo ""
-log_info "步骤 2/3: 启动后端应用"
-printf "%b" "${YELLOW}是否在当前终端启动后端? (y/N): ${NC}"
+log_info "Step 2/3: Starting backend application"
+printf "%b" "${YELLOW}Start the backend in this terminal? (y/N): ${NC}"
 read -r start_backend
 
 if [ "$start_backend" = "y" ] || [ "$start_backend" = "Y" ]; then
-    log_info "启动后端..."
-    # 在后台启动后端
+    log_info "Starting backend..."
+    # Start the backend in the background
     nohup bash -c 'cd "'$PROJECT_ROOT'" && ./scripts/dev.sh app' > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
     BACKEND_PID=$!
     echo $BACKEND_PID > "$PROJECT_ROOT/tmp/backend.pid"
-    log_success "后端已在后台启动 (PID: $BACKEND_PID)"
-    log_info "查看后端日志: tail -f $PROJECT_ROOT/logs/backend.log"
+    log_success "Backend started in the background (PID: $BACKEND_PID)"
+    log_info "View backend logs: tail -f $PROJECT_ROOT/logs/backend.log"
 else
-    log_warning "跳过后端启动"
-    log_info "稍后在新终端运行: make dev-app 或 ./scripts/dev.sh app"
+    log_warning "Skipping backend startup"
+    log_info "Later, run in a new terminal: make dev-app or ./scripts/dev.sh app"
 fi
 
-# 3. 询问是否启动前端
+# Ask whether to start the frontend
 echo ""
-log_info "步骤 3/3: 启动前端应用"
-printf "%b" "${YELLOW}是否在当前终端启动前端? (y/N): ${NC}"
+log_info "Step 3/3: Starting frontend application"
+printf "%b" "${YELLOW}Start the frontend in this terminal? (y/N): ${NC}"
 read -r start_frontend
 
 if [ "$start_frontend" = "y" ] || [ "$start_frontend" = "Y" ]; then
-    log_info "启动前端..."
-    # 在后台启动前端
+    log_info "Starting frontend..."
+    # Start the frontend in the background
     nohup bash -c 'cd "'$PROJECT_ROOT'/frontend" && npm run dev' > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID > "$PROJECT_ROOT/tmp/frontend.pid"
-    log_success "前端已在后台启动 (PID: $FRONTEND_PID)"
-    log_info "查看前端日志: tail -f $PROJECT_ROOT/logs/frontend.log"
+    log_success "Frontend started in the background (PID: $FRONTEND_PID)"
+    log_info "View frontend logs: tail -f $PROJECT_ROOT/logs/frontend.log"
 else
-    log_warning "跳过前端启动"
-    log_info "稍后在新终端运行: make dev-frontend 或 ./scripts/dev.sh frontend"
+    log_warning "Skipping frontend startup"
+    log_info "Later, run in a new terminal: make dev-frontend or ./scripts/dev.sh frontend"
 fi
 
-# 显示总结
+# Show summary
 echo ""
 printf "%b\n" "${GREEN}========================================${NC}"
-printf "%b\n" "${GREEN}  启动完成！${NC}"
+printf "%b\n" "${GREEN}  Startup complete!${NC}"
 printf "%b\n" "${GREEN}========================================${NC}"
 echo ""
 
-log_info "访问地址:"
-echo "  - 前端: http://localhost:5173"
-echo "  - 后端 API: http://localhost:8080"
+log_info "Access URLs:"
+echo "- Frontend: http://localhost:5173"
+echo "- Backend API: http://localhost:8080"
 echo "  - MinIO Console: http://localhost:9001"
 echo ""
 
-log_info "管理命令:"
-echo "  - 查看服务状态: make dev-status"
-echo "  - 查看日志: make dev-logs"
-echo "  - 停止所有服务: make dev-stop"
+log_info "Management commands:"
+echo "- Check service status: make dev-status"
+echo "- View logs: make dev-logs"
+echo "- Stop all services: make dev-stop"
 echo ""
 
 if [ -f "$PROJECT_ROOT/tmp/backend.pid" ] || [ -f "$PROJECT_ROOT/tmp/frontend.pid" ]; then
-    log_warning "停止后台进程:"
+    log_warning "Stop background processes:"
     if [ -f "$PROJECT_ROOT/tmp/backend.pid" ]; then
-        echo "  - 停止后端: kill \$(cat $PROJECT_ROOT/tmp/backend.pid)"
+        echo "- Stop backend: kill \$(cat $PROJECT_ROOT/tmp/backend.pid)"
     fi
     if [ -f "$PROJECT_ROOT/tmp/frontend.pid" ]; then
-        echo "  - 停止前端: kill \$(cat $PROJECT_ROOT/tmp/frontend.pid)"
+        echo "- Stop frontend: kill \$(cat $PROJECT_ROOT/tmp/frontend.pid)"
     fi
 fi
 
 echo ""
-log_success "开发环境已就绪，开始编码吧！"
+log_success "Dev environment is ready, start coding!"
 echo ""
 

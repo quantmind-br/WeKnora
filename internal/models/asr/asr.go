@@ -36,13 +36,13 @@ type Config struct {
 	APIKey    string
 	ModelID   string
 	Language  string // optional: specify language for transcription
-	// CustomHeaders 允许在调用远程 API 时附加自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
+	// CustomHeaders allows attaching custom HTTP headers to remote API calls (like OpenAI Python SDK's extra_headers).
 	CustomHeaders map[string]string
 }
 
-// ConfigFromModel 根据 types.Model 构造 asr.Config。
-// 生产路径（从 DB 拉起）和测试连接路径（临时表单）共享这份映射。
-// 当前 ASR 不涉及 WeKnoraCloud 凭证，所以签名不含 appID/appSecret。
+// ConfigFromModel builds an asr.Config from a types.Model.
+// The production path (pulled from the DB) and the test-connection path (temporary form) share this mapping.
+// The current ASR doesn't involve WeKnoraCloud credentials, so the signature doesn't include appID/appSecret.
 func ConfigFromModel(m *types.Model) *Config {
 	if m == nil {
 		return nil

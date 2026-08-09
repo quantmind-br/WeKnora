@@ -1,130 +1,121 @@
----
-title: IM集成开发
-tags: [集成扩展, IM, 企微, 飞书, Lark, Slack, Telegram, 钉钉, Mattermost]
-aliases: [IM集成, IM开发, 企业微信, 即时通讯]
-source: IM集成开发文档.md
----
+# IM Integration Development
 
-# IM 集成开发
+WeKnora's IM integration module connects enterprise instant messaging platforms (WeCom, Feishu, Lark, Slack, Telegram, DingTalk, Mattermost) to WeKnora's knowledge Q&A pipeline, allowing users to ask questions directly in IM and receive real-time streaming answers.
 
-WeKnora 的 IM 集成模块将企业即时通讯平台（企业微信、飞书、Lark、Slack、Telegram、钉钉、Mattermost）接入 WeKnora 知识问答管道，支持在 IM 中直接向 AI 提问并获得实时流式回答。
+IM channels are bound to an Agent, and a single Agent can be connected to multiple IM channels.
 
-IM 渠道绑定到 Agent，一个 Agent 可接入多个 IM 渠道。
+> Agents in IM channels can use [MCP Tools](../核心功能/MCP功能使用说明.md) and [Skills](../核心功能/Agent技能系统.md)
 
-> IM 渠道中的 Agent 可以使用 [MCP 工具](../核心功能/MCP功能使用说明.md) 和 [Skills 技能](../核心功能/Agent技能系统.md)
+## Supported Platforms
 
-## 支持的平台
-
-| 平台 | WebSocket 模式 | Webhook 模式 | 流式输出 |
+| Platform | WebSocket Mode | Webhook Mode | Streaming Output |
 |------|:-:|:-:|:-:|
-| 企业微信 | ✅ | ✅ | ✅ |
-| 飞书 | ✅ | ✅ | ✅ (CardKit) |
-| Lark（飞书国际版） | ✅ | ✅ | ✅ (CardKit) |
+| WeCom | ✅ | ✅ | ✅ |
+| Feishu | ✅ | ✅ | ✅ (CardKit) |
+| Lark (International Feishu) | ✅ | ✅ | ✅ (CardKit) |
 | Slack | ✅ (Socket Mode) | ✅ (Events API) | ✅ |
-| Telegram | ✅ (长轮询) | ✅ | ✅ |
-| 钉钉 | ✅ (Stream) | ✅ | ✅ (AI 卡片) |
+| Telegram | ✅ (Long Polling) | ✅ | ✅ |
+| DingTalk | ✅ (Stream) | ✅ | ✅ (AI Card) |
 | Mattermost | — | ✅ | ✅ |
 
-## 快速接入指南
+## Quick Start Guide
 
-### 前置条件
+### Prerequisites
 
-- WeKnora 已部署并运行
-- 已创建至少一个 Agent（自定义智能体）
-- Agent 已配置好模型和知识库
+- WeKnora is deployed and running
+- At least one Agent (custom agent) has been created
+- The Agent has been configured with a model and knowledge base
 
-> Agent 配置模型参见 [内置模型管理](../核心功能/内置模型管理.md)
+> For Agent model configuration, see [Built-in Model Management](../核心功能/内置模型管理.md)
 
-### 企业微信接入
+### WeCom Integration
 
-提供两种模式：
-- **WebSocket 模式**（智能机器人，推荐）— 无需公网域名
-- **Webhook 模式**（自建应用）— 需要公网回调地址
+Two modes are provided:
+- **WebSocket Mode** (Smart Bot, recommended) — no public domain required
+- **Webhook Mode** (self-built app) — requires a public callback address
 
-### 飞书接入
+### Feishu Integration
 
-- **WebSocket 模式**（推荐）— 无需公网域名
-- **Webhook 模式** — 需要公网回调地址
+- **WebSocket Mode** (recommended) — no public domain required
+- **Webhook Mode** — requires a public callback address
 
-> 飞书同时也是数据源导入的支持平台，参见 [数据源导入开发](数据源导入开发.md)
+> Feishu is also a supported platform for data source imports; see [Data Source Import Development](数据源导入开发.md)
 
-### Lark 接入
+### Lark Integration
 
-Lark 是飞书的国际版，IM 接口一致，与飞书共用同一套适配器。接入步骤基本相同，但开放平台
-与**权限清单**不同：
+Lark is the international version of Feishu. The IM interfaces are identical and share the same adapter as Feishu. The integration steps are largely the same, but the open platform and the **permission manifest** differ:
 
-- 飞书：<https://open.feishu.cn/>
-- Lark：<https://open.larksuite.com/>
+- Feishu: <https://open.feishu.cn/>
+- Lark: <https://open.larksuite.com/>
 
-> **权限不可套用飞书的清单**：飞书清单混入了数据源连接器（Wiki 同步）用的权限，其中部分在
-> Lark 并不存在，整份导入会失败。Lark 只需 IM 相关的 6 项，见
-> [IM集成开发文档 — Lark 权限配置](../../IM集成开发文档.md#lark-权限配置)。
+> **The permission manifest cannot be reused from Feishu**: the Feishu manifest mixes in permissions used by the data source connector (Wiki sync), some of which don't exist on Lark, causing the entire import to fail. Lark only needs the 6 IM-related permissions; see
+> [IM Integration Development Documentation — Lark Permission Configuration](../../IM集成开发文档.md#lark-权限配置).
 
-> 两朵云的应用互不通用，凭证只在创建它的那朵云上有效。
+> Apps on the two clouds are not interchangeable — credentials are only valid on the cloud where they were created.
 
-### Slack 接入
+### Slack Integration
 
-- **Socket Mode**（推荐）— 无需公网域名
-- **Events API** — 需要公网回调地址
+- **Socket Mode** (recommended) — no public domain required
+- **Events API** — requires a public callback address
 
-### Telegram 接入
+### Telegram Integration
 
-- **长轮询模式**（推荐）— 无需公网域名
-- **Webhook 模式** — 需要 HTTPS 公网回调
+- **Long Polling Mode** (recommended) — no public domain required
+- **Webhook Mode** — requires a public HTTPS callback
 
-### 钉钉接入
+### DingTalk Integration
 
-- **Stream 模式**（推荐）— 无需公网域名
-- **Webhook 模式** — 需要公网回调地址
+- **Stream Mode** (recommended) — no public domain required
+- **Webhook Mode** — requires a public callback address
 
-### Mattermost 接入
+### Mattermost Integration
 
-- 仅支持 **Webhook 模式**（出站 Webhook + REST API v4）
+- Only **Webhook Mode** is supported (outgoing webhook + REST API v4)
 
-## 架构设计
+## Architecture Design
 
-系统采用 **Adapter Pattern**，每个平台实现 `im.Adapter` 接口，通过 `AdapterFactory` 动态创建。核心设计模式包括：
+The system uses the **Adapter Pattern**, with each platform implementing the `im.Adapter` interface, dynamically created via `AdapterFactory`. The core design patterns include:
 
-| 模式 | 用途 |
+| Pattern | Purpose |
 |------|------|
-| Adapter Pattern | 统一不同 IM 平台的差异 |
-| Factory Pattern | 从数据库渠道配置动态创建 Adapter |
-| Command Pattern | 可插拔的斜杠指令系统 |
-| Producer-Consumer | QA 队列 + Worker Pool |
+| Adapter Pattern | Unifies differences across IM platforms |
+| Factory Pattern | Dynamically creates Adapters from database channel configuration |
+| Command Pattern | Pluggable slash command system |
+| Producer-Consumer | QA queue + Worker Pool |
 
-## 斜杠指令系统
+## Slash Command System
 
-| 指令 | 说明 |
+| Command | Description |
 |------|------|
-| `/help` | 显示所有可用指令 |
-| `/info` | 查看当前绑定智能体信息 |
-| `/search` | 对知识库执行混合检索 |
-| `/stop` | 取消当前 QA 请求 |
-| `/clear` | 清空当前对话记忆 |
+| `/help` | Show all available commands |
+| `/info` | View information about the currently bound agent |
+| `/search` | Perform a hybrid search against the knowledge base |
+| `/stop` | Cancel the current QA request |
+| `/clear` | Clear the current conversation memory |
 
-## 扩展新平台
+## Extending with New Platforms
 
-接入新的 IM 平台只需 3 步：
+Adding a new IM platform only takes 3 steps:
 
-1. 实现 `im.Adapter` 接口（可选 `StreamSender`、`FileDownloader`）
-2. 注册适配器工厂
-3. 前端添加平台选项
+1. Implement the `im.Adapter` interface (optionally `StreamSender`, `FileDownloader`)
+2. Register the adapter factory
+3. Add the platform option on the frontend
 
-> 扩展开发模式与 [添加网络搜索引擎](添加网络搜索引擎.md) 和 [集成向量数据库](集成向量数据库.md) 类似
+> The extension development pattern is similar to [Adding a Web Search Engine](添加网络搜索引擎.md) and [Integrating a Vector Database](集成向量数据库.md)
 
-## 相关主题
+## Related Topics
 
-- [数据源导入开发](../集成扩展/数据源导入开发.md) — 飞书数据源同步（共享飞书应用凭证）
-- [MCP功能使用说明](../核心功能/MCP功能使用说明.md) — Agent 可调用 MCP 工具
-- [Agent技能系统](../核心功能/Agent技能系统.md) — Agent 可使用 Skills 技能
-- [开发指南](../开发部署/开发指南.md) — 开发环境搭建
+- [Data Source Import Development](../集成扩展/数据源导入开发.md) — Feishu data source sync (shares Feishu app credentials)
+- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — Agents can invoke MCP tools
+- [Agent Skills System](../核心功能/Agent技能系统.md) — Agents can use Skills
+- [Development Guide](../开发部署/开发指南.md) — Setting up the development environment
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [数据源导入开发](../集成扩展/数据源导入开发.md) — 同样涉及飞书集成，可共享应用凭证
-- [MCP功能使用说明](../核心功能/MCP功能使用说明.md) — IM 中 Agent 可调用 MCP 工具
-- [Agent技能系统](../核心功能/Agent技能系统.md) — IM 中 Agent 可使用 Skills
-- [版本路线图](../项目概述/版本路线图.md) — IM 集成已完成的里程碑
+- [Home](../Home.md) — Wiki home navigation
+- [Data Source Import Development](../集成扩展/数据源导入开发.md) — Also involves Feishu integration, can share app credentials
+- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — Agents in IM can invoke MCP tools
+- [Agent Skills System](../核心功能/Agent技能系统.md) — Agents in IM can use Skills
+- [Version Roadmap](../项目概述/版本路线图.md) — Completed milestones for IM integration

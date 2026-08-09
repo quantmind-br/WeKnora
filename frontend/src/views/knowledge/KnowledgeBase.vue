@@ -88,8 +88,8 @@ type KbTab = typeof validTabs[number]
 const initTab = validTabs.includes(route.query.tab as any) ? (route.query.tab as KbTab) : 'documents'
 const activeKbTab = ref<KbTab>(initTab);
 
-// Wiki 状态用于面包屑上的索引中指示。父组件自行拉取，避免依赖 WikiBrowser 挂载状态
-// （用户切到"文档" tab 时 WikiBrowser 会卸载，这里仍需持续反映后台索引进度）。
+// Wiki status is used to indicate indexing in progress on the breadcrumb. The parent component fetches it independently, to avoid depending on WikiBrowser's mount state
+// (WikiBrowser unmounts when the user switches to the "Document" tab; this still needs to keep reflecting background indexing progress).
 const wikiStatus = ref<{ pendingTasks: number; isActive: boolean; pendingIssues: number }>({
   pendingTasks: 0,
   isActive: false,
@@ -133,7 +133,7 @@ const fetchWikiStatusOnce = async () => {
       isActive: !!data.is_active,
       pendingIssues: data.pending_issues || 0,
     }
-    // 活跃时轮询，空闲时停掉定时器，避免无谓请求
+    // Poll while active, stop the timer while idle, to avoid unnecessary requests
     if (wikiIsIndexing.value) {
       if (!wikiStatusTimer) {
         wikiStatusTimer = setInterval(fetchWikiStatusOnce, 5000)
@@ -143,10 +143,10 @@ const fetchWikiStatusOnce = async () => {
     }
   } catch (_) { /* ignore */ }
 }
-// 用户刚触发了一个上传 / reparse / URL 导入之类的动作后，后台通常要过
-// 一小段时间才会把 wiki 任务真正塞进队列；如果这时空闲轮询刚好停了，
-// 面包屑的"索引中"会延迟很久才亮起。所以这里安排几次退避重试，
-// 主动把面包屑的 loading 尽快点亮，一旦探测到任务就会走正常的 5s 轮询。
+// After the user just triggered an action like upload / reparse / URL import, the backend usually takes
+// a short while before the wiki task actually gets pushed into the queue; if idle polling happens to stop right then,
+// the "indexing" state on the breadcrumb would light up much later than it should. So a few backoff retries are scheduled here,
+// to proactively light up the breadcrumb's loading state as soon as possible — once a task is detected, it switches to normal 5s polling.
 const scheduleWikiStatusProbes = () => {
   if (!kbId.value || !isWiki.value) return
   clearWikiStatusProbes()
@@ -724,7 +724,7 @@ const activeTagFilterTitle = computed(() => {
 
 const isTagFilterActive = (tagId: string) => selectedTagIds.value.includes(tagId);
 
-// 标签编辑弹窗
+// Tag edit dialog
 const tagEditDialogVisible = ref(false);
 const tagEditTarget = ref<KnowledgeCard | null>(null);
 
@@ -745,7 +745,7 @@ const getPageSize = () => {
   pageSize = Math.max(35, itemsInView);
 }
 getPageSize()
-// 直接调用 API 获取知识库文件列表
+// Directly call the API to fetch the knowledge base file list
 const getTagName = (tagId?: string | number) => {
   if (!tagId && tagId !== 0) return '';
   const key = String(tagId);
@@ -933,7 +933,7 @@ const loadTags = async (kbIdValue: string, reset = false) => {
 
 const handleTagFilterChange = (tagIds: string[]) => {
   selectedTagIds.value = tagIds;
-  // 同步更新 store 中的 selectedTagIds，供 menu.vue 上传时使用
+  // Sync-update selectedTagIds in the store, for menu.vue to use when uploading
   uiStore.clearSelectedTagIds();
   tagIds.forEach(id => uiStore.toggleSelectedTagId(id));
   resetPage();
@@ -1024,7 +1024,7 @@ const loadKnowledgeBaseInfo = async (targetKbId: string, force = false) => {
     selectedTagIds.value = [];
     tagFilterCleared.value = false;
     uiStore.clearSelectedTagIds();
-    // 重置store中的标签选择状态，避免上传文档时自动带上之前选择的标签
+    // Reset the tag selection state in the store, to avoid automatically carrying over previously selected tags when uploading documents
     uiStore.clearSelectedTagIds();
     if (!isFAQ.value) {
       loadKnowledgeFiles(targetKbId);
@@ -1077,7 +1077,7 @@ const loadKnowledgeList = async () => {
   }
 };
 
-// 监听路由参数变化，重新获取知识库内容
+// Watch for route parameter changes and refetch the knowledge base content
 // Sync activeKbTab to URL query so it survives page refresh
 watch(activeKbTab, (tab) => {
   const query = { ...route.query }
@@ -1132,7 +1132,7 @@ watch(tagSearchQuery, (newVal, oldVal) => {
   }, 300);
 });
 
-// 监听文档搜索关键词变化
+// Watch for changes to the document search keyword
 watch(docSearchKeyword, (newVal, oldVal) => {
   if (newVal === oldVal) return;
   if (docSearchDebounce) {
@@ -1146,7 +1146,7 @@ watch(docSearchKeyword, (newVal, oldVal) => {
   }, 300);
 });
 
-// 监听文件类型筛选变化
+// Watch for changes to the file type filter
 watch(selectedFileType, (newVal, oldVal) => {
   if (newVal === oldVal) return;
   if (kbId.value) {
@@ -1155,7 +1155,7 @@ watch(selectedFileType, (newVal, oldVal) => {
   }
 });
 
-// 监听解析状态/来源/更新时间范围筛选变化（与文件类型行为一致）
+// Watch for changes to the parse status/source/update time range filter (same behavior as the file type filter)
 watch([selectedParseStatus, selectedSource, updatedTimeRange], () => {
   if (kbId.value) {
     resetPage();
@@ -1163,8 +1163,8 @@ watch([selectedParseStatus, selectedSource, updatedTimeRange], () => {
   }
 }, { deep: true });
 
-// 切换目录只改变列表范围，行为与其他筛选一致。浏览态与筛选态之间的切换由各筛选项
-// 自身的 watcher 触发刷新，这里不重复请求。
+// Switching directories only changes the list scope; behavior is consistent with other filters. Switching between browse and filter states is handled by each filter item's
+// own watcher triggering a refresh; no duplicate request here.
 watch(selectedFolderPath, () => {
   if (!kbId.value || isFAQ.value) return;
   clearSelection();
@@ -1172,27 +1172,27 @@ watch(selectedFolderPath, () => {
   loadKnowledgeFiles(kbId.value);
 });
 
-// 监听文件上传事件
+// Listen for file upload events
 const handleFileUploaded = (event: CustomEvent) => {
   const uploadedKbId = event.detail.kbId;
-  console.log('接收到文件上传事件，上传的知识库ID:', uploadedKbId, '当前知识库ID:', kbId.value);
+  console.log('Received file-upload event; uploaded KB ID:', uploadedKbId, 'current KB ID:', kbId.value);
   if (uploadedKbId && uploadedKbId === kbId.value && !isFAQ.value) {
-    console.log('匹配当前知识库，开始刷新文件列表');
-    // 如果上传的文件属于当前知识库，使用 loadKnowledgeFiles 刷新文件列表
+    console.log('Matches the current KB; refreshing file list');
+    // If the uploaded file belongs to the current knowledge base, refresh the file list using loadKnowledgeFiles
     resetPage(); // Reset page counter when reloading files after upload
     loadKnowledgeFiles(uploadedKbId);
     loadTags(uploadedKbId);
     void loadFolderTree(uploadedKbId);
-    // 启动几次探测，尽快让面包屑的"索引中"亮起。
+    // Fire a few probes to light up the breadcrumb's "indexing" state as soon as possible.
     scheduleWikiStatusProbes();
   }
 };
 
 
-// 监听从菜单触发的URL导入事件
+// Listen for URL import events triggered from the menu
 const handleOpenURLImportDialog = (event: CustomEvent) => {
   const eventKbId = event.detail.kbId;
-  console.log('接收到URL导入对话框打开事件，知识库ID:', eventKbId, '当前知识库ID:', kbId.value);
+  console.log('Received URL-import dialog open event; KB ID:', eventKbId, 'current KB ID:', kbId.value);
   if (eventKbId && eventKbId === kbId.value && !isFAQ.value) {
     if (ensureDocumentKbReady()) {
       uploadSourceRef.value?.openUrlDialog();
@@ -1384,7 +1384,7 @@ const updateStatus = (analyzeList: KnowledgeCard[]) => {
         updateStatus(stillPending);
       }
     }).catch((_err) => {
-      // 错误处理
+      // Error handling
       const stillPending = cardList.value.filter(needsStatusPolling);
       if (stillPending.length > 0) {
         updateStatus(stillPending);
@@ -1394,7 +1394,7 @@ const updateStatus = (analyzeList: KnowledgeCard[]) => {
 };
 
 
-// 恢复文档处理状态（用于刷新后恢复）
+// Restore document processing state (used to recover after a refresh)
 
 const closeDoc = () => {
   isCardDetails.value = false;
@@ -2012,7 +2012,7 @@ const clearSelection = () => {
   lastSelectedIndex = -1;
 };
 
-// Batch (multi-select) mode mirrors the session list's "批量管理" UX: while off,
+// Batch (multi-select) mode mirrors the session list's "batch management" UX: while off,
 // no checkbox is rendered so the title doesn't jitter on hover; while on,
 // checkboxes are persistent and clicking a card toggles its selection.
 const batchMode = ref(false);
@@ -2020,13 +2020,13 @@ const toggleBatchMode = () => {
   batchMode.value = !batchMode.value;
   if (!batchMode.value) clearSelection();
 };
-// "取消选择" / 退出批量管理：清空选择，并退出 grid 视图下的批量模式。
+// "Deselect" / exit batch management: clear the selection and exit batch mode in grid view.
 const handleBatchCancel = () => {
   clearSelection();
   batchMode.value = false;
 };
-// 切到卡片视图时，如果列表视图里已经勾选过文档，需要自动开启批量管理模式，
-// 否则卡片视图默认不渲染 checkbox，会看不到勾选态。
+// When switching to card view, if documents were already checked in list view, batch management mode must be auto-enabled,
+// otherwise card view doesn't render checkboxes by default and the checked state would be invisible.
 watch(viewMode, (mode) => {
   if (mode === 'grid' && selectedIds.value.size > 0) {
     batchMode.value = true;
@@ -2084,7 +2084,7 @@ const confirmBatchDelete = async () => {
       clearSelection();
       batchMode.value = false;
       resetPage();
-      // 后端将批量删除放入异步队列，立刻拉列表仍可能包含待删项；短轮询直到列表与后端一致或超时
+      // The backend queues bulk deletes asynchronously, so fetching the list immediately may still include pending items; short-poll until the list matches the backend or times out
       const maxPolls = 30;
       const delayMs = 400;
       for (let i = 0; i < maxPolls; i++) {
@@ -2203,7 +2203,7 @@ watch(cardList, () => {
   }
 }, { deep: false });
 
-// 处理知识库编辑成功后的回调
+// Handle the callback after successful knowledge base edit
 const handleKBEditorSuccess = (kbIdValue: string) => {
   chatResources.invalidateKnowledgeBaseDetail(kbIdValue);
   chatResources.invalidate('knowledgeBases');
@@ -2231,12 +2231,12 @@ const getTitle = (session_id: string, value: string) => {
 };
 
 async function createNewSession(value: string): Promise<void> {
-  // Session 不再和知识库绑定，直接创建 Session
+  // Session is no longer bound to a knowledge base; create the Session directly
   createSessions({}).then(res => {
     if (res.data && res.data.id) {
       getTitle(res.data.id, value);
     } else {
-      // 错误处理
+      // Error handling
       console.error(t('knowledgeBase.createSessionFailed'));
     }
   }).catch(error => {
@@ -2301,7 +2301,7 @@ async function createNewSession(value: string): Promise<void> {
               </template>
               <span v-else class="breadcrumb-current">{{ $t('knowledgeEditor.document.title') }}</span>
             </h2>
-            <!-- 标题行右侧的动作锚点：聚拢"信息"和"设置"两个圆形按钮。 -->
+            <!-- Action anchor on the right side of the title row: groups the "Info" and "Settings" circular buttons. -->
             <div class="kb-title-actions">
               <KBInfoPopover v-if="kbInfo && !authStore.isLiteMode" :kb-info="kbInfo"
                 :supported-file-types="[...supportedFileTypes]" />
@@ -2546,7 +2546,7 @@ async function createNewSession(value: string): Promise<void> {
                 <div v-if="docMarqueeVisible" class="doc-marquee-box"
                   :class="{ 'is-add': docMarqueeMode === 'add', 'is-subtract': docMarqueeMode === 'subtract' }"
                   :style="docMarqueeBoxStyle" aria-hidden="true" />
-                <!-- 文档骨架屏 -->
+                <!-- Document skeleton screen -->
                 <div v-if="docListLoading && cardList.length === 0 && !currentChildFolders.length" class="doc-card-list doc-card-list-animated">
                   <div v-for="n in 8" :key="'doc-skel-' + n" class="knowledge-card knowledge-card-skeleton">
                     <div class="card-content">
@@ -2653,21 +2653,21 @@ async function createNewSession(value: string): Promise<void> {
     </div>
   </template>
 
-  <!-- 知识库编辑器（创建/编辑统一组件） -->
+  <!-- Knowledge base editor (unified create/edit component) -->
   <KnowledgeBaseEditorModal :visible="uiStore.showKBEditorModal" :mode="uiStore.kbEditorMode"
     :kb-id="uiStore.currentKBId || undefined" :initial-type="uiStore.kbEditorType"
     @update:visible="(val) => val ? null : uiStore.closeKBEditor()" @success="handleKBEditorSuccess" />
 
   <ContextualGuide tour="kbDetail" :when="showKbDetailContextualGuide" />
 
-  <!-- 标签编辑弹窗 -->
+  <!-- Tag editor dialog -->
   <TagEditDialog :visible="tagEditDialogVisible"
     :knowledge-name="tagEditTarget?.display_name || tagEditTarget?.file_name || tagEditTarget?.title || ''"
     :kb-id="kbId" :tag-list="tagList" :selected-tags="tagEditTarget?.tags || []" :can-manage="canEdit"
     @update:visible="tagEditDialogVisible = $event" @confirm="onTagEditConfirm" @tag-created="loadTags(kbId, true)"
     @open-manage="openTagManageFromEditDialog" />
 
-  <!-- 批量打标签弹窗 -->
+  <!-- Batch tagging dialog -->
   <BatchTagDialog :visible="batchTagDialogVisible"
     :count="selectedIds.size" :kb-id="kbId" :tag-list="tagList"
     :pre-selected-tag-ids="batchTagPreSelectedIds" :can-manage="canEdit"
@@ -2684,7 +2684,7 @@ async function createNewSession(value: string): Promise<void> {
   />
 </template>
 <style>
-/* 下拉菜单容器样式已统一至 @/assets/dropdown-menu.less */
+/* Dropdown menu container styles have been unified into @/assets/dropdown-menu.less */
 .tag-filter-popup {
   z-index: 5500 !important;
 }
@@ -2741,7 +2741,7 @@ async function createNewSession(value: string): Promise<void> {
   box-sizing: border-box;
 }
 
-// Breadcrumb tab switch (文档/Wiki in breadcrumb)
+// Breadcrumb tab switch (Document/Wiki in breadcrumb)
 .breadcrumb-tab {
   cursor: pointer;
   color: var(--td-text-color-placeholder);
@@ -2785,7 +2785,7 @@ async function createNewSession(value: string): Promise<void> {
   overflow: hidden;
 }
 
-// 与列表页一致：浅灰底圆角区，左侧筛选为白底卡片
+// Consistent with the list page: light gray rounded background, white card for the left filter
 .knowledge-main {
   display: flex;
   flex: 1;
@@ -2794,7 +2794,7 @@ async function createNewSession(value: string): Promise<void> {
   border: none;
 }
 
-// 标签筛选浮层：点击工具栏入口展开，不占文档列表横向空间
+// Tag filter overlay: expands when the toolbar entry is clicked, doesn't take up horizontal space in the document list
 .tag-filter-panel {
   width: 320px;
   max-width: min(320px, calc(100vw - 32px));
@@ -3025,10 +3025,10 @@ async function createNewSession(value: string): Promise<void> {
   flex-direction: column;
   min-height: 0;
   position: relative;
-  /* 作为批量工具栏悬浮的定位上下文 */
+  /* Serves as the positioning context for the floating batch toolbar */
 }
 
-// 目录树选中路径的面包屑：与顶部知识库面包屑同一套视觉语言，只是更轻量。
+// Breadcrumb for the selected directory tree path: same visual language as the top knowledge base breadcrumb, just lighter.
 .doc-folder-path {
   display: flex;
   align-items: center;
@@ -3387,7 +3387,7 @@ async function createNewSession(value: string): Promise<void> {
   }
 }
 
-/* 批量条悬浮在滚动区底部，不挤占列表高度 */
+/* The batch bar floats at the bottom of the scroll area, without squeezing the list height */
 .doc-batch-bar-anchor {
   position: absolute;
   left: 0;
@@ -3404,7 +3404,7 @@ async function createNewSession(value: string): Promise<void> {
   }
 }
 
-// Header 样式（无底部分割线，留更多空间给下方内容区）
+// Header style (no bottom divider, leaves more space for the content area below)
 .document-header {
   display: flex;
   align-items: flex-start;
@@ -3784,7 +3784,7 @@ async function createNewSession(value: string): Promise<void> {
 .doc-card-list {
   box-sizing: border-box;
   display: grid;
-  // 文档卡片信息量较大（标题 + 摘要 + 标签/类型），保持稍宽的最小列宽，避免一行塞太多导致内容拥挤。
+  // Document cards carry a lot of information (title + summary + tags/type), so keep a slightly wider minimum column width to avoid overcrowding a single row.
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
   align-content: flex-start;
@@ -4044,7 +4044,7 @@ async function createNewSession(value: string): Promise<void> {
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 
-  /* 仅在批量管理模式下渲染 checkbox，常态下不占位，避免标题在 hover 时右滑 */
+  /* Render the checkbox only in batch management mode; it takes no space in the normal state, avoiding the title shifting right on hover */
   .card-nav-check {
     flex-shrink: 0;
     display: inline-flex;
@@ -4271,7 +4271,7 @@ async function createNewSession(value: string): Promise<void> {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
 }
 
-/* 悬停知识卡片时跟随鼠标的详情气泡 */
+/* Detail bubble that follows the mouse when hovering over a knowledge card */
 .knowledge-card-hover-popover {
   position: fixed;
   z-index: 9999;
@@ -4287,7 +4287,7 @@ async function createNewSession(value: string): Promise<void> {
   transition: opacity 0.15s ease;
   will-change: transform;
 
-  /* 防止气泡内容抖动 */
+  /* Prevent the bubble content from jittering */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: translateZ(0);

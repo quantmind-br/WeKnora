@@ -33,7 +33,7 @@
           </div>
         </t-tooltip>
         <!-- Shared spaces group: per-org/space entries only. We dropped
-             the aggregate "协作" / shared-with-me entry — its meaning
+             the aggregate "Collaboration" / shared-with-me entry — its meaning
              oscillated between "everything shared to me" and "things I
              can edit", and either reading duplicated information already
              visible on the per-space entries below. -->

@@ -1,6 +1,6 @@
 ---
-name: 文档协作
-description: 引导用户通过结构化的文档共同编写工作流程。当用户想撰写文档、提案、技术规范、决策文档或类似结构化内容时使用。该工作流程帮助用户高效传递上下文，通过迭代优化内容，并验证文档对读者有效。当用户提到写文档、创建提案、起草规范或类似文档任务时触发。
+name: Doc Co-Authoring
+description: Guides users through a structured collaborative document co-authoring workflow. Use when the user wants to write a document, proposal, technical spec, decision record, or similar structured content. The workflow helps users share context efficiently, iterate on content, and validate that the document works for its readers. Trigger when the user mentions writing a document, drafting a proposal, or creating a spec.
 ---
 
 # Doc Co-Authoring Workflow

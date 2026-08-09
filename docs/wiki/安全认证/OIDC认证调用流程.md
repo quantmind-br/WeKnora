@@ -1,91 +1,91 @@
 ---
-title: OIDC认证调用流程
-tags: [安全认证, OIDC, 认证, 登录, SSO]
-aliases: [OIDC, OIDC认证, SSO登录, 第三方登录]
+title: OIDC Authentication Flow
+tags: [Security Authentication, OIDC, Authentication, Login, SSO]
+aliases: [OIDC, OIDC Authentication, SSO Login, Third-Party Login]
 source: OIDC认证调用流程.md
 ---
 
-# OIDC 认证调用流程
+# OIDC Authentication Flow
 
-本文档说明 WeKnora 当前 OIDC 登录能力的实际调用过程，覆盖前后端完整链路。
+This document explains WeKnora's current OIDC login capability and its actual invocation process, covering the complete front-end and back-end chain.
 
-> OIDC 认证是标准版多空间场景下的登录方式，[Lite 版](../项目概述/Lite与标准版区别.md)不需要
+> OIDC authentication is the login method for multi-space scenarios in the Standard Edition; the [Lite Edition](../项目概述/Lite与标准版区别.md) does not require it
 
-## 整体设计说明
+## Overall Design
 
-本项目的 OIDC 登录采用 **后端发起授权参数生成、后端接收回调并完成 code 换 token、前端通过 URL hash 接收最终登录结果** 的模式。
+This project's OIDC login adopts the pattern of **the backend initiating authorization parameter generation, the backend receiving the callback and completing the code-to-token exchange, and the frontend receiving the final login result via URL hash**.
 
-核心特点：
+Core characteristics:
 
-1. **前端只负责发起跳转**，不直接和 OIDC Provider 交换 token
-2. **后端负责用授权码 `code` 向 OIDC Provider 换取 token**
-3. 后端拿到 OIDC 用户信息后，会查找本地用户；若不存在则自动创建本地账号和默认空间
-4. 最终签发 WeKnora 自己的本地 JWT，OIDC token 只用于后端换取用户身份
+1. **The frontend is only responsible for initiating the redirect** and does not directly exchange tokens with the OIDC Provider
+2. **The backend is responsible for exchanging the authorization code `code` for a token with the OIDC Provider**
+3. After the backend obtains the OIDC user information, it looks up the local user; if one does not exist, it automatically creates a local account and default space
+4. Ultimately, WeKnora's own local JWT is issued — the OIDC token is only used by the backend to exchange for user identity
 
-> 自动创建用户与空间的逻辑与 [共享空间说明](../安全认证/共享空间说明.md) 的多空间模型相关
+> The logic for automatically creating users and spaces is related to the multi-space model described in [Shared Space Guide](../安全认证/共享空间说明.md)
 
-## 相关接口
+## Related Endpoints
 
-| 接口 | 说明 |
+| Endpoint | Description |
 |------|------|
-| `GET /api/v1/auth/oidc/config` | 获取 OIDC 是否启用及 Provider 展示名称 |
-| `GET /api/v1/auth/oidc/url` | 生成第三方登录跳转地址 |
-| `GET /api/v1/auth/oidc/callback` | OIDC Provider 回调地址 |
+| `GET /api/v1/auth/oidc/config` | Get whether OIDC is enabled and the Provider's display name |
+| `GET /api/v1/auth/oidc/url` | Generate the third-party login redirect URL |
+| `GET /api/v1/auth/oidc/callback` | OIDC Provider callback address |
 
-## 调用流程（4 个阶段）
+## Invocation Flow (4 Stages)
 
-### 阶段一：前端发现能力
+### Stage 1: Frontend Capability Discovery
 
-前端调用 `/auth/oidc/config`，决定是否展示第三方登录入口。
+The frontend calls `/auth/oidc/config` to decide whether to display the third-party login entry point.
 
-### 阶段二：浏览器跳转授权
+### Stage 2: Browser Redirect for Authorization
 
-前端调用 `/auth/oidc/url` 获取授权地址，然后跳转到 OIDC Provider。
+The frontend calls `/auth/oidc/url` to obtain the authorization URL, then redirects to the OIDC Provider.
 
-### 阶段三：后端完成身份兑换
+### Stage 3: Backend Completes Identity Exchange
 
-Provider 回调后端 `/auth/oidc/callback`，后端用 `code` 换 token、拉取用户信息、关联或创建本地用户，并签发 WeKnora JWT。
+The Provider calls back to the backend's `/auth/oidc/callback`; the backend exchanges the `code` for a token, retrieves user information, links or creates a local user, and issues a WeKnora JWT.
 
-### 阶段四：前端接收最终结果
+### Stage 4: Frontend Receives the Final Result
 
-后端 302 回前端，通过 `#oidc_result` 传递登录结果；前端在 `App.vue` 中统一解析。
+The backend issues a 302 redirect back to the frontend, passing the login result via `#oidc_result`; the frontend parses this uniformly in `App.vue`.
 
-## 关键配置项
+## Key Configuration Items
 
-| 配置项 | 说明 |
+| Configuration Item | Description |
 |--------|------|
-| `OIDC_AUTH_ENABLE` | 是否启用 OIDC 登录 |
+| `OIDC_AUTH_ENABLE` | Whether to enable OIDC login |
 | `OIDC_AUTH_CLIENT_ID` | OIDC Client ID |
 | `OIDC_AUTH_CLIENT_SECRET` | OIDC Client Secret |
-| `OIDC_AUTH_DISCOVERY_URL` | OIDC Discovery 地址 |
-| `OIDC_AUTH_SCOPES` | Scope 列表，默认 `openid profile email` |
+| `OIDC_AUTH_DISCOVERY_URL` | OIDC Discovery URL |
+| `OIDC_AUTH_SCOPES` | Scope list, default `openid profile email` |
 
-启用时的最小要求：`client_id` + `client_secret` + (`discovery_url` 或 `authorization_endpoint + token_endpoint`)
+Minimum requirements when enabled: `client_id` + `client_secret` + (`discovery_url` or `authorization_endpoint + token_endpoint`)
 
-## 本地联调示例（Dex）
+## Local Integration Testing Example (Dex)
 
-项目中已提供 Dex 示例配置：`misc/dex-config.yaml`。
+The project already provides a sample Dex configuration: `misc/dex-config.yaml`.
 
-> 除 Dex 外，也可以使用 KeyCloak 等其他符合 OpenID Connect 协议的 Provider
+> Besides Dex, you can also use other Providers compliant with the OpenID Connect protocol, such as KeyCloak
 
-## 注意事项
+## Notes
 
-1. **`redirect_uri` 必须严格匹配** Provider 客户端配置
-2. **邮箱是本地账号关联主键** — 若 Provider 没返回 email，将无法完成登录
-3. **首次 OIDC 登录会自动创建用户和默认空间**
-4. **真正用于访问 API 的是本地 JWT**，不是 OIDC access token
+1. **`redirect_uri` must strictly match** the Provider's client configuration
+2. **Email is the primary key for local account linking** — if the Provider does not return an email, login cannot be completed
+3. **The first OIDC login automatically creates a user and default space**
+4. **What is actually used to access the API is the local JWT**, not the OIDC access token
 
-## 相关主题
+## Related Topics
 
-- [共享空间说明](../安全认证/共享空间说明.md) — 多空间场景下的用户与组织管理
-- [Lite与标准版区别](../项目概述/Lite与标准版区别.md) — Lite 版无需 OIDC（单空间）
-- [API文档概览](../API参考/API文档概览.md) — API 认证机制
+- [Shared Space Guide](../安全认证/共享空间说明.md) — User and organization management in multi-space scenarios
+- [Lite与标准版区别](../项目概述/Lite与标准版区别.md) — Lite Edition does not require OIDC (single space)
+- [API Documentation Overview](../API参考/API文档概览.md) — API authentication mechanism
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [共享空间说明](../安全认证/共享空间说明.md) — OIDC 创建的用户与空间可用于共享空间
-- [Lite与标准版区别](../项目概述/Lite与标准版区别.md) — Lite 不需要 OIDC（单空间无需注册）
-- [API文档概览](../API参考/API文档概览.md) — API 的认证机制与 OIDC JWT 相关
+- [Home](../Home.md) — Wiki homepage navigation
+- [Shared Space Guide](../安全认证/共享空间说明.md) — Users and spaces created by OIDC can be used for shared spaces
+- [Lite与标准版区别](../项目概述/Lite与标准版区别.md) — Lite does not require OIDC (single space, no registration needed)
+- [API Documentation Overview](../API参考/API文档概览.md) — API authentication mechanism related to OIDC JWT

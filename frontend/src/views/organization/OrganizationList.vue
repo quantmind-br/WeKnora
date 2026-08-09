@@ -27,7 +27,7 @@
         </div>
       </div>
       <div class="org-list-main">
-        <!-- 骨架屏占位 -->
+        <!-- skeleton screen placeholder -->
         <div v-if="loading && filteredOrganizations.length === 0" class="org-card-wrap">
           <div v-for="n in 4" :key="'skel-' + n" class="org-card org-card-skeleton">
             <div class="card-header">
@@ -45,11 +45,11 @@
           </div>
         </div>
 
-        <!-- 卡片网格 -->
+        <!-- card grid -->
         <div v-if="filteredOrganizations.length > 0" class="org-card-wrap">
           <template v-for="(org, index) in filteredOrganizations" :key="org.id">
-            <!-- 我创建的：仅在 all 视图下出现；created/joined 子视图自身已经
-                 隐含了语义，再加标题反而冗余。-->
+            <!-- Created by me: only appears in the "all" view; the created/joined sub-views already
+                 imply the semantics, so adding a title would be redundant. -->
             <div v-if="spaceSelection === 'all' && org.is_owner && index === 0" class="org-section-header"
               role="button" tabindex="0" @click="toggleOrgSection('created')"
               @keydown.enter.prevent="toggleOrgSection('created')"
@@ -60,7 +60,7 @@
               <t-icon class="org-section-toggle"
                 :name="isOrgSectionCollapsed('created') ? 'chevron-right' : 'chevron-down'" size="14px" />
             </div>
-            <!-- 我加入的：第一张非 owner 卡片前打标题（all 视图下） -->
+            <!-- Joined by me: show title before the first non-owner card (in the "all" view) -->
             <div v-if="spaceSelection === 'all' && !org.is_owner
               && (index === 0 || filteredOrganizations[index - 1].is_owner)" class="org-section-header" role="button"
               tabindex="0" @click="toggleOrgSection('joined')"
@@ -74,7 +74,7 @@
             </div>
             <div v-show="!isOrgRowHidden(org)" class="org-card"
             :class="{ 'joined-org': !org.is_owner }" @click="handleCardClick(org)">
-            <!-- 装饰：协作网络感图形 -->
+            <!-- Decoration: collaborative network graphic -->
             <div class="card-decoration">
               <svg class="card-deco-svg" width="56" height="40" viewBox="0 0 56 40" fill="none"
                 xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -89,7 +89,7 @@
               </svg>
             </div>
 
-            <!-- 卡片头部 -->
+            <!-- Card header -->
             <div class="card-header">
               <div class="card-header-left">
                 <div class="org-avatar">
@@ -125,14 +125,14 @@
               </t-popup>
             </div>
 
-            <!-- 卡片内容 -->
+            <!-- Card content -->
             <div class="card-content">
               <div class="card-description">
                 {{ org.description || $t('organization.noDescription') }}
               </div>
             </div>
 
-            <!-- 卡片底部（与知识库卡片风格统一：小标签、无日期、智能体用主题色） -->
+            <!-- Card footer (consistent with the knowledge base card style: small tags, no date, agent uses theme color) -->
             <div class="card-bottom">
               <div class="bottom-left">
                 <div class="feature-badges">
@@ -174,7 +174,7 @@
           </template>
         </div>
 
-        <!-- 空状态（按筛选显示不同文案） -->
+        <!-- Empty state (different copy depending on the filter) -->
         <div v-else-if="!loading" class="empty-state">
           <img class="empty-img" src="@/assets/img/upload.svg" alt="">
           <span class="empty-txt">{{ emptyStateTitle }}</span>
@@ -199,7 +199,7 @@
       </div>
     </div>
 
-    <!-- Organization Settings Modal (用于创建和编辑组织) -->
+    <!-- Organization Settings Modal (for creating and editing organizations) -->
     <OrganizationSettingsModal :visible="showSettingsModal" :org-id="settingsOrgId" :mode="settingsMode"
       @update:visible="showSettingsModal = $event" />
 
@@ -239,7 +239,7 @@
       </div>
     </t-dialog>
 
-    <!-- 加入组织 / 邀请预览弹框（菜单与邀请链接共用同一弹框） -->
+    <!-- Join organization / invitation preview modal (menu and invite link share the same modal) -->
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showInvitePreview" class="invite-preview-overlay" @click.self="closeInvitePreview">
@@ -247,7 +247,7 @@
             'is-wide': !invitePreviewData && !invitePreviewLoading && joinStep === 'search'
           }">
             <div class="invite-preview-header">
-              <!-- 预览详情且来自搜索时显示返回按钮 -->
+              <!-- Show back button when previewing details and coming from search -->
               <button v-if="invitePreviewData && !inviteCode" class="invite-preview-back" @click="backFromPreview"
                 :aria-label="$t('organization.join.backToSearch')">
                 <t-icon name="chevron-left" />
@@ -261,10 +261,10 @@
               </button>
             </div>
 
-            <!-- 步骤1/2/Loading 共用高度过渡容器 -->
+            <!-- Shared height-transition container for step 1/2/Loading -->
             <div class="invite-preview-body-wrap" :style="inviteBodyWrapStyle">
               <div ref="inviteBodyInnerRef" class="invite-body-inner">
-                <!-- 步骤1：输入邀请码 或 搜索空间 -->
+                <!-- Step 1: enter invite code or search for spaces -->
                 <div v-if="!invitePreviewLoading && !invitePreviewData"
                   class="invite-preview-body invite-preview-input">
                   <div class="join-mode-pills">
@@ -278,9 +278,9 @@
                     </button>
                   </div>
 
-                  <!-- Tab 内容容器 - 平滑高度过渡 -->
+                  <!-- Tab content container - smooth height transition -->
                   <div ref="tabContentWrapperRef" class="join-tab-content-wrapper">
-                    <!-- 输入邀请码 -->
+                    <!-- Enter invite code -->
                     <div v-if="joinStep === 'invite'" class="join-tab-content">
                       <template v-if="!invitePreviewError">
                         <div class="join-form-item">
@@ -313,7 +313,7 @@
                       </div>
                     </div>
 
-                    <!-- 搜索可加入空间 -->
+                    <!-- Search for joinable spaces -->
                     <div v-else-if="joinStep === 'search'" class="join-tab-content join-tab-search">
                       <div class="join-form-item join-form-item--compact">
                         <label class="join-form-label">{{ $t('organization.join.searchSpaces') }}</label>
@@ -378,7 +378,7 @@
                   <span class="invite-preview-loading-text">{{ $t('organization.invite.loading') }}</span>
                 </div>
 
-                <!-- 步骤2：空间详情预览 -->
+                <!-- Step 2: space details preview -->
                 <div v-else-if="invitePreviewData" class="invite-preview-body invite-preview-body-preview">
                   <div class="preview-space-hero">
                     <div class="preview-space-avatar-wrap">
@@ -495,14 +495,14 @@ const router = useRouter()
 const orgStore = useOrganizationStore()
 const authStore = useAuthStore()
 
-// 后端 /api/v1/organizations 下的写操作（创建、加入、申请加入、邀请、审批、改设置等）
-// 在路由层都要求当前空间角色 ≥ admin。前端只用于 UI 渲染，安全边界仍在服务端。
+// Write operations under the backend /api/v1/organizations (create, join, request to join, invite, approve, change settings, etc.)
+// all require the current space role to be ≥ admin at the routing layer. The frontend only uses this for UI rendering; the security boundary is still enforced server-side.
 const canManageOrg = computed(
   () => authStore.hasRole('admin') || authStore.canAccessAllTenants
 )
 const noPermissionTip = computed(() => t('organization.rbac.needTenantAdminTip'))
 
-// 申请加入时可选角色（仅需审核时使用）
+// Optional role when requesting to join (only used when review is required)
 const orgRoleOptions = [
   { label: t('organization.role.viewer'), value: 'viewer' },
   { label: t('organization.role.editor'), value: 'editor' },
@@ -520,28 +520,28 @@ const leaveVisible = ref(false)
 const deletingOrg = ref<Organization | null>(null)
 const leavingOrg = ref<Organization | null>(null)
 
-// 邀请预览相关状态（与邀请链接共用同一弹框）
+// Invite preview related state (shares the same modal as the invite link)
 const showInvitePreview = ref(false)
 const invitePreviewLoading = ref(false)
 const inviteJoining = ref(false)
 const inviteCode = ref('')
-const joinInputCode = ref('') // 从菜单打开时输入的邀请码
+const joinInputCode = ref('') // Invite code entered when opened from the menu
 const invitePreviewData = ref<OrganizationPreview | null>(null)
 const invitePreviewError = ref('')
 
-// 加入方式：邀请码 / 搜索空间
+// Join method: invite code / search spaces
 const joinStep = ref<'invite' | 'search'>('invite')
 const searchQuery = ref('')
 const searchableList = computed(() => orgStore.searchableOrganizations)
 const searchLoading = ref(false)
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
-// 搜索结果缓存：避免重复点击时重复请求导致高度跳动
+// Search results cache: avoids height jumps from repeated requests on repeated clicks
 const organizationMenuVisibility = reactive<Record<string, boolean>>({})
 
-// Tab 内容容器 ref，用于高度过渡
+// Tab content container ref, used for height transition
 const tabContentWrapperRef = ref<HTMLElement | null>(null)
 
-// 加入弹框整体 body 高度过渡（输入邀请码 / 搜索空间 / 查看详情）
+// Overall body height transition for the join modal (enter invite code / search spaces / view details)
 const inviteBodyInnerRef = ref<HTMLElement | null>(null)
 const inviteBodyHeightPx = ref<number>(0)
 let inviteBodyResizeObserver: ResizeObserver | null = null
@@ -552,23 +552,23 @@ const inviteBodyWrapStyle = computed(() => {
   return { maxHeight: `${px}px`, minHeight: `${px}px` }
 })
 
-// 预览中空间 ID 的简短显示（前 8 位 + …）
+// Short display of the space ID in the preview (first 8 chars + …)
 const shortPreviewSpaceId = computed(() => {
   const id = invitePreviewData.value?.id
   if (!id) return ''
   return id.length > 8 ? `${id.slice(0, 8)}…` : id
 })
 
-// 根据当前 body 内容更新高度（用于过渡动画）
+// Update height based on current body content (used for transition animation)
 function updateInviteBodyHeight() {
   const el = inviteBodyInnerRef.value
   if (!el || !showInvitePreview.value) return
   const h = el.scrollHeight
-  // 避免把高度写成 0 导致闪缩，仅在得到有效高度时更新
+  // Avoid setting height to 0 to prevent flicker/collapse; only update when a valid height is obtained
   if (h > 0) inviteBodyHeightPx.value = h
 }
 
-// 观察加入弹框 body 内容高度，用于步骤切换时的高度过渡动画
+// Observe the join modal body content height, used for the height transition animation during step switching
 function setupInviteBodyResizeObserver() {
   if (inviteBodyResizeObserver) return
   const el = inviteBodyInnerRef.value
@@ -577,7 +577,7 @@ function setupInviteBodyResizeObserver() {
     const entry = entries[0]
     if (!entry) return
     const h = entry.contentRect.height
-    // 避免切换瞬间读到 0 导致闪缩
+    // Avoid reading 0 at the moment of switching, which causes flicker/collapse
     if (h > 0 || inviteBodyHeightPx.value <= 0) inviteBodyHeightPx.value = h
   })
   inviteBodyResizeObserver.observe(el)
@@ -608,7 +608,7 @@ watch(
   { flush: 'post' }
 )
 
-// 步骤切换时在布局完成后读取新内容高度，保证高度过渡动画可见
+// Read the new content height after layout completes during step switching, to ensure the height transition animation is visible
 watch(
   [() => invitePreviewLoading.value, () => invitePreviewData.value],
   () => {
@@ -624,40 +624,40 @@ watch(
   { flush: 'post' }
 )
 
-// 更新容器高度的辅助函数
+// Helper function to update the container height
 const updateTabContentHeight = () => {
   if (!tabContentWrapperRef.value) return
 
-  // 先移除固定高度，获取自然高度
+  // First remove the fixed height to get the natural height
   tabContentWrapperRef.value.style.height = 'auto'
   const naturalHeight = tabContentWrapperRef.value.scrollHeight
 
-  // 设置固定高度以触发过渡
+  // Set a fixed height to trigger the transition
   tabContentWrapperRef.value.style.height = `${naturalHeight}px`
 }
 
-// 监听 joinStep 变化，动态调整容器高度以实现平滑过渡
+// Watch joinStep changes and dynamically adjust the container height for a smooth transition
 watch(joinStep, () => {
   if (!tabContentWrapperRef.value) return
 
-  // 先设置当前高度
+  // First set the current height
   const currentHeight = tabContentWrapperRef.value.scrollHeight
   tabContentWrapperRef.value.style.height = `${currentHeight}px`
 
-  // 等待下一帧，让新内容渲染
+  // Wait for the next frame to let the new content render
   requestAnimationFrame(() => {
     updateTabContentHeight()
 
-    // 过渡完成后，移除固定高度，让容器自适应
+    // After the transition completes, remove the fixed height so the container can auto-size
     setTimeout(() => {
       if (tabContentWrapperRef.value) {
         tabContentWrapperRef.value.style.height = 'auto'
       }
-    }, 300) // 与 CSS transition 时长一致
+    }, 300) // Matches the CSS transition duration
   })
 }, { flush: 'post' })
 
-// 监听搜索列表变化，更新高度
+// Watch search list changes and update height
 watch([searchableList, searchLoading], () => {
   if (joinStep.value === 'search') {
     nextTick(() => {
@@ -666,7 +666,7 @@ watch([searchableList, searchLoading], () => {
   }
 })
 
-// 监听菜单快捷操作事件
+// Listen for menu quick-action events
 const handleOrganizationDialogEvent = ((event: CustomEvent<{ type: 'create' | 'join' }>) => {
   if (!canManageOrg.value) {
     MessagePlugin.warning(
@@ -677,12 +677,12 @@ const handleOrganizationDialogEvent = ((event: CustomEvent<{ type: 'create' | 'j
     return
   }
   if (event.detail?.type === 'create') {
-    // 创建组织使用 SettingsModal
+    // Use SettingsModal to create an organization
     settingsOrgId.value = ''
     settingsMode.value = 'create'
     showSettingsModal.value = true
   } else if (event.detail?.type === 'join') {
-    // 加入组织使用与邀请链接相同的预览弹框，先显示输入邀请码步骤
+    // Joining an organization uses the same preview dialog as the invitation link, showing the invite code input step first
     joinInputCode.value = ''
     inviteCode.value = ''
     invitePreviewData.value = null
@@ -691,12 +691,12 @@ const handleOrganizationDialogEvent = ((event: CustomEvent<{ type: 'create' | 'j
     joinStep.value = 'invite'
     searchQuery.value = ''
     orgStore.clearSearchableOrganizations()
-    // 注意：不清空缓存，保留搜索结果以便下次快速显示
+    // Note: don't clear the cache, keep search results for fast display next time
     showInvitePreview.value = true
   }
 }) as EventListener
 
-// 左侧筛选：'all' | 'created' | 'joined'
+// Left-side filter: 'all' | 'created' | 'joined'
 const spaceSelection = ref<'all' | 'created' | 'joined'>('all')
 
 // Computed
@@ -709,8 +709,8 @@ const joinedCount = computed(() => organizations.value.filter(o => !o.is_owner).
 const filteredOrganizations = computed(() => {
   if (spaceSelection.value === 'created') return organizations.value.filter(o => o.is_owner)
   if (spaceSelection.value === 'joined') return organizations.value.filter(o => !o.is_owner)
-  // 「全部」视图下把我创建的 owner 排在前面、我加入的排在后面，方便上面的
-  // 分组标题在过渡处一次性打出来——和 KB / Agent 列表口径一致。
+  // In the "all" view, put organizations I created (owner) first, and ones I joined after, for convenience above
+  // Group titles are typed out all at once at the transition — consistent with the KB / Agent list convention
   return [...organizations.value].sort((a, b) => {
     if (a.is_owner === b.is_owner) return 0
     return a.is_owner ? -1 : 1
@@ -770,7 +770,7 @@ const onVisibleChange = (visible: boolean, org: OrgWithUI) => {
   }
 }
 
-// 创建组织
+// Create organization
 function handleCreateOrganization() {
   if (!canManageOrg.value) {
     MessagePlugin.warning(t('organization.rbac.cannotCreate'))
@@ -781,7 +781,7 @@ function handleCreateOrganization() {
   showSettingsModal.value = true
 }
 
-// 加入组织
+// Join organization
 function handleJoinOrganization() {
   if (!canManageOrg.value) {
     MessagePlugin.warning(t('organization.rbac.cannotJoin'))
@@ -799,7 +799,7 @@ function handleJoinOrganization() {
 }
 
 function handleCardClick(org: OrgWithUI) {
-  // 如果弹窗正在显示，不触发设置
+  // Don't trigger settings if the dialog is currently showing
   if (organizationMenuVisibility[org.id]) {
     return
   }
@@ -855,7 +855,7 @@ async function confirmDelete() {
   }
 }
 
-// 处理邀请链接预览
+// Handle invite link preview
 async function handleInvitePreview(code: string) {
   inviteCode.value = code
   invitePreviewLoading.value = true
@@ -867,7 +867,7 @@ async function handleInvitePreview(code: string) {
     const result = await previewOrganization(code)
     if (result.success && result.data) {
       invitePreviewData.value = result.data
-      // 如果已经是成员，显示提示
+      // Show a hint if already a member
       if (result.data.is_already_member) {
         invitePreviewError.value = t('organization.invite.alreadyMember')
       }
@@ -881,7 +881,7 @@ async function handleInvitePreview(code: string) {
   }
 }
 
-// 确认加入组织（区分直接加入 vs 需要审核，支持邀请码和搜索两种方式）
+// Confirm joining the organization (distinguishes direct join vs. requires approval, supports both invite code and search)
 async function confirmJoinOrganization() {
   if (!invitePreviewData.value || invitePreviewData.value.is_already_member) return
   if (!canManageOrg.value) {
@@ -889,18 +889,18 @@ async function confirmJoinOrganization() {
     return
   }
 
-  // 如果是通过搜索加入的（没有邀请码），使用搜索加入逻辑
+  // If joined via search (no invite code), use the search-join logic
   if (!inviteCode.value && invitePreviewData.value.id) {
     await joinBySearchOrg()
     return
   }
 
-  // 原有逻辑：通过邀请码加入
+  // Original logic: join via invite code
   if (!inviteCode.value) return
 
   inviteJoining.value = true
   try {
-    // 需要审核的情况：提交申请（带申请角色与可选说明）
+    // Case requiring approval: submit application (with requested role and optional note)
     if (invitePreviewData.value.require_approval) {
       const result = await submitJoinRequest({
         invite_code: inviteCode.value,
@@ -912,20 +912,20 @@ async function confirmJoinOrganization() {
         showInvitePreview.value = false
         inviteCode.value = ''
         invitePreviewData.value = null
-        // 清除 URL 中的 invite_code 参数
+        // Clear the invite_code parameter from the URL
         router.replace({ path: route.path, query: {} })
       } else {
         MessagePlugin.error(result.message || t('organization.invite.requestFailed'))
       }
     } else {
-      // 直接加入
+      // Join directly
       const result = await orgStore.join(inviteCode.value)
       if (result) {
         MessagePlugin.success(t('organization.invite.joinSuccess'))
         showInvitePreview.value = false
         inviteCode.value = ''
         invitePreviewData.value = null
-        // 清除 URL 中的 invite_code 参数
+        // Clear the invite_code parameter from the URL
         router.replace({ path: route.path, query: {} })
       } else {
         MessagePlugin.error(orgStore.error || t('organization.invite.joinFailed'))
@@ -938,7 +938,7 @@ async function confirmJoinOrganization() {
   }
 }
 
-// 从输入步骤点击「预览」：用输入的邀请码拉取预览
+// Click "Preview" from the input step: fetch preview using the entered invite code
 async function doPreviewFromInput() {
   const code = joinInputCode.value?.trim()
   if (!code) {
@@ -949,7 +949,7 @@ async function doPreviewFromInput() {
   await handleInvitePreview(code)
 }
 
-// 关闭邀请预览弹框
+// Close the invite preview dialog
 function closeInvitePreview() {
   showInvitePreview.value = false
   inviteCode.value = ''
@@ -964,7 +964,7 @@ function closeInvitePreview() {
   router.replace({ path: route.path, query: {} })
 }
 
-// 从预览详情返回：若来自搜索则回到搜索 Tab，否则回到步骤 1
+// Returning from preview details: go back to the search tab if it came from search, otherwise back to step 1
 function backFromPreview() {
   const fromSearch = !inviteCode.value
   invitePreviewData.value = null
@@ -975,13 +975,13 @@ function backFromPreview() {
   }
 }
 
-// 搜索缓存由 Store 统一管理，切换标签时直接读取缓存或请求最新结果
+// Search cache is managed centrally by the Store; read from cache or fetch the latest results directly when switching tabs
 function handleSearchTabClick() {
   joinStep.value = 'search'
   void doSearchSearchable()
 }
 
-// 搜索可加入空间
+// Search for joinable spaces
 async function doSearchSearchable() {
   const currentQuery = searchQuery.value.trim()
 
@@ -1000,14 +1000,14 @@ function doSearchSearchableDebounced() {
   searchDebounceTimer = setTimeout(() => doSearchSearchable(), 300)
 }
 
-// 空间是否已满（超过成员上限无法加入）
+// Whether the space is full (can't join once the member limit is exceeded)
 function isOrgFull(org: SearchableOrganizationItem): boolean {
   return org.member_limit > 0 && org.member_count >= org.member_limit
 }
 
-// 预览搜索到的空间（转换为预览格式）
+// Preview a space found via search (converted to preview format)
 function previewSearchableOrg(org: SearchableOrganizationItem) {
-  // 将 SearchableOrganizationItem 转换为 OrganizationPreview 格式
+  // Convert SearchableOrganizationItem to OrganizationPreview format
   invitePreviewData.value = {
     id: org.id,
     name: org.name,
@@ -1018,20 +1018,20 @@ function previewSearchableOrg(org: SearchableOrganizationItem) {
     agent_share_count: org.agent_share_count ?? 0,
     is_already_member: org.is_already_member,
     require_approval: org.require_approval,
-    created_at: '', // 搜索列表中没有创建时间，使用空字符串
+    created_at: '', // No creation time in the search list, use an empty string
   }
-  // 清空邀请码，因为这是通过搜索加入的
+  // Clear the invite code, since this was joined via search
   inviteCode.value = ''
 }
 
-// 查看搜索到的空间（已是成员时，打开空间设置；不关闭加入弹窗，关闭设置后仍回到搜索）
+// View a space found via search (if already a member, open space settings; don't close the join dialog, so it returns to search after closing settings)
 function viewSearchableOrg(org: SearchableOrganizationItem) {
   settingsOrgId.value = org.id
   settingsMode.value = 'edit'
   showSettingsModal.value = true
 }
 
-// 从预览弹框中查看空间（已是成员时；不关闭加入弹窗，关闭设置后仍回到搜索）
+// View a space from the preview dialog (if already a member; don't close the join dialog, so it returns to search after closing settings)
 function viewOrganizationFromPreview() {
   if (!invitePreviewData.value) return
   settingsOrgId.value = invitePreviewData.value.id
@@ -1039,7 +1039,7 @@ function viewOrganizationFromPreview() {
   showSettingsModal.value = true
 }
 
-// 复制预览中的空间 ID
+// Copy the space ID from the preview
 function copyPreviewSpaceId() {
   if (!invitePreviewData.value?.id) return
   const text = invitePreviewData.value.id
@@ -1071,7 +1071,7 @@ function fallbackCopyText(text: string) {
   document.body.removeChild(textArea)
 }
 
-// 从搜索列表加入空间（通过空间 ID，无需邀请码）- 在预览确认后调用
+// Join a space from the search list (by space ID, no invite code needed) - called after preview confirmation
 async function joinBySearchOrg() {
   if (!invitePreviewData.value || invitePreviewData.value.is_already_member) return
   if (!canManageOrg.value) {
@@ -1081,7 +1081,7 @@ async function joinBySearchOrg() {
 
   inviteJoining.value = true
   try {
-    // 如果需要审核，传递角色和消息；否则直接加入
+    // If approval is required, pass along the role and message; otherwise join directly
     const message = invitePreviewData.value.require_approval ? inviteRequestMessage.value?.trim() || undefined : undefined
     const role = invitePreviewData.value.require_approval ? inviteRequestRole.value : undefined
     const result = await orgStore.joinById(
@@ -1118,19 +1118,19 @@ onMounted(async () => {
   void orgStore.fetchOrganizations()
   window.addEventListener('openOrganizationDialog', handleOrganizationDialogEvent)
 
-  // 检查 URL 中是否有邀请码
+  // Check whether the URL has an invite code
   const code = route.query.invite_code as string
   if (code) {
     await handleInvitePreview(code)
   }
 
-  // 检查 URL 中是否有 orgId，如果有则打开空间设置
+  // Check whether the URL has an orgId, and if so open space settings
   const orgId = route.query.orgId as string
   if (orgId) {
     settingsOrgId.value = orgId
     settingsMode.value = 'edit'
     showSettingsModal.value = true
-    // 清除 URL 中的 orgId 参数，避免刷新时重复打开
+    // Clear the orgId parameter from the URL to avoid reopening it on refresh
     const newQuery = { ...route.query }
     delete newQuery.orgId
     router.replace({ path: route.path, query: newQuery })
@@ -1290,7 +1290,7 @@ onUnmounted(() => {
   }
 }
 
-// Tab 切换样式（下划线式，与整体协作感一致）
+// Tab switch style (underline style, consistent with the overall collaborative feel)
 .org-tabs {
   display: flex;
   align-items: center;
@@ -1350,13 +1350,13 @@ onUnmounted(() => {
   animation: contentFadeIn 0.32s ease-out;
 }
 
-// 共享空间分组标题——与 KB / Agent 列表口径完全一致（图标 + 名称 + 数量 + 折叠 chevron）。
+// Shared space group title — fully consistent with the KB / Agent list convention (icon + name + count + collapsible chevron)
 .org-section-header {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 6px;
-  // 整行只用来铺背景；点击靠子元素冒泡，避免点到标题右侧空白误折叠。
+  // Full line used only for the background; clicks bubble from child elements to avoid mis-collapsing when clicking blank space to the right of the title.
   pointer-events: none;
 
   & > * {
@@ -1420,7 +1420,7 @@ onUnmounted(() => {
   min-height: 136px;
 }
 
-/* 与知识库 / 智能体列表统一：紧凑 + 1px 描边 */
+/* Unified with knowledge base / agent list: compact + 1px border */
 .org-card {
   border: 1px solid var(--td-component-stroke);
   border-radius: 8px;
@@ -1509,7 +1509,7 @@ onUnmounted(() => {
   }
 }
 
-// 卡片装饰：协作网络图形
+// Card decoration: collaboration network graphic
 .card-decoration {
   position: absolute;
   top: 8px;
@@ -1545,7 +1545,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-// 空间头像容器（SpaceAvatar 自带样式）
+// Space avatar container (SpaceAvatar has its own styling)
 .org-avatar {
   display: flex;
   align-items: center;
@@ -1605,7 +1605,7 @@ onUnmounted(() => {
   }
 }
 
-/* 与知识库卡片内容区一致 */
+/* Consistent with the knowledge base card content area */
 .card-content {
   flex: 1;
   min-height: 0;
@@ -1616,7 +1616,7 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-/* 三个列表卡片统一：描述字体 */
+/* Unified across the three list cards: description font */
 .card-description {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1647,7 +1647,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-// 与知识库卡片统一的底部标签：小尺寸、统一圆角
+// Bottom tag unified with knowledge base cards: small size, unified border radius
 .feature-badges {
   display: flex;
   align-items: center;
@@ -1710,7 +1710,7 @@ onUnmounted(() => {
       width: 14px;
       height: 14px;
       flex-shrink: 0;
-      /* 将绿色 icon 着色为紫色，与标签统一 */
+      /* Recolor the green icon to purple, matching the tag */
       filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(236deg);
     }
 
@@ -1720,7 +1720,7 @@ onUnmounted(() => {
   }
 }
 
-// 待审核角标：与 feature-badge 同高
+// Pending-review badge: same height as feature-badge
 .pending-requests-badge {
   display: inline-flex;
   align-items: center;
@@ -1734,7 +1734,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-// 右下角：创建者/角色 合并标签（带图标）
+// Bottom right: merged creator/role tag (with icon)
 .bottom-right {
   display: flex;
   align-items: center;
@@ -1836,7 +1836,7 @@ onUnmounted(() => {
   }
 }
 
-// 响应式布局
+// Responsive layout
 @media (min-width: 900px) {
   .org-card-wrap {
     grid-template-columns: repeat(2, 1fr);
@@ -1867,7 +1867,7 @@ onUnmounted(() => {
   }
 }
 
-// 删除/离开确认对话框样式
+// Delete/leave confirmation dialog style
 :deep(.del-org-dialog) {
   padding: 0px !important;
   border-radius: 6px !important;
@@ -1953,9 +1953,9 @@ onUnmounted(() => {
 </style>
 
 <style lang="less">
-/* 下拉菜单样式已统一至 @/assets/dropdown-menu.less */
+/* Dropdown menu style unified into @/assets/dropdown-menu.less */
 
-// 创建对话框样式优化
+// Create dialog style improvements
 .create-org-dialog,
 .join-org-dialog {
   .t-form-item__label {
@@ -1972,7 +1972,7 @@ onUnmounted(() => {
 
 }
 
-// 邀请预览弹框 - 参考 FAQ 导入弹窗风格，更紧凑
+// Invitation preview modal - follows the FAQ import modal style, more compact
 .invite-preview-overlay {
   position: fixed;
   inset: 0;
@@ -2069,7 +2069,7 @@ onUnmounted(() => {
   }
 }
 
-// 加入弹框 body 外层：高度过渡动画（输入邀请码 ↔ 搜索空间 ↔ 查看详情）
+// Outer join-modal body: height transition animation (enter invite code ↔ search spaces ↔ view details)
 .invite-preview-body-wrap {
   flex: 0 0 auto;
   overflow: hidden;
@@ -2182,7 +2182,7 @@ onUnmounted(() => {
   }
 }
 
-// Tab 内容容器 - 平滑高度过渡
+// Tab content container - smooth height transition
 .join-tab-content-wrapper {
   transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -2196,7 +2196,7 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-// 搜索空间列表容器（与主列表一致：无外框，卡片间距）
+// Search space list container (consistent with main list: no outer border, card spacing)
 .searchable-list-wrap {
   max-height: 320px;
   min-height: 120px;

@@ -19,7 +19,7 @@ type weKnoraCloudService struct {
 	tenantRepo interfaces.TenantRepository
 }
 
-// NewWeKnoraCloudService 构造 WeKnoraCloudService
+// NewWeKnoraCloudService constructs a WeKnoraCloudService
 func NewWeKnoraCloudService(
 	repo interfaces.ModelRepository,
 	tenantRepo interfaces.TenantRepository,
@@ -33,7 +33,7 @@ func IsWeKnoraCloudDocReaderAddr(addr string) bool {
 	return strings.TrimSuffix(strings.TrimSpace(addr), "/") == strings.TrimRight(provider.WeKnoraCloudBaseURL, "/")+"/api/v1/doc/reader"
 }
 
-// SaveCredentials 仅保存 APPID/APPSECRET 凭证，不自动创建模型
+// SaveCredentials only saves the APPID/APPSECRET credentials, without automatically creating a model
 func (s *weKnoraCloudService) SaveCredentials(ctx context.Context, appID, appSecret string) error {
 	if appID == "" {
 		return fmt.Errorf("app_id is required")
@@ -50,10 +50,10 @@ func (s *weKnoraCloudService) SaveCredentials(ctx context.Context, appID, appSec
 	return s.updateTenantCredentials(ctx, tenantID, appID, appSecret)
 }
 
-// verifyCredentials 向 WeKnoraCloud /api/v1/health 发送带签名头的 GET。
+// verifyCredentials sends a signed GET request to WeKnoraCloud /api/v1/health.
 //
-// 注意：health 一般为探活接口，远端常不校验 APPID/SECRET 或签名；HTTP 200 通常只表示
-// 「网关/服务可达」，不能严格证明凭证有效。若需强校验，应改为调用必须鉴权的业务接口。
+// Note: health is generally a liveness-check endpoint; the remote side often doesn't validate APPID/SECRET or the signature — an HTTP 200 usually only means
+// the "gateway/service is reachable," not strict proof that the credentials are valid. For strict validation, call a business endpoint that requires auth instead.
 func (s *weKnoraCloudService) verifyCredentials(ctx context.Context, appID, appSecret string) error {
 	baseURL := strings.TrimRight(provider.WeKnoraCloudBaseURL, "/")
 	healthURL := baseURL + "/api/v1/health"
@@ -89,7 +89,7 @@ func (s *weKnoraCloudService) verifyCredentials(ctx context.Context, appID, appS
 	return nil
 }
 
-// CheckStatus 检查 WeKnoraCloud 凭证是否可正常解密
+// CheckStatus checks whether WeKnoraCloud credentials can be decrypted correctly
 func (s *weKnoraCloudService) CheckStatus(ctx context.Context) (*types.WeKnoraCloudStatusResult, error) {
 	tenantID := types.MustTenantIDFromContext(ctx)
 
@@ -109,14 +109,14 @@ func (s *weKnoraCloudService) CheckStatus(ctx context.Context) (*types.WeKnoraCl
 		return &types.WeKnoraCloudStatusResult{
 			HasModels:   true,
 			NeedsReinit: true,
-			Reason:      "WeKnoraCloud 凭证解密失败（服务重启后加密密钥已变更），请重新填写 APPID 和 APPSECRET",
+			Reason:      "WeKnoraCloud credentials could not be decrypted (encryption key changed after restart); please re-enter APPID and APPSECRET",
 		}, nil
 	}
 
 	return &types.WeKnoraCloudStatusResult{HasModels: true, NeedsReinit: false}, nil
 }
 
-// updateTenantCredentials 更新空间的 WeKnoraCloud 凭证
+// updateTenantCredentials updates the tenant's WeKnoraCloud credentials
 func (s *weKnoraCloudService) updateTenantCredentials(ctx context.Context, tenantID uint64, appID, appSecret string) error {
 	if s.tenantRepo == nil {
 		return fmt.Errorf("tenant repository is required")

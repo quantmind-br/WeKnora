@@ -95,7 +95,7 @@ export interface ParserEngineInfo {
   UnavailableReason?: string
 }
 
-/** 解析引擎配置（引擎连接参数存空间；聊天附件解析策略在智能体中配置） */
+/** Parser engine configuration (engine connection parameters are stored at the space level; chat attachment parsing strategy is configured in the agent) */
 export type MinerUParseMethod = 'auto' | 'ocr' | 'txt'
 
 export interface ParserEngineConfig {
@@ -103,7 +103,7 @@ export interface ParserEngineConfig {
   docreader_transport?: string
   mineru_endpoint?: string
   mineru_api_key?: string
-  // MinerU 自建参数
+  // MinerU self-hosted parameters
   mineru_model?: string
   mineru_vlm_server_url?: string
   mineru_enable_formula?: boolean | null
@@ -111,17 +111,17 @@ export interface ParserEngineConfig {
   mineru_parse_method?: MinerUParseMethod
   mineru_enable_ocr?: boolean | null
   mineru_language?: string
-  // MinerU 云 API 参数
+  // MinerU cloud API parameters
   mineru_cloud_model?: string
   mineru_cloud_enable_formula?: boolean | null
   mineru_cloud_enable_table?: boolean | null
   mineru_cloud_enable_ocr?: boolean | null
   mineru_cloud_language?: string
-  // PaddleOCR-VL 自建参数
+  // PaddleOCR-VL self-hosted parameters
   paddleocr_vl_endpoint?: string
   paddleocr_vl_use_seal_recognition?: boolean | null
   paddleocr_vl_use_chart_recognition?: boolean | null
-  // PaddleOCR-VL 云 API 参数
+  // PaddleOCR-VL cloud API parameters
   paddleocr_vl_cloud_token?: string
   paddleocr_vl_cloud_model?: string
   paddleocr_vl_cloud_use_seal_recognition?: boolean | null
@@ -131,7 +131,7 @@ export interface ParserEngineConfig {
 export interface ParserEnginesResponse {
   data: ParserEngineInfo[]
   docreader_addr?: string
-  /** 连接方式：grpc | http，由服务端环境/配置决定 */
+  /** Connection method: grpc | http, determined by server-side environment/configuration */
   docreader_transport?: string
   connected?: boolean
 }
@@ -140,7 +140,7 @@ export function getParserEngines(): Promise<ParserEnginesResponse> {
   return get('/api/v1/system/parser-engines')
 }
 
-/** 使用当前填写的参数检测引擎可用性（不保存），用于填写新参数后即时测试 */
+/** Test engine availability with the currently entered parameters (without saving), for instant testing after entering new parameters */
 export function checkParserEngines(config: ParserEngineConfig): Promise<ParserEnginesResponse> {
   return post('/api/v1/system/parser-engines/check', config)
 }
@@ -157,7 +157,7 @@ export function reconnectDocReader(addr: string): Promise<ParserEnginesResponse 
   return post('/api/v1/system/docreader/reconnect', { addr })
 }
 
-// ---- 存储引擎配置（空间级，供文档/图片存储与 docreader 使用） ----
+// ---- Storage engine configuration (space-level, used by document/image storage and docreader) ----
 
 export interface StorageEngineConfig {
   default_provider: string // "local" | "minio" | "cos" | "tos" | "s3" | "oss" | "ks3" | "obs"

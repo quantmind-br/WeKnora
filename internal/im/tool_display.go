@@ -29,29 +29,29 @@ func imLocalizedToolName(toolName string) string {
 }
 
 var imToolNameLabels = map[string]string{
-	"search_knowledge":        "知识库检索",
-	"knowledge_search":        "知识库检索",
-	"grep_chunks":             "搜索关键词",
-	"web_search":              "网络搜索",
-	"web_fetch":               "网页抓取",
-	"get_document_info":       "获取文档信息",
-	"list_knowledge_chunks":   "查看知识分块",
-	"get_related_documents":   "查找相关文档",
-	"get_document_content":    "获取文档内容",
-	"wiki_search":             "Wiki 搜索",
-	"wiki_read_page":          "Wiki 阅读",
-	"wiki_read_source_doc":    "精读源文档",
-	"todo_write":              "计划管理",
-	"knowledge_graph_extract": "知识图谱抽取",
-	"thinking":                "思考",
-	"image_analysis":          "查看图片内容",
-	"query_understand":        "理解问题",
-	"query_knowledge_graph":   "知识图谱查询",
-	"read_skill":              "读取技能",
-	"execute_skill_script":    "执行技能脚本",
-	"data_analysis":           "数据分析",
-	"data_schema":             "数据结构",
-	"database_query":          "数据库查询",
+	"search_knowledge":        "Knowledge Search",
+	"knowledge_search":        "Knowledge Search",
+	"grep_chunks":             "Search keywords",
+	"web_search":              "Web Search",
+	"web_fetch":               "Web Fetch",
+	"get_document_info":       "Get document info",
+	"list_knowledge_chunks":   "List Knowledge Chunks",
+	"get_related_documents":   "Find Related Documents",
+	"get_document_content":    "Get document content",
+	"wiki_search":             "Wiki Search",
+	"wiki_read_page":          "Wiki Read",
+	"wiki_read_source_doc":    "Deep-read Source Doc",
+	"todo_write":              "Plan Management",
+	"knowledge_graph_extract": "Knowledge Graph Extraction",
+	"thinking":                "Thinking",
+	"image_analysis":          "View Image Content",
+	"query_understand":        "Understand Query",
+	"query_knowledge_graph":   "Knowledge Graph Query",
+	"read_skill":              "Read Skill",
+	"execute_skill_script":    "Execute Skill Script",
+	"data_analysis":           "Data Analysis",
+	"data_schema":             "Data Schema",
+	"database_query":          "Database Query",
 }
 
 func formatMCPToolName(rawName string) string {
@@ -266,28 +266,28 @@ func FormatIMRagPipelineLine(step IMToolStep) string {
 	switch toolName {
 	case "query_understand":
 		if step.Pending {
-			return "正在理解问题..."
+			return "Understanding the question..."
 		}
-		return "已完成问题理解"
+		return "Finished understanding the question"
 	case "knowledge_search", "search_knowledge":
 		source := imRetrievalSearchSource(step)
 		if step.Pending {
 			switch source {
 			case imRetrievalSourceWeb:
 				if query != "" {
-					return fmt.Sprintf("正在检索网络：「%s」", query)
+					return fmt.Sprintf("Searching the web: 「%s」", query)
 				}
-				return "正在检索网络..."
+				return "Searching the web..."
 			case imRetrievalSourceMixed:
 				if query != "" {
-					return fmt.Sprintf("正在检索知识库和网络：「%s」", query)
+					return fmt.Sprintf("Searching knowledge base and web: 「%s」", query)
 				}
-				return "正在检索知识库和网络..."
+				return "Searching knowledge base and web..."
 			default:
 				if query != "" {
-					return fmt.Sprintf("正在检索知识库：「%s」", query)
+					return fmt.Sprintf("Searching knowledge base: 「%s」", query)
 				}
-				return "正在检索知识库..."
+				return "Searching knowledge base..."
 			}
 		}
 		base := imRetrievalDoneTitle(source, step.Success)
@@ -305,11 +305,11 @@ func imAgentToolTitle(step IMToolStep) string {
 	if step.Pending {
 		switch step.ToolName {
 		case "image_analysis":
-			return "正在查看图片内容..."
+			return "Viewing image content..."
 		case "wiki_search", "wiki_read_page":
 			return imLocalizedToolName(step.ToolName) + "..."
 		default:
-			return fmt.Sprintf("正在调用 %s...", imLocalizedToolName(step.ToolName))
+			return fmt.Sprintf("Calling %s...", imLocalizedToolName(step.ToolName))
 		}
 	}
 
@@ -364,61 +364,61 @@ func imToolStatusDescription(step IMToolStep) string {
 	switch toolName {
 	case "search_knowledge", "knowledge_search":
 		if success {
-			return "检索知识库"
+			return "Search knowledge base"
 		}
-		return "检索知识库失败"
+		return "Failed to search knowledge base"
 	case "wiki_search", "wiki_read_page":
 		name := imLocalizedToolName(toolName)
 		if success {
 			return name
 		}
-		return fmt.Sprintf("调用 %s 失败", name)
+		return fmt.Sprintf("Failed to call %s", name)
 	case "web_search":
 		if success {
-			return "网络搜索"
+			return "Web Search"
 		}
-		return "网络搜索失败"
+		return "Web search failed"
 	case "grep_chunks":
 		if success {
-			return "搜索关键词"
+			return "Search keywords"
 		}
-		return "搜索关键词失败"
+		return "Failed to search keywords"
 	case "get_document_info":
 		if success {
-			return "获取文档信息"
+			return "Get document info"
 		}
-		return "获取文档信息失败"
+		return "Failed to get document info"
 	case "get_document_content", "wiki_read_source_doc":
 		if success {
-			return "获取文档内容"
+			return "Get document content"
 		}
-		return "获取文档内容失败"
+		return "Failed to get document content"
 	case "thinking":
 		if success {
-			return "完成思考"
+			return "Finished thinking"
 		}
-		return "思考失败"
+		return "Thinking failed"
 	case "todo_write":
 		if success {
-			return "更新任务列表"
+			return "Update task list"
 		}
-		return "更新任务列表失败"
+		return "Failed to update task list"
 	case "image_analysis":
 		if success {
-			return "已查看图片内容"
+			return "Finished viewing image content"
 		}
-		return "图片内容查看失败"
+		return "Failed to view image content"
 	case "query_understand":
 		if success {
-			return "已完成问题理解"
+			return "Finished understanding the question"
 		}
-		return fmt.Sprintf("调用 %s 失败", imLocalizedToolName(toolName))
+		return fmt.Sprintf("Failed to call %s", imLocalizedToolName(toolName))
 	default:
 		name := imLocalizedToolName(toolName)
 		if success {
-			return fmt.Sprintf("调用 %s", name)
+			return fmt.Sprintf("Call %s", name)
 		}
-		return fmt.Sprintf("调用 %s 失败", name)
+		return fmt.Sprintf("Failed to call %s", name)
 	}
 }
 
@@ -435,22 +435,22 @@ func imToolHeaderSummary(step IMToolStep) string {
 	case "get_document_info":
 		if data != nil {
 			if title, ok := data["title"].(string); ok && strings.TrimSpace(title) != "" {
-				return fmt.Sprintf("获取文档：%s", strings.TrimSpace(title))
+				return fmt.Sprintf("Get document: %s", strings.TrimSpace(title))
 			}
 		}
 	case "list_knowledge_chunks":
 		if data != nil {
 			if question, ok := data["faq_question"].(string); ok && strings.TrimSpace(question) != "" {
-				return fmt.Sprintf("查看 FAQ：%s", strings.TrimSpace(question))
+				return fmt.Sprintf("View FAQ: %s", strings.TrimSpace(question))
 			}
 			if _, ok := data["fetched_chunks"]; ok {
-				title := "文档"
+				title := "Document"
 				if t, ok := data["knowledge_title"].(string); ok && strings.TrimSpace(t) != "" {
 					title = strings.TrimSpace(t)
 				} else if id, ok := data["knowledge_id"].(string); ok && strings.TrimSpace(id) != "" {
 					title = strings.TrimSpace(id)
 				}
-				return fmt.Sprintf("查看 %s", title)
+				return fmt.Sprintf("View %s", title)
 			}
 		}
 	}
@@ -507,19 +507,19 @@ func imRetrievalDoneTitle(source string, success bool) string {
 	switch source {
 	case imRetrievalSourceWeb:
 		if success {
-			return "网络检索"
+			return "Web retrieval"
 		}
-		return "网络检索失败"
+		return "Web retrieval failed"
 	case imRetrievalSourceMixed:
 		if success {
-			return "检索知识库和网络"
+			return "Search knowledge base and web"
 		}
-		return "检索失败"
+		return "Retrieval failed"
 	default:
 		if success {
-			return "检索知识库"
+			return "Search knowledge base"
 		}
-		return "检索知识库失败"
+		return "Failed to search knowledge base"
 	}
 }
 
@@ -545,21 +545,21 @@ func imKnowledgeSearchSummary(data map[string]interface{}) string {
 	}
 	count := imResultCount(data)
 	if count == 0 {
-		return "未找到匹配的内容"
+		return "No matching content found"
 	}
 	source := imSearchSourceFromData(data)
 	webCount := imIntField(data, "web_count")
 	docCount := imIntField(data, "doc_count")
 	if source == imRetrievalSourceWeb || (webCount > 0 && docCount == 0) {
-		return fmt.Sprintf("找到 %d 条网页", count)
+		return fmt.Sprintf("Found %d web pages", count)
 	}
 	if kbCounts, ok := data["kb_counts"].(map[string]interface{}); ok && len(kbCounts) > 0 {
-		return fmt.Sprintf("找到 %d 个结果，来自 %d 个文件", count, len(kbCounts))
+		return fmt.Sprintf("Found %d results from %d files", count, len(kbCounts))
 	}
 	if source == imRetrievalSourceMixed && docCount > 0 && webCount > 0 {
-		return fmt.Sprintf("找到 %d 个结果（%d 篇文档，%d 条网页）", count, docCount, webCount)
+		return fmt.Sprintf("Found %d results (%d documents, %d web pages)", count, docCount, webCount)
 	}
-	return fmt.Sprintf("找到 %d 个结果", count)
+	return fmt.Sprintf("Found %d results", count)
 }
 
 func imWebSearchSummary(data map[string]interface{}) string {
@@ -570,7 +570,7 @@ func imWebSearchSummary(data map[string]interface{}) string {
 	if count == 0 {
 		return ""
 	}
-	return fmt.Sprintf("找到 %d 个网络搜索结果", count)
+	return fmt.Sprintf("Found %d web search results", count)
 }
 
 func imGrepSearchSummary(data map[string]interface{}) string {
@@ -584,10 +584,10 @@ func imGrepSearchSummary(data map[string]interface{}) string {
 		totalChunks = v
 	}
 	if totalChunks == 0 {
-		return "未找到匹配的内容"
+		return "No matching content found"
 	}
 	docCount := imGrepDocumentCount(data)
-	return fmt.Sprintf("找到 %d 个匹配片段，来自 %d 个文档", totalChunks, docCount)
+	return fmt.Sprintf("Found %d matching snippets from %d documents", totalChunks, docCount)
 }
 
 func imGrepDocumentCount(data map[string]interface{}) int {
@@ -616,14 +616,14 @@ func imKnowledgeChunksSummary(data map[string]interface{}) string {
 	}
 	fetchedN := imNumericValue(fetched)
 	totalN := imNumericValue(data["total_chunks"])
-	summary := fmt.Sprintf("已加载 %d / %v 个分块", fetchedN, formatIMOptionalInt(totalN, data["total_chunks"]))
+	summary := fmt.Sprintf("Loaded %d / %v chunks", fetchedN, formatIMOptionalInt(totalN, data["total_chunks"]))
 	pageSize := imNumericValue(data["page_size"])
 	if totalN > pageSize && pageSize > 0 {
 		page := imNumericValue(data["page"])
 		if page <= 0 {
 			page = 1
 		}
-		summary += fmt.Sprintf(" · 第 %d 页，每页 %d 个", page, pageSize)
+		summary += fmt.Sprintf(" · Page %d, %d per page", page, pageSize)
 	}
 	return summary
 }

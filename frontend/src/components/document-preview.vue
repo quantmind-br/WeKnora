@@ -212,9 +212,9 @@ async function renderMarkdown(blob: Blob) {
   const { marked } = await import('marked');
   const text = await blob.text();
 
-  // 校验文本内容是否有效
+  // Validate whether the text content is valid
   if (!text || typeof text !== 'string') {
-    markdownHtml.value = '<p style="color: var(--td-text-color-disabled); text-align: center; padding: 20px;">文档内容为空</p>';
+    markdownHtml.value = '<p style="color: var(--td-text-color-disabled); text-align: center; padding: 20px;">Document content is empty</p>';
     return;
   }
 
@@ -225,7 +225,7 @@ async function renderMarkdown(blob: Blob) {
   marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
   const renderer = new marked.Renderer();
   renderer.code = function ({text, lang}) {
-    // 空值校验：防止 text 为 undefined 或 null
+    // Null check: prevent text from being undefined or null
     if (!text || typeof text !== 'string') {
       text = '';
     }
@@ -847,28 +847,28 @@ onUnmounted(() => {
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
-  overflow-x: auto; // 如果内容过宽，允许水平滚动而不是溢出
+  overflow-x: auto; // If the content is too wide, allow horizontal scrolling instead of overflow
   
-  // 约束所有子元素的宽度
+  // Constrain the width of all child elements
   * {
     max-width: 100%;
     box-sizing: border-box;
   }
   
-  // 特别处理表格
+  // Special handling for tables
   table {
     width: 100%;
     table-layout: auto;
     word-wrap: break-word;
   }
   
-  // 处理图片
+  // Handle images
   img {
     max-width: 100%;
     height: auto;
   }
   
-  // 处理可能的固定宽度元素
+  // Handle possible fixed-width elements
   [style*="width"] {
     max-width: 100% !important;
   }

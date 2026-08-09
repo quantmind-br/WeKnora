@@ -12,9 +12,9 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-// TestShapeReasoningVLMRequest 验证 GPT-5 / o-series 的请求参数改写。
-// 见 issue #2537：这些模型必须使用 max_completion_tokens 替代 max_tokens，
-// 且不接受非默认的采样参数。
+// TestShapeReasoningVLMRequest verifies request parameter rewriting for GPT-5 / o-series models.
+// See issue #2537: these models must use max_completion_tokens instead of max_tokens,
+// and do not accept non-default sampling parameters.
 func TestShapeReasoningVLMRequest(t *testing.T) {
 	cases := []struct {
 		name                    string

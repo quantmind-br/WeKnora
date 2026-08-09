@@ -27,7 +27,7 @@ type fakeMemberService struct {
 	failGet    error
 	failHasAny error
 	failAdd    error
-	// 阻止 auto-promote 把 hasAny 翻面：默认 AddMember 成功也会写入 members map。
+	// Prevent auto-promote from flipping hasAny: by default, a successful AddMember also writes to the members map.
 }
 
 func newFakeMemberService() *fakeMemberService {
@@ -39,7 +39,7 @@ func memberKey(u string, t uint64) string {
 }
 
 func uintToStr(t uint64) string {
-	// 简单数字转字符串，避免引入额外依赖。
+	// Simple number-to-string conversion, avoiding an extra dependency.
 	if t == 0 {
 		return "0"
 	}
@@ -160,7 +160,7 @@ func TestResolveTenantRole_ActiveMembershipWins(t *testing.T) {
 }
 
 func TestResolveTenantRole_CrossTenantSuperuserGetsAdmin_NoAutoPromote(t *testing.T) {
-	// 回归 H1：跨空间超管 switch 到他人空间时，绝对不能写入 tenant_members。
+	// Regression H1: when a cross-space superadmin switches to someone else's space, it must never write to tenant_members.
 	svc := newFakeMemberService()
 	user := &types.User{ID: "super", TenantID: 1, CanAccessAllTenants: true}
 
@@ -174,9 +174,9 @@ func TestResolveTenantRole_CrossTenantSuperuserGetsAdmin_NoAutoPromote(t *testin
 }
 
 func TestResolveTenantRole_AutoPromoteRequiresHomeTenant(t *testing.T) {
-	// 回归 H1：即便 target 是孤儿空间，只要不是用户自己的 home tenant，
-	// 就不能 auto-promote 为 Owner。
-	svc := newFakeMemberService() // 空 — 任何空间都是孤儿
+	// Regression H1: even if the target is an orphan space, as long as it isn't the user's own home tenant,
+	// it must not be auto-promoted to Owner.
+	svc := newFakeMemberService() // Empty — any space is an orphan
 	user := &types.User{ID: "u1", TenantID: 1, CanAccessAllTenants: true}
 
 	got, ok := resolveTenantRole(context.Background(), svc, user, 42, true, cfgWithRBAC(true))
@@ -189,7 +189,7 @@ func TestResolveTenantRole_AutoPromoteRequiresHomeTenant(t *testing.T) {
 }
 
 func TestResolveTenantRole_AutoPromoteHomeTenant(t *testing.T) {
-	// home tenant + 孤儿空间 + 非 switch → 允许 auto-promote 为 Owner。
+	// home tenant + orphan space + non-switch → auto-promotion to Owner is allowed.
 	svc := newFakeMemberService()
 	user := &types.User{ID: "u1", TenantID: 7}
 
@@ -204,7 +204,7 @@ func TestResolveTenantRole_AutoPromoteHomeTenant(t *testing.T) {
 
 func TestResolveTenantRole_AutoPromoteSkippedIfTenantHasMembers(t *testing.T) {
 	svc := newFakeMemberService()
-	// 同一 home tenant 已经有其它成员 — 不应自动晋升新登录者。
+	// The same home tenant already has other members — the newly logged-in user should not be auto-promoted.
 	svc.seedActive("other", 7, types.TenantRoleOwner)
 	user := &types.User{ID: "u1", TenantID: 7}
 
@@ -220,7 +220,7 @@ func TestResolveTenantRole_AutoPromoteSkippedIfTenantHasMembers(t *testing.T) {
 func TestResolveTenantRole_FailOpenAdminWhenRBACDisabled(t *testing.T) {
 	svc := newFakeMemberService()
 	user := &types.User{ID: "u1", TenantID: 7}
-	// targetTenantID != home，所以不进 auto-promote 分支。
+	// targetTenantID != home, so it does not enter the auto-promote branch.
 	got, ok := resolveTenantRole(context.Background(), svc, user, 8, false, cfgWithRBAC(false))
 	if !ok || got != types.TenantRoleAdmin {
 		t.Fatalf("EnableRBAC=false should fail open Admin, got (%v, %v)", got, ok)
@@ -229,7 +229,7 @@ func TestResolveTenantRole_FailOpenAdminWhenRBACDisabled(t *testing.T) {
 
 func TestResolveTenantRole_FailClosedWhenRBACEnabled(t *testing.T) {
 	svc := newFakeMemberService()
-	// 已有其它成员，自动晋升路径关闭；RBAC 启用 → 必须 403。
+	// Other members already exist, so the auto-promote path is closed; with RBAC enabled → must be 403.
 	svc.seedActive("other", 8, types.TenantRoleOwner)
 	user := &types.User{ID: "u1", TenantID: 7}
 	if _, ok := resolveTenantRole(context.Background(), svc, user, 8, false, cfgWithRBAC(true)); ok {
@@ -238,11 +238,11 @@ func TestResolveTenantRole_FailClosedWhenRBACEnabled(t *testing.T) {
 }
 
 func TestResolveTenantRole_LookupErrorFailsOpenWhenRBACDisabled(t *testing.T) {
-	// 短暂 DB 错误时，fail-open 模式不应锁死现有用户。这里 targetTenantID 故意
-	// 选与 home 不同的值，避免进入 home-tenant auto-promote 分支。
+	// During a transient DB error, fail-open mode should not lock out existing users. Here targetTenantID is deliberately
+	// set to a value different from home, to avoid entering the home-tenant auto-promote branch.
 	svc := newFakeMemberService()
 	svc.failGet = errors.New("transient db failure")
-	// 让 HasAnyMembers 返回 true，关闭孤儿空间自愈路径。
+	// Make HasAnyMembers return true, closing the orphan-space self-healing path.
 	svc.seedActive("placeholder", 8, types.TenantRoleAdmin)
 	user := &types.User{ID: "u1", TenantID: 7}
 
@@ -253,10 +253,10 @@ func TestResolveTenantRole_LookupErrorFailsOpenWhenRBACDisabled(t *testing.T) {
 }
 
 func TestResolveTenantRole_DemotedUserCannotReclaimViaOrphan(t *testing.T) {
-	// 边界场景：管理员人为软删全部成员后，被踢出的用户不应在登录自己 home tenant 时
-	// 因 HasAnyMembers=false 而自动重新拿到 Owner。
-	// 当前实现的策略是 "home tenant + 孤儿 => Owner"，这是设计选择；本测试为这条
-	// 路径加锁，未来如果收紧策略需要同步更新。
+	// Edge case: after an admin manually soft-deletes all members, a kicked-out user should not, upon logging into their own home tenant,
+	// automatically regain Owner status just because HasAnyMembers=false.
+	// The current implementation's policy is "home tenant + orphan => Owner" — this is a deliberate design choice; this test
+	// locks in that path — if the policy is tightened in the future, this needs to be updated accordingly.
 	svc := newFakeMemberService()
 	user := &types.User{ID: "demoted", TenantID: 5}
 	got, ok := resolveTenantRole(context.Background(), svc, user, 5, false, cfgWithRBAC(true))

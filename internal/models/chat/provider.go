@@ -202,7 +202,7 @@ func (geminiProvider) InjectToolCallMetadata(toolCall map[string]any, metadata t
 	toolCall["extra_content"] = map[string]any{"google": googleValue}
 }
 
-// --- Volcengine (火山引擎 Ark): thinking via { "thinking": { "type": ... } } ---
+// --- Volcengine (Huoshan Engine Ark): thinking via { "thinking": { "type": ... } } ---
 
 type volcengineProvider struct{ baseProvider }
 

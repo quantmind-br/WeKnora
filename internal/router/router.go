@@ -24,7 +24,7 @@ import (
 	_ "github.com/Tencent/WeKnora/docs" // swagger docs
 )
 
-// RouterParams 路由参数
+// RouterParams route parameters
 type RouterParams struct {
 	dig.In
 
@@ -86,7 +86,7 @@ type RouterParams struct {
 	WikiPageHandler              *handler.WikiPageHandler
 }
 
-// NewRouter 创建新的路由
+// NewRouter creates a new router
 func NewRouter(params RouterParams) *gin.Engine {
 	r := gin.New()
 	r.ContextWithFallback = true
@@ -101,12 +101,12 @@ func NewRouter(params RouterParams) *gin.Engine {
 		logger.Errorf(context.Background(), "[Router] failed to set trusted proxies: %v", err)
 	}
 
-	// CORS 中间件应放在最前面。
-	// 注意：通配符 AllowOrigins 下浏览器会拒绝一切带凭据（cookie）的跨域
-	// 请求（CORS 规范禁止 "*" 与 credentials 组合），因此 AllowCredentials
-	// 实际只对未来改为回显具体 Origin 时才生效；当前认证全部走显式的
-	// Authorization / X-API-Key 头，不依赖 ambient 凭据。若引入 cookie
-	// 认证，必须先把 AllowOrigins 换成受控清单。
+	// CORS middleware should be placed first.
+	// Note: with wildcard AllowOrigins, browsers will reject any cross-origin request that carries credentials (cookies)
+	// (the CORS spec forbids combining "*" with credentials), so AllowCredentials
+	// only actually takes effect if we later switch to echoing back the specific Origin; current auth relies entirely on explicit
+	// Authorization / X-API-Key headers, not on ambient credentials. If cookie-based
+	// auth is introduced, AllowOrigins must first be switched to a controlled allowlist.
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -116,26 +116,26 @@ func NewRouter(params RouterParams) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 基础中间件（不需要认证）
+	// Base middleware (no auth required)
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Language())
 	r.Use(middleware.Logger())
 	r.Use(middleware.Recovery())
 	r.Use(middleware.ErrorHandler())
 
-	// 健康检查（不需要认证）
+	// Health check (no auth required)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Swagger API 文档（仅在非生产环境下启用）
-	// 通过 GIN_MODE 环境变量判断：release 模式下禁用 Swagger
+	// Swagger API docs (enabled only in non-production environments)
+	// Determined via the GIN_MODE environment variable: Swagger is disabled in release mode
 	if gin.Mode() != gin.ReleaseMode {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
-			ginSwagger.DefaultModelsExpandDepth(-1), // 默认折叠 Models
-			ginSwagger.DocExpansion("list"),         // 展开模式: "list"(展开标签), "full"(全部展开), "none"(全部折叠)
-			ginSwagger.DeepLinking(true),            // 启用深度链接
-			ginSwagger.PersistAuthorization(true),   // 持久化认证信息
+			ginSwagger.DefaultModelsExpandDepth(-1), // Collapse Models by default
+			ginSwagger.DocExpansion("list"),         // Expand mode: "list" (expand tags), "full" (expand all), "none" (collapse all)
+			ginSwagger.DeepLinking(true),            // Enable deep linking
+			ginSwagger.PersistAuthorization(true),   // Persist auth info
 		))
 	}
 
@@ -148,15 +148,15 @@ func NewRouter(params RouterParams) *gin.Engine {
 		r.Use(embedFrameAncestorsMiddleware(params.EmbedChannelService))
 	}
 
-	// 前端静态文件（仅 Lite 版本内嵌前端）
+	// Frontend static files (frontend is embedded only in the Lite edition)
 	if handler.Edition == "lite" {
 		serveFrontendStatic(r)
 	}
 
-	// IM 回调路由（在认证中间件之前注册，使用各平台自身的签名验证）
+	// IM callback routes (registered before the auth middleware, using each platform's own signature verification)
 	RegisterIMRoutes(r, params.IMHandler)
 
-	// Web embed 公开路由（使用 publish token 鉴权，不走全局 Auth）
+	// Web embed public routes (authenticated via publish token, bypassing global Auth)
 	RegisterEmbedPublicRoutes(
 		r,
 		params.EmbedChannelHandler,
@@ -172,10 +172,10 @@ func NewRouter(params RouterParams) *gin.Engine {
 	// WeKnora authentication headers.
 	serveResourceGrants(r, params.ResourceCatalog, params.TenantService, params.FileService, params.StorageBackendResolver)
 
-	// 认证中间件
+	// Auth middleware
 	r.Use(middleware.Auth(params.TenantService, params.UserService, params.TenantMemberService, params.TenantAPIKeyService, params.Config))
 
-	// 文件服务：统一代理本地/MinIO/COS/TOS存储后端（需要认证）
+	// File service: unified proxy for local/MinIO/COS/TOS storage backends (requires auth)
 	serveFilesWithResources(r, params.FileService, params.StorageBackendResolver, params.ResourceCatalog)
 
 	// Presigned file access: no auth required, signature-verified.
@@ -195,7 +195,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 	// "log to stderr only" instead of crashing.
 	r.Use(middleware.AuditServiceProvider(params.AuditLogService))
 
-	// 需要认证的API路由
+	// API routes that require auth
 	v1 := r.Group("/api/v1")
 	{
 		// rbacGuards bundles the role-gating middleware factories so each

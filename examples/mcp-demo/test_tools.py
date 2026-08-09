@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""列出 MCP Demo 暴露的工具（需先启动 server.py）。"""
+"""List the tools exposed by MCP Demo (requires server.py to be started first)."""
 
 from __future__ import annotations
 

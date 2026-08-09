@@ -1,32 +1,32 @@
 # Vector Store API
 
-[返回目录](./README.md)
+[Back to index](./README.md)
 
-向量存储（VectorStore）API 用于管理空间的向量数据库连接配置，支持 Elasticsearch、PostgreSQL、Qdrant、Milvus、Weaviate、Tencent VectorDB、SQLite 等引擎。接口同时管理用户在 DB 中创建的配置（`source: "user"`）以及通过 `RETRIEVE_DRIVER` 环境变量配置的虚拟存储（`source: "env"`，只读）。
+The Vector Store API manages a space's vector database connection configurations, supporting engines such as Elasticsearch, PostgreSQL, Qdrant, Milvus, Weaviate, Tencent VectorDB, and SQLite. The endpoints manage both configurations created by the user in the DB (`source: "user"`) and virtual stores configured via the `RETRIEVE_DRIVER` environment variable (`source: "env"`, read-only).
 
-| 方法   | 路径                         | 描述                             |
-| ------ | ---------------------------- | -------------------------------- |
-| GET    | `/vector-stores/types`       | 获取支持的引擎类型及字段元数据     |
-| POST   | `/vector-stores/test`        | 使用原始凭据测试连接（不落库）      |
-| POST   | `/vector-stores`             | 创建向量存储                     |
-| GET    | `/vector-stores`             | 获取向量存储列表                 |
-| GET    | `/vector-stores/:id`         | 获取向量存储详情                 |
-| PUT    | `/vector-stores/:id`         | 更新向量存储（仅名称可改）        |
-| DELETE | `/vector-stores/:id`         | 删除向量存储（软删除）            |
-| POST   | `/vector-stores/:id/test`    | 测试已保存或环境变量存储的连通性   |
+| Method | Path                       | Description                                        |
+| ------ | --------------------------- | --------------------------------------------------- |
+| GET    | `/vector-stores/types`      | Get supported engine types and field metadata        |
+| POST   | `/vector-stores/test`       | Test a connection using raw credentials (not persisted) |
+| POST   | `/vector-stores`            | Create a vector store                                |
+| GET    | `/vector-stores`            | Get the list of vector stores                        |
+| GET    | `/vector-stores/:id`        | Get vector store details                             |
+| PUT    | `/vector-stores/:id`        | Update a vector store (only the name can be changed) |
+| DELETE | `/vector-stores/:id`        | Delete a vector store (soft delete)                   |
+| POST   | `/vector-stores/:id/test`   | Test connectivity of a saved or environment-variable store |
 
-## GET `/vector-stores/types` - 获取支持的引擎类型
+## GET `/vector-stores/types` - Get supported engine types
 
-返回所有支持的引擎类型及其连接配置字段、索引配置字段的定义，可用于前端动态表单生成。系统级元数据，无需鉴权感知，但仍需 `X-API-Key`。
+Returns the definitions of all supported engine types, along with their connection configuration fields and index configuration fields, which can be used to dynamically generate frontend forms. This is system-level metadata and doesn't require authorization awareness, but it still requires `X-API-Key`.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/vector-stores/types' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -60,18 +60,18 @@ curl --location 'http://localhost:8080/api/v1/vector-stores/types' \
 }
 ```
 
-## POST `/vector-stores/test` - 使用原始凭据测试连接
+## POST `/vector-stores/test` - Test a connection using raw credentials
 
-用前端表单中尚未保存的凭据执行一次连通性测试，不会写入数据库。成功时返回自动检测到的服务器版本（如 ES 版本号）；某些引擎（如 Milvus、SQLite）无法检测版本，`version` 会返回空字符串。
+Runs a connectivity test using credentials from the frontend form that haven't been saved yet, without writing anything to the database. On success, it returns the automatically detected server version (e.g., the ES version number); some engines (such as Milvus and SQLite) can't detect a version, in which case `version` is returned as an empty string.
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段              | 类型   | 必填 | 说明                                                          |
-| ----------------- | ------ | ---- | ------------------------------------------------------------- |
-| engine_type       | string | 是   | 引擎类型，取自 `/vector-stores/types` 的 `type`                |
-| connection_config | object | 是   | 该引擎对应的连接配置字段（与 `connection_fields` 对应）         |
+| Field              | Type   | Required | Description                                                     |
+| ------------------- | ------ | -------- | ----------------------------------------------------------------- |
+| engine_type         | string | Yes      | Engine type, taken from the `type` field in `/vector-stores/types` |
+| connection_config   | object | Yes      | Connection configuration fields for that engine (corresponding to `connection_fields`) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/test' \
@@ -87,7 +87,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/test'
 }'
 ```
 
-**响应（成功）**:
+**Response (success)**:
 
 ```json
 {
@@ -96,7 +96,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/test'
 }
 ```
 
-**响应（失败）**:
+**Response (failure)**:
 
 ```json
 {
@@ -105,24 +105,24 @@ curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/test'
 }
 ```
 
-> 注意：测试失败时 HTTP 状态码仍为 `200`，错误信息通过 `success: false` + `error` 字段返回。
+> Note: when the test fails, the HTTP status code is still `200`; the error message is returned via the `success: false` + `error` fields.
 
-## POST `/vector-stores` - 创建向量存储
+## POST `/vector-stores` - Create a vector store
 
-为当前空间创建一个新的向量存储配置。同一 endpoint + index 组合在空间内不允许重复（与环境变量配置的存储也会冲突）。
+Creates a new vector store configuration for the current space. The same endpoint + index combination cannot be duplicated within a space (it will also conflict with environment-variable-configured stores).
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段              | 类型   | 必填 | 说明                                                            |
-| ----------------- | ------ | ---- | --------------------------------------------------------------- |
-| name              | string | 是   | 存储显示名（空间内友好名）                                       |
-| engine_type       | string | 是   | 引擎类型，取自 `/vector-stores/types`                            |
-| connection_config | object | 是   | 连接配置（与所选引擎的 `connection_fields` 对应）                |
-| index_config      | object | 否   | 索引配置（与所选引擎的 `index_fields` 对应）                     |
+| Field              | Type   | Required | Description                                                       |
+| ------------------- | ------ | -------- | -------------------------------------------------------------------- |
+| name                | string | Yes      | Display name of the store (friendly name within the space)            |
+| engine_type         | string | Yes      | Engine type, taken from `/vector-stores/types`                        |
+| connection_config   | object | Yes      | Connection configuration (corresponding to the selected engine's `connection_fields`) |
+| index_config        | object | No       | Index configuration (corresponding to the selected engine's `index_fields`) |
 
-> Tencent VectorDB 使用 `engine_type: "tencent_vectordb"`。`connection_config` 中 `addr`、`username`、`api_key` 必填，`database` 可选；`index_config.collection_name` 表示集合名前缀，实际集合会按向量维度追加后缀（例如 `weknora_embeddings_768`）；`index_config.replica_number` 表示创建集合时使用的副本数。该适配器同时支持向量检索和基于 BM25 sparse vector 的关键词检索；旧版本已创建且没有 `sparse_vector` 索引的集合需要重建并重新导入数据后才能启用关键词检索。
+> Tencent VectorDB uses `engine_type: "tencent_vectordb"`. In `connection_config`, `addr`, `username`, and `api_key` are required, while `database` is optional; `index_config.collection_name` is the collection name prefix — the actual collection will have a suffix appended based on the vector dimension (e.g., `weknora_embeddings_768`); `index_config.replica_number` is the number of replicas used when creating the collection. This adapter supports both vector retrieval and keyword retrieval based on BM25 sparse vectors; collections created in older versions without a `sparse_vector` index need to be rebuilt and have data re-imported before keyword retrieval can be enabled.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/vector-stores' \
@@ -142,7 +142,7 @@ curl --location 'http://localhost:8080/api/v1/vector-stores' \
 }'
 ```
 
-**Tencent VectorDB 请求示例**:
+**Tencent VectorDB request example**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/vector-stores' \
@@ -164,7 +164,7 @@ curl --location 'http://localhost:8080/api/v1/vector-stores' \
 }'
 ```
 
-**响应** (201):
+**Response** (201):
 
 ```json
 {
@@ -189,20 +189,20 @@ curl --location 'http://localhost:8080/api/v1/vector-stores' \
 }
 ```
 
-> 响应中的敏感字段（`password`、`api_key` 等）会被掩码为 `"***"`。`connection_config.version` 字段在连接测试成功后才会自动填充，创建时为空。
+> Sensitive fields in the response (`password`, `api_key`, etc.) are masked as `"***"`. The `connection_config.version` field is only populated automatically after a connection test succeeds; it is empty on creation.
 
-## GET `/vector-stores` - 获取向量存储列表
+## GET `/vector-stores` - Get the list of vector stores
 
-返回当前空间的所有向量存储，包含 `RETRIEVE_DRIVER` 环境变量配置的虚拟存储（`source: "env"`、`readonly: true`）和用户在 DB 中创建的存储（`source: "user"`、`readonly: false`）。环境变量存储排列在前。
+Returns all vector stores for the current space, including virtual stores configured via the `RETRIEVE_DRIVER` environment variable (`source: "env"`, `readonly: true`) and stores created by the user in the DB (`source: "user"`, `readonly: false`). Environment-variable stores are listed first.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/vector-stores' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -234,24 +234,24 @@ curl --location 'http://localhost:8080/api/v1/vector-stores' \
 }
 ```
 
-## GET `/vector-stores/:id` - 获取向量存储详情
+## GET `/vector-stores/:id` - Get vector store details
 
-根据 ID 获取单个向量存储。支持 DB 存储 UUID 和 `__env_*` 形式的环境变量存储 ID（例如 `__env_postgres__`）。
+Gets a single vector store by ID. Supports both DB store UUIDs and environment-variable store IDs in the `__env_*` format (e.g., `__env_postgres__`).
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明                                                |
-| ---- | ------ | ---- | --------------------------------------------------- |
-| id   | string | 是   | 向量存储 ID（DB UUID 或 `__env_{driver}__`）          |
+| Field | Type   | Required | Description                                            |
+| ----- | ------ | -------- | -------------------------------------------------------- |
+| id    | string | Yes      | Vector store ID (DB UUID or `__env_{driver}__`)          |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/vector-stores/550e8400-e29b-41d4-a716-446655440000' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -277,23 +277,23 @@ curl --location 'http://localhost:8080/api/v1/vector-stores/550e8400-e29b-41d4-a
 }
 ```
 
-## PUT `/vector-stores/:id` - 更新向量存储
+## PUT `/vector-stores/:id` - Update a vector store
 
-仅支持更新 `name`。`engine_type`、`connection_config`、`index_config` 创建后不可变更；环境变量存储不可修改（返回 `400`）。
+Only supports updating `name`. `engine_type`, `connection_config`, and `index_config` cannot be changed after creation; environment-variable stores cannot be modified (returns `400`).
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明           |
-| ---- | ------ | ---- | -------------- |
-| id   | string | 是   | 向量存储 ID    |
+| Field | Type   | Required | Description       |
+| ----- | ------ | -------- | -------------------- |
+| id    | string | Yes      | Vector store ID    |
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段 | 类型   | 必填 | 说明              |
-| ---- | ------ | ---- | ----------------- |
-| name | string | 是   | 新的存储显示名     |
+| Field | Type   | Required | Description              |
+| ----- | ------ | -------- | -------------------------- |
+| name  | string | Yes      | New display name for the store |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/vector-stores/550e8400-e29b-41d4-a716-446655440000' \
@@ -304,7 +304,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/vector-stores/550e84
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -329,28 +329,28 @@ curl --location --request PUT 'http://localhost:8080/api/v1/vector-stores/550e84
 }
 ```
 
-## DELETE `/vector-stores/:id` - 删除向量存储
+## DELETE `/vector-stores/:id` - Delete a vector store
 
-对 DB 中的存储执行软删除。环境变量存储不可删除（返回 `400`）。
+Performs a soft delete on a store in the DB. Environment-variable stores cannot be deleted (returns `400`).
 
-**Phase 2 — 绑定保护**：
+**Phase 2 — Binding protection**:
 
-删除请求在事务中执行，并按 `(tenant_id, vector_store_id)` 复合索引统计当前空间中仍绑定到该存储的活跃知识库数量。**只要存在任意绑定的知识库（已软删除的 KB 不计入），删除即被拒绝**，调用者必须先解绑或删除这些知识库才能继续。在 PostgreSQL 上，事务期间会对 `vector_stores` 行加 `SELECT … FOR UPDATE` 行锁，阻止并发的知识库创建请求悄悄落到正在被删除的存储上（SQLite 上则依赖 WAL + 单写入序列化达成同样语义）。
+The delete request runs within a transaction, and counts the number of active knowledge bases in the current space that are still bound to that store, using the `(tenant_id, vector_store_id)` composite index. **As long as any bound knowledge base exists (soft-deleted KBs are not counted), the deletion is rejected**, and the caller must first unbind or delete those knowledge bases before proceeding. On PostgreSQL, a `SELECT … FOR UPDATE` row lock is placed on the `vector_stores` row during the transaction, preventing concurrent knowledge base creation requests from silently landing on a store that is being deleted (on SQLite, the same semantics are achieved via WAL + single-writer serialization).
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明           |
-| ---- | ------ | ---- | -------------- |
-| id   | string | 是   | 向量存储 ID    |
+| Field | Type   | Required | Description       |
+| ----- | ------ | -------- | -------------------- |
+| id    | string | Yes      | Vector store ID    |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/vector-stores/550e8400-e29b-41d4-a716-446655440000' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应（成功）**:
+**Response (success)**:
 
 ```json
 {
@@ -358,7 +358,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/vector-stores/550
 }
 ```
 
-**响应（绑定保护触发）**:
+**Response (binding protection triggered)**:
 
 ```json
 {
@@ -370,26 +370,26 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/vector-stores/550
 }
 ```
 
-HTTP `400`。错误消息中包含具体的知识库数量（便于运营定位），但不包含任何 KB 的 ID/名称，以避免跨空间信息泄漏。删除被拒绝时，DB 中的存储行保持原状，进程内引擎注册表也不会被清除。
+HTTP `400`. The error message includes the specific number of knowledge bases (to help operations pinpoint the issue), but does not include any KB IDs/names, in order to avoid cross-space information leakage. When the deletion is rejected, the store row in the DB remains unchanged, and the in-process engine registry is not cleared either.
 
-## POST `/vector-stores/:id/test` - 测试已保存或环境变量存储的连接
+## POST `/vector-stores/:id/test` - Test the connection of a saved or environment-variable store
 
-对已保存的 DB 存储或环境变量虚拟存储执行一次连接测试。成功时返回检测到的服务器版本；对 DB 存储，检测到的版本会被自动写回 `connection_config.version`，环境变量存储不会更新。
+Runs a connection test against a saved DB store or an environment-variable virtual store. On success, returns the detected server version; for DB stores, the detected version is automatically written back to `connection_config.version`, while environment-variable stores are not updated.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 必填 | 说明                                                |
-| ---- | ------ | ---- | --------------------------------------------------- |
-| id   | string | 是   | 向量存储 ID（DB UUID 或 `__env_{driver}__`）          |
+| Field | Type   | Required | Description                                            |
+| ----- | ------ | -------- | -------------------------------------------------------- |
+| id    | string | Yes      | Vector store ID (DB UUID or `__env_{driver}__`)          |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/550e8400-e29b-41d4-a716-446655440000/test' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应（成功）**:
+**Response (success)**:
 
 ```json
 {
@@ -398,7 +398,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/550e8
 }
 ```
 
-**响应（失败）**:
+**Response (failure)**:
 
 ```json
 {
@@ -407,31 +407,31 @@ curl --location --request POST 'http://localhost:8080/api/v1/vector-stores/550e8
 }
 ```
 
-> 与 `/vector-stores/test` 一致，测试失败时 HTTP 状态码仍为 `200`，错误通过 `success: false` + `error` 返回。
+> Consistent with `/vector-stores/test`: when the test fails, the HTTP status code is still `200`, and the error is returned via `success: false` + `error`.
 
-## 环境变量存储
+## Environment-variable stores
 
-通过 `RETRIEVE_DRIVER` 环境变量配置的向量存储以虚拟条目形式出现在列表和详情中。这些条目的特征：
+Vector stores configured via the `RETRIEVE_DRIVER` environment variable appear as virtual entries in the list and detail views. Characteristics of these entries:
 
-- **ID 格式**：`__env_{driver}__`（如 `__env_postgres__`、`__env_elasticsearch_v8__`）
-- **source**：`"env"`
-- **readonly**：`true`
-- **不可修改/删除**：`PUT` 和 `DELETE` 返回 `400`
-- **可测试连通性**：`POST /vector-stores/:id/test` 正常工作
-- **被知识库绑定时**：未指定 `vector_store_id` 创建的知识库默认使用环境变量存储；这种知识库在响应中显示为 `vector_store_name="System default"` + `vector_store_source="env"`。
+- **ID format**: `__env_{driver}__` (e.g., `__env_postgres__`, `__env_elasticsearch_v8__`)
+- **source**: `"env"`
+- **readonly**: `true`
+- **Cannot be modified/deleted**: `PUT` and `DELETE` return `400`
+- **Connectivity can be tested**: `POST /vector-stores/:id/test` works normally
+- **When bound to a knowledge base**: a knowledge base created without specifying `vector_store_id` uses the environment-variable store by default; such a knowledge base is displayed in responses as `vector_store_name="System default"` + `vector_store_source="env"`.
 
-Tencent VectorDB 环境变量存储可通过 `TENCENT_VECTORDB_REPLICA_NUMBER` 覆盖默认集合副本数。默认值为 `1`；单节点 QA 环境可设为 `0`，生产环境可按 Tencent VectorDB 集群规模调整。
+For Tencent VectorDB, the default collection replica count can be overridden via the `TENCENT_VECTORDB_REPLICA_NUMBER` environment variable. The default value is `1`; it can be set to `0` for single-node QA environments, and adjusted for production based on the scale of the Tencent VectorDB cluster.
 
-## 错误码
+## Error codes
 
-| HTTP 状态码 | code | 含义                                                |
-| ----------- | ---- | --------------------------------------------------- |
-| 400         | 1000 | 请求参数错误、校验失败、尝试修改环境变量存储、删除时仍有知识库绑定 |
-| 400         | 2200 | 知识库创建时引用的 `vector_store_id` 无效（不存在或属于其他空间） |
-| 400         | 2201 | 知识库创建时引用的存储当前不可用（DB 中存在但未注册到引擎） |
-| 401         | 1001 | 未认证（缺少空间上下文或 API Key）                    |
-| 404         | 1003 | 向量存储不存在                                       |
-| 409         | 1005 | 同一 endpoint + index 组合已存在                     |
-| 500         | 1007 | 内部服务器错误                                       |
+| HTTP Status Code | code | Meaning                                                              |
+| ------------------ | ---- | ----------------------------------------------------------------------- |
+| 400                 | 1000 | Invalid request parameters, validation failure, attempt to modify an environment-variable store, or knowledge bases still bound at deletion time |
+| 400                 | 2200 | The `vector_store_id` referenced during knowledge base creation is invalid (doesn't exist or belongs to another space) |
+| 400                 | 2201 | The store referenced during knowledge base creation is currently unavailable (exists in the DB but not registered with the engine) |
+| 401                 | 1001 | Not authenticated (missing space context or API Key)                     |
+| 404                 | 1003 | Vector store does not exist                                              |
+| 409                 | 1005 | The same endpoint + index combination already exists                     |
+| 500                 | 1007 | Internal server error                                                     |
 
-> `2200` / `2201` 由 `POST /knowledge-bases` 等知识库创建路径返回（详见 [knowledge-base.md](./knowledge-base.md)），列于此处仅为完整覆盖与向量存储相关的所有错误码。
+> `2200` / `2201` are returned by knowledge base creation paths such as `POST /knowledge-bases` (see [knowledge-base.md](./knowledge-base.md) for details); they are listed here only for complete coverage of all error codes related to vector stores.

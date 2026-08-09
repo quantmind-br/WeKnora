@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 const versionFile = resolve(import.meta.dirname, '../../VERSION')
 
-/** 仓库根目录 VERSION 文件中的发布版本（与 scripts/get_version.sh 同源） */
+/** Release version from the VERSION file at the repo root (same source as scripts/get_version.sh) */
 export function getRepoVersion(): string {
   if (!existsSync(versionFile)) return 'unknown'
   return readFileSync(versionFile, 'utf-8').trim() || 'unknown'

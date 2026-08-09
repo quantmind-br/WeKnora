@@ -194,8 +194,8 @@ watch(
   { immediate: true },
 )
 
-// 切换空间后会 hard reload；切换前 stash 的 toast 这里 consume 并弹出，
-// 这样 toast 显示在新页面上，duration 才真正生效。
+// After switching spaces there's a hard reload; the toast stashed before switching is consumed and popped here,
+// this way the toast shows on the new page, so the duration actually takes effect.
 const showPendingTenantSwitchToast = () => {
   const pending = consumePendingTenantSwitchToast()
   if (!pending) return
@@ -268,7 +268,7 @@ onUnmounted(() => {
 </template>
 <style>
 html {
-  /* 提示 UA 使用对应配色绘制滚动条等，减少主题切换时的额外重绘 */
+  /* Hint the UA to use the matching color scheme for scrollbars etc., reducing extra repaints on theme switch */
   color-scheme: light dark;
 }
 
@@ -288,7 +288,7 @@ html,
 }
 
 #app {
-  /* 独立合成层，减轻 WebKit 全量重绘时整窗与内容的撕裂感（桌面 WebView 尤其明显） */
+  /* Separate compositing layer, easing the tearing between the whole window and content during WebKit full repaints (especially noticeable in desktop WebView) */
   isolation: isolate;
   transform: translateZ(0);
   backface-visibility: hidden;

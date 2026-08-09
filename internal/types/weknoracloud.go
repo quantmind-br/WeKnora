@@ -1,8 +1,8 @@
 package types
 
-// WeKnoraCloudStatusResult 状态检查结果
+// WeKnoraCloudStatusResult status check result
 type WeKnoraCloudStatusResult struct {
-	HasModels   bool   `json:"has_models"`       // 是否已配置 WeKnoraCloud 凭证
-	NeedsReinit bool   `json:"needs_reinit"`     // 是否需要重新初始化（凭证损坏）
-	Reason      string `json:"reason,omitempty"` // 需要重新初始化的原因
+	HasModels   bool   `json:"has_models"`       // Whether WeKnoraCloud credentials are configured
+	NeedsReinit bool   `json:"needs_reinit"`     // Whether re-initialization is required (credentials corrupted)
+	Reason      string `json:"reason,omitempty"` // Reason re-initialization is required
 }

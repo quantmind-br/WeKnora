@@ -39,13 +39,13 @@ class MarkdownTableUtil:
     - Handling both header rows and data rows
 
     Example:
-        Input:  |姓名|年龄|城市|
+        Input:  |Name|Age|City|
                 |:---|---:|:---:|
-                |张三|25|北京|
+                |Zhang San|25|Beijing|
 
-        Output: | 姓名 | 年龄 | 城市 |
+        Output: | Name | Age | City |
                 | :--- | ---: | :---: |
-                | 张三 | 25 | 北京 |
+                | Zhang San | 25 | Beijing |
     """
 
     def __init__(self):
@@ -169,19 +169,19 @@ class MarkdownTableUtil:
     @staticmethod
     def _self_test():
         test_content = """
-# 测试表格
-普通文本---不会被匹配
+# Test table
+Plain text --- will not be matched
 
-## 表格1（无前置空格）
+## Table 1 (no leading spaces)
 
-| 姓名   | 年龄  | 城市          |
+| Name   | Age  | City          |
 |      :---------- | -------: | :------      |
-| 张三 | 25 | 北京 |
+| Zhang San | 25 | Beijing |
 
-## 表格3（前置4个空格+首尾|）
-    |   产品   |   价格   |   库存   |
+## Table 3 (4 leading spaces + leading/trailing |)
+    |   Product   |   Price   |   Stock   |
     | :-------------: | ----------- | :-----------: |
-    | 手机 | 5999       | 100 |
+    | Phone | 5999       | 100 |
 """
         util = MarkdownTableUtil()
         format_content = util.format_table(test_content)

@@ -1,20 +1,20 @@
-"""gRPC TLS 和认证模块
+"""gRPC TLS and authentication module
 
-环境变量配置：
-    TLS 相关：
-        GRPC_TLS_ENABLED: 是否启用 TLS（true/false），默认 false
-        GRPC_TLS_CERT: TLS 证书文件路径（GRPC_TLS_ENABLED=true 时必填）
-        GRPC_TLS_KEY: TLS 私钥文件路径（GRPC_TLS_ENABLED=true 时必填）
-        GRPC_TLS_CA: CA 证书路径
-        GRPC_MTLS_REQUIRE_CLIENT_CERT: 设为 true 时启用 mTLS，要求客户端
-            出示由 GRPC_TLS_CA 签发的证书。未设置时默认按 GRPC_TLS_CA 是否
-            存在自动判断（保留向后兼容）。
+Environment variable configuration:
+    TLS-related:
+        GRPC_TLS_ENABLED: whether to enable TLS (true/false), default false
+        GRPC_TLS_CERT: TLS certificate file path (required when GRPC_TLS_ENABLED=true)
+        GRPC_TLS_KEY: TLS private key file path (required when GRPC_TLS_ENABLED=true)
+        GRPC_TLS_CA: CA certificate path
+        GRPC_MTLS_REQUIRE_CLIENT_CERT: when set to true, enables mTLS, requiring client
+            Present the certificate issued by GRPC_TLS_CA. If not set, defaults to auto-detecting based on whether GRPC_TLS_CA
+            exists (kept for backward compatibility).
 
-    认证相关：
-        GRPC_AUTH_TOKEN: 认证 Token，如果设置则启用认证
+    Authentication:
+        GRPC_AUTH_TOKEN: Auth token; if set, authentication is enabled
 
-注意：当 GRPC_TLS_ENABLED=true 但任何 TLS 配置项缺失或加载失败时，
-本模块会抛出异常以触发 fail-fast，避免静默降级到明文。
+Note: when GRPC_TLS_ENABLED=true but any TLS config item is missing or fails to load,
+this module raises an exception to trigger fail-fast, avoiding a silent downgrade to plaintext.
 """
 
 import hmac
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class TLSConfigError(RuntimeError):
-    """TLS 配置错误，用于 fail-fast。"""
+    """TLS configuration error, used for fail-fast."""
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -39,10 +39,10 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def load_tls_credentials() -> Optional[grpc.ServerCredentials]:
-    """构建 server 端 TLS 凭据。
+    """Build server-side TLS credentials.
 
-    GRPC_TLS_ENABLED=false 时返回 None；为 true 时如果配置无效会抛出
-    TLSConfigError，由调用方决定是否终止启动。
+    Returns None when GRPC_TLS_ENABLED=false; when true, raises
+    TLSConfigError if the configuration is invalid, leaving it to the caller to decide whether to abort startup.
     """
     if not _env_bool("GRPC_TLS_ENABLED", False):
         logger.info("TLS disabled (GRPC_TLS_ENABLED is not 'true')")
@@ -98,7 +98,7 @@ def load_tls_credentials() -> Optional[grpc.ServerCredentials]:
     return credentials
 
 
-# gRPC 健康检查标准服务路径，需在鉴权前放行，便于 K8s/Docker 探活。
+# Standard gRPC health-check service path; must bypass auth so K8s/Docker probes work.
 _HEALTH_METHODS = frozenset(
     {
         "/grpc.health.v1.Health/Check",
@@ -108,11 +108,11 @@ _HEALTH_METHODS = frozenset(
 
 
 def _make_abort_handler(original: Optional[grpc.RpcMethodHandler]) -> grpc.RpcMethodHandler:
-    """为给定的原 handler 构造一个匹配 RPC kind 的鉴权失败 handler。
+    """Build an auth-failure handler matching the RPC kind for the given original handler.
 
-    如果原 handler 不可用（理论上不会发生，但作为兜底），返回 unary_unary。
-    直接返回 None 而不是 set_code 也可，但显式调用 abort 能确保框架按
-    UNAUTHENTICATED 收尾，且匹配 kind 防止 grpc 触发 INTERNAL。
+    If the original handler is unavailable (shouldn't happen in theory, but as a fallback), return unary_unary.
+    Returning None directly instead of calling set_code would also work, but explicitly calling abort ensures the framework
+    finishes with UNAUTHENTICATED, and matching the kind prevents grpc from raising INTERNAL.
     """
     def _abort(_request, context):
         context.abort(
@@ -154,14 +154,14 @@ def _make_abort_handler(original: Optional[grpc.RpcMethodHandler]) -> grpc.RpcMe
 
 
 class AuthInterceptor(grpc.ServerInterceptor):
-    """Token 认证拦截器
+    """Token authentication interceptor
 
-    环境变量配置：
-        GRPC_AUTH_TOKEN: 认证 Token，如果设置则启用认证
+    Environment variable configuration:
+        GRPC_AUTH_TOKEN: Auth token; if set, authentication is enabled
 
-    客户端需要在 metadata 中传递 Token：
+    Clients must pass the token in metadata:
         - key: "authorization"
-        - value: "Bearer <token>" 或直接 "<token>"
+        - value: "Bearer <token>" or just "<token>"
     """
 
     def __init__(self) -> None:

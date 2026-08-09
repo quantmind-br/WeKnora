@@ -442,7 +442,7 @@
       </div>
     </div>
   </div>
-  <!-- 引用 hover 浮层（与历史消息共用同一组件） -->
+  <!-- Citation hover overlay (shares the same component with history messages) -->
   <ChatCitationFloat :float="citationFloat" :on-enter="cancelCitationClose" :on-leave="scheduleCitationClose" />
 
   <!-- Image Preview -->
@@ -641,7 +641,7 @@ const sanitizeForDisplay = (text: string): string => {
   return result;
 };
 
-// 根元素引用
+// Root element reference
 const rootElement = ref<HTMLElement | null>(null);
 
 function escapeHtml(value: string): string {
@@ -655,7 +655,7 @@ function escapeHtml(value: string): string {
 
 const streamingStepsContainer = ref<HTMLElement | null>(null);
 
-// 图片预览状态
+// Image preview state
 const imagePreviewVisible = ref(false);
 const imagePreviewUrl = ref('');
 
@@ -668,7 +668,7 @@ const closeImagePreview = () => {
   imagePreviewVisible.value = false;
 };
 
-// Wiki Drawer 状态
+// Wiki Drawer state
 const wikiDrawerVisible = ref(false);
 const wikiDrawerPage = ref<WikiPage | null>(null);
 const wikiDrawerBodyRef = ref<HTMLElement | null>(null);
@@ -1742,7 +1742,7 @@ const buildFullEventList = (stream: any[]) => {
 
   // Drop thinking cards that are entirely empty (no title and no body). Some
   // models emit "\n\n" before a tool call (e.g. qwen3 blank lines between
-  // [assistant] and tool_calls), which would otherwise show an empty "思考"
+  // [assistant] and tool_calls), which would otherwise show an empty "Thinking"
   // card. Keep cards that carry a title (a relocated preamble) even with no
   // reasoning body.
   return folded.filter((e: any) => {
@@ -1874,7 +1874,7 @@ const displayEvents = computed(() => {
     // free text). Synthesize a virtual
     // `answer` event from the trailing thinking content so it renders with
     // the answer card UI (expanded markdown + copy/add toolbar) rather than
-    // the collapsed "思考" card. The original thinking event is still in
+    // the collapsed "Thinking" card. The original thinking event is still in
     // the intermediate-steps tree when applicable.
     const thinking = result.find((e: any) =>
       e.type === 'thinking' && e.event_id === final.event_id
@@ -2258,7 +2258,7 @@ onUpdated(() => {
   });
 });
 
-// 自定义渲染器 - 支持 Mermaid
+// Custom renderer - supports Mermaid
 const agentRenderer = new marked.Renderer();
 agentRenderer.code = createMermaidCodeRenderer('mermaid-agent');
 
@@ -2288,7 +2288,7 @@ const renderAgentMarkdown = (
   });
 };
 
-// 单次渲染 Markdown 内容（替代 token-by-token，修复 KaTeX 公式在 streaming 时闪烁消失的问题）
+// Render Markdown content in a single pass (replaces token-by-token, fixes KaTeX formulas flickering and disappearing during streaming)
 const renderMarkdownContent = (content: unknown): string => {
   return renderAgentMarkdown(content, sanitizeForDisplay);
 };
@@ -2314,7 +2314,7 @@ const renderMarkdown = (content: unknown): string => {
   }
 };
 
-// 渲染 Mermaid 图表的函数
+// Function to render Mermaid diagrams
 const renderMermaidDiagrams = async () => {
   await enhanceMarkdownContainer(rootElement.value);
 };
@@ -2821,7 +2821,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
   margin-bottom: 8px;
 
   &.event-answer {
-    // answer 事件无特殊左侧装饰
+    // Answer event has no special left-side decoration
   }
 }
 
@@ -2926,7 +2926,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
   }
 }
 
-// Answer Event - 无边框，直接显示内容
+// Answer Event - no border, displays content directly
 .answer-event {
   animation: fadeInUp 0.25s ease-out;
   min-height: 20px;
@@ -2950,7 +2950,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
 
       :deep(img) {
         background-color: var(--td-bg-color-secondarycontainer);
-        /* 加载时的占位背景色 */
+        /* Placeholder background color while loading */
       }
     }
   }

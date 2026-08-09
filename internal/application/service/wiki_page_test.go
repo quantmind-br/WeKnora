@@ -404,7 +404,7 @@ func nodeSlugs(data *types.WikiGraphData) map[string]bool {
 
 // TestComputeGraphSubset_OverviewTruncatesByLinkCount verifies that overview
 // mode returns the most-connected nodes first and reports truncation
-// honestly in Meta. At 4万 pages this is the path that must NOT return the
+// honestly in Meta. At 40k pages this is the path that must NOT return the
 // full graph — the cap is what keeps the response size and frontend
 // rendering tractable.
 func TestComputeGraphSubset_OverviewTruncatesByLinkCount(t *testing.T) {

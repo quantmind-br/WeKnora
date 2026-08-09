@@ -1,44 +1,44 @@
-# 聊天功能 API
+# Chat Feature API
 
-[返回目录](./README.md)
+[Back to index](./README.md)
 
-| 方法 | 路径                          | 描述                     |
+| Method | Path                          | Description                     |
 | ---- | ----------------------------- | ------------------------ |
-| POST | `/knowledge-chat/:session_id` | 基于知识库的问答         |
-| POST | `/agent-chat/:session_id`     | 基于 Agent 的智能问答    |
-| POST | `/knowledge-search`           | 基于知识库的搜索知识     |
-| GET  | `/sessions/:session_id/messages/:message_id/suggestions` | 获取已生成的回答后推荐 |
-| POST | `/sessions/:session_id/messages/:message_id/suggestions` | 确保生成或换一批推荐 |
-| POST | `/sessions/:session_id/suggestion-events` | 上报曝光、点击、关闭事件 |
+| POST | `/knowledge-chat/:session_id` | Knowledge base-based Q&A         |
+| POST | `/agent-chat/:session_id`     | Agent-based intelligent Q&A    |
+| POST | `/knowledge-search`           | Knowledge base search     |
+| GET  | `/sessions/:session_id/messages/:message_id/suggestions` | Retrieve already-generated post-answer suggestions |
+| POST | `/sessions/:session_id/messages/:message_id/suggestions` | Force generation or fetch a new batch of suggestions |
+| POST | `/sessions/:session_id/suggestion-events` | Report impression, click, and dismiss events |
 
-## POST `/knowledge-chat/:session_id` - 基于知识库的问答
+## POST `/knowledge-chat/:session_id` - Knowledge base-based Q&A
 
-基于知识库的 RAG 问答，支持 SSE 流式响应。
+RAG-based Q&A over the knowledge base, supporting SSE streaming responses.
 
-**查询参数**：
+**Query parameters**:
 
-| 参数 | 取值 | 说明 |
+| Parameter | Values | Description |
 |------|------|------|
-| `resource_urls` | `handle`（默认）/ `public` | `public` 让答案与引用里的图片直接返回可加载的 http(s) 链接，省去逐个调用 `/files` 代理。详见[文件与图片引用](./README.md#文件与图片引用resource-与直链) |
+| `resource_urls` | `handle` (default) / `public` | `public` makes the answer and the images in citations return directly loadable http(s) links, saving you from having to call the `/files` proxy one by one. See [Files and Image References](./README.md#文件与图片引用resource-与直链) for details |
 
-同样适用于下面的 `/agent-chat/:session_id`、`/knowledge-search` 与 `/sessions/continue-stream/:session_id`。
+This also applies to `/agent-chat/:session_id`, `/knowledge-search`, and `/sessions/continue-stream/:session_id` below.
 
-**请求参数**：
+**Request parameters**:
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 |------|------|------|------|
-| `query` | string | 是 | 查询文本 |
-| `knowledge_base_ids` | string[] | 否 | 知识库 ID 列表 |
-| `knowledge_ids` | string[] | 否 | 知识文件 ID 列表，指定具体文件进行检索 |
-| `agent_id` | string | 否 | 自定义 Agent ID，指定使用的智能体 |
-| `summary_model_id` | string | 否 | 覆盖默认的摘要模型 ID |
-| `mentioned_items` | object[] | 否 | @提及的知识库和文件列表 |
-| `disable_title` | bool | 否 | 是否禁用自动标题生成（默认 false） |
-| `images` | object[] | 否 | 附带的图片（base64 格式），需要 Agent 启用图片上传 |
-| `channel` | string | 否 | 来源渠道标识：`web`、`api`、`im`、`browser_extension` |
-| `suggestion_attribution` | object | 否 | 用户从推荐问题发起本轮时传入 `{suggestion_set_id, question_id}`；服务端会校验归属 |
+| `query` | string | Yes | Query text |
+| `knowledge_base_ids` | string[] | No | List of knowledge base IDs |
+| `knowledge_ids` | string[] | No | List of knowledge file IDs, to retrieve from specific files |
+| `agent_id` | string | No | Custom Agent ID, specifying which agent to use |
+| `summary_model_id` | string | No | Override the default summary model ID |
+| `mentioned_items` | object[] | No | List of @-mentioned knowledge bases and files |
+| `disable_title` | bool | No | Whether to disable automatic title generation (default false) |
+| `images` | object[] | No | Attached images (base64 format), requires the Agent to have image upload enabled |
+| `channel` | string | No | Source channel identifier: `web`, `api`, `im`, `browser_extension` |
+| `suggestion_attribution` | object | No | When the user starts this turn from a suggested question, pass `{suggestion_set_id, question_id}`; the server validates attribution |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-chat/ceb9babb-1e30-41d7-817d-fd584954304b' \
@@ -51,10 +51,10 @@ curl --location 'http://localhost:8080/api/v1/knowledge-chat/ceb9babb-1e30-41d7-
 }'
 ```
 
-**响应格式**:
-服务器端事件流（Server-Sent Events，Content-Type: text/event-stream）
+**Response format**:
+Server-Sent Events (Content-Type: text/event-stream)
 
-**响应**:
+**Response**:
 
 ```
 event: message
@@ -67,30 +67,30 @@ event: message
 data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"answer","content":"","done":true,"knowledge_references":null}
 ```
 
-## POST `/agent-chat/:session_id` - 基于 Agent 的智能问答
+## POST `/agent-chat/:session_id` - Agent-based intelligent Q&A
 
-Agent 模式支持更智能的问答，包括工具调用、网络搜索、多知识库检索等能力。
+Agent mode supports more intelligent Q&A, including tool calling, web search, multi-knowledge-base retrieval, and other capabilities.
 
-**请求参数**：
+**Request parameters**:
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 |------|------|------|------|
-| `query` | string | 是 | 查询文本 |
-| `knowledge_base_ids` | string[] | 否 | 知识库 ID 列表，可动态指定本次查询使用的知识库 |
-| `knowledge_ids` | string[] | 否 | 知识文件 ID 列表，可动态指定本次查询使用的具体文件 |
-| `agent_enabled` | bool | 否 | 是否启用 Agent 模式（默认 false，优先使用 Agent 配置） |
-| `agent_id` | string | 否 | 自定义 Agent ID，指定使用的智能体（支持共享 Agent） |
-| `web_search_enabled` | bool | 否 | 是否启用网络搜索（默认 false） |
-| `summary_model_id` | string | 否 | 覆盖默认的摘要模型 ID |
-| `mentioned_items` | object[] | 否 | @提及的知识库和文件列表 |
-| `disable_title` | bool | 否 | 是否禁用自动标题生成（默认 false） |
-| `images` | object[] | 否 | 附带的图片（base64 格式），需要 Agent 启用图片上传 |
-| `channel` | string | 否 | 来源渠道标识：`web`、`api`、`im`、`browser_extension` |
-| `suggestion_attribution` | object | 否 | 用户从推荐问题发起本轮时传入 `{suggestion_set_id, question_id}`；服务端会校验归属 |
+| `query` | string | Yes | Query text |
+| `knowledge_base_ids` | string[] | No | List of knowledge base IDs; lets you dynamically specify which knowledge bases to use for this query |
+| `knowledge_ids` | string[] | No | List of knowledge file IDs; lets you dynamically specify which specific files to use for this query |
+| `agent_enabled` | bool | No | Whether to enable Agent mode (default false, Agent configuration takes priority) |
+| `agent_id` | string | No | Custom Agent ID, specifying which agent to use (supports shared Agents) |
+| `web_search_enabled` | bool | No | Whether to enable web search (default false) |
+| `summary_model_id` | string | No | Override the default summary model ID |
+| `mentioned_items` | object[] | No | List of @-mentioned knowledge bases and files |
+| `disable_title` | bool | No | Whether to disable automatic title generation (default false) |
+| `images` | object[] | No | Attached images (base64 format), requires the Agent to have image upload enabled |
+| `channel` | string | No | Source channel identifier: `web`, `api`, `im`, `browser_extension` |
+| `suggestion_attribution` | object | No | When the user starts this turn from a suggested question, pass `{suggestion_set_id, question_id}`; the server validates attribution |
 
-## 回答后推荐问题
+## Post-Answer Suggested Questions
 
-回答主消息完成后，服务端会异步生成推荐问题，不阻塞 SSE 的 `complete`/`done` 事件。生成结果按“空间、助手消息、位置、配置快照、语言”持久化并去重。
+Once the main answer message is complete, the server asynchronously generates suggested questions without blocking the SSE `complete`/`done` events. The generated results are persisted and deduplicated by "space, assistant message, position, configuration snapshot, and language."
 
 ```http
 POST /api/v1/sessions/{session_id}/messages/{message_id}/suggestions
@@ -99,7 +99,7 @@ Content-Type: application/json
 {"regenerate": false}
 ```
 
-状态包括 `generating`、`ready`、`suppressed`、`failed`。`ready` 时的每个问题都有稳定 `id`，点击后应先上报事件，并在下一次聊天请求中携带 `suggestion_attribution`。
+Status values include `generating`, `ready`, `suppressed`, and `failed`. Each question has a stable `id` once `ready`; a click should report the event first, then carry `suggestion_attribution` on the next chat request.
 
 ```http
 POST /api/v1/sessions/{session_id}/suggestion-events
@@ -112,24 +112,24 @@ Content-Type: application/json
 }
 ```
 
-网页嵌入提供同构接口：`/api/v1/embed/{channel_id}/sessions/{session_id}/...`，继续使用嵌入令牌和 `X-Embed-Session`。
+Web embedding provides an isomorphic interface: `/api/v1/embed/{channel_id}/sessions/{session_id}/...`, continuing to use the embed token and `X-Embed-Session`.
 
-**mentioned_items 结构**：
+**mentioned_items structure**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `id` | string | 知识库或文件 ID |
-| `name` | string | 显示名称 |
-| `type` | string | 类型：`kb`（知识库）或 `file`（文件） |
-| `kb_type` | string | 知识库类型：`document` 或 `faq`（仅 `type=kb` 时） |
+| `id` | string | Knowledge base or file ID |
+| `name` | string | Display name |
+| `type` | string | Type: `kb` (knowledge base) or `file` (file) |
+| `kb_type` | string | Knowledge base type: `document` or `faq` (only when `type=kb`) |
 
-**images 结构**：
+**images structure**:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `data` | string | base64 编码的图片数据（`data:image/png;base64,...`） |
+| `data` | string | Base64-encoded image data (`data:image/png;base64,...`) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agent-chat/ceb9babb-1e30-41d7-817d-fd584954304b' \
@@ -152,24 +152,24 @@ curl --location 'http://localhost:8080/api/v1/agent-chat/ceb9babb-1e30-41d7-817d
 }'
 ```
 
-**响应格式**:
-服务器端事件流（Server-Sent Events，Content-Type: text/event-stream）
+**Response format**:
+Server-Sent Events (Content-Type: text/event-stream)
 
-**响应类型说明**：
+**Response type reference**:
 
-| response_type | 描述 |
+| response_type | Description |
 |---------------|------|
-| `agent_query` | Agent 开始处理查询 |
-| `thinking` | Agent 思考过程 |
-| `tool_call` | 工具调用信息 |
-| `tool_result` | 工具调用结果 |
-| `references` | 知识库检索引用 |
-| `answer` | 最终回答内容 |
-| `reflection` | Agent 反思内容 |
-| `session_title` | 自动生成的会话标题 |
-| `error` | 错误信息 |
+| `agent_query` | Agent begins processing the query |
+| `thinking` | Agent's thinking process |
+| `tool_call` | Tool call information |
+| `tool_result` | Tool call result |
+| `references` | Knowledge base retrieval references |
+| `answer` | Final answer content |
+| `reflection` | Agent reflection content |
+| `session_title` | Automatically generated session title |
+| `error` | Error information |
 
-**响应示例**:
+**Response example**:
 
 ```
 event: message

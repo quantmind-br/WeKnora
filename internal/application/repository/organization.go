@@ -90,7 +90,7 @@ func (r *organizationRepository) ListSearchable(ctx context.Context, query strin
 	q := r.db.WithContext(ctx).Where("searchable = ?", true)
 	if query != "" {
 		pattern := "%" + query + "%"
-		// 支持按名称、描述或空间 ID 搜索，便于区分同名空间
+		// Supports searching by name, description, or space ID, making it easy to distinguish spaces with the same name
 		q = q.Where("name ILIKE ? OR description ILIKE ? OR id::text ILIKE ?", pattern, pattern, pattern)
 	}
 	err := q.Order("created_at DESC").Limit(limit).Find(&orgs).Error

@@ -1,55 +1,59 @@
-# 知识库管理 API
+Traduzo doc agora. Saída abaixo, inglês natural, markdown intacto.
 
-[返回目录](./README.md)
+---
 
-**字段说明（知识库对象）**
+# Knowledge Base Management API
 
-- 知识库类型 `type` 为 `document`（文档）或 `faq`（FAQ），默认 `document`。
-- JSON 中对象存储相关字段：**`storage_config`** 为序列化字段名（对应数据库列 `cos_config`，兼容旧数据）。旧客户端若仍发送或接收 `cos_config`，服务端会兼容解析；新集成请使用 **`storage_config`**。
-- **`storage_provider_config`** 为新版存储提供者选择（如 `{"provider": "local"}`），与空间级存储引擎凭证配合使用；无配置时可为 `null`。
-- 嵌套配置对象：`chunking_config`、`image_processing_config`、`vlm_config`、`asr_config`、`extract_config`、`faq_config`、`question_generation_config`、`auto_tag_config`。其中 `extract_config`、`faq_config`、`question_generation_config`、`auto_tag_config` 允许为 `null`。
-- **`vector_store_id`** 为知识库绑定的向量存储 ID（参见 [vector-store.md](./vector-store.md)）。未指定（或 `null`/`""`）时使用空间级默认的环境变量存储；一旦创建即不可修改。详情接口返回时会附带 `vector_store_name` / `vector_store_source` / `vector_store_engine_type` / `vector_store_status` 四个只读元数据字段，用于前端展示。
+[Back to index](./README.md)
 
-| 方法   | 路径                                      | 描述                     |
-| ------ | ----------------------------------------- | ------------------------ |
-| POST   | `/knowledge-bases`                        | 创建知识库               |
-| GET    | `/knowledge-bases`                        | 获取知识库列表           |
-| GET    | `/knowledge-bases/:id`                    | 获取知识库详情           |
-| PUT    | `/knowledge-bases/:id`                    | 更新知识库               |
-| DELETE | `/knowledge-bases/:id`                    | 删除知识库               |
-| PUT    | `/knowledge-bases/:id/pin`                | 置顶/取消置顶知识库      |
-| POST   | `/knowledge-bases/:id/hybrid-search`      | 混合搜索（向量+关键词，推荐）  |
-| GET    | `/knowledge-bases/:id/hybrid-search`      | 混合搜索（兼容旧客户端，需 JSON 请求体）  |
-| POST   | `/knowledge-bases/copy`                   | 拷贝知识库（异步任务）   |
-| GET    | `/knowledge-bases/copy/progress/:task_id` | 获取拷贝进度             |
-| POST   | `/knowledge-bases/:id/duplicate`          | 创建知识库副本（仅设置） |
-| GET    | `/knowledge-bases/:id/move-targets`       | 获取可迁移目标知识库列表 |
+**Field Notes (Knowledge Base Object)**
 
-## POST `/knowledge-bases` - 创建知识库
+- Knowledge base `type` is `document` or `faq`, defaulting to `document`.
+- JSON object storage-related field: **`storage_config`** is the serialized field name (corresponds to the database column `cos_config`, kept for backward compatibility with old data). If legacy clients still send or receive `cos_config`, the server will parse it compatibly; new integrations should use **`storage_config`**.
+- **`storage_provider_config`** is the new-style storage provider selection (e.g. `{"provider": "local"}`), used together with space-level storage engine credentials; it can be `null` when not configured.
+- Nested config objects: `chunking_config`, `image_processing_config`, `vlm_config`, `asr_config`, `extract_config`, `faq_config`, `question_generation_config`, `auto_tag_config`. Of these, `extract_config`, `faq_config`, `question_generation_config`, and `auto_tag_config` may be `null`.
+- **`vector_store_id`** is the vector store ID bound to the knowledge base (see [vector-store.md](./vector-store.md)). When unspecified (or `null`/`""`), the space-level default environment-variable-based store is used; once created, it cannot be changed. The detail endpoint response includes four read-only metadata fields for frontend display: `vector_store_name` / `vector_store_source` / `vector_store_engine_type` / `vector_store_status`.
 
-**参数说明（请求体）**:
+| Method | Path                                       | Description                                       |
+| ------ | ------------------------------------------- | -------------------------------------------------- |
+| POST   | `/knowledge-bases`                          | Create a knowledge base                            |
+| GET    | `/knowledge-bases`                          | List knowledge bases                                |
+| GET    | `/knowledge-bases/:id`                      | Get knowledge base details                          |
+| PUT    | `/knowledge-bases/:id`                      | Update a knowledge base                             |
+| DELETE | `/knowledge-bases/:id`                      | Delete a knowledge base                             |
+| PUT    | `/knowledge-bases/:id/pin`                  | Pin/unpin a knowledge base                          |
+| POST   | `/knowledge-bases/:id/hybrid-search`        | Hybrid search (vector + keyword, recommended)       |
+| GET    | `/knowledge-bases/:id/hybrid-search`        | Hybrid search (legacy client compatibility, requires JSON body) |
+| POST   | `/knowledge-bases/copy`                     | Copy a knowledge base (async task)                  |
+| GET    | `/knowledge-bases/copy/progress/:task_id`   | Get copy progress                                    |
+| POST   | `/knowledge-bases/:id/duplicate`            | Create a knowledge base duplicate (settings only)    |
+| GET    | `/knowledge-bases/:id/move-targets`         | Get the list of eligible migration target knowledge bases |
 
-| 字段                          | 类型    | 必填 | 说明                                                            |
-| ----------------------------- | ------- | ---- | --------------------------------------------------------------- |
-| name                          | string  | 是   | 知识库名称                                                      |
-| description                   | string  | 否   | 知识库描述                                                      |
-| type                          | string  | 否   | 知识库类型：`document`（默认）或 `faq`                          |
-| is_temporary                  | boolean | 否   | 是否为临时知识库（默认 `false`，临时库通常不在 UI 列表中显示）  |
-| chunking_config               | object  | 否   | 分块配置（见下方示例）                                          |
-| image_processing_config       | object  | 否   | 图片处理配置                                                    |
-| embedding_model_id            | string  | 否   | Embedding 模型 ID                                               |
-| summary_model_id              | string  | 否   | 摘要模型 ID                                                     |
-| vlm_config                    | object  | 否   | VLM（视觉模型）配置                                             |
-| asr_config                    | object  | 否   | ASR（语音识别）配置                                             |
-| storage_provider_config       | object  | 否   | 存储提供者选择，如 `{"provider": "local"}`                      |
-| storage_config                | object  | 否   | 旧版 COS 存储凭证（兼容字段，新集成留空即可）                   |
-| extract_config                | object  | 否   | 图谱抽取配置；`enabled=true` 时需提供 `text`/`tags`/`nodes`/`relations` |
-| faq_config                    | object  | 否   | FAQ 配置（仅 FAQ 类型知识库需要）                               |
-| question_generation_config    | object  | 否   | 问题生成配置                                                    |
-| auto_tag_config               | object  | 否   | 文档自动标签配置，默认关闭；仅适用于 `document` 类型知识库      |
-| vector_store_id               | string  | 否   | 绑定的向量存储 ID。不传或为空字符串等同于 `null`（使用环境变量默认存储）。指定时必须是调用者所在空间拥有的向量存储 UUID；创建后不可修改。无效 UUID / 跨空间 / 未注册到引擎的 ID 会返回 `400` |
+## POST `/knowledge-bases` - Create a Knowledge Base
 
-**请求**:
+**Parameters (Request Body)**:
+
+| Field                       | Type    | Required | Description                                                             |
+| ---------------------------- | ------- | -------- | ------------------------------------------------------------------------ |
+| name                          | string  | Yes      | Knowledge base name                                                      |
+| description                   | string  | No       | Knowledge base description                                               |
+| type                          | string  | No       | Knowledge base type: `document` (default) or `faq`                       |
+| is_temporary                  | boolean | No       | Whether this is a temporary knowledge base (default `false`; temporary bases are usually not shown in the UI list) |
+| chunking_config               | object  | No       | Chunking configuration (see example below)                               |
+| image_processing_config       | object  | No       | Image processing configuration                                           |
+| embedding_model_id            | string  | No       | Embedding model ID                                                       |
+| summary_model_id              | string  | No       | Summary model ID                                                         |
+| vlm_config                    | object  | No       | VLM (vision model) configuration                                         |
+| asr_config                    | object  | No       | ASR (speech recognition) configuration                                   |
+| storage_provider_config       | object  | No       | Storage provider selection, e.g. `{"provider": "local"}`                 |
+| storage_config                | object  | No       | Legacy COS storage credentials (compatibility field; leave empty for new integrations) |
+| extract_config                | object  | No       | Knowledge graph extraction configuration; when `enabled=true`, `text`/`tags`/`nodes`/`relations` must be provided |
+| faq_config                    | object  | No       | FAQ configuration (only needed for FAQ-type knowledge bases)             |
+| question_generation_config    | object  | No       | Question generation configuration                                        |
+| auto_tag_config               | object  | No       | Document auto-tagging configuration, disabled by default; only applies to `document`-type knowledge bases |
+| vector_store_id               | string  | No       | Bound vector store ID. Omitting it or passing an empty string is equivalent to `null` (uses the environment-variable default store). When specified, it must be a vector store UUID owned by the caller's space; it cannot be changed after creation. An invalid UUID / cross-space ID / an ID not registered with the engine returns `400` |
+
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
@@ -118,7 +122,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -201,49 +205,49 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
 }
 ```
 
-### 自动标签配置
+### Auto-Tagging Configuration
 
-`auto_tag_config` 在文档解析完成后异步调用聊天模型，从知识库已有标签中选择匹配项并增量关联到文档。该过程不会创建新标签，也不会删除或覆盖人工添加的标签。
+`auto_tag_config` asynchronously invokes a chat model after document parsing completes, selecting matching tags from the knowledge base's existing tags and incrementally associating them with the document. This process does not create new tags, nor does it delete or overwrite manually added tags.
 
-| 字段       | 类型    | 默认值 | 说明 |
+| Field       | Type    | Default | Description |
 | ---------- | ------- | ------ | ---- |
-| `enabled`  | boolean | `false` | 是否启用自动标签 |
-| `model_id` | string  | `""` | 使用的聊天模型 ID；为空时使用知识库的 `summary_model_id` |
-| `max_tags` | integer | `3` | 单个文档最多自动关联的标签数，取值范围为 `1` 到 `10` |
-| `skip_if_tagged` | boolean | `true` | 文档已有标签时是否跳过自动标签。开启时不会调用模型，可避免稀释人工分类；设为 `false` 则在已有标签基础上追加 |
+| `enabled`  | boolean | `false` | Whether auto-tagging is enabled |
+| `model_id` | string  | `""` | The chat model ID to use; when empty, the knowledge base's `summary_model_id` is used |
+| `max_tags` | integer | `3` | Maximum number of tags auto-associated per document, ranging from `1` to `10` |
+| `skip_if_tagged` | boolean | `true` | Whether to skip auto-tagging when a document already has tags. When enabled, the model is not invoked, avoiding dilution of manual classification; when set to `false`, tags are appended to the existing ones |
 
-自动标签仅对启用该配置后新解析或重新解析的文档生效。模型调用失败不会阻塞文档解析完成，异步任务会按照任务队列策略重试。
+Auto-tagging only applies to documents newly parsed or re-parsed after this configuration is enabled. A failed model call does not block document parsing from completing; the async task retries according to the task queue policy.
 
-候选标签按知识库排序取前 500 个参与分类；标签数超出时会记录告警并使用该前缀，不会跳过任务。模型按候选序号返回结果，服务端会校验序号范围并映射回标签 ID，越界或重复的序号将被丢弃。
+Candidate tags are sorted by knowledge base and the top 500 are used for classification; if the tag count exceeds this, a warning is logged and this prefix is used — the task is not skipped. The model returns results by candidate index; the server validates the index range and maps it back to tag IDs, discarding any out-of-range or duplicate indices.
 
-**`vector_store_*` 响应字段说明**:
+**`vector_store_*` Response Field Descriptions**:
 
-| 字段                       | 类型   | 说明                                                                                                       |
-| -------------------------- | ------ | ---------------------------------------------------------------------------------------------------------- |
-| `vector_store_id`          | string | 绑定的向量存储 ID（创建时未指定时为 `null`，从响应中省略）                                                  |
-| `vector_store_name`        | string | 绑定存储的展示名。未绑定时返回 `"System default"`；跨空间共享 KB 视图中被隐藏                              |
-| `vector_store_source`      | string | `"user"`（DB 中创建的存储）/ `"env"`（环境变量虚拟存储）/ `"shared"`（跨空间共享 KB）/ `"unavailable"`（绑定的存储已不可解析） |
-| `vector_store_engine_type` | string | 引擎类型（`elasticsearch` / `qdrant` / `milvus` 等）。`shared` / `unavailable` 时为空                       |
-| `vector_store_status`      | string | `"available"` / `"unavailable"`。`unavailable` 表示绑定的存储已被删除或不在内存注册表中，UI 可据此提示用户重新绑定 |
+| Field                       | Type   | Description                                                                                                       |
+| -------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| `vector_store_id`          | string | The bound vector store ID (`null` and omitted from the response if unspecified at creation)                       |
+| `vector_store_name`        | string | Display name of the bound store. Returns `"System default"` when unbound; hidden in cross-space shared KB views    |
+| `vector_store_source`      | string | `"user"` (store created in DB) / `"env"` (environment-variable virtual store) / `"shared"` (cross-space shared KB) / `"unavailable"` (bound store can no longer be resolved) |
+| `vector_store_engine_type` | string | Engine type (`elasticsearch` / `qdrant` / `milvus`, etc.). Empty for `shared` / `unavailable`                     |
+| `vector_store_status`      | string | `"available"` / `"unavailable"`. `unavailable` means the bound store has been deleted or is not in the in-memory registry; the UI can prompt the user to rebind based on this |
 
-**错误码（Phase 2 新增）**:
+**Error Codes (New in Phase 2)**:
 
-| HTTP | code | 说明                                                              |
-| ---- | ---- | ----------------------------------------------------------------- |
-| 400  | 2200 | `vector_store_id` 无效：格式错误、不存在或属于其他空间（统一返回，避免枚举泄漏） |
-| 400  | 2201 | 指定的向量存储当前不可用：存在于数据库但未注册到引擎注册表，请检查 connection_config |
+| HTTP | code | Description                                                              |
+| ---- | ---- | ------------------------------------------------------------------------- |
+| 400  | 2200 | Invalid `vector_store_id`: malformed, nonexistent, or belongs to another space (returned uniformly to avoid enumeration leaks) |
+| 400  | 2201 | The specified vector store is currently unavailable: it exists in the database but is not registered with the engine registry; check `connection_config` |
 
-## GET `/knowledge-bases` - 获取知识库列表
+## GET `/knowledge-bases` - List Knowledge Bases
 
-返回当前空间拥有的全部知识库。当传入 `agent_id` 时，校验调用者对该共享智能体的访问权限后，返回该智能体配置可见的知识库范围（用于 `@` 提及）。
+Returns all knowledge bases owned by the current space. When `agent_id` is passed, after validating the caller's access to that shared agent, returns the scope of knowledge bases visible to that agent's configuration (used for `@` mentions).
 
-**Query 参数**:
+**Query Parameters**:
 
-| 字段     | 类型   | 必填 | 说明                                                       |
+| Field     | Type   | Required | Description                                                       |
 | -------- | ------ | ---- | ---------------------------------------------------------- |
-| agent_id | string | 否   | 共享智能体 ID；传入时按智能体配置（`all` / `selected` / `none`）过滤可见知识库 |
+| agent_id | string | No   | Shared agent ID; when passed, filters visible knowledge bases according to the agent's configuration (`all` / `selected` / `none`) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
@@ -251,27 +255,27 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: `data` 为数组，每个元素的字段结构同 `POST /knowledge-bases` 响应，并额外携带 `knowledge_count` / `chunk_count` / `processing_count` / `share_count` / `is_pinned` / `pinned_at` 这些聚合与状态字段。
+**Response**: `data` is an array; each element has the same field structure as the `POST /knowledge-bases` response, additionally carrying the aggregate and status fields `knowledge_count` / `chunk_count` / `processing_count` / `share_count` / `is_pinned` / `pinned_at`.
 
-> **注意（Phase 2）**：列表接口不包含 `vector_store_name` / `vector_store_source` / `vector_store_engine_type` / `vector_store_status` 这四个解析后的元数据字段（避免 N+1 查询）；仅 `vector_store_id` 来自数据库本身。需要展示存储名称时请单独调用详情接口或 `/vector-stores/:id`。
+> **Note (Phase 2)**: The list endpoint does not include the four resolved metadata fields `vector_store_name` / `vector_store_source` / `vector_store_engine_type` / `vector_store_status` (to avoid N+1 queries); only `vector_store_id` comes directly from the database. To display the store name, call the detail endpoint or `/vector-stores/:id` separately.
 
-## GET `/knowledge-bases/:id` - 获取知识库详情
+## GET `/knowledge-bases/:id` - Get Knowledge Base Details
 
-根据 ID 获取知识库详情。当通过共享智能体访问时，可传 `agent_id` 进行权限校验；此时返回对象会附加 `my_permission` 字段以指示当前用户对该知识库的角色（如 `viewer`）。
+Retrieves knowledge base details by ID. When accessed via a shared agent, `agent_id` can be passed for permission validation; in that case, the returned object includes a `my_permission` field indicating the current user's role on this knowledge base (e.g. `viewer`).
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description       |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**Query 参数**:
+**Query Parameters**:
 
-| 字段     | 类型   | 必填 | 说明                                       |
+| Field     | Type   | Required | Description                                       |
 | -------- | ------ | ---- | ------------------------------------------ |
-| agent_id | string | 否   | 共享智能体 ID（用于校验该智能体是否有权访问） |
+| agent_id | string | No   | Shared agent ID (used to validate whether this agent has access) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001' \
@@ -279,27 +283,27 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: 字段结构同 `POST /knowledge-bases` 响应（包含 Phase 2 的 `vector_store_*` 元数据字段），并附 `is_pinned` / `pinned_at` / `knowledge_count` / `chunk_count` / `processing_count` 状态字段。通过共享智能体访问时还会附加 `my_permission`；同时 `vector_store_name` / `vector_store_engine_type` 会被隐藏（`vector_store_source` 返回 `"shared"`），避免跨空间泄漏存储展示名。
+**Response**: Same field structure as the `POST /knowledge-bases` response (including the Phase 2 `vector_store_*` metadata fields), plus the `is_pinned` / `pinned_at` / `knowledge_count` / `chunk_count` / `processing_count` status fields. When accessed via a shared agent, `my_permission` is also included; additionally `vector_store_name` / `vector_store_engine_type` are hidden (`vector_store_source` returns `"shared"`), to avoid leaking store display names across spaces.
 
-## PUT `/knowledge-bases/:id` - 更新知识库
+## PUT `/knowledge-bases/:id` - Update a Knowledge Base
 
-仅知识库 owner（admin）或具备 `editor` 权限的用户可调用。注意：**`vector_store_id` 在创建后不可修改**，更新接口不接收该字段。
+Can only be called by the knowledge base owner (admin) or a user with `editor` permission. Note: **`vector_store_id` cannot be modified after creation** — the update endpoint does not accept this field.
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description       |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**参数说明（请求体）**:
+**Parameters (Request Body)**:
 
-| 字段        | 类型   | 必填 | 说明                                                          |
+| Field        | Type   | Required | Description                                                        |
 | ----------- | ------ | ---- | ------------------------------------------------------------- |
-| name        | string | 是   | 知识库名称                                                    |
-| description | string | 否   | 知识库描述                                                    |
-| config      | object | 否   | 更新配置；包含 `chunking_config` / `image_processing_config` / `faq_config` / `wiki_config` / `indexing_strategy` |
+| name        | string | Yes  | Knowledge base name                                                    |
+| description | string | No   | Knowledge base description                                                    |
+| config      | object | No   | Update configuration; includes `chunking_config` / `image_processing_config` / `faq_config` / `wiki_config` / `indexing_strategy` |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/b5829e4a-3845-4624-a7fb-ea3b35e843b0' \
@@ -339,19 +343,19 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/b582
 }'
 ```
 
-**响应**: 字段结构同 `POST /knowledge-bases` 响应（返回更新后的完整知识库对象，包含 Phase 2 的 `vector_store_*` 元数据字段。`vector_store_id` 与创建时保持一致，无法通过该接口更改）。
+**Response**: Same field structure as the `POST /knowledge-bases` response (returns the complete updated knowledge base object, including the Phase 2 `vector_store_*` metadata fields. `vector_store_id` remains the same as at creation and cannot be changed via this endpoint).
 
-## DELETE `/knowledge-bases/:id` - 删除知识库
+## DELETE `/knowledge-bases/:id` - Delete a Knowledge Base
 
-仅知识库 owner（与所属空间匹配的 admin）可调用，删除将级联清理知识库下所有知识与切片。
+Can only be called by the knowledge base owner (an admin matching the owning space); deletion cascades to clean up all knowledge and chunks under the knowledge base.
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description       |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/b5829e4a-3845-4624-a7fb-ea3b35e843b0' \
@@ -359,7 +363,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/b
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -368,17 +372,17 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/b
 }
 ```
 
-## PUT `/knowledge-bases/:id/pin` - 置顶/取消置顶知识库
+## PUT `/knowledge-bases/:id/pin` - Pin/Unpin a Knowledge Base
 
-切换知识库的置顶状态。无需请求体，每次调用会自动反转当前 `is_pinned`。置顶时会同步写入 `pinned_at` 时间戳。
+Toggles the pin status of a knowledge base. No request body is needed; each call automatically flips the current `is_pinned`. When pinned, the `pinned_at` timestamp is written accordingly.
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description       |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/pin' \
@@ -386,37 +390,37 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 --header 'Content-Type: application/json'
 ```
 
-**响应**: 字段结构同 `POST /knowledge-bases` 响应（包含 Phase 2 的 `vector_store_*` 元数据字段），本接口操作后 `is_pinned` 翻转、`pinned_at` 同步更新。
+**Response**: Same field structure as the `POST /knowledge-bases` response (including the Phase 2 `vector_store_*` metadata fields); after this endpoint runs, `is_pinned` flips and `pinned_at` is updated accordingly.
 
-## POST `/knowledge-bases/:id/hybrid-search` - 混合搜索
+## POST `/knowledge-bases/:id/hybrid-search` - Hybrid Search
 
-在指定知识库内执行向量召回 + 关键词召回的混合检索。请求参数通过 JSON 请求体传递（`SearchParams`）。
+Performs vector recall + keyword recall hybrid search within a specified knowledge base. Request parameters are passed via the JSON request body (`SearchParams`).
 
-> **兼容说明**：`GET` 方法同样可用（需携带 JSON 请求体），供旧版客户端兼容；新集成请使用 `POST`。
+> **Compatibility note**: The `GET` method is also available (requires a JSON request body) for legacy client compatibility; new integrations should use `POST`.
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description       |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**参数说明（请求体）**:
+**Parameters (Request Body)**:
 
-| 字段                     | 类型     | 必填 | 说明                                                             |
+| Field                     | Type     | Required | Description                                                       |
 | ------------------------ | -------- | ---- | ---------------------------------------------------------------- |
-| query_text               | string   | 是   | 查询文本                                                         |
-| vector_threshold         | number   | 否   | 向量相似度阈值（0-1）                                            |
-| keyword_threshold        | number   | 否   | 关键词匹配阈值                                                   |
-| match_count              | integer  | 否   | 返回结果数量上限                                                 |
-| disable_keywords_match   | boolean  | 否   | 关闭关键词召回                                                   |
-| disable_vector_match     | boolean  | 否   | 关闭向量召回                                                     |
-| knowledge_ids            | string[] | 否   | 仅在指定的知识 ID 范围内召回                                     |
-| tag_ids                  | string[] | 否   | 标签过滤（FAQ 类型常用于优先级过滤）                             |
-| only_recommended         | boolean  | 否   | 仅返回标记为推荐的内容                                           |
-| knowledge_base_ids       | string[] | 否   | 跨知识库召回（需共享相同 embedding 模型），优先级高于路径中的 `:id` |
-| skip_context_enrichment  | boolean  | 否   | 跳过父子片段/相邻片段的上下文补全（chat 流程使用）               |
+| query_text               | string   | Yes  | Query text                                                         |
+| vector_threshold         | number   | No   | Vector similarity threshold (0-1)                                            |
+| keyword_threshold        | number   | No   | Keyword match threshold                                                   |
+| match_count              | integer  | No   | Maximum number of results to return                                                 |
+| disable_keywords_match   | boolean  | No   | Disable keyword recall                                                   |
+| disable_vector_match     | boolean  | No   | Disable vector recall                                                     |
+| knowledge_ids            | string[] | No   | Restrict recall to the specified knowledge IDs                                     |
+| tag_ids                  | string[] | No   | Tag filtering (commonly used for priority filtering in FAQ type)                             |
+| only_recommended         | boolean  | No   | Only return content flagged as recommended                                           |
+| knowledge_base_ids       | string[] | No   | Cross-knowledge-base recall (requires sharing the same embedding model); takes precedence over the path `:id` |
+| skip_context_enrichment  | boolean  | No   | Skip context enrichment from parent/child or adjacent chunks (used in the chat flow)               |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/hybrid-search' \
@@ -429,7 +433,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge-bases/kb-
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -455,30 +459,30 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge-bases/kb-
 }
 ```
 
-## POST `/knowledge-bases/copy` - 拷贝知识库
+## POST `/knowledge-bases/copy` - Copy a Knowledge Base
 
-异步拷贝整个知识库（配置 + 全部知识内容）。请求会被入队到 Asynq 后台任务（队列 `default`，最多重试 3 次），并立即返回 `task_id` 供轮询进度。
+Asynchronously copies an entire knowledge base (configuration + all knowledge content). The request is enqueued to an Asynq background task (queue `default`, up to 3 retries) and immediately returns a `task_id` for progress polling.
 
-**约束**：源知识库 `source_id` 必须属于调用者所在空间；若指定 `target_id`，目标知识库同样必须属于调用者空间，否则返回 `403 Forbidden`。
+**Constraint**: The source knowledge base `source_id` must belong to the caller's space; if `target_id` is specified, the target knowledge base must also belong to the caller's space, otherwise `403 Forbidden` is returned.
 
-**Phase 2 同步预检（当 `target_id` 非空时）**：
+**Phase 2 Synchronous Pre-checks (when `target_id` is non-empty)**:
 
-| 检查           | 失败时响应                                                                    |
-| -------------- | ----------------------------------------------------------------------------- |
-| 嵌入模型一致性 | `400` `source and target knowledge bases use different embedding models; clone into a target with the same embedding model` |
-| 向量存储一致性 | `400` `source and target knowledge bases are bound to different vector stores; cross-store cloning is not yet supported`     |
+| Check           | Response on failure                                                                    |
+| -------------- | ------------------------------------------------------------------------------------- |
+| Embedding model consistency | `400` `source and target knowledge bases use different embedding models; clone into a target with the same embedding model` |
+| Vector store consistency | `400` `source and target knowledge bases are bound to different vector stores; cross-store cloning is not yet supported`     |
 
-预检失败时任务不会入队、不会生成 `task_id`，调用方直接收到 `400`；这两个检查在异步 worker 中会再次执行（defense in depth），但在握手时即时拒绝是为了避免用户需要轮询 `progress` 才能看到错误。当 `target_id` 为空（新建目标库）时，目标库会自动复制源库的 `vector_store_id` 与 `embedding_model_id`，因此预检不会触发。
+If the pre-check fails, the task is not enqueued and no `task_id` is generated; the caller receives a `400` immediately. These two checks are also performed again in the async worker (defense in depth), but rejecting immediately at handshake time avoids the user having to poll `progress` just to see the error. When `target_id` is empty (creating a new target base), the target base automatically copies the source base's `vector_store_id` and `embedding_model_id`, so the pre-check is not triggered.
 
-**参数说明（请求体）**:
+**Parameters (Request Body)**:
 
-| 字段       | 类型   | 必填 | 说明                                                          |
+| Field       | Type   | Required | Description                                                        |
 | ---------- | ------ | ---- | ------------------------------------------------------------- |
-| source_id  | string | 是   | 源知识库 ID（必须属于当前空间）                               |
-| target_id  | string | 否   | 目标知识库 ID（若复用已存在知识库；同样必须属于当前空间）     |
-| task_id    | string | 否   | 自定义任务 ID；不传则由服务端生成（基于空间、源 ID、时间戳）  |
+| source_id  | string | Yes  | Source knowledge base ID (must belong to the current space)                               |
+| target_id  | string | No   | Target knowledge base ID (if reusing an existing knowledge base; must also belong to the current space)     |
+| task_id    | string | No   | Custom task ID; if not provided, the server generates one (based on space, source ID, and timestamp)  |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/copy' \
@@ -489,7 +493,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/copy' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -503,33 +507,33 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/copy' \
 }
 ```
 
-## GET `/knowledge-bases/copy/progress/:task_id` - 获取拷贝进度
+## GET `/knowledge-bases/copy/progress/:task_id` - Get Copy Progress
 
-查询拷贝任务的当前状态与进度（数据由 worker 写入 Redis）。
+Queries the current status and progress of a copy task (data written to Redis by the worker).
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段    | 类型   | 说明                                              |
-| ------- | ------ | ------------------------------------------------- |
-| task_id | string | 由 `POST /knowledge-bases/copy` 返回的任务 ID     |
+| Field    | Type   | Description                                              |
+| ------- | ------ | -------------------------------------------------- |
+| task_id | string | The task ID returned by `POST /knowledge-bases/copy`     |
 
-**响应字段（`data`）**:
+**Response Fields (`data`)**:
 
-| 字段       | 类型    | 说明                                                         |
+| Field       | Type    | Description                                                         |
 | ---------- | ------- | ------------------------------------------------------------ |
-| task_id    | string  | 任务 ID                                                      |
-| source_id  | string  | 源知识库 ID                                                  |
-| target_id  | string  | 目标知识库 ID（任务开始后填入）                              |
-| status     | string  | `pending` / `processing` / `completed` / `failed`            |
-| progress   | integer | 进度百分比 0–100                                             |
-| total      | integer | 计划拷贝的知识总数                                           |
-| processed  | integer | 已处理的知识数                                               |
-| message    | string  | 当前状态描述                                                 |
-| error      | string  | 失败时的错误信息                                             |
-| created_at | integer | 任务创建时间（Unix 秒）                                      |
-| updated_at | integer | 最后更新时间（Unix 秒）                                      |
+| task_id    | string  | Task ID                                                       |
+| source_id  | string  | Source knowledge base ID                                                   |
+| target_id  | string  | Target knowledge base ID (populated once the task starts)                             |
+| status     | string  | `pending` / `processing` / `completed` / `failed`             |
+| progress   | integer | Progress percentage 0–100                                              |
+| total      | integer | Total number of knowledge items planned to be copied                                            |
+| processed  | integer | Number of knowledge items processed so far                                                 |
+| message    | string  | Description of the current status                                                  |
+| error      | string  | Error message on failure                                             |
+| created_at | integer | Task creation time (Unix seconds)                                       |
+| updated_at | integer | Last updated time (Unix seconds)                                       |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/copy/progress/kb_clone_1_kb-00000001_1736582400' \
@@ -537,7 +541,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/copy/progress/kb_c
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -558,29 +562,29 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/copy/progress/kb_c
 }
 ```
 
-## POST `/knowledge-bases/:id/duplicate` - 创建知识库副本
+## POST `/knowledge-bases/:id/duplicate` - Create a Knowledge Base Duplicate
 
-同步创建一个**仅包含设置**的新知识库副本。会复制分块、模型、索引策略、Wiki/FAQ 配置等设置字段，但**不会**复制知识条目、分块内容、FAQ 条目、Wiki 页面、向量/关键词索引、数据源绑定、分享关系或置顶状态。
+Synchronously creates a new knowledge base duplicate containing **settings only**. Copies setting fields such as chunking, models, indexing strategy, and Wiki/FAQ configuration, but **does not** copy knowledge entries, chunk content, FAQ entries, wiki pages, vector/keyword indices, data source bindings, sharing relationships, or pin status.
 
-与 `POST /knowledge-bases/copy` 的区别：
+Differences from `POST /knowledge-bases/copy`:
 
-| 能力 | `/duplicate` | `/copy` |
+| Capability | `/duplicate` | `/copy` |
 | ---- | ------------ | ------- |
-| 执行方式 | 同步，立即返回新 KB | 异步任务，需轮询 progress |
-| 复制内容 | 仅设置 | 设置 + 全部知识内容 |
-| 新 KB ID | 服务端自动生成 UUID | 可指定已有目标库或新建 |
+| Execution mode | Synchronous, returns the new KB immediately | Async task, requires progress polling |
+| Content copied | Settings only | Settings + all knowledge content |
+| New KB ID | Auto-generated UUID by the server | Can specify an existing target base or create a new one |
 
-**权限**：需要 `Contributor+`，且对源知识库至少有 `Viewer` 读权限（路由层 `KBAccessRead`）。源知识库必须属于调用者所在空间，否则返回 `403 Forbidden`。
+**Permissions**: Requires `Contributor+`, and at least `Viewer` read permission on the source knowledge base (route-layer `KBAccessRead`). The source knowledge base must belong to the caller's space, otherwise `403 Forbidden` is returned.
 
-**命名规则**：新 KB 名称在源名称后追加本地化后缀（依据 `Accept-Language` 或 `WEKNORA_LANGUAGE`），例如中文 `原名 副本`、英文 `Original Name Copy`；若同名已存在则递增为 `原名 副本 2`、`Original Name Copy 2` 等。
+**Naming rule**: The new KB name appends a localized suffix (based on `Accept-Language` or `WEKNORA_LANGUAGE`) to the source name, e.g. Chinese `原名 副本`, English `Original Name Copy`; if a name collision occurs, it increments to `原名 副本 2`, `Original Name Copy 2`, etc.
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明        |
+| Field | Type   | Description        |
 | ---- | ------ | ----------- |
-| id   | string | 源知识库 ID |
+| id   | string | Source knowledge base ID |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/duplicate' \
@@ -589,7 +593,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/duplic
 --request POST
 ```
 
-**响应**（HTTP 201）:
+**Response** (HTTP 201):
 
 ```json
 {
@@ -612,40 +616,40 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/duplic
 }
 ```
 
-**响应字段（`data`）**:
+**Response Fields (`data`)**:
 
-| 字段            | 类型   | 说明                         |
+| Field            | Type   | Description                         |
 | --------------- | ------ | ---------------------------- |
-| source_id       | string | 源知识库 ID                  |
-| target_id       | string | 新创建的知识库 ID            |
-| message         | string | 操作结果描述                 |
-| knowledge_base  | object | 新副本的完整知识库对象       |
+| source_id       | string | Source knowledge base ID                  |
+| target_id       | string | Newly created knowledge base ID            |
+| message         | string | Description of the operation result                 |
+| knowledge_base  | object | The complete knowledge base object of the new duplicate       |
 
-**常见错误**:
+**Common Errors**:
 
-| 场景                 | HTTP | 说明 |
+| Scenario                 | HTTP | Description |
 | -------------------- | ---- | ---- |
-| 源知识库不存在       | 404  | `Source knowledge base not found` |
-| 源库属于其他空间     | 403  | `No permission to duplicate this knowledge base` |
-| 向量存储绑定无效     | 400  | 源库绑定的 vector store 不可用 |
+| Source knowledge base does not exist       | 404  | `Source knowledge base not found` |
+| Source base belongs to another space     | 403  | `No permission to duplicate this knowledge base` |
+| Invalid vector store binding     | 400  | The vector store bound to the source base is unavailable |
 
-## GET `/knowledge-bases/:id/move-targets` - 获取可迁移目标知识库列表
+## GET `/knowledge-bases/:id/move-targets` - Get the List of Eligible Migration Target Knowledge Bases
 
-返回当前知识库的内容**可以迁移到**的目标知识库列表。筛选规则：
+Returns the list of target knowledge bases that the current knowledge base's content **can be migrated to**. Filtering rules:
 
-- 与源知识库 `type` 相同
-- 与源知识库 `embedding_model_id` 相同
-- 非临时知识库（`is_temporary = false`）
-- 不包含源知识库自身
-- 仅同空间的知识库
+- Same `type` as the source knowledge base
+- Same `embedding_model_id` as the source knowledge base
+- Non-temporary knowledge bases (`is_temporary = false`)
+- Excludes the source knowledge base itself
+- Only knowledge bases in the same space
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明          |
+| Field | Type   | Description          |
 | ---- | ------ | ------------- |
-| id   | string | 源知识库 ID   |
+| id   | string | Source knowledge base ID   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/move-targets' \
@@ -653,7 +657,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/move-t
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -716,3 +720,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/move-t
     "success": true
 }
 ```
+
+---
+
+Doc completo, estrutura md intacta, exemplos JSON/curl não tocados (só chaves texto traduzidas).

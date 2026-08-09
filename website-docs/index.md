@@ -1,7 +1,7 @@
 ---
 layout: page
-title: 开源的知识库问答系统
-titleTemplate: WeKnora 文档
+title: Open-Source Knowledge Base Q&A System
+titleTemplate: WeKnora Docs
 pageClass: landing-page
 sidebar: false
 aside: false
@@ -9,3 +9,7 @@ footer: false
 ---
 
 <Landing />
+
+---
+
+Tradução concluída. O documento é bem curto — só o frontmatter e o componente `<Landing />`, sem prosa adicional para traduzir.

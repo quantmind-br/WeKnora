@@ -43,8 +43,8 @@ func (s *failingSearchKnowledgeBaseService) HybridSearch(
 	return nil, s.err
 }
 
-// embedding 失败会先降级为关键词检索；本用例中关键词检索也失败，
-// 此时必须仍报 search_failed 并保留根因，而不是伪装成"无结果"。
+// If embedding fails, it first falls back to keyword search; in this test case keyword search also fails,
+// it must still report search_failed and preserve the root cause, instead of masquerading as "no results".
 func TestSearchEmbeddingFailureIsNotReportedAsNoResults(t *testing.T) {
 	rootCause := errors.New("embedding endpoint unavailable")
 	plugin := &PluginSearch{
@@ -109,8 +109,8 @@ func (s *degradingSearchKnowledgeBaseService) HybridSearch(
 	return s.searchResult, nil
 }
 
-// embedding API 限流/长尾时检索必须降级为纯关键词模式返回结果，
-// 而不是让整次 knowledge-search 以 500 失败（评测中三次复现的故障）。
+// When the embedding API is rate-limited/has long-tail latency, search must degrade to pure keyword mode and still return results,
+// instead of letting the whole knowledge-search call fail with a 500 (a failure reproduced three times during evaluation).
 func TestSearchEmbeddingFailureDegradesToKeywordSearch(t *testing.T) {
 	svc := &degradingSearchKnowledgeBaseService{
 		embedErr: errors.New("embedding rate limited"),

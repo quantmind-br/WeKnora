@@ -11,11 +11,11 @@ type StopCommand struct{}
 func newStopCommand() *StopCommand { return &StopCommand{} }
 
 func (c *StopCommand) Name() string        { return "stop" }
-func (c *StopCommand) Description() string { return "中止当前正在进行的回答" }
+func (c *StopCommand) Description() string { return "Abort the current in-progress answer" }
 
 func (c *StopCommand) Execute(_ context.Context, _ *CommandContext, _ []string) (*CommandResult, error) {
 	return &CommandResult{
-		Content: "✅ 已请求中止当前回答。",
+		Content: "✅ Cancellation of the current answer has been requested.",
 		Action:  ActionStop,
 	}, nil
 }

@@ -642,15 +642,15 @@ func (h *Handler) setupSSEStream(reqCtx *qaRequestContext, generateTitle bool) *
 }
 
 // SearchKnowledge godoc
-// @Summary      知识搜索
-// @Description  在知识库中搜索（不使用LLM总结）
-// @Tags         问答
+// @Summary      Knowledge search
+// @Description  Search the knowledge base (without LLM summarization)
+// @Tags         Q&A
 // @Accept       json
 // @Produce      json
-// @Param        request  body      SearchKnowledgeRequest  true  "搜索请求"
-// @Param        resource_urls  query     string  false  "文件引用形式，public 返回可加载直链"  Enums(handle, public)  default(handle)
-// @Success      200      {object}  map[string]interface{}  "搜索结果"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        request  body      SearchKnowledgeRequest  true  "Search request"
+// @Param        resource_urls  query     string  false  "File reference format; public returns loadable direct URL"  Enums(handle, public)  default(handle)
+// @Success      200      {object}  map[string]interface{}  "Search results"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /sessions/search [post]
@@ -742,16 +742,16 @@ func (h *Handler) SearchKnowledge(c *gin.Context) {
 }
 
 // KnowledgeQA godoc
-// @Summary      知识问答
-// @Description  基于知识库的问答（使用LLM总结），支持SSE流式响应
-// @Tags         问答
+// @Summary      Knowledge Q&A
+// @Description  Knowledge-base Q&A (with LLM summarization), supports SSE streaming responses
+// @Tags         Q&A
 // @Accept       json
 // @Produce      text/event-stream
-// @Param        session_id  path      string                   true  "会话ID"
-// @Param        request     body      CreateKnowledgeQARequest true  "问答请求"
-// @Param        resource_urls  query     string  false  "文件引用形式，public 返回可加载直链"  Enums(handle, public)  default(handle)
-// @Success      200         {object}  map[string]interface{}   "问答结果（SSE流）"
-// @Failure      400         {object}  errors.AppError          "请求参数错误"
+// @Param        session_id  path      string                   true  "Session ID"
+// @Param        request     body      CreateKnowledgeQARequest true  "Q&A request"
+// @Param        resource_urls  query     string  false  "File reference format; public returns loadable direct URL"  Enums(handle, public)  default(handle)
+// @Success      200         {object}  map[string]interface{}   "Q&A result (SSE stream)"
+// @Failure      400         {object}  errors.AppError          "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-chat/{session_id} [post]
@@ -768,16 +768,16 @@ func (h *Handler) KnowledgeQA(c *gin.Context) {
 }
 
 // AgentQA godoc
-// @Summary      Agent问答
-// @Description  基于Agent的智能问答，支持多轮对话和SSE流式响应
-// @Tags         问答
+// @Summary      Agent Q&A
+// @Description  Agent-based intelligent Q&A supporting multi-turn conversations and SSE streaming responses
+// @Tags         Q&A
 // @Accept       json
 // @Produce      text/event-stream
-// @Param        session_id  path      string                   true  "会话ID"
-// @Param        request     body      CreateKnowledgeQARequest true  "问答请求"
-// @Param        resource_urls  query     string  false  "文件引用形式，public 返回可加载直链"  Enums(handle, public)  default(handle)
-// @Success      200         {object}  map[string]interface{}   "问答结果（SSE流）"
-// @Failure      400         {object}  errors.AppError          "请求参数错误"
+// @Param        session_id  path      string                   true  "Session ID"
+// @Param        request     body      CreateKnowledgeQARequest true  "Q&A request"
+// @Param        resource_urls  query     string  false  "File reference format; public returns loadable direct URL"  Enums(handle, public)  default(handle)
+// @Success      200         {object}  map[string]interface{}   "Q&A result (SSE stream)"
+// @Failure      400         {object}  errors.AppError          "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agent-chat/{session_id} [post]
@@ -1069,9 +1069,9 @@ func (h *Handler) runVLMAnalysisIfNeeded(streamCtx *sseStreamContext, reqCtx *qa
 	h.analyzeImageAttachments(streamCtx.asyncCtx, reqCtx.images,
 		reqCtx.customAgent.Config.VLMModelID, reqCtx.query)
 
-	outputMsg := "已分析图片内容"
+	outputMsg := "Image content analyzed"
 	if mode == qaModeAgent {
-		outputMsg = "已查看图片内容"
+		outputMsg = "Finished viewing image content"
 	}
 	streamCtx.eventBus.Emit(streamCtx.asyncCtx, event.Event{
 		Type:      event.EventAgentToolResult,
@@ -1148,13 +1148,13 @@ func (h *Handler) resolveTemporaryAttachments(streamCtx *sseStreamContext, reqCt
 	}
 
 	if toolCallID != "" {
-		output := fmt.Sprintf("已解析 %d 个附件", len(readyIDs))
+		output := fmt.Sprintf("Parsed %d attachments", len(readyIDs))
 		if skipped > 0 {
-			output += fmt.Sprintf("，%d 个未完成已跳过", skipped)
+			output += fmt.Sprintf(", %d unfinished items skipped", skipped)
 		}
 		success := resolveErr == nil
 		if resolveErr != nil {
-			output = fmt.Sprintf("附件解析失败: %v", resolveErr)
+			output = fmt.Sprintf("Attachment parsing failed: %v", resolveErr)
 		}
 		streamCtx.eventBus.Emit(ctx, event.Event{
 			Type:      event.EventAgentToolResult,

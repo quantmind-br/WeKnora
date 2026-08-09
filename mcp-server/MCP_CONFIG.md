@@ -1,27 +1,27 @@
-# 使用 uv 运行 WeKnora MCP 服务器
+# WeKnora MCP Server with uv
 
-> 更推荐使用`uv`来运行基于python的MCP服务。
+> Using `uv` to run Python-based MCP services is recommended.
 >
-> 也可通过 PyPI 安装：`pip install tencent-weknora-mcp`，或使用 `uvx --from tencent-weknora-mcp weknora-mcp-server`（官方包名 `tencent-weknora-mcp`，由 [Tencent/WeKnora](https://github.com/Tencent/WeKnora) 维护）。
+> It can also be installed via PyPI: `pip install tencent-weknora-mcp`, or use `uvx --from tencent-weknora-mcp weknora-mcp-server` (official package name `tencent-weknora-mcp`, maintained by [Tencent/WeKnora](https://github.com/Tencent/WeKnora)).
 
-## 1. 安装 uv
+## 1. Install uv
 
 ```bash
 # macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 或使用 Homebrew (macOS)
+# Or use Homebrew (macOS)
 brew install uv
 
 # Windows
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-## 2. MCP 客户端配置
+## 2. MCP Client Configuration
 
-### Claude Desktop 配置
+### Claude Desktop Configuration
 
-在 Claude Desktop 设置中添加:
+Add the following to your Claude Desktop settings:
 
 ```json
 {
@@ -43,33 +43,9 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 }
 ```
 
-### Cursor 配置
+### Cursor Configuration
 
-在 Cursor 中，编辑 MCP 配置文件 (通常在 `~/.cursor/mcp-config.json`):
-
-```json
-{
-  "mcpServers": {
-    "weknora": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/WeKnora/mcp-server",
-        "run",
-        "run_server.py"
-      ],
-      "env": {
-        "WEKNORA_API_KEY": "your_api_key_here",
-        "WEKNORA_BASE_URL": "http://localhost:8080/api/v1"
-      }
-    }
-  }
-}
-```
-
-### KiloCode 配置
-
-对于 KiloCode 或其他支持 MCP 的编辑器，配置如下:
+In Cursor, edit the MCP configuration file (usually located at `~/.cursor/mcp-config.json`):
 
 ```json
 {
@@ -91,9 +67,33 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 }
 ```
 
-### 其他 MCP 客户端
+### KiloCode Configuration
 
-对于一般 MCP 客户端配置:
+For KiloCode or other editors that support MCP, configure as follows:
+
+```json
+{
+  "mcpServers": {
+    "weknora": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/WeKnora/mcp-server",
+        "run",
+        "run_server.py"
+      ],
+      "env": {
+        "WEKNORA_API_KEY": "your_api_key_here",
+        "WEKNORA_BASE_URL": "http://localhost:8080/api/v1"
+      }
+    }
+  }
+}
+```
+
+### Other MCP Clients
+
+For general MCP client configuration:
 
 ```json
 {

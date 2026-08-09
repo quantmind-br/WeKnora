@@ -10,14 +10,14 @@ const (
 	RequestyBaseURL = "https://router.requesty.ai/v1"
 )
 
-// RequestyProvider 实现 Requesty 的 Provider 接口
+// RequestyProvider implements the Requesty Provider interface
 type RequestyProvider struct{}
 
 func init() {
 	Register(&RequestyProvider{})
 }
 
-// Info 返回 Requesty provider 的元数据
+// Info returns the Requesty provider's metadata
 func (p *RequestyProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderRequesty,
@@ -37,7 +37,7 @@ func (p *RequestyProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证 Requesty provider 配置
+// ValidateConfig validates the Requesty provider configuration
 func (p *RequestyProvider) ValidateConfig(config *Config) error {
 	if config.APIKey == "" {
 		return fmt.Errorf("API key is required for Requesty provider")

@@ -10,14 +10,14 @@ const (
 	LongCatBaseURL = "https://api.longcat.chat/openai/v1"
 )
 
-// LongCatProvider 实现 LongCat AI 的 Provider 接口
+// LongCatProvider implements the Provider interface for LongCat AI
 type LongCatProvider struct{}
 
 func init() {
 	Register(&LongCatProvider{})
 }
 
-// Info 返回 LongCat provider 的元数据
+// Info returns metadata for the LongCat provider
 func (p *LongCatProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderLongCat,
@@ -33,7 +33,7 @@ func (p *LongCatProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证 LongCat provider 配置
+// ValidateConfig validates the LongCat provider configuration
 func (p *LongCatProvider) ValidateConfig(config *Config) error {
 	if config.BaseURL == "" {
 		return fmt.Errorf("base URL is required for LongCat provider")

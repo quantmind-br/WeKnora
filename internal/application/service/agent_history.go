@@ -125,7 +125,7 @@ func LoadAgentHistory(
 func buildUserHistoryMessage(m *types.Message) chat.Message {
 	content := m.Content
 	if captions := extractImageCaptionsFromMessage(m.Images); captions != "" {
-		content += "\n\n[用户上传图片内容]\n" + captions
+		content += "\n\n[User-uploaded image content]\n" + captions
 	}
 	if len(m.Attachments) > 0 {
 		content += m.Attachments.BuildPrompt()

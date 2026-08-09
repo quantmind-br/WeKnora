@@ -6,7 +6,7 @@ import { listModels, type ModelConfig } from '@/api/model'
 import { listWebSearchProviders, type WebSearchProviderEntity } from '@/api/web-search-provider'
 import { useOrganizationStore } from '@/stores/organization'
 
-/** 空间级资源缓存 TTL */
+/** Space-level resource cache TTL */
 const CACHE_TTL_MS = 60_000
 
 type ResourceKey = 'knowledgeBases' | 'agents' | 'models' | 'webSearchProviders'
@@ -30,12 +30,12 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
 
   const loadedAt = ref<Partial<Record<ResourceKey, number>>>({})
   const inflight = new Map<ResourceKey, Promise<void>>()
-  // creator==='all' 的列表请求单独去重：首屏 platform 预取与对话页 onMounted
-  // 可能并发触发，缓存尚未写入时不去重会重复打 listKnowledgeBases / listAgents。
+  // List requests with creator==='all' are deduplicated separately: first-screen platform prefetch and onMounted on the chat page
+  // May be triggered concurrently; without dedup while the cache hasn't been written yet, listKnowledgeBases / listAgents would be hit repeatedly.
   let kbAllInflight: Promise<any[]> | null = null
   let agentsAllInflight: Promise<{ data: CustomAgent[]; disabled_own_agent_ids: string[] }> | null = null
-  // 代际计数：force 与非 force 并发时句柄会被后来者覆盖，旧请求结束时凭此判断
-  // 自己是否仍是最新的那次，避免误清正在飞行的句柄。
+  // Generation counter: when force and non-force run concurrently, the handle gets overwritten by the later one, and the old request uses this on completion to determine
+  // whether it's still the latest, to avoid mistakenly clearing an in-flight handle.
   let kbAllGen = 0
   let agentsAllGen = 0
 
@@ -64,14 +64,14 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   }
 
   /**
-   * 知识库列表（支持 creator 筛选）。creator=all 时写入缓存供对话页复用。
+   * Knowledge base list (supports creator filtering). When creator=all, writes to the cache for reuse on the chat page.
    */
   async function fetchKnowledgeBasesForList(
     params?: { creator?: ListCreatorFilter },
     force = false,
   ): Promise<any[]> {
     const creator = params?.creator ?? 'all'
-    // 带 creator 过滤的列表是列表页专用、不进缓存，直接透传请求。
+    // Lists with creator filtering are list-page-only, not cached, and pass the request straight through.
     if (creator !== 'all') {
       const res: any = await listKnowledgeBases({ creator })
       return res?.data && Array.isArray(res.data) ? res.data : []
@@ -104,7 +104,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   }
 
   /**
-   * 智能体列表（支持 creator 筛选）。creator=all 时写入缓存。
+   * Agent list (supports creator filtering). When creator=all, writes to the cache.
    */
   async function fetchAgentsForList(
     params?: { creator?: ListCreatorFilter },
@@ -113,7 +113,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
     const creator = params?.creator ?? 'all'
     const orgStore = useOrganizationStore()
 
-    // 带 creator 过滤的列表不进缓存，但仍需刷新共享智能体（与全量路径保持一致）。
+    // Lists with creator filtering aren't cached, but shared agents still need to be refreshed (consistent with the full-fetch path).
     if (creator !== 'all') {
       const [agentsRes] = await Promise.all([
         listAgents({ creator }),
@@ -160,7 +160,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
     })
   }
 
-  /** @deprecated 使用 ensureModels；保留别名供对话输入栏调用 */
+  /** @deprecated use ensureModels; kept as an alias for the chat input bar to call */
   async function ensureChatModels(force = false): Promise<void> {
     return ensureModels(force)
   }
@@ -174,7 +174,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
     })
   }
 
-  /** 并行预取对话输入栏及列表页常用的空间级资源 */
+  /** Prefetch in parallel the space-level resources commonly used by the chat input bar and list pages */
   async function prefetchChatInput(force = false): Promise<void> {
     const orgStore = useOrganizationStore()
     await Promise.all([
@@ -212,7 +212,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
     return p
   }
 
-  /** 单个知识库详情（侧栏 + 详情页共用，去重并发请求） */
+  /** Single knowledge base detail (shared by sidebar + detail page, deduplicates concurrent requests) */
   async function fetchKnowledgeBaseById(kbId: string, force = false): Promise<any | null> {
     if (!kbId) return null
     const cached = kbDetailCache.get(kbId)
@@ -259,7 +259,7 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
       allModels.value = []
       webSearchProviders.value = []
       agentKbCache.clear()
-      // 同时丢弃所有 inflight 句柄，否则失效后仍在飞行的请求会把旧数据写回缓存。
+      // Also discard all inflight handles at the same time, otherwise a still-in-flight request would write stale data back into the cache after invalidation.
       inflight.clear()
       agentKbInflight.clear()
       kbAllInflight = null

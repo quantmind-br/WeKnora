@@ -7,12 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// WeKnoraCloudHandler 处理 WeKnoraCloud 凭证管理
+// WeKnoraCloudHandler handles WeKnoraCloud credential management
 type WeKnoraCloudHandler struct {
 	svc interfaces.WeKnoraCloudService
 }
 
-// NewWeKnoraCloudHandler 构造函数
+// NewWeKnoraCloudHandler constructor
 func NewWeKnoraCloudHandler(svc interfaces.WeKnoraCloudService) *WeKnoraCloudHandler {
 	return &WeKnoraCloudHandler{svc: svc}
 }
@@ -23,17 +23,17 @@ type weKnoraCloudCredentialsRequest struct {
 }
 
 // SaveCredentials POST /api/v1/weknoracloud/credentials
-// 仅保存 APPID/APPSECRET 凭证到空间配置，不自动创建模型
+// Only saves the APPID/APPSECRET credentials to the space config, without auto-creating a model
 //
 // SaveCredentials godoc
-// @Summary      保存 WeKnoraCloud 凭证
-// @Description  保存 APPID/APPSECRET 到当前空间配置（不自动创建模型）
+// @Summary      Save WeKnoraCloud credentials
+// @Description  Save APPID/APPSECRET to the current workspace configuration (does not auto-create models)
 // @Tags         WeKnoraCloud
 // @Accept       json
 // @Produce      json
 // @Param        request  body      map[string]interface{}  true  "{app_id, app_secret}"
 // @Success      200      {object}  map[string]interface{}  "success: true"
-// @Failure      400      {object}  map[string]interface{}  "请求参数错误"
+// @Failure      400      {object}  map[string]interface{}  "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /weknoracloud/credentials [post]
@@ -49,19 +49,19 @@ func (h *WeKnoraCloudHandler) SaveCredentials(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "凭证保存成功"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Credentials saved successfully"})
 }
 
 // Status GET /api/v1/models/weknoracloud/status
-// 检查当前空间的 WeKnoraCloud 凭证是否完好，如需重新初始化则返回 needs_reinit=true
+// Checks whether the current space's WeKnoraCloud credentials are intact; returns needs_reinit=true if reinitialization is required
 //
 // Status godoc
-// @Summary      检查 WeKnoraCloud 凭证状态
-// @Description  检查当前空间的 WeKnoraCloud 凭证是否完好；needs_reinit=true 表示需要重新保存
+// @Summary      Check WeKnoraCloud credential status
+// @Description  Check whether the workspace's WeKnoraCloud credentials are intact; needs_reinit=true means they must be re-saved
 // @Tags         WeKnoraCloud
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "凭证状态"
-// @Failure      500  {object}  map[string]interface{}  "服务器错误"
+// @Success      200  {object}  map[string]interface{}  "Credential status"
+// @Failure      500  {object}  map[string]interface{}  "Internal server error"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /models/weknoracloud/status [get]

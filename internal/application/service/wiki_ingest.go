@@ -2750,7 +2750,7 @@ func reconstructContent(chunks []*types.Chunk) string {
 		}
 	}
 
-	// 重叠去重与排序统一交给公共逻辑（按文本匹配，兼容补写表头 / HTML 实体）。
+	// Overlap deduplication and sorting are delegated to shared logic (matched by text, compatible with re-added headers / HTML entities).
 	return searchutil.MergeTextChunks(textChunks, "\n")
 }
 

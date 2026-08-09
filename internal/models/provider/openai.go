@@ -11,14 +11,14 @@ const (
 	OpenAIBaseURL = "https://api.openai.com/v1"
 )
 
-// OpenAIProvider 实现 OpenAI 的 Provider 接口
+// OpenAIProvider implements the Provider interface for OpenAI
 type OpenAIProvider struct{}
 
 func init() {
 	Register(&OpenAIProvider{})
 }
 
-// Info 返回 OpenAI provider 的元数据
+// Info returns metadata for the OpenAI provider
 func (p *OpenAIProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderOpenAI,
@@ -42,7 +42,7 @@ func (p *OpenAIProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证 OpenAI provider 配置
+// ValidateConfig validates OpenAI provider configuration
 func (p *OpenAIProvider) ValidateConfig(config *Config) error {
 	if config.APIKey == "" {
 		return fmt.Errorf("API key is required for OpenAI provider")
@@ -53,20 +53,20 @@ func (p *OpenAIProvider) ValidateConfig(config *Config) error {
 	return nil
 }
 
-// IsOpenAIReasoningOrGPT5Model 判断模型是否为 OpenAI / Azure OpenAI 的
-// 推理类（o-series）或 GPT-5 系列模型。
+// IsOpenAIReasoningOrGPT5Model checks whether the model is an OpenAI / Azure OpenAI
+// reasoning (o-series) or GPT-5 series model.
 //
-// 这些模型在 OpenAI Chat Completions API 中：
-//   - 不再支持 `max_tokens`，必须使用 `max_completion_tokens`；
-//   - 仅支持默认的 `temperature=1`、`top_p=1`，且不支持 `frequency_penalty` /
-//     `presence_penalty` 等采样参数（传非默认值会被拒绝）。
+// For these models, in the OpenAI Chat Completions API:
+// - `max_tokens` is no longer supported; `max_completion_tokens` must be used instead;
+// - only the default `temperature=1`, `top_p=1` are supported, and sampling parameters such as `frequency_penalty` /
+// `presence_penalty` are not supported (passing non-default values will be rejected).
 //
-// 参考：
+// Reference:
 //   - https://platform.openai.com/docs/api-reference/chat
 //   - https://learn.microsoft.com/azure/ai-services/openai/how-to/reasoning
 //
-// 仅基于模型名做启发式匹配；对于 Azure OpenAI，因为模型名实际上是 deployment 名，
-// 用户若用了自定义部署名我们无法识别，此时仍会按普通模型处理（保持原行为）。
+// Matches heuristically on model name only; for Azure OpenAI, since the model name is actually the deployment name,
+// if the user uses a custom deployment name we won't be able to recognize it, and it will still be treated as a regular model (keeping the original behavior).
 func IsOpenAIReasoningOrGPT5Model(modelName string) bool {
 	name := strings.ToLower(strings.TrimSpace(modelName))
 	if name == "" {
@@ -76,7 +76,7 @@ func IsOpenAIReasoningOrGPT5Model(modelName string) bool {
 		return true
 	}
 	// o1 / o1-mini / o1-preview / o3 / o3-mini / o4-mini ...
-	// 必须精确匹配，避免误命中 "openai-..." 之类。
+	// Must match exactly to avoid false positives like "openai-...".
 	for _, prefix := range []string{"o1", "o3", "o4"} {
 		if name == prefix || strings.HasPrefix(name, prefix+"-") {
 			return true

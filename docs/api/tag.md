@@ -1,22 +1,22 @@
-# 标签管理 API
+# Tag Management API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-| 方法   | 路径                                  | 描述                     |
-| ------ | ------------------------------------- | ------------------------ |
-| GET    | `/knowledge-bases/:id/tags`           | 获取知识库标签列表       |
-| POST   | `/knowledge-bases/:id/tags`           | 创建标签                 |
-| PUT    | `/knowledge-bases/:id/tags/:tag_id`   | 更新标签                 |
-| DELETE | `/knowledge-bases/:id/tags/:tag_id`   | 删除标签                 |
+| Method | Path                                  | Description               |
+| ------ | -------------------------------------- | -------------------------- |
+| GET    | `/knowledge-bases/:id/tags`           | Get the knowledge base tag list |
+| POST   | `/knowledge-bases/:id/tags`           | Create a tag               |
+| PUT    | `/knowledge-bases/:id/tags/:tag_id`   | Update a tag                |
+| DELETE | `/knowledge-bases/:id/tags/:tag_id`   | Delete a tag                |
 
-## GET `/knowledge-bases/:id/tags` - 获取知识库标签列表
+## GET `/knowledge-bases/:id/tags` - Get the knowledge base tag list
 
-**查询参数**:
-- `page`: 页码（默认 1）
-- `page_size`: 每页条数（默认 20）
-- `keyword`: 标签名称关键字搜索（可选）
+**Query Parameters**:
+- `page`: Page number (default 1)
+- `page_size`: Items per page (default 20)
+- `keyword`: Keyword search on tag name (optional)
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags?page=1&page_size=10' \
@@ -24,7 +24,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags?p
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -63,23 +63,23 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags?p
 }
 ```
 
-## POST `/knowledge-bases/:id/tags` - 创建标签
+## POST `/knowledge-bases/:id/tags` - Create a tag
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段 | 类型   | 说明        |
-| ---- | ------ | ----------- |
-| id   | string | 知识库 ID    |
+| Field | Type   | Description        |
+| ----- | ------ | ------------------- |
+| id    | string | Knowledge base ID    |
 
-**参数说明（请求体）**:
+**Parameter Description (Request Body)**:
 
-| 字段       | 类型   | 必填 | 说明                     |
-| ---------- | ------ | ---- | ------------------------ |
-| name       | string | 是   | 标签名（同库内唯一）      |
-| color      | string | 否   | 标签颜色（CSS 颜色字符串） |
-| sort_order | int    | 否   | 排序值（数值越小越靠前）   |
+| Field       | Type   | Required | Description                          |
+| ----------- | ------ | -------- | ------------------------------------- |
+| name        | string | Yes      | Tag name (unique within the knowledge base) |
+| color       | string | No       | Tag color (CSS color string)          |
+| sort_order  | int    | No       | Sort value (lower values appear first) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags' \
@@ -92,7 +92,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags' 
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -110,18 +110,18 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags' 
 }
 ```
 
-## PUT `/knowledge-bases/:id/tags/:tag_id` - 更新标签
+## PUT `/knowledge-bases/:id/tags/:tag_id` - Update a tag
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段   | 类型   | 说明        |
-| ------ | ------ | ----------- |
-| id     | string | 知识库 ID    |
-| tag_id | string | 标签 ID      |
+| Field  | Type   | Description        |
+| ------ | ------ | ------------------- |
+| id     | string | Knowledge base ID    |
+| tag_id | string | Tag ID               |
 
-**参数说明（请求体）**: 同创建接口，所有字段均可选；未传则保留原值。
+**Parameter Description (Request Body)**: Same as the create endpoint; all fields are optional. Fields that are not provided retain their original value.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags/tag-00000003' \
@@ -133,7 +133,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -151,22 +151,22 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }
 ```
 
-## DELETE `/knowledge-bases/:id/tags/:tag_id` - 删除标签
+## DELETE `/knowledge-bases/:id/tags/:tag_id` - Delete a tag
 
-**路径参数**:
+**Path Parameters**:
 
-| 字段   | 类型   | 说明     |
-| ------ | ------ | -------- |
-| id     | string | 知识库 ID |
-| tag_id | string | 标签 ID   |
+| Field  | Type   | Description     |
+| ------ | ------ | ----------------- |
+| id     | string | Knowledge base ID |
+| tag_id | string | Tag ID             |
 
-**查询参数**:
+**Query Parameters**:
 
-| 字段  | 类型    | 默认  | 说明                                          |
-| ----- | ------- | ----- | --------------------------------------------- |
-| force | boolean | false | 设置为 `true` 时强制删除（即使标签被引用）     |
+| Field | Type    | Default | Description                                                  |
+| ----- | ------- | ------- | -------------------------------------------------------------- |
+| force | boolean | false   | When set to `true`, forces deletion (even if the tag is referenced) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags/tag-00000003?force=true' \
@@ -174,7 +174,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/k
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {

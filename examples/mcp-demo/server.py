@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-WeKnora 本地 MCP Demo Server
+WeKnora Local MCP Demo Server
 
-最小可运行的外部 MCP 服务，用于在 WeKnora「设置 → MCP 服务」里测试客户端接入。
-默认以 Streamable HTTP 监听 http://127.0.0.1:8010/mcp
+Minimal runnable external MCP service, used to test client integration in WeKnora's "Settings → MCP Services"
+Listens on Streamable HTTP at http://127.0.0.1:8010/mcp by default
 
-启动：
+Start:
   export MCP_SERVER_AUTH_TOKEN=weknora-demo-token
   python server.py
 
-WeKnora 配置：
-  传输：HTTP Streamable
+WeKnora configuration:
+  Transport: HTTP Streamable
   URL：http://127.0.0.1:8010/mcp
-  认证：Bearer，令牌与 MCP_SERVER_AUTH_TOKEN 一致
+  Auth: Bearer, token must match MCP_SERVER_AUTH_TOKEN
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ logger = logging.getLogger("mcp-demo")
 
 mcp = MCPServer("weknora-mcp-demo", version="0.1.0")
 
-# 与 website-docs/sample-data/ 配套的演示语料，方便 Agent 调用后对照知识库答案。
+# Demo corpus paired with website-docs/sample-data/, for cross-checking knowledge base answers after Agent calls.
 DEMO_POLICIES: dict[str, str] = {
     "warranty": "智能家居中控 Pro 整机保修 24 个月，电池类配件 12 个月；人为拆解、进水不在保修范围。",
     "offline_voice": "若语音走云端识别，断外网后仅支持 App 与本地触摸屏；配置本地语音包后可继续使用基础指令。",
@@ -71,7 +71,7 @@ def require_network_transport_auth(transport: str) -> str:
 
 
 class MCPAuthMiddleware:
-    """SSE / HTTP 传输的 Bearer 鉴权中间件。"""
+    """Bearer auth middleware for SSE / HTTP transport."""
 
     def __init__(self, app, token: str):
         self.app = app
@@ -110,19 +110,19 @@ class MCPAuthMiddleware:
 
 @mcp.tool()
 def echo(message: str) -> dict[str, Any]:
-    """回显一条消息，用于验证 MCP 连通性。"""
+    """Echo a message, used to verify MCP connectivity."""
     return {"echo": message}
 
 
 @mcp.tool()
 def add(a: float, b: float) -> dict[str, Any]:
-    """计算两个数字之和。"""
+    """Compute the sum of two numbers."""
     return {"a": a, "b": b, "sum": a + b}
 
 
 @mcp.tool()
 def server_time() -> dict[str, str]:
-    """返回 MCP Demo 服务器当前 UTC 时间。"""
+    """Return the current UTC time of the MCP Demo server."""
     now = datetime.now(timezone.utc)
     return {
         "iso": now.isoformat(),
@@ -132,7 +132,7 @@ def server_time() -> dict[str, str]:
 
 @mcp.tool()
 def lookup_policy(topic: str) -> dict[str, Any]:
-    """查询演示政策/项目信息。topic 可用 warranty/offline_voice/device_limit/travel_hotel_tier1/travel_meal/poc_owner/poc_deadline/matter_cert，或中文关键词如「保修」「报销」「POC」。"""
+    """Query demo policy/project info. topic can be warranty/offline_voice/device_limit/travel_hotel_tier1/travel_meal/poc_owner/poc_deadline/matter_cert, or Chinese keywords like "保修" "报销" "POC"."""
     key = topic.strip().lower().replace(" ", "_")
     aliases = {
         "保修": "warranty",
@@ -177,7 +177,7 @@ def lookup_policy(topic: str) -> dict[str, Any]:
 
 @mcp.tool()
 def list_team_contacts(department: str = "") -> dict[str, Any]:
-    """列出演示项目团队成员；可按部门名过滤（产品部 / 研发部 / 设计部 / 测试部）。"""
+    """List demo project team members; can filter by department name (Product / R&D / Design / QA)."""
     rows = DEMO_CONTACTS
     if department.strip():
         needle = department.strip()
@@ -187,9 +187,9 @@ def list_team_contacts(department: str = "") -> dict[str, Any]:
 
 @mcp.tool()
 def send_demo_alert(channel: str, message: str) -> dict[str, Any]:
-    """模拟向外部渠道发送通知（演示用，不会真正外发）。
+    """Simulate sending a notification to an external channel (for demo purposes only, no actual outbound message).
 
-    适合在 WeKnora 里测试 MCP 工具人工审批：建议把此工具标记为需要审批。
+    Suitable for testing MCP tool manual approval in WeKnora; recommend marking this tool as requiring approval.
     """
     return {
         "ok": True,

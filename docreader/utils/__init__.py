@@ -18,7 +18,7 @@ import os
 import re
 import logging
 
-# 配置日志
+# Configure logging
 logger = logging.getLogger(__name__)
 
 

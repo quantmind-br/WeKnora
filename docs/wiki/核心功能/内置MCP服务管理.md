@@ -1,66 +1,66 @@
 ---
-title: 内置MCP服务管理
-tags: [核心功能, MCP, 系统管理, 内置服务]
-aliases: [内置MCP, BuiltinMCP, BUILTIN_MCP_SERVICES]
+title: Built-in MCP Service Management
+tags: [Core Features, MCP, System Administration, Built-in Services]
+aliases: [Built-in MCP, BuiltinMCP, BUILTIN_MCP_SERVICES]
 source: BUILTIN_MCP_SERVICES.md
 ---
 
-# 内置 MCP 服务管理指南
+# Built-in MCP Service Management Guide
 
-## 概述
+## Overview
 
-内置 MCP 服务是系统级别的 MCP（Model Context Protocol）服务配置，对所有空间可见，但敏感信息会被隐藏，且不可编辑或删除。内置 MCP 服务通常用于提供系统默认的外部工具和资源接入，确保所有空间都能使用统一的 MCP 服务。
+Built-in MCP services are system-level MCP (Model Context Protocol) service configurations that are visible to all spaces, but with sensitive information hidden, and cannot be edited or deleted. Built-in MCP services are typically used to provide default system access to external tools and resources, ensuring that all spaces can use a unified set of MCP services.
 
-> 用户视角的 MCP 服务操作参见 [MCP功能使用说明](MCP功能使用说明.md)
+> For MCP service operations from the user's perspective, see [MCP Feature Usage Guide](MCP功能使用说明.md)
 
-## 内置 MCP 服务特性
+## Built-in MCP Service Characteristics
 
-- **所有空间可见**：内置 MCP 服务对所有空间都可见，无需单独配置
-- **安全保护**：内置 MCP 服务的敏感信息（URL、认证配置、Headers、环境变量）会被隐藏，无法查看详情
-- **只读保护**：内置 MCP 服务不能被编辑或删除，仅支持测试连接
-- **统一管理**：由系统管理员统一维护，确保配置一致性和安全性
+- **Visible to all spaces**: Built-in MCP services are visible to all spaces without requiring separate configuration
+- **Security protection**: Sensitive information for built-in MCP services (URL, authentication configuration, headers, environment variables) is hidden and cannot be viewed in detail
+- **Read-only protection**: Built-in MCP services cannot be edited or deleted; only connection testing is supported
+- **Unified management**: Maintained centrally by system administrators to ensure configuration consistency and security
 
-## 与内置模型的对比
+## Comparison with Built-in Models
 
-| 特性 | 内置模型 | 内置 MCP 服务 |
+| Feature | Built-in Model | Built-in MCP Service |
 |------|---------|--------------|
-| 标识字段 | `is_builtin` | `is_builtin` |
-| 可见范围 | 所有空间 | 所有空间 |
-| 隐藏信息 | API Key、Base URL | URL、认证配置、Headers、环境变量 |
-| 编辑保护 | 不可编辑/删除 | 不可编辑/删除 |
-| 前端标签 | 显示"内置"标签 | 显示"内置"标签 |
-| 启停控制 | — | 禁用开关（始终启用） |
+| Identifier field | `is_builtin` | `is_builtin` |
+| Visibility scope | All spaces | All spaces |
+| Hidden information | API Key, Base URL | URL, authentication configuration, headers, environment variables |
+| Edit protection | Cannot be edited/deleted | Cannot be edited/deleted |
+| Frontend label | Displays "Built-in" label | Displays "Built-in" label |
+| Enable/disable control | — | Disable toggle (always enabled) |
 
-> 内置模型的详细管理参见 [内置模型管理](内置模型管理.md)
+> For detailed management of built-in models, see [Built-in Model Management](内置模型管理.md)
 
-## 如何添加内置 MCP 服务
+## How to Add a Built-in MCP Service
 
-内置 MCP 服务需要通过数据库直接插入。
+Built-in MCP services must be inserted directly through the database.
 
-### 1. 准备服务数据
+### 1. Prepare Service Data
 
-- 服务名称（name）
-- 服务描述（description）
-- 传输方式（transport_type）：`sse` 或 `http-streamable`
-- 服务地址（url）
-- 认证配置（auth_config）
-- 高级配置（advanced_config）
-- 空间ID（tenant_id）：建议使用小于 10000 的空间ID
+- Service name (name)
+- Service description (description)
+- Transport type (transport_type): `sse` or `http-streamable`
+- Service address (url)
+- Authentication configuration (auth_config)
+- Advanced configuration (advanced_config)
+- Space ID (tenant_id): it is recommended to use a space ID smaller than 10000
 
-**支持的传输方式**：
-- `sse`：Server-Sent Events，推荐用于流式体验
-- `http-streamable`：HTTP Streamable，标准 HTTP 兼容
+**Supported transport types**:
+- `sse`: Server-Sent Events, recommended for a streaming experience
+- `http-streamable`: HTTP Streamable, standard HTTP compatible
 
-> 注意：出于安全考虑，`stdio` 传输方式在服务端已被禁用。
+> Note: For security reasons, the `stdio` transport type has been disabled on the server side.
 
-### 2. 执行 SQL 插入语句
+### 2. Execute the SQL Insert Statement
 
 ```sql
 INSERT INTO mcp_services (
     id, tenant_id, name, description, enabled,
     transport_type, url, auth_config, advanced_config, is_builtin
 ) VALUES (
-    'builtin-mcp-001', 10000, 'Web Search', '内置 Web 搜索 MCP 服务',
+    'builtin-mcp-001', 10000, 'Web Search', 'Built-in Web Search MCP service',
     true, 'sse', 'https://mcp.example.com/sse',
     '{"api_key": "your-api-key"}'::jsonb,
     '{"timeout": 30, "retry_count": 3, "retry_delay": 1}'::jsonb,
@@ -68,38 +68,38 @@ INSERT INTO mcp_services (
 ) ON CONFLICT (id) DO NOTHING;
 ```
 
-### 3. 验证插入结果
+### 3. Verify the Insertion Result
 
 ```sql
 SELECT id, name, transport_type, enabled, is_builtin
 FROM mcp_services WHERE is_builtin = true ORDER BY created_at;
 ```
 
-## 注意事项
+## Notes
 
-1. **ID 命名规范**：建议使用 `builtin-mcp-{序号}` 格式
-2. **空间ID**：建议使用第一个空间ID（通常是 10000）
-3. **JSON 格式**：`auth_config`、`advanced_config`、`headers` 必须是有效的 JSON
-4. **幂等性**：使用 `ON CONFLICT (id) DO NOTHING` 确保重复执行不会报错
-5. **安全性**：内置 MCP 服务的 URL、认证信息在前端会被自动隐藏
-6. **传输方式限制**：仅支持 `sse` 和 `http-streamable`
+1. **ID naming convention**: it is recommended to use the `builtin-mcp-{sequence number}` format
+2. **Space ID**: it is recommended to use the first space ID (usually 10000)
+3. **JSON format**: `auth_config`, `advanced_config`, and `headers` must be valid JSON
+4. **Idempotency**: use `ON CONFLICT (id) DO NOTHING` to ensure repeated execution does not raise errors
+5. **Security**: the URL and authentication information of built-in MCP services are automatically hidden on the frontend
+6. **Transport type restriction**: only `sse` and `http-streamable` are supported
 
-## 将现有 MCP 服务设置为内置服务
+## Setting an Existing MCP Service as a Built-in Service
 
 ```sql
-UPDATE mcp_services SET is_builtin = true WHERE id = '服务ID' AND name = '服务名称';
+UPDATE mcp_services SET is_builtin = true WHERE id = 'service ID' AND name = 'service name';
 ```
 
-## 移除内置 MCP 服务
+## Removing a Built-in MCP Service
 
 ```sql
-UPDATE mcp_services SET is_builtin = false WHERE id = '服务ID';
+UPDATE mcp_services SET is_builtin = false WHERE id = 'service ID';
 ```
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [MCP功能使用说明](MCP功能使用说明.md) — 用户视角的 MCP 服务操作
-- [内置模型管理](内置模型管理.md) — 同为内置系统配置，模式相似
+- [Home](../Home.md) — Wiki home navigation
+- [MCP Feature Usage Guide](MCP功能使用说明.md) — MCP service operations from the user's perspective
+- [Built-in Model Management](内置模型管理.md) — Same built-in system configuration pattern, similar approach

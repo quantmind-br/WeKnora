@@ -6,20 +6,20 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-// GenericProvider 实现通用 OpenAI 兼容的 Provider 接口
+// GenericProvider implements a generic OpenAI-compatible Provider interface
 type GenericProvider struct{}
 
 func init() {
 	Register(&GenericProvider{})
 }
 
-// Info 返回通用 provider 的元数据
+// Info returns metadata for the generic provider
 func (p *GenericProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderGeneric,
-		DisplayName: "自定义 (OpenAI兼容接口)",
+		DisplayName: "Custom (OpenAI-compatible)",
 		Description: "Generic API endpoint (OpenAI-compatible)",
-		DefaultURLs: map[types.ModelType]string{}, // 需要用户自行配置填写
+		DefaultURLs: map[types.ModelType]string{}, // Must be configured and filled in by the user
 		ModelTypes: []types.ModelType{
 			types.ModelTypeKnowledgeQA,
 			types.ModelTypeEmbedding,
@@ -27,11 +27,11 @@ func (p *GenericProvider) Info() ProviderInfo {
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
 		},
-		RequiresAuth: false, // 可能需要也可能不需要
+		RequiresAuth: false, // May or may not be required
 	}
 }
 
-// ValidateConfig 验证通用 provider 配置
+// ValidateConfig validates the generic provider configuration
 func (p *GenericProvider) ValidateConfig(config *Config) error {
 	if config.BaseURL == "" {
 		return fmt.Errorf("base URL is required for generic provider")

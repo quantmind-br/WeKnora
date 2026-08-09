@@ -1,37 +1,30 @@
----
-title: Lite与标准版区别
-tags: [项目概述, 部署, Lite]
-aliases: [Lite, LITE, 标准版区别]
-source: LITE.md
----
+# Lite vs. Standard Edition Differences
 
-# Lite 与标准版区别
+Lite targets scenarios where quick local use and minimal deployment complexity are the priority; the Standard Edition targets multi-workspace collaboration and full enterprise capabilities. The main differences are as follows.
 
-Lite 面向希望快速在本地使用、部署尽量简单的场景；标准版面向多空间协作与完整企业能力。主要差异如下。
-
-| 维度 | Lite | 标准版 |
+| Dimension | Lite | Standard Edition |
 |------|------|--------|
-| **共享空间** | 不提供共享空间（成员邀请、跨成员共享知识库与智能体等） | 提供共享空间及空间隔离检索等协作能力 |
-| **空间与账号** | 单空间；开箱即用，**无需注册** | 多空间；通常需要注册、登录与组织管理 |
-| **文档解析** | 内置仅 **Simple** 类型解析引擎；可通过 **Cloud** 等方式接入其他解析能力 | 可配置多种解析引擎（含高精度等），与完整文档处理链路集成 |
-| **部署形态** | **单应用、零依赖**（不依赖独立的数据库、消息队列等外部服务栈） | 典型为 Docker Compose 等多服务部署，依赖与组件更多 |
-| **数据归属** | 数据**完全在本地**存储与处理 | 私有化部署时数据也可在本地；具体取决于你的部署方式 |
-| **网络暴露** | **默认仅本机访问**；可按需配置，**选择是否放行到公网** | 按部署与安全策略自行绑定地址与网关 |
+| **Shared Workspace** | Does not provide a shared workspace (member invitations, cross-member sharing of knowledge bases and agents, etc.) | Provides a shared workspace and collaboration capabilities such as workspace-isolated retrieval |
+| **Workspace and Account** | Single workspace; works out of the box, **no registration required** | Multiple workspaces; typically requires registration, login, and organization management |
+| **Document Parsing** | Only the **Simple** parsing engine is built in; other parsing capabilities can be accessed via **Cloud** and similar methods | Multiple parsing engines can be configured (including high-precision options), integrated with the full document processing pipeline |
+| **Deployment Model** | **Single application, zero dependencies** (does not rely on external service stacks such as a standalone database or message queue) | Typically a multi-service deployment via Docker Compose or similar, with more dependencies and components |
+| **Data Ownership** | Data is stored and processed **entirely on the local machine** | For private deployments, data can also be kept local; this depends on your specific deployment method |
+| **Network Exposure** | **Accessible from localhost only by default**; can be configured as needed, with the **option to expose it to the public internet** | Address binding and gateway configuration are handled according to your deployment and security policy |
 
-> 若你不需要多团队协作、复杂解析流水线与多服务架构，Lite 更适合个人或小团队在本机零依赖试用；需要共享空间、多空间与完整解析引擎矩阵时，请使用标准版。
+> If you don't need multi-team collaboration, a complex parsing pipeline, or a multi-service architecture, Lite is better suited for individuals or small teams trying it out locally with zero dependencies. If you need a shared workspace, multiple workspaces, or the full parsing engine matrix, use the Standard Edition instead.
 
-## 相关主题
+## Related Topics
 
-- 共享空间的详细说明参见 [共享空间说明](../安全认证/共享空间说明.md) — 标准版独有功能
-- 认证体系参见 [OIDC认证调用流程](../安全认证/OIDC认证调用流程.md) — 标准版多空间 OIDC 登录
-- 开发环境搭建参见 [开发指南](../开发部署/开发指南.md)
-- 部署相关 FAQ 参见 [常见问题](../运维排障/常见问题.md)
+- For details on the shared workspace, see [Shared Workspace Guide](../安全认证/共享空间说明.md) — a Standard Edition–only feature
+- For the authentication system, see [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — multi-workspace OIDC login for the Standard Edition
+- For setting up a development environment, see [Development Guide](../开发部署/开发指南.md)
+- For deployment-related FAQ, see [FAQ](../运维排障/常见问题.md)
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [版本路线图](版本路线图.md) — 路线图中的轻量化部署方向
-- [共享空间说明](../安全认证/共享空间说明.md) — Lite 不支持的共享空间功能的详细说明
-- [OIDC认证调用流程](../安全认证/OIDC认证调用流程.md) — 标准版多空间场景下的认证方式
+- [Home](../Home.md) — Wiki home navigation
+- [Roadmap](版本路线图.md) — the lightweight deployment direction in the roadmap
+- [Shared Workspace Guide](../安全认证/共享空间说明.md) — details on the shared workspace feature not supported by Lite
+- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — the authentication method for multi-workspace scenarios in the Standard Edition

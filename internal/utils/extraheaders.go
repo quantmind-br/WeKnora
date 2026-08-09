@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// reservedHeaderKeys 列出不允许被用户自定义头覆盖的关键请求头。
-// 这些头由各 provider 的签名、鉴权或 SSE 流程控制，覆盖后可能直接导致调用失败。
+// reservedHeaderKeys lists critical request headers that are not allowed to be overridden by custom user headers.
+// These headers are controlled by each provider's signing, authentication, or SSE flow; overriding them can directly cause the call to fail.
 var reservedHeaderKeys = map[string]struct{}{
 	"authorization":     {},
 	"api-key":           {},
@@ -20,15 +20,15 @@ var reservedHeaderKeys = map[string]struct{}{
 	"transfer-encoding": {},
 }
 
-// IsReservedHeader 判断某个 header key 是否为保留 header，保留 header 不允许被自定义头覆盖。
+// IsReservedHeader checks whether a header key is a reserved header; reserved headers cannot be overridden by custom headers.
 func IsReservedHeader(key string) bool {
 	_, ok := reservedHeaderKeys[strings.ToLower(strings.TrimSpace(key))]
 	return ok
 }
 
-// ApplyCustomHeaders 将用户自定义的 header 写入 http.Request。
-// 保留 header（Authorization、api-key、Content-Type 等）会被跳过以避免破坏鉴权/签名。
-// 其它 header 会直接覆盖同名条目，允许用户替换默认值（例如 Accept）。
+// ApplyCustomHeaders writes user-defined custom headers into an http.Request.
+// Reserved headers (Authorization, api-key, Content-Type, etc.) are skipped to avoid breaking authentication/signing.
+// Other headers directly override entries with the same name, allowing users to replace default values (e.g. Accept).
 func ApplyCustomHeaders(req *http.Request, headers map[string]string) {
 	if req == nil || len(headers) == 0 {
 		return
@@ -45,22 +45,22 @@ func ApplyCustomHeaders(req *http.Request, headers map[string]string) {
 	}
 }
 
-// CustomHeadersRoundTripper 是一个 http.RoundTripper 包装器，
-// 会在每个 HTTP 请求发出前注入用户自定义的 header。
-// 用于无法直接拿到底层 *http.Request 的场景（如 go-openai SDK）。
+// CustomHeadersRoundTripper is an http.RoundTripper wrapper that
+// injects user-defined custom headers before each HTTP request is sent.
+// Used for scenarios where the underlying *http.Request isn't directly accessible (e.g. the go-openai SDK).
 type CustomHeadersRoundTripper struct {
 	Headers map[string]string
 	Base    http.RoundTripper
 }
 
-// RoundTrip 实现 http.RoundTripper 接口。
+// RoundTrip implements the http.RoundTripper interface.
 func (t *CustomHeadersRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	base := t.Base
 	if base == nil {
 		base = http.DefaultTransport
 	}
 	if len(t.Headers) > 0 {
-		// 复制请求以避免修改调用方传入的对象。
+		// Clone the request to avoid mutating the object passed in by the caller.
 		cloned := req.Clone(req.Context())
 		ApplyCustomHeaders(cloned, t.Headers)
 		return base.RoundTrip(cloned)
@@ -68,8 +68,8 @@ func (t *CustomHeadersRoundTripper) RoundTrip(req *http.Request) (*http.Response
 	return base.RoundTrip(req)
 }
 
-// WrapHTTPClientWithHeaders 返回一个新的 *http.Client，在原有 client 基础上注入自定义 header。
-// 如果 headers 为空则直接返回原 client，避免不必要的开销。
+// WrapHTTPClientWithHeaders returns a new *http.Client that injects custom headers on top of the original client.
+// If headers is empty, return the original client directly to avoid unnecessary overhead.
 func WrapHTTPClientWithHeaders(client *http.Client, headers map[string]string) *http.Client {
 	if len(headers) == 0 {
 		return client

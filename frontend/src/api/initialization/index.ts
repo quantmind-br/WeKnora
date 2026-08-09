@@ -13,7 +13,7 @@ export interface COSCredentialStatus {
     secretKey?: boolean;
 }
 
-// 初始化配置数据类型
+// Initial config data type
 export interface InitializationConfig {
     llm: {
         source: string;
@@ -29,7 +29,7 @@ export interface InitializationConfig {
         baseUrl?: string;
         /** @deprecated Use credentials.apiKey from GET responses */
         apiKey?: string;
-        dimension?: number; // 添加embedding维度字段
+        dimension?: number; // Add embedding dimension field
         credentials?: ModelCredentialStatus;
     };
     rerank: {
@@ -91,7 +91,7 @@ export interface InitializationConfig {
     }
 }
 
-// 下载任务状态类型
+// Download task status type
 export interface DownloadTask {
     id: string;
     modelName: string;
@@ -102,7 +102,7 @@ export interface DownloadTask {
     endTime?: string;
 }
 
-// 简化版知识库配置更新接口（只传模型ID）
+// Simplified knowledge base config update interface (model ID only)
 export interface KBModelConfigRequest {
     llmModelId: string
     embeddingModelId: string
@@ -145,7 +145,7 @@ export interface KBModelConfigRequest {
     multimodal: {
         enabled: boolean
     }
-    /** 存储引擎选择："local" | "minio" | "cos" | "obs" 等，影响文档上传与文档内图片存储 */
+    /** Storage engine selection: "local" | "minio" | "cos" | "obs", etc., affects document upload and in-document image storage */
     storageBackendId?: string
     storageProvider?: string
     nodeExtract: {
@@ -178,7 +178,7 @@ export function updateKBConfig(kbId: string, config: KBModelConfigRequest): Prom
     });
 }
 
-// 根据知识库ID执行配置更新（旧版，保留兼容性）
+// Update config by knowledge base ID (legacy, kept for compatibility)
 export function initializeSystemByKB(kbId: string, config: InitializationConfig): Promise<any> {
     return new Promise((resolve, reject) => {
         console.log('Starting KB config update...', kbId, config);
@@ -194,7 +194,7 @@ export function initializeSystemByKB(kbId: string, config: InitializationConfig)
     });
 }
 
-// 检查Ollama服务状态
+// Check Ollama service status
 export function checkOllamaStatus(): Promise<{ available: boolean; version?: string; error?: string; baseUrl?: string }> {
     return new Promise((resolve, reject) => {
         get('/api/v1/initialization/ollama/status')
@@ -208,7 +208,7 @@ export function checkOllamaStatus(): Promise<{ available: boolean; version?: str
     });
 }
 
-// Ollama 模型详细信息接口
+// Ollama model detail info interface
 export interface OllamaModelInfo {
     name: string;
     size: number;
@@ -216,7 +216,7 @@ export interface OllamaModelInfo {
     modified_at: string;
 }
 
-// 列出已安装的 Ollama 模型（详细信息）
+// List installed Ollama models (with details)
 export function listOllamaModels(): Promise<OllamaModelInfo[]> {
     return new Promise((resolve, reject) => {
         get('/api/v1/initialization/ollama/models')
@@ -230,7 +230,7 @@ export function listOllamaModels(): Promise<OllamaModelInfo[]> {
     });
 }
 
-// 检查Ollama模型状态
+// Check Ollama model status
 export function checkOllamaModels(models: string[]): Promise<{ models: Record<string, boolean> }> {
     return new Promise((resolve, reject) => {
         post('/api/v1/initialization/ollama/models/check', { models })
@@ -244,7 +244,7 @@ export function checkOllamaModels(models: string[]): Promise<{ models: Record<st
     });
 }
 
-// 启动Ollama模型下载（异步）
+// Start Ollama model download (async)
 export function downloadOllamaModel(modelName: string): Promise<{ taskId: string; modelName: string; status: string; progress: number }> {
     return new Promise((resolve, reject) => {
         post('/api/v1/initialization/ollama/models/download', { modelName })
@@ -258,7 +258,7 @@ export function downloadOllamaModel(modelName: string): Promise<{ taskId: string
     });
 }
 
-// 查询下载进度
+// Query download progress
 export function getDownloadProgress(taskId: string): Promise<DownloadTask> {
     return new Promise((resolve, reject) => {
         get(`/api/v1/initialization/ollama/download/progress/${taskId}`)
@@ -272,7 +272,7 @@ export function getDownloadProgress(taskId: string): Promise<DownloadTask> {
     });
 }
 
-// 获取所有下载任务
+// Get all download tasks
 export function listDownloadTasks(): Promise<DownloadTask[]> {
     return new Promise((resolve, reject) => {
         get('/api/v1/initialization/ollama/download/tasks')
@@ -300,25 +300,25 @@ export function getCurrentConfigByKB(kbId: string): Promise<InitializationConfig
     });
 }
 
-// 所有"测试连接"接口共用的通用可选参数。
-// customHeaders / extraConfig / interfaceType 对应后端 ModelTestRequest 里的同名字段，
-// 会被透传给真正的模型装配流程，保证测试连接与生产调用走完全相同的路径。
+// Common optional parameters shared by all "test connection" interfaces.
+// customHeaders / extraConfig / interfaceType correspond to fields of the same name in the backend's ModelTestRequest,
+// and are passed through to the actual model assembly process, ensuring the test connection and production calls follow exactly the same path.
 interface BaseModelTestPayload {
     customHeaders?: Record<string, string>;
     extraConfig?: Record<string, string>;
     interfaceType?: string;
-    /** 第二段密钥（如 LKEAP Rerank 的腾讯云 SecretKey） */
+    /** Second key segment (e.g. LKEAP Rerank's Tencent Cloud SecretKey) */
     appSecret?: string;
 }
 
-// 检查远程API模型
+// Check remote API model
 export function checkRemoteModel(modelConfig: {
     modelName: string;
     baseUrl: string;
     apiKey?: string;
     provider?: string;
-    // 编辑已存在模型时传 modelId，后端会自动从存储中带出 apiKey
-    // （前端不再回显明文密钥，所以测试连接必须用这个回填路径）
+    // Pass modelId when editing an existing model; the backend will automatically bring the apiKey out from storage
+    // (The frontend no longer echoes plaintext keys, so test connection must use this backfill path)
     modelId?: string;
 } & BaseModelTestPayload): Promise<{
     available: boolean;
@@ -336,7 +336,7 @@ export function checkRemoteModel(modelConfig: {
     });
 }
 
-// 测试 Embedding 模型（本地/远程）是否可用
+// Test whether an Embedding model (local/remote) is available
 export function testEmbeddingModel(modelConfig: {
     source: 'local' | 'remote';
     modelName: string;
@@ -382,7 +382,7 @@ export function checkRerankModel(modelConfig: {
     });
 }
 
-// 检查 ASR 模型连接（通过 /v1/audio/transcriptions 端点测试）
+// Check ASR model connection (test via the /v1/audio/transcriptions endpoint)
 export function checkASRModel(modelConfig: {
     modelName: string;
     baseUrl: string;
@@ -462,22 +462,22 @@ export function testMultimodalFunction(testData: {
         formData.append('chunk_overlap', testData.chunk_overlap.toString());
         formData.append('separators', JSON.stringify(testData.separators));
 
-        // 获取鉴权Token
+        // Get auth token
         const token = localStorage.getItem('weknora_token');
         const headers: Record<string, string> = {};
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // 跨空间访问请求头：直接附，避免 short-circuit "selectedTenantId
-        // === defaultTenantId 时不附" 在某些边角下让 header 静默丢失。
-        // 与 utils/request.ts、api/chat/streame.ts 行为一致。
+        // Cross-space access request header: attach directly, avoid short-circuiting "selectedTenantId
+        // === defaultTenantId then don't attach" causing the header to silently drop in some edge cases.
+        // Consistent behavior with utils/request.ts and api/chat/streame.ts.
         const selectedTenantId = localStorage.getItem('weknora_selected_tenant_id');
         if (selectedTenantId) {
             headers['X-Tenant-ID'] = selectedTenantId;
         }
 
-        // 使用原生fetch因为需要发送FormData
+        // Use native fetch because FormData needs to be sent
         fetch('/api/v1/initialization/multimodal/test', {
             method: 'POST',
             headers,
@@ -498,7 +498,7 @@ export function testMultimodalFunction(testData: {
     });
 }
 
-// 文本内容关系提取接口
+// Text content relation extraction interface
 export interface TextRelationExtractionRequest {
     text: string;
     tags: string[];
@@ -521,7 +521,7 @@ export interface TextRelationExtractionResponse {
     relations: Relation[];
 }
 
-// 文本内容关系提取
+// Text content relation extraction
 export function extractTextRelations(request: TextRelationExtractionRequest): Promise<TextRelationExtractionResponse> {
     return new Promise((resolve, reject) => {
         post('/api/v1/initialization/extract/text-relation', request, { timeout: 60000 })
@@ -544,7 +544,7 @@ export interface FabriTextResponse {
     text: string;
 }
 
-// 文本内容生成
+// Text content generation
 export function fabriText(request: FabriTextRequest): Promise<FabriTextResponse> {
     return new Promise((resolve, reject) => {
         post('/api/v1/initialization/extract/fabri-text', request)
@@ -565,7 +565,7 @@ export interface FabriTagResponse {
     tags: string[];
 }
 
-// 标签生成
+// Tag generation
 export function fabriTag(request: FabriTagRequest): Promise<FabriTagResponse> {
     return new Promise((resolve, reject) => {
         post('/api/v1/initialization/extract/fabri-tag', request)
@@ -579,16 +579,16 @@ export function fabriTag(request: FabriTagRequest): Promise<FabriTagResponse> {
     });
 }
 
-// 模型厂商信息类型
+// Model provider info type
 export interface ModelProviderOption {
-    value: string;        // provider 标识符
-    label: string;        // 显示名称
-    description: string;  // 描述
-    defaultUrls: Record<string, string>;  // 按模型类型区分的默认 URL
-    modelTypes: string[]; // 支持的模型类型
+    value: string;        // provider identifier
+    label: string;        // Display name
+    description: string;  // Description
+    defaultUrls: Record<string, string>;  // Default URL by model type
+    modelTypes: string[]; // Supported model types
 }
 
-// 获取模型厂商列表
+// Get model provider list
 export function listModelProviders(modelType?: string): Promise<ModelProviderOption[]> {
     return new Promise((resolve, reject) => {
         const url = modelType
@@ -600,7 +600,7 @@ export function listModelProviders(modelType?: string): Promise<ModelProviderOpt
             })
             .catch((error: any) => {
                 console.error('Failed to list model providers:', error);
-                resolve([]); // 失败时返回空数组，前端可以回退到默认值
+                resolve([]); // Return empty array on failure, frontend can fall back to defaults
             });
     });
 }

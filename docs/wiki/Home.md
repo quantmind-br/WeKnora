@@ -1,72 +1,72 @@
 ---
-title: WeKnora Wiki 首页
-tags: [首页, 导航, MOC]
-aliases: [Home, Index, wiki首页]
+title: WeKnora Wiki Home
+tags: [Home, Navigation, MOC]
+aliases: [Home, Index, wiki Home]
 ---
 
 # WeKnora Wiki
 
-欢迎使用 WeKnora 知识库 wiki！这里是 WeKnora 项目文档的互联知识网络，所有页面通过双向链接关联，帮助你从任意入口探索整个知识体系。
+Welcome to the WeKnora knowledge base wiki! This is the interconnected knowledge network for the WeKnora project documentation, with all pages linked bidirectionally to help you explore the entire knowledge system from any entry point.
 
 ---
 
-## 项目概述
+## Project Overview
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [版本路线图](项目概述/版本路线图.md) | 产品规划与计划方向 |
-| [Lite与标准版区别](项目概述/Lite与标准版区别.md) | 轻量版与标准版的功能对比 |
+| [Version Roadmap](项目概述/版本路线图.md) | Product planning and roadmap direction |
+| [Lite vs Standard Edition Differences](项目概述/Lite与标准版区别.md) | Feature comparison between the lite and standard editions |
 
-## 核心功能
+## Core Features
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [知识图谱](核心功能/知识图谱.md) | Neo4j 知识图谱的快速开始与使用 |
-| [开启知识图谱功能](核心功能/开启知识图谱功能.md) | 知识图谱功能的完整启用流程 |
-| [MCP功能使用说明](核心功能/MCP功能使用说明.md) | MCP 服务的用户操作指南 |
-| [内置MCP服务管理](核心功能/内置MCP服务管理.md) | 内置 MCP 服务的系统级管理 |
-| [内置模型管理](核心功能/内置模型管理.md) | 内置模型的系统级管理 |
-| [Agent技能系统](核心功能/Agent技能系统.md) | Agent Skills 扩展机制与预加载技能 |
+| [Knowledge Graph](核心功能/知识图谱.md) | Quick start and usage guide for the Neo4j knowledge graph |
+| [Enabling the Knowledge Graph Feature](核心功能/开启知识图谱功能.md) | Complete workflow for enabling the knowledge graph feature |
+| [MCP Feature Usage Guide](核心功能/MCP功能使用说明.md) | User guide for operating MCP services |
+| [Built-in MCP Service Management](核心功能/内置MCP服务管理.md) | System-level management of built-in MCP services |
+| [Built-in Model Management](核心功能/内置模型管理.md) | System-level management of built-in models |
+| [Agent Skills System](核心功能/Agent技能系统.md) | Agent Skills extension mechanism and preloaded skills |
 
-## 集成与扩展
+## Integrations and Extensions
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [IM集成开发](集成扩展/IM集成开发.md) | 企业即时通讯平台接入开发 |
-| [数据源导入开发](集成扩展/数据源导入开发.md) | 外部平台数据自动同步与导入 |
-| [添加网络搜索引擎](集成扩展/添加网络搜索引擎.md) | 扩展新的网络搜索 Provider |
-| [集成向量数据库](集成扩展/集成向量数据库.md) | 集成新的向量数据库检索引擎 |
+| [IM Integration Development](集成扩展/IM集成开发.md) | Integration development for enterprise instant messaging platforms |
+| [Data Source Import Development](集成扩展/数据源导入开发.md) | Automatic synchronization and import of data from external platforms |
+| [Adding a Web Search Engine](集成扩展/添加网络搜索引擎.md) | Extending new web search providers |
+| [Integrating a Vector Database](集成扩展/集成向量数据库.md) | Integrating new vector database retrieval engines |
 
-## 安全与认证
+## Security and Authentication
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [OIDC认证调用流程](安全认证/OIDC认证调用流程.md) | OIDC 第三方登录的完整调用链路 |
-| [空间RBAC说明](安全认证/RBAC说明.md) | 空间内角色矩阵、资源归属与审计 |
-| [共享空间说明](安全认证/共享空间说明.md) | 跨空间协作与知识库/智能体共享 |
+| [OIDC Authentication Call Flow](安全认证/OIDC认证调用流程.md) | The complete call chain for OIDC third-party login |
+| [Space RBAC Guide](安全认证/RBAC说明.md) | Role matrix, resource ownership, and auditing within a space |
+| [Shared Space Guide](安全认证/共享空间说明.md) | Cross-space collaboration and sharing of knowledge bases/agents |
 
-## 开发与部署
+## Development and Deployment
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [开发指南](开发部署/开发指南.md) | 本地开发环境搭建与工作流 |
-| [快速开发模式](开发部署/快速开发模式.md) | 后端/前端热更新开发模式 |
+| [Development Guide](开发部署/开发指南.md) | Setting up the local development environment and workflow |
+| [Quick Development Mode](开发部署/快速开发模式.md) | Hot-reload development mode for backend/frontend |
 
-## 运维与排障
+## Operations and Troubleshooting
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [常见问题](运维排障/常见问题.md) | 部署与使用中的 FAQ |
+| [FAQ](运维排障/常见问题.md) | FAQ for deployment and usage |
 
-## API 参考
+## API Reference
 
-| 页面 | 简介 |
+| Page | Description |
 |------|------|
-| [API文档概览](API参考/API文档概览.md) | RESTful API 基础信息与分类索引 |
+| [API Documentation Overview](API参考/API文档概览.md) | Basic information and categorized index for the RESTful API |
 
 ---
 
-## 知识图谱
+## Knowledge Graph
 
 ```mermaid
 graph TB
@@ -122,6 +122,6 @@ graph TB
 
 ---
 
-## 反向链接
+## Backlinks
 
-本页为 wiki 首页，所有页面均链接回此处。
+This page is the wiki home page; all pages link back here.

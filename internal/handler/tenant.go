@@ -200,18 +200,18 @@ func (h *TenantHandler) resolveMaxOwnedTenantsPerUser(ctx context.Context) int {
 }
 
 // CreateTenant godoc
-// @Summary      创建空间
-// @Description  创建新的空间。任意已登录用户均可调用以建立自己的新工作区，
-// @Description  调用方会被自动设为该空间的 Owner。跨空间超管仍可像以前一样
-// @Description  通过本接口创建任意空间。
-// @Description  当 tenant.auto_create_api_key（或 WEKNORA_TENANT_AUTO_CREATE_API_KEY）
-// @Description  开启时，会自动创建一个 full_access API Key，并在响应体的 data.api_key 字段返回其明文 token。
-// @Tags         空间管理
+// @Summary      Create workspace
+// @Description  Create a new workspace. Any logged-in user can call this to set up their own new workspace.
+// @Description  The caller is automatically set as the Owner of the workspace. Cross-workspace super admins can still
+// @Description  Any workspace can be created through this endpoint.
+// @Description  When tenant.auto_create_api_key (or WEKNORA_TENANT_AUTO_CREATE_API_KEY)
+// @Description  When enabled, a full_access API Key is auto-created and its plaintext token is returned in the response data.api_key field.
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        request  body      handler.createTenantRequest  true  "空间信息"
-// @Success      201      {object}  map[string]interface{}  "创建的空间（可选含 api_key）"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        request  body      handler.createTenantRequest  true  "Workspace info"
+// @Success      201      {object}  map[string]interface{}  "Created workspace (optionally includes api_key)"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Router       /tenants [post]
 func (h *TenantHandler) CreateTenant(c *gin.Context) {
@@ -517,15 +517,15 @@ func (h *TenantHandler) autoCreateTenantAPIKey(ctx context.Context) bool {
 }
 
 // GetTenant godoc
-// @Summary      获取空间详情
-// @Description  根据ID获取空间详情
-// @Tags         空间管理
+// @Summary      Get workspace details
+// @Description  Get workspace details by ID
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "空间ID"
-// @Success      200  {object}  map[string]interface{}  "空间详情"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      404  {object}  errors.AppError         "空间不存在"
+// @Param        id   path      int  true  "Workspace ID"
+// @Success      200  {object}  map[string]interface{}  "Workspace details"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404  {object}  errors.AppError         "Workspace does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /tenants/{id} [get]
@@ -558,15 +558,15 @@ func (h *TenantHandler) GetTenant(c *gin.Context) {
 }
 
 // UpdateTenant godoc
-// @Summary      更新空间
-// @Description  更新空间信息
-// @Tags         空间管理
+// @Summary      Update workspace
+// @Description  Update workspace info
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      int           true  "空间ID"
-// @Param        request  body      types.Tenant  true  "空间信息"
-// @Success      200      {object}  map[string]interface{}  "更新后的空间"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      int           true  "Workspace ID"
+// @Param        request  body      types.Tenant  true  "Workspace info"
+// @Success      200      {object}  map[string]interface{}  "Updated workspace"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Router       /tenants/{id} [put]
 func (h *TenantHandler) UpdateTenant(c *gin.Context) {
@@ -808,15 +808,15 @@ func apiPrincipalConfigForResponse(cfg *types.APIPrincipalConfig) apiPrincipalCo
 }
 
 // GetAPIPrincipalConfig godoc
-// @Summary      获取空间 API Key 用户身份配置
-// @Description  返回 X-API-Key 请求如何映射为终端 Principal 的配置（Owner）
-// @Tags         空间管理
+// @Summary      Get workspace API Key user-identity configuration
+// @Description  Return the configuration of how X-API-Key requests map to terminal Principal (Owner)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "空间ID"
-// @Success      200  {object}  map[string]interface{}  "API principal 配置"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      403  {object}  errors.AppError         "权限不足"
+// @Param        id   path      int  true  "Workspace ID"
+// @Success      200  {object}  map[string]interface{}  "API principal configuration"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      403  {object}  errors.AppError         "Insufficient permissions"
 // @Security     Bearer
 // @Router       /tenants/{id}/api-principal-config [get]
 func (h *TenantHandler) GetAPIPrincipalConfig(c *gin.Context) {
@@ -842,16 +842,16 @@ func (h *TenantHandler) GetAPIPrincipalConfig(c *gin.Context) {
 }
 
 // UpdateAPIPrincipalConfig godoc
-// @Summary      更新空间 API Key 用户身份配置
-// @Description  配置 X-API-Key 请求如何映射为终端 Principal（Owner）
-// @Tags         空间管理
+// @Summary      Update workspace API Key user-identity configuration
+// @Description  Configure how X-API-Key requests map to terminal Principal (Owner)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      int                           true  "空间ID"
-// @Param        request  body      handler.apiPrincipalConfigRequest  true  "API principal 配置"
-// @Success      200      {object}  map[string]interface{}        "更新后的配置"
-// @Failure      400      {object}  errors.AppError               "请求参数错误"
-// @Failure      403      {object}  errors.AppError               "权限不足"
+// @Param        id       path      int                           true  "Workspace ID"
+// @Param        request  body      handler.apiPrincipalConfigRequest  true  "API principal configuration"
+// @Success      200      {object}  map[string]interface{}        "Updated configuration"
+// @Failure      400      {object}  errors.AppError               "Invalid request parameters"
+// @Failure      403      {object}  errors.AppError               "Insufficient permissions"
 // @Security     Bearer
 // @Router       /tenants/{id}/api-principal-config [put]
 func (h *TenantHandler) UpdateAPIPrincipalConfig(c *gin.Context) {
@@ -930,16 +930,16 @@ func (h *TenantHandler) UpdateAPIPrincipalConfig(c *gin.Context) {
 }
 
 // CreateAPIPrincipalTestToken godoc
-// @Summary      生成 API Playground 测试 JWT
-// @Description  使用空间已保存的 HMAC 密钥签发短期外部用户 JWT（Owner）
-// @Tags         空间管理
+// @Summary      Generate API Playground test JWT
+// @Description  Issue a short-lived external-user JWT with the workspace's saved HMAC key (Owner)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      int                                  true  "空间ID"
-// @Param        request  body      handler.apiPrincipalTestTokenRequest true  "测试 Token 参数"
-// @Success      200      {object}  map[string]interface{}               "短期 JWT"
-// @Failure      400      {object}  errors.AppError                      "请求参数错误"
-// @Failure      403      {object}  errors.AppError                      "权限不足"
+// @Param        id       path      int                                  true  "Workspace ID"
+// @Param        request  body      handler.apiPrincipalTestTokenRequest true  "Test token parameters"
+// @Success      200      {object}  map[string]interface{}               "Short-lived JWT"
+// @Failure      400      {object}  errors.AppError                      "Invalid request parameters"
+// @Failure      403      {object}  errors.AppError                      "Insufficient permissions"
 // @Security     Bearer
 // @Router       /tenants/{id}/api-principal-test-token [post]
 func (h *TenantHandler) CreateAPIPrincipalTestToken(c *gin.Context) {
@@ -1034,14 +1034,14 @@ func validateAPIPrincipalExternalUserID(id string) error {
 }
 
 // DeleteTenant godoc
-// @Summary      删除空间
-// @Description  删除指定的空间
-// @Tags         空间管理
+// @Summary      Delete workspace
+// @Description  Delete the given workspace
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        id   path      int  true  "空间ID"
-// @Success      200  {object}  map[string]interface{}  "删除成功"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
+// @Param        id   path      int  true  "Workspace ID"
+// @Success      200  {object}  map[string]interface{}  "Deleted successfully"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Router       /tenants/{id} [delete]
 func (h *TenantHandler) DeleteTenant(c *gin.Context) {
@@ -1077,13 +1077,13 @@ func (h *TenantHandler) DeleteTenant(c *gin.Context) {
 }
 
 // ListTenants godoc
-// @Summary      获取空间列表
-// @Description  获取当前用户可访问的空间列表
-// @Tags         空间管理
+// @Summary      Get workspace list
+// @Description  Get workspaces accessible to the current user
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "空间列表"
-// @Failure      500  {object}  errors.AppError         "服务器错误"
+// @Success      200  {object}  map[string]interface{}  "Workspace list"
+// @Failure      500  {object}  errors.AppError         "Internal server error"
 // @Security     Bearer
 // @Router       /tenants [get]
 func (h *TenantHandler) ListTenants(c *gin.Context) {
@@ -1104,13 +1104,13 @@ func (h *TenantHandler) ListTenants(c *gin.Context) {
 }
 
 // ListAllTenants godoc
-// @Summary      获取所有空间列表
-// @Description  获取系统中所有空间（需要跨空间访问权限）
-// @Tags         空间管理
+// @Summary      Get all workspace list
+// @Description  Get all workspaces in the system (requires cross-workspace access)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "所有空间列表"
-// @Failure      403  {object}  errors.AppError         "权限不足"
+// @Success      200  {object}  map[string]interface{}  "All workspace list"
+// @Failure      403  {object}  errors.AppError         "Insufficient permissions"
 // @Security     Bearer
 // @Router       /tenants/all [get]
 func (h *TenantHandler) ListAllTenants(c *gin.Context) {
@@ -1141,17 +1141,17 @@ func (h *TenantHandler) ListAllTenants(c *gin.Context) {
 }
 
 // SearchTenants godoc
-// @Summary      搜索空间
-// @Description  分页搜索空间（需要跨空间访问权限）
-// @Tags         空间管理
+// @Summary      Search workspaces
+// @Description  Paginated workspace search (requires cross-workspace access)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        keyword    query     string  false  "搜索关键词"
-// @Param        tenant_id  query     int     false  "空间ID筛选"
-// @Param        page       query     int     false  "页码"  default(1)
-// @Param        page_size  query     int     false  "每页数量"  default(20)
-// @Success      200        {object}  map[string]interface{}  "搜索结果"
-// @Failure      403        {object}  errors.AppError         "权限不足"
+// @Param        keyword    query     string  false  "Search keywords"
+// @Param        tenant_id  query     int     false  "Workspace ID filter"
+// @Param        page       query     int     false  "Page number"  default(1)
+// @Param        page_size  query     int     false  "Items per page"  default(20)
+// @Success      200        {object}  map[string]interface{}  "Search results"
+// @Failure      403        {object}  errors.AppError         "Insufficient permissions"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /tenants/search [get]
@@ -1214,14 +1214,14 @@ func (h *TenantHandler) SearchTenants(c *gin.Context) {
 }
 
 // GetTenantKV godoc
-// @Summary      获取空间KV配置
-// @Description  获取空间级别的KV配置（支持web-search-config、prompt-templates、parser-engine-config、storage-engine-config、chat-history-config、retrieval-config）
-// @Tags         空间管理
+// @Summary      Get workspace KV configuration
+// @Description  Get workspace-level KV configuration (supports web-search-config, prompt-templates, parser-engine-config, storage-engine-config, chat-history-config, retrieval-config)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        key  path      string  true  "配置键名"
-// @Success      200  {object}  map[string]interface{}  "配置值"
-// @Failure      400  {object}  errors.AppError         "不支持的键"
+// @Param        key  path      string  true  "Configuration key"
+// @Success      200  {object}  map[string]interface{}  "Configuration value"
+// @Failure      400  {object}  errors.AppError         "Unsupported key"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /tenants/kv/{key} [get]
@@ -1264,15 +1264,15 @@ func (h *TenantHandler) GetTenantKV(c *gin.Context) {
 }
 
 // UpdateTenantKV godoc
-// @Summary      更新空间KV配置
-// @Description  更新空间级别的KV配置（支持web-search-config、parser-engine-config、storage-engine-config、chat-history-config、retrieval-config）
-// @Tags         空间管理
+// @Summary      Update workspace KV configuration
+// @Description  Update workspace-level KV configuration (supports web-search-config, parser-engine-config, storage-engine-config, chat-history-config, retrieval-config)
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Param        key      path      string  true  "配置键名"
-// @Param        request  body      object  true  "配置值"
-// @Success      200      {object}  map[string]interface{}  "更新成功"
-// @Failure      400      {object}  errors.AppError         "不支持的键"
+// @Param        key      path      string  true  "Configuration key"
+// @Param        request  body      object  true  "Configuration value"
+// @Success      200      {object}  map[string]interface{}  "Updated successfully"
+// @Failure      400      {object}  errors.AppError         "Unsupported key"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /tenants/kv/{key} [put]
@@ -1358,13 +1358,13 @@ func (h *TenantHandler) updateTenantWebSearchConfigInternal(c *gin.Context) {
 }
 
 // GetTenantWebSearchConfig godoc
-// @Summary      获取空间网络搜索配置
-// @Description  获取空间的网络搜索配置
-// @Tags         空间管理
+// @Summary      Get workspace web search configuration
+// @Description  Get the workspace web search configuration
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "网络搜索配置"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
+// @Success      200  {object}  map[string]interface{}  "Web search configuration"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /tenants/kv/web-search-config [get]
@@ -1439,7 +1439,7 @@ func (h *TenantHandler) updateTenantParserEngineConfigInternal(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    types.ParserEngineConfigForResponse(updatedTenant.ParserEngineConfig, true),
-		"message": "解析引擎配置已更新",
+		"message": "Parser engine configuration updated",
 	})
 }
 
@@ -1505,18 +1505,18 @@ func (h *TenantHandler) updateTenantStorageEngineConfigInternal(c *gin.Context) 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    types.StorageEngineConfigForResponse(updatedTenant.StorageEngineConfig, true),
-		"message": "存储引擎配置已更新",
+		"message": "Storage engine configuration updated",
 	})
 }
 
 // GetPromptTemplates godoc
-// @Summary      获取提示词模板
-// @Description  获取系统配置的提示词模板列表
-// @Tags         空间管理
+// @Summary      Get prompt template
+// @Description  Get the system-configured prompt template list
+// @Tags         Workspace Management
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "提示词模板配置"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
+// @Success      200  {object}  map[string]interface{}  "Prompt template configuration"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /tenants/kv/prompt-templates [get]

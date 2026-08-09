@@ -1,137 +1,137 @@
-# WeKnora 云镜像打包脚本（Cloud-Agnostic）
+# WeKnora Cloud Image Packaging Scripts (Cloud-Agnostic)
 
-> **本文档面向「想把 WeKnora 打包成云镜像（AMI / 自定义镜像 / Snapshot）分发给其他人」的用户。**
-> **如果你只是想自己用 WeKnora，请直接看主仓 [README](../../README.md)，`docker compose up -d` 即可。**
+> **This document is for users who want to package WeKnora into a cloud image (AMI / custom image / snapshot) to distribute to others.**
+> **If you just want to use WeKnora yourself, go straight to the main repo [README](../../README.md) — `docker compose up -d` is all you need.**
 
-## 这套脚本能做什么
+## What these scripts do
 
-帮你把任意一台「能跑 Docker 的 Linux 实例」变成一份**可分发的云镜像模板**：
+They help you turn any "Linux instance capable of running Docker" into a **distributable cloud image template**:
 
-- 别人基于这份镜像创建新实例后，**首次开机会自动**：
-  - 生成全新的随机密钥（DB / Redis / JWT / AES）
-  - 启动 WeKnora 全部默认容器
-  - 把生成的凭证写到 `/root/weknora-credentials.txt`
-  - 自删除一次性初始化脚本
-- 实现「**开机即用、零私密泄漏、每实例独立密钥**」
+- After someone creates a new instance based on this image, **on first boot it will automatically**:
+  - Generate brand-new random secrets (DB / Redis / JWT / AES)
+  - Start all of WeKnora's default containers
+  - Write the generated credentials to `/root/weknora-credentials.txt`
+  - Self-delete the one-time init script
+- This achieves "**ready to use on boot, zero secret leakage, unique keys per instance**"
 
-适用平台（任意 systemd + Docker 的 Linux 都行）：
+Supported platforms (any systemd + Docker Linux works):
 
-- 腾讯云轻量应用服务器（Lighthouse） / 云服务器 CVM
+- Tencent Cloud Lighthouse / CVM
 - AWS EC2 AMI
-- 阿里云 ECS 自定义镜像
-- 火山引擎 / 华为云 / Vultr Snapshot
-- 本地 KVM / Proxmox 模板
+- Alibaba Cloud ECS custom image
+- Volcengine / Huawei Cloud / Vultr Snapshot
+- Local KVM / Proxmox templates
 
-各平台具体的「制作镜像 / 共享 / 上架」操作步骤，请参考 [`docs/cloud-image/`](../../docs/cloud-image/) 下对应文档。
+For platform-specific steps on "building the image / sharing it / listing it," see the corresponding docs under [`docs/cloud-image/`](../../docs/cloud-image/).
 
 ---
 
-## 目录结构
+## Directory structure
 
 ```
 scripts/cloud-image/
-├── README.md                # 本文档
-├── prepare.sh               # 步骤一: 装 Docker + 拉运行时 + 装 firstboot
-├── cleanup.sh               # 步骤二: 制作镜像前清理(执行后将锁定 SSH)
-├── firstboot.sh             # 新实例首次开机自动执行(用户无感)
+├── README.md                # This document
+├── prepare.sh               # Step 1: install Docker + pull runtime files + install firstboot
+├── cleanup.sh               # Step 2: clean up before making the image (locks SSH after running)
+├── firstboot.sh             # Runs automatically on new instance's first boot (invisible to the user)
 └── systemd/
-    ├── weknora.service           # 开机自启 docker compose
-    └── weknora-firstboot.service # 首次启动 init(执行后自删)
+    ├── weknora.service           # Auto-starts docker compose on boot
+    └── weknora-firstboot.service # First-boot init (self-deletes after running)
 ```
 
-## 不需要 clone 整个 WeKnora 仓库
+## No need to clone the whole WeKnora repo
 
-WeKnora 所有容器都从 Docker Hub 拉镜像（`wechatopenai/weknora-*`），Go / Python / 前端源码都不需要带到宿主机。
+All WeKnora containers are pulled from Docker Hub (`wechatopenai/weknora-*`) — no Go / Python / frontend source needs to be brought onto the host.
 
-`docker-compose.yml` 实际从宿主机挂载到容器的只有：
+The only things `docker-compose.yml` actually mounts from the host into the containers are:
 
 ```
-- ./config/config.yaml      (单文件)
-- ./skills/preloaded/       (目录)
+- ./config/config.yaml      (single file)
+- ./skills/preloaded/       (directory)
 ```
 
-所以镜像里需要的运行时文件**总共不到 100KB**：
+So the runtime files needed in the image total **less than 100KB**:
 
-| 文件 | 大小 | 用途 |
+| File | Size | Purpose |
 |---|---|---|
-| `docker-compose.yml` | 12K | 容器编排 |
-| `.env` | 12K | 环境变量 |
-| `config/config.yaml` | 8K | 后端业务配置 |
-| `skills/preloaded/` | 56K | Agent 预置技能 |
+| `docker-compose.yml` | 12K | Container orchestration |
+| `.env` | 12K | Environment variables |
+| `config/config.yaml` | 8K | Backend business config |
+| `skills/preloaded/` | 56K | Preloaded agent skills |
 
-`prepare.sh` 用 `curl + tar` 只下载这 4 项，不 `git clone`。
+`prepare.sh` uses `curl + tar` to download just these 4 items — no `git clone`.
 
-## 镜像里启动哪些容器
+## Which containers start in the image
 
-WeKnora `docker-compose.yml` 大量服务是 **profile 限定**，本镜像只默认启动核心 5 个。
+WeKnora's `docker-compose.yml` gates most services behind **profiles**; this image only starts the 5 core services by default.
 
-**默认启动（5 个常驻容器，开机自启）：**
+**Started by default (5 always-on containers, auto-start on boot):**
 
-| 容器 | 角色 |
+| Container | Role |
 |---|---|
-| `frontend` | Vue UI / NGINX 反代 |
-| `app` | WeKnora Go 后端 |
-| `docreader` | Python 文档解析 (gRPC) |
-| `postgres` (ParadeDB) | 主库 + pgvector 向量检索 + BM25 |
-| `redis` | 流式输出 / 缓存 / 异步队列 |
+| `frontend` | Vue UI / NGINX reverse proxy |
+| `app` | WeKnora Go backend |
+| `docreader` | Python document parsing (gRPC) |
+| `postgres` (ParadeDB) | Primary DB + pgvector vector search + BM25 |
+| `redis` | Streaming output / caching / async queue |
 
-> ParadeDB 自带 pgvector，默认场景下不需额外起向量库。
+> ParadeDB bundles pgvector, so no separate vector database is needed by default.
 
-**额外预拉但不常驻：**
+**Pre-pulled extra, but not always-on:**
 
-- `sandbox` 镜像：Agent Skills 由 app 按需 `docker run`。提前 `pull` 避免新实例首次执行 Skill 卡在下载。
+- `sandbox` image: Agent Skills are run on-demand by `app` via `docker run`. Pulling it in advance avoids new instances stalling on a download the first time a Skill runs.
 
-**Profile 限定，不预装（用户需要时自己 `pull`）：**
+**Profile-gated, not preinstalled (users pull these themselves as needed):**
 
-| profile | 用途 |
+| profile | Purpose |
 |---|---|
-| `minio` | 对象存储替代本地文件 |
-| `qdrant` / `milvus` / `weaviate` / `doris` | 替代 pgvector |
-| `neo4j` | GraphRAG 知识图谱 |
-| `langfuse` | 自建 Langfuse 可观测平台 |
-| `dex` | OIDC 登录 |
-| `odl-hybrid` | OpenDataLoader Docling hybrid（体积大，无预发布镜像，需 `--build`） |
+| `minio` | Object storage as an alternative to local files |
+| `qdrant` / `milvus` / `weaviate` / `doris` | Alternatives to pgvector |
+| `neo4j` | GraphRAG knowledge graph |
+| `langfuse` | Self-hosted Langfuse observability platform |
+| `dex` | OIDC login |
+| `odl-hybrid` | OpenDataLoader Docling hybrid (large, no prebuilt image, requires `--build`) |
 
-启用方式：
+How to enable:
 
 ```bash
 cd /opt/WeKnora
-docker compose --profile neo4j up -d                 # 启用 GraphRAG
-docker compose --profile langfuse up -d              # 启用自建 Langfuse
-docker compose --profile qdrant up -d                # 切换到 Qdrant
-docker compose --profile odl-hybrid up -d --build odl-hybrid  # Docling hybrid（按需）
+docker compose --profile neo4j up -d                 # Enable GraphRAG
+docker compose --profile langfuse up -d              # Enable self-hosted Langfuse
+docker compose --profile qdrant up -d                # Switch to Qdrant
+docker compose --profile odl-hybrid up -d --build odl-hybrid  # Docling hybrid (as needed)
 ```
 
 ---
 
-## 完整流程（云无关）
+## Full workflow (cloud-agnostic)
 
 ```
-1) 在目标云上买/装一台干净 Linux 实例（建议 4C8G+，Ubuntu 22.04）
-2) SSH 进去, 拷入本目录, 执行 prepare.sh
-3) 浏览器验证功能
-4) 执行 cleanup.sh (清掉私密 + SSH key, 自动关机)
-5) 在云控制台「制作镜像 / 创建快照 / 创建 AMI」
-6) 用新镜像创建测试实例, 验证 firstboot 工作正常
-7) 共享 / 公开镜像（参考各平台文档）
+1) Buy/provision a clean Linux instance on the target cloud (4C8G+ recommended, Ubuntu 22.04)
+2) SSH in, copy this directory over, run prepare.sh
+3) Verify functionality in the browser
+4) Run cleanup.sh (wipes secrets + SSH keys, auto-shuts down)
+5) In the cloud console, "build an image / create a snapshot / create an AMI"
+6) Create a test instance from the new image, verify firstboot works correctly
+7) Share / publish the image (see the platform-specific docs)
 ```
 
-### 步骤一：在干净实例上部署
+### Step 1: Deploy on a clean instance
 
-要求：systemd + 联网 + sudo 权限。推荐 Ubuntu 22.04 / Debian 12 / CentOS Stream 9。
+Requirements: systemd + network access + sudo privileges. Ubuntu 22.04 / Debian 12 / CentOS Stream 9 recommended.
 
-**1. 拷入脚本（任选一种，都不用 clone 整个 WeKnora 仓库）。**
+**1. Copy the scripts over (pick one method — none require cloning the whole WeKnora repo).**
 
-> 命令需要写入 `/opt/`，最省心的做法是先 `sudo -i` 切到 root 再粘贴。
-> 如果坚持每行加 `sudo`，注意 `>>` 重定向是在你当前 shell 执行的，必须改用 `sudo tee -a`。
+> The commands need to write to `/opt/`, so the simplest approach is to `sudo -i` into root first and then paste them.
+> If you insist on prefixing every line with `sudo`, note that `>>` redirection runs in your current shell — you'll need `sudo tee -a` instead.
 
-> **中国大陆云主机请直接看方式 C (scp)**。实测腾讯云 / 阿里云轻量服务器经常连 `github.com`、`raw.githubusercontent.com`、`gh-proxy.com` 这类境外 / 公益代理都连不上 (TLS RST 或超时)，方式 A/B 会全军覆没。本机已经有这份仓库，scp 上去最稳。
+> **If you're on a mainland China cloud host, skip straight to Method C (scp)**. In practice, Tencent Cloud / Alibaba Cloud Lighthouse instances often can't reach `github.com`, `raw.githubusercontent.com`, or even overseas / public-good proxies like `gh-proxy.com` (TLS RST or timeouts) — Methods A/B will fail across the board. Since this repo is already on your local machine, scp'ing it over is the most reliable option.
 
 ```bash
-sudo -i      # 切到 root, 后续命令直接执行
+sudo -i      # switch to root, run subsequent commands directly
 
-# === 方式 A: sparse checkout (~60KB) ===
-# 不通时设 GH_PROXY=https://gh-proxy.com/ 或 https://ghfast.top/, 注意末尾斜杠。
+# === Method A: sparse checkout (~60KB) ===
+# If unreachable, set GH_PROXY=https://gh-proxy.com/ or https://ghfast.top/ (note the trailing slash).
 GH_PROXY="${GH_PROXY:-}"
 mkdir -p /opt/weknora-tools && cd /opt/weknora-tools
 git init -q && git remote add origin "${GH_PROXY}https://github.com/Tencent/WeKnora.git"
@@ -139,8 +139,8 @@ git config core.sparseCheckout true
 echo "scripts/cloud-image/" >> .git/info/sparse-checkout
 git pull -q --depth=1 origin main
 
-# === 方式 B: 直接 curl (无 git 时用这个) ===
-# 不通时设 GH_PROXY=https://gh-proxy.com/ 或 https://ghfast.top/, 注意末尾斜杠。
+# === Method B: direct curl (use this if git isn't available) ===
+# If unreachable, set GH_PROXY=https://gh-proxy.com/ or https://ghfast.top/ (note the trailing slash).
 GH_PROXY="${GH_PROXY:-}"
 mkdir -p /opt/weknora-tools/scripts/cloud-image/systemd && cd /opt/weknora-tools
 base="${GH_PROXY}https://raw.githubusercontent.com/Tencent/WeKnora/main/scripts/cloud-image"
@@ -152,25 +152,25 @@ for f in weknora.service weknora-firstboot.service; do
 done
 chmod +x scripts/cloud-image/*.sh
 
-# === 方式 C: 从本地 scp 上来 (推荐: 中国大陆云主机直接走这条) ===
-# 在本机 (能正常访问 GitHub 的机器) 执行:
-#   scp -r scripts/cloud-image root@<实例IP>:/opt/weknora-tools/scripts/
+# === Method C: scp from your local machine (recommended: mainland China cloud hosts should use this directly) ===
+# Run this on your local machine (one that can reach GitHub normally):
+#   scp -r scripts/cloud-image root@<instance-IP>:/opt/weknora-tools/scripts/
 ```
 
-> 不确定 VM 能不能访问代理时，先探一下:
+> If you're unsure whether the VM can reach a proxy, probe first:
 > `for h in gh-proxy.com ghfast.top mirror.ghproxy.com github.moeyy.xyz kkgithub.com; do printf '%-25s' "$h"; curl -sS -o /dev/null -m 5 -w 'http=%{http_code} t=%{time_total}s\n' "https://$h/" 2>&1 || echo FAIL; done`
-> 哪个返回 `http=200/301/302` 就把 `GH_PROXY` 设成它 (后面加 `/`)。一个都不通的话，认命走方式 C。
+> Whichever host returns `http=200/301/302`, set `GH_PROXY` to it (with a trailing `/`). If none work, resign yourself to Method C.
 
-**2. 执行部署：**
+**2. Run the deployment:**
 
 ```bash
 sudo bash /opt/weknora-tools/scripts/cloud-image/prepare.sh
 
-# 想 pin 特定版本（推荐, 保证镜像可复现）
+# To pin a specific version (recommended, ensures the image is reproducible)
 sudo WEKNORA_REF=v0.5.0 bash /opt/weknora-tools/scripts/cloud-image/prepare.sh
 
-# 中国大陆机器三件套: 同时绕开 GitHub / get.docker.com / Docker Hub 的境外 CDN
-# (以腾讯云为例, 阿里云 / 华为云换对应镜像即可)
+# Mainland China three-piece combo: bypass overseas CDNs for GitHub / get.docker.com / Docker Hub simultaneously
+# (Tencent Cloud shown as an example — swap in the corresponding mirrors for Alibaba Cloud / Huawei Cloud)
 sudo \
   WEKNORA_REF=v0.5.0 \
   WEKNORA_GH_PROXY=https://gh-proxy.com/ \
@@ -179,98 +179,98 @@ sudo \
   bash /opt/weknora-tools/scripts/cloud-image/prepare.sh
 ```
 
-> 三个变量分别解决三个不同的境外 CDN 不可达问题:
-> - `WEKNORA_GH_PROXY`：加速 **GitHub tarball** 下载（`prepare.sh` 步骤 2，运行时文件）
-> - `DOCKER_INSTALL_MIRROR`：绕开 **`get.docker.com`**，改用 apt + docker-ce 镜像源装 Docker（步骤 1）
-> - `DOCKER_REGISTRY_MIRROR`：加速 **Docker Hub** 镜像拉取（步骤 4，`wechatopenai/weknora-*`）
+> These three variables each address a different overseas-CDN-unreachable problem:
+> - `WEKNORA_GH_PROXY`: speeds up **GitHub tarball** downloads (`prepare.sh` step 2, runtime files)
+> - `DOCKER_INSTALL_MIRROR`: bypasses **`get.docker.com`**, installing Docker via apt + a docker-ce mirror instead (step 1)
+> - `DOCKER_REGISTRY_MIRROR`: speeds up **Docker Hub** image pulls (step 4, `wechatopenai/weknora-*`)
 >
-> 不同云厂商对应地址（按需替换 ubuntu/debian 部分以匹配实际发行版）:
-> | 厂商 | `DOCKER_INSTALL_MIRROR` | `DOCKER_REGISTRY_MIRROR` |
+> Addresses for different cloud providers (swap the ubuntu/debian portion to match your actual distro):
+> | Provider | `DOCKER_INSTALL_MIRROR` | `DOCKER_REGISTRY_MIRROR` |
 > |---|---|---|
-> | 腾讯云 | `https://mirrors.tencent.com/docker-ce/linux/ubuntu` | `https://mirror.ccs.tencentyun.com` |
-> | 阿里云 | `https://mirrors.aliyun.com/docker-ce/linux/ubuntu` | `https://<your-id>.mirror.aliyuncs.com` |
-> | 华为云 | `https://mirrors.huaweicloud.com/docker-ce/linux/ubuntu` | `https://<id>.mirror.swr.myhuaweicloud.com` |
+> | Tencent Cloud | `https://mirrors.tencent.com/docker-ce/linux/ubuntu` | `https://mirror.ccs.tencentyun.com` |
+> | Alibaba Cloud | `https://mirrors.aliyun.com/docker-ce/linux/ubuntu` | `https://<your-id>.mirror.aliyuncs.com` |
+> | Huawei Cloud | `https://mirrors.huaweicloud.com/docker-ce/linux/ubuntu` | `https://<id>.mirror.swr.myhuaweicloud.com` |
 >
-> `DOCKER_INSTALL_MIRROR` 目前仅支持 apt 系（Ubuntu / Debian / TencentOS-apt）。
-> CentOS / Rocky 等 yum 系发行版 `get.docker.com` 一般能直连，没碰到再说。
+> `DOCKER_INSTALL_MIRROR` currently only supports apt-based distros (Ubuntu / Debian / TencentOS-apt).
+> CentOS / Rocky and other yum-based distros can generally reach `get.docker.com` directly — revisit if that changes.
 
-`prepare.sh` 会：
+`prepare.sh` will:
 
-1. 安装 Docker / Docker Compose plugin（已装则跳过）
-2. 用 `curl + tar` 下载 4 个运行时文件到 `/opt/WeKnora`
-3. 拉取并启动默认 5 个容器 + 预拉 sandbox 镜像
-4. 安装 `weknora.service`（开机自启）+ `weknora-firstboot.service`（首启 init）
+1. Install Docker / the Docker Compose plugin (skipped if already installed)
+2. Use `curl + tar` to download the 4 runtime files to `/opt/WeKnora`
+3. Pull and start the default 5 containers + pre-pull the sandbox image
+4. Install `weknora.service` (auto-start on boot) + `weknora-firstboot.service` (first-boot init)
 
-完成后访问 `http://<公网IP>`。
+Once done, visit `http://<public-IP>`.
 
-### 步骤二：验证
+### Step 2: Verify
 
-至少验证：
+At minimum, verify that you can:
 
-- 能注册管理员、能登录
-- 能创建一个知识库
-- 能上传一个文档并完成解析
-- 能进行一次问答
+- Register an admin account and log in
+- Create a knowledge base
+- Upload a document and have it finish parsing
+- Perform a Q&A round
 
 ```bash
 sudo docker compose -f /opt/WeKnora/docker-compose.yml ps
 curl -f http://localhost:8080/health
 ```
 
-### 步骤三：清理并制作镜像
+### Step 3: Clean up and build the image
 
-> **重要**：`cleanup.sh` 会删除所有 SSH 公钥、清空日志、清空数据库与 docker volume。执行后**不要再 SSH 进来**，直接去云控制台关机制作镜像。
+> **Important**: `cleanup.sh` deletes all SSH public keys, clears logs, and wipes the database and docker volumes. After running it, **do not SSH in again** — go straight to the cloud console and shut down the instance to build the image.
 
 ```bash
 sudo bash /opt/weknora-tools/scripts/cloud-image/cleanup.sh
 ```
 
-执行完会自动 `poweroff`。然后到对应云控制台按其文档制作镜像。
+The instance will automatically `poweroff` once this finishes. Then follow your cloud provider's docs to build the image from that instance.
 
-### 新实例首次开机行为
+### New-instance first-boot behavior
 
-用户用你的镜像创建实例后，第一次开机时 `weknora-firstboot.service` 会：
+The first time someone boots an instance created from your image, `weknora-firstboot.service` will:
 
-1. 生成随机的 `DB_PASSWORD` / `REDIS_PASSWORD` / `JWT_SECRET` / `SYSTEM_AES_KEY`
-2. 写回 `/opt/WeKnora/.env`
-3. `docker compose up -d` 启动全部服务
-4. 把生成的凭证写到 `/root/weknora-credentials.txt`（仅 root 可读）
-5. 把自己 disable + 删除自己（确保只跑一次）
+1. Generate random `DB_PASSWORD` / `REDIS_PASSWORD` / `JWT_SECRET` / `SYSTEM_AES_KEY` values
+2. Write them back to `/opt/WeKnora/.env`
+3. Run `docker compose up -d` to start all services
+4. Write the generated credentials to `/root/weknora-credentials.txt` (readable by root only)
+5. Disable and delete itself (to guarantee it only runs once)
 
-之后每次开机都由 `weknora.service` 接管。
+From then on, `weknora.service` takes over on every subsequent boot.
 
-> **注意**：`firstboot.sh` 默认**不**禁用注册（`DISABLE_REGISTRATION=false`），第一个注册的人会成为管理员。
-> 凭证文件里有「请尽快注册以防被抢注」的醒目提示。需要更严格控制可在 `firstboot.sh` 的 `replace` 调用列表中追加一行 `replace DISABLE_REGISTRATION true` 后再重制镜像。
+> **Note**: by default `firstboot.sh` does **not** disable registration (`DISABLE_REGISTRATION=false`) — whoever registers first becomes the admin.
+> The credentials file includes a prominent warning to "register promptly to avoid someone else claiming the admin account." For stricter control, add a line `replace DISABLE_REGISTRATION true` to the list of `replace` calls in `firstboot.sh` and rebuild the image.
 
 ---
 
-## 升级镜像版本
+## Upgrading the image version
 
-镜像里没有 git 仓库，升级直接重跑 `prepare.sh`（会覆盖 4 个运行时文件，**不动 `.env` 和 docker volume 数据**）：
+There's no git repo inside the image — to upgrade, just rerun `prepare.sh` (it overwrites the 4 runtime files, **leaving `.env` and docker volume data untouched**):
 
 ```bash
 sudo WEKNORA_REF=v0.6.0 bash /opt/weknora-tools/scripts/cloud-image/prepare.sh
-sudo bash    /opt/weknora-tools/scripts/cloud-image/cleanup.sh   # 制作新镜像前
+sudo bash    /opt/weknora-tools/scripts/cloud-image/cleanup.sh   # before building the new image
 ```
 
-> **打新镜像时想顺便清掉旧版本镜像层**（每个旧 weknora-* tag 几百 MB，4 个镜像 ~2-4GB）：
+> **If you want to also clean up old image layers while cutting a new image** (each old weknora-* tag is a few hundred MB — ~2-4GB across 4 images):
 > ```bash
 > sudo PRUNE_OLD_IMAGES=true WEKNORA_REF=v0.6.0 \
 >   bash /opt/weknora-tools/scripts/cloud-image/prepare.sh
 > ```
-> 默认 `false` 是为了保留回滚路径。打镜像前确认新版本稳定后再开。
+> The default is `false`, to preserve a rollback path. Only enable this once you've confirmed the new version is stable, right before building the image.
 
-## 安全注意事项
+## Security notes
 
-- 镜像里**不要**预置任何 LLM API Key、Langfuse Key、个人 SSH key
-- 数据库 / Redis / MinIO 端口默认仅对 docker 网络可见，不要在云防火墙里对外开放
-- `/root/weknora-credentials.txt` 用 `umask 077` 创建，仅 root 可读
-- 每次重制镜像前必须执行 `cleanup.sh`，避免泄漏上一份测试数据 / SSH key / machine-id
+- **Do not** bake any LLM API keys, Langfuse keys, or personal SSH keys into the image
+- Database / Redis / MinIO ports are only visible to the docker network by default — do not expose them publicly in your cloud firewall
+- `/root/weknora-credentials.txt` is created with `umask 077`, readable by root only
+- Always run `cleanup.sh` before rebuilding the image, to avoid leaking prior test data / SSH keys / machine-id
 
-## 各云平台具体操作
+## Platform-specific instructions
 
-| 平台 | 文档 |
+| Platform | Docs |
 |---|---|
-| 腾讯云轻量应用服务器 / CVM | [`docs/cloud-image/tencent-lighthouse.md`](../../docs/cloud-image/tencent-lighthouse.md) |
-| AWS EC2 AMI | （欢迎贡献） |
-| 阿里云 ECS | （欢迎贡献） |
+| Tencent Cloud Lighthouse / CVM | [`docs/cloud-image/tencent-lighthouse.md`](../../docs/cloud-image/tencent-lighthouse.md) |
+| AWS EC2 AMI | (contributions welcome) |
+| Alibaba Cloud ECS | (contributions welcome) |

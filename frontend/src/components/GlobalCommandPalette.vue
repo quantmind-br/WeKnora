@@ -256,7 +256,7 @@ const allCommands = computed(() => {
     t,
     close: () => commandPaletteStore.closePalette(),
   })
-  // 共享空间入口与侧栏菜单保持一致：viewer / contributor 看不到。
+  // Shared space entry stays consistent with the sidebar menu: not visible to viewer / contributor.
   if (!authStore.hasRole('admin')) {
     return cmds.filter((c) => c.id !== 'open-organizations')
   }

@@ -1,23 +1,27 @@
-# 消息管理 API
+Vou traduzir o documento diretamente.
 
-[返回目录](./README.md)
+---
 
-| 方法   | 路径                         | 描述                     |
-| ------ | ---------------------------- | ------------------------ |
-| GET    | `/messages/:session_id/load` | 获取最近的会话消息列表   |
-| DELETE | `/messages/:session_id/:id`  | 删除消息                 |
-| POST   | `/messages/search`           | 搜索历史对话             |
-| GET    | `/messages/chat-history-stats` | 获取聊天历史知识库统计 |
+# Message Management API
 
-## GET `/messages/:session_id/load` - 获取最近的会话消息列表
+[Back to index](./README.md)
 
-**查询参数**:
+| Method | Path                            | Description                                |
+| ------ | ------------------------------- | ------------------------------------------- |
+| GET    | `/messages/:session_id/load`    | Get the list of recent session messages     |
+| DELETE | `/messages/:session_id/:id`     | Delete a message                            |
+| POST   | `/messages/search`              | Search chat history                         |
+| GET    | `/messages/chat-history-stats`  | Get chat history knowledge base statistics  |
 
-- `before_time`: 上一次拉取的最早一条消息的 created_at 字段，为空拉取最近的消息
-- `limit`: 每页条数(默认 20)
-- `resource_urls`: `handle`（默认）或 `public`。`public` 把历史消息里的 `resource://` 图片引用换成可加载的 http(s) 链接，详见[文件与图片引用](./README.md#文件与图片引用resource-与直链)
+## GET `/messages/:session_id/load` - Get the list of recent session messages
 
-**请求**:
+**Query parameters**:
+
+- `before_time`: The `created_at` field of the earliest message from the previous fetch; leave empty to fetch the most recent messages
+- `limit`: Number of items per page (default 20)
+- `resource_urls`: `handle` (default) or `public`. `public` replaces `resource://` image references in historical messages with loadable http(s) links — see [File and Image References](./README.md#file-and-image-references-resource-and-direct-links) for details
+
+**Request**:
 
 ```curl
 curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e30-41d7-817d-fd584954304b/load?limit=3&before_time=2030-08-12T14%3A35%3A42.123456789Z' \
@@ -28,7 +32,7 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -172,9 +176,9 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
 }
 ```
 
-## DELETE `/messages/:session_id/:id` - 删除消息
+## DELETE `/messages/:session_id/:id` - Delete a message
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/messages/ceb9babb-1e30-41d7-817d-fd584954304b/9bcafbcf-a758-40af-a9a3-c4d8e0f49439' \
@@ -182,7 +186,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/messages/ceb9babb
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -191,17 +195,17 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/messages/ceb9babb
 }
 ```
 
-## POST `/messages/search` - 搜索历史对话
+## POST `/messages/search` - Search chat history
 
-搜索历史对话消息，支持混合搜索、关键词搜索和向量搜索模式。
+Search historical chat messages, supporting hybrid search, keyword search, and vector search modes.
 
-**请求参数**:
-- `query`: 搜索关键词（必填）
-- `mode`: 搜索模式，可选 `hybrid`、`keyword`、`vector`（可选，默认 `hybrid`）
-- `limit`: 返回结果数量（可选，默认 20）
-- `session_ids`: 限定搜索的会话ID列表（可选）
+**Request parameters**:
+- `query`: Search keyword (required)
+- `mode`: Search mode, one of `hybrid`, `keyword`, `vector` (optional, default `hybrid`)
+- `limit`: Number of results to return (optional, default 20)
+- `session_ids`: List of session IDs to restrict the search to (optional)
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/messages/search' \
@@ -215,7 +219,7 @@ curl --location 'http://localhost:8080/api/v1/messages/search' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -238,11 +242,11 @@ curl --location 'http://localhost:8080/api/v1/messages/search' \
 }
 ```
 
-## GET `/messages/chat-history-stats` - 获取聊天历史知识库统计
+## GET `/messages/chat-history-stats` - Get chat history knowledge base statistics
 
-获取当前空间的聊天历史知识库索引统计信息。
+Get index statistics for the chat history knowledge base in the current workspace.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/messages/chat-history-stats' \
@@ -250,7 +254,7 @@ curl --location 'http://localhost:8080/api/v1/messages/chat-history-stats' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -265,3 +269,7 @@ curl --location 'http://localhost:8080/api/v1/messages/chat-history-stats' \
     "success": true
 }
 ```
+
+---
+
+Note: example field values (such as Chinese message content and summaries in the JSON blocks) are kept as-is., pois são dados de amostra/identificadores, não prosa estrutural do documento — traduzi-los alteraria o valor literal do JSON de exemplo. Se preferir que eu traduza também esses valores de amostra, posso ajustar.

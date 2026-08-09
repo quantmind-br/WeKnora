@@ -353,31 +353,31 @@ jobs:
           cat > notes.md << 'NOTES'
           ## WeKnora Lite ${{ steps.ver.outputs.version }}
 
-          ### Web CLI 版（命令行 / 服务器部署）
+          ### Web CLI (command line / server deployment)
 
-          单二进制部署，零外部依赖（无需 Docker / PostgreSQL / Redis）。
+          Single-binary deployment with zero external dependencies (no Docker / PostgreSQL / Redis required).
 
           ```bash
-          # 1. 解压
+          # 1. Extract
           tar xzf WeKnora-lite_${{ steps.ver.outputs.version }}_<os>_<arch>.tar.gz
           cd WeKnora-lite_${{ steps.ver.outputs.version }}_<os>_<arch>
 
-          # 2. 配置
+          # 2. Configure
           cp .env.lite.example .env.lite
-          # 编辑 .env.lite，至少确认 OLLAMA_BASE_URL 正确
+          # Edit .env.lite; at minimum verify OLLAMA_BASE_URL
 
-          # 3. 启动 Ollama（如尚未运行）
+          # 3. Start Ollama (if not already running)
           ollama serve &
           ollama pull qwen2.5:7b
           ollama pull nomic-embed-text
 
-          # 4. 运行
+          # 4. Run
           set -a && source .env.lite && set +a
           ./WeKnora-lite
-          # 访问 http://localhost:8080
+          # Visit http://localhost:8080
           ```
 
-          | 文件 | 平台 |
+          | File | Platform |
           |------|------|
           | `WeKnora-lite_*_linux_amd64.tar.gz` | Linux x86_64 |
           | `WeKnora-lite_*_linux_arm64.tar.gz` | Linux ARM64 |
@@ -386,19 +386,19 @@ jobs:
 
           ---
 
-          ### 桌面 APP 版（开箱即用，无需命令行）
+          ### Desktop App (out of the box, no command line needed)
 
-          原生桌面应用，内置 Web 服务，双击即可运行。
+          A native desktop app with a built-in Web service - just double-click to run.
 
-          | 文件 | 平台 |
+          | File | Platform |
           |------|------|
           | `WeKnora-Lite-App_*_macOS_universal.dmg` | macOS (Intel + Apple Silicon) |
           | `WeKnora-Lite-App_*_macOS_amd64.dmg` | macOS Intel |
           | `WeKnora-Lite-App_*_macOS_arm64.dmg` | macOS Apple Silicon |
           | `WeKnora-Lite-App_*_linux_amd64.tar.gz` | Linux x86_64 |
-          | `WeKnora-Lite-App_*_windows_amd64_setup.exe` | Windows x86_64 (安装包) |
+          | `WeKnora-Lite-App_*_windows_amd64_setup.exe` | Windows x86_64 (installer) |
 
-          详细文档见 [LITE.md](docs/LITE.md)。
+          See [LITE.md](docs/LITE.md) for detailed documentation.
           NOTES
 
       - name: Create release

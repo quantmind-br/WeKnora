@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
- * 首页线描插画。用内联 SVG 而不是位图：墨线取 currentColor、点缀取 --wk-gold，
- * 深浅色模式自动跟随，任意缩放不糊，整套加起来只有几 KB。
+ * Homepage line-art illustrations. Uses inline SVG instead of bitmaps: ink lines use currentColor, accents use --wk-gold,
+ * automatically follows light/dark mode, stays sharp at any scale, and the whole set is only a few KB.
  */
 defineProps<{ name: string }>()
 
 const gold = 'var(--wk-gold)'
 
 /**
- * 首屏全景图右半部分：九个客户端沿一段椭圆弧展开，连线从核心圆的边缘出发。
- * 角度、落点与曲线控制点都在这里算，避免在模板里堆一串手写坐标。
+ * Right half of the hero panorama: nine clients arranged along an elliptical arc, with connecting lines starting from the edge of the core circle.
+ * The angles, endpoints, and curve control points are all computed here, avoiding a pile of hand-written coordinates in the template.
  */
 const spokes = [-72, -54, -36, -18, 0, 18, 36, 54, 72].map((deg) => {
   const t = (deg * Math.PI) / 180
@@ -18,7 +18,7 @@ const spokes = [-72, -54, -36, -18, 0, 18, 36, 54, 72].map((deg) => {
   const sx = 760 + 46 * Math.cos(t)
   const sy = 122 + 46 * Math.sin(t)
   const ex = cx - 15
-  // 控制点按两端距离取，近的线不会拧成结，远的线自然接近直线
+  // Control points are chosen based on the distance between the two ends, so short lines don't kink and long lines stay naturally close to straight
   const h = (ex - sx) * 0.45
   const f = (n: number) => n.toFixed(1)
   return {
@@ -28,7 +28,7 @@ const spokes = [-72, -54, -36, -18, 0, 18, 36, 54, 72].map((deg) => {
   }
 })
 
-/** 24×24 图标统一的线条参数 */
+/** Unified stroke parameters for the 24×24 icons */
 const s = {
   fill: 'none',
   stroke: 'currentColor',
@@ -39,18 +39,18 @@ const s = {
 </script>
 
 <template>
-  <!-- ============ 首屏全景图 ============
-       一张图讲完 WeKnora 与通用 RAG 示意图不一样的地方：
-       左边多源接入（文档 / 网页 / 音频 / 图片）收束成一次统一解析，
-       中间同一份内容并行写入四路索引（向量 / 关键词 / Wiki / 图谱），
-       右边同一套知识库与 Agent 再扇形展开成九种客户端。
+  <!-- ============ Hero panorama ============
+       One image tells the whole story of what makes WeKnora different from a generic RAG diagram:
+       On the left, multi-source ingestion (documents / web pages / audio / images) converges into a single unified parse,
+       in the middle the same content is written in parallel into four indexes (vector / keyword / wiki / graph),
+       on the right the same knowledge base and agent fans back out into nine kinds of clients.
 
-       版面规则：
-       1. 全图是「收束 → 展开 → 收束 → 展开」的节奏，观者顺着疏密变化走，不需要标注；
-       2. 连接一律走三次贝塞尔，控制点按两端距离取，不用直角折线；
-       3. 九个客户端落在同一段椭圆弧上（角度在 script 里算），保证间距均匀；
-       4. 笔触只有三档：主体 1.3、细节 1.1 且 opacity .45、连接线 opacity .3；
-          金色只给四处焦点：解析框、核心圆、每路索引各一个记号。 -->
+       Layout rules:
+       1. The whole image follows a "converge → expand → converge → expand" rhythm; the viewer's eye follows the changing density, no labels needed;
+       2. Connections always use cubic Bézier curves, with control points chosen based on the distance between the two ends — no right-angle polylines;
+       3. The nine clients sit on the same elliptical arc (angles computed in the script), keeping spacing even;
+       4. Only three stroke weights are used: body 1.3, detail 1.1 with opacity .45, connecting lines opacity .3;
+          gold is reserved for four focal points only: the parse box, the core circle, and one marker per index. -->
   <svg
     v-if="name === 'flow'"
     class="illus illus-flow"
@@ -58,7 +58,7 @@ const s = {
     fill="none"
     aria-hidden="true"
   >
-    <!-- ---------- 左：四类来源 ---------- -->
+    <!-- ---------- Left: four source types ---------- -->
     <g transform="translate(66 45)" stroke="currentColor" stroke-linejoin="round">
       <path stroke-width="1.3" d="M-8-13h10l6 6v20H-8z" />
       <path stroke-width="1.3" d="M2-13v6h6" />
@@ -79,7 +79,7 @@ const s = {
       <circle :fill="gold" stroke="none" cx="-5" cy="-3.5" r="1.8" />
     </g>
 
-    <!-- 来源汇入解析 -->
+    <!-- Sources feeding into parsing -->
     <g stroke="currentColor" stroke-width="1.1" opacity="0.3">
       <path d="M82 45C150 45 186 102 248 104" />
       <path d="M82 100C150 100 190 114 248 116" />
@@ -87,13 +87,13 @@ const s = {
       <path d="M82 210C150 210 186 140 248 140" />
     </g>
 
-    <!-- ---------- 统一解析 ---------- -->
+    <!-- ---------- Unified parsing ---------- -->
     <rect x="248" y="82" width="64" height="80" rx="12" fill="none" :stroke="gold" stroke-width="1.4" />
     <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.45">
       <path d="M264 104h32M264 120h32M264 136h20" />
     </g>
 
-    <!-- 解析分流到四路索引 -->
+    <!-- Parsing branches out into four indexes -->
     <g stroke="currentColor" stroke-width="1.1" opacity="0.3">
       <path d="M312 104C368 104 402 45 462 45" />
       <path d="M312 116C368 116 404 100 462 100" />
@@ -101,8 +101,8 @@ const s = {
       <path d="M312 140C368 140 402 210 462 210" />
     </g>
 
-    <!-- ---------- 四路索引 ---------- -->
-    <!-- 向量：均匀点阵 -->
+    <!-- ---------- Four indexes ---------- -->
+    <!-- Vector: evenly spaced dot grid -->
     <g :fill="gold" opacity="0.75">
       <circle cx="470" cy="39" r="2" />
       <circle cx="496" cy="39" r="2" />
@@ -118,20 +118,20 @@ const s = {
       <circle cx="600" cy="51" r="2" />
     </g>
 
-    <!-- 关键词：命中的词被标出来 -->
+    <!-- Keyword: matched terms are highlighted -->
     <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.45">
       <path d="M470 94h130M534 106h66" />
     </g>
     <path d="M470 106h52" :stroke="gold" stroke-width="1.6" stroke-linecap="round" />
 
-    <!-- Wiki：互链的两页 -->
+    <!-- Wiki: two cross-linked pages -->
     <g stroke="currentColor" stroke-width="1.3" stroke-linejoin="round">
       <rect x="470" y="141" width="44" height="22" rx="4" />
       <rect x="556" y="155" width="44" height="22" rx="4" />
     </g>
     <path d="M514 152C532 152 538 166 556 166" :stroke="gold" stroke-width="1.4" />
 
-    <!-- 图谱：实体与关系 -->
+    <!-- Graph: entities and relations -->
     <g stroke="currentColor" stroke-width="1.1" opacity="0.4">
       <path d="M484 204C500 206 516 206 529 207" />
       <path d="M491 219C505 216 518 212 530 211" />
@@ -146,7 +146,7 @@ const s = {
     </g>
     <circle cx="536" cy="208" r="7" fill="none" :stroke="gold" stroke-width="1.5" />
 
-    <!-- 四路索引汇入核心 -->
+    <!-- Four indexes converging into the core -->
     <g stroke="currentColor" stroke-width="1.1" opacity="0.3">
       <path d="M612 45C672 45 700 104 716 106" />
       <path d="M612 100C670 100 700 116 716 118" />
@@ -154,7 +154,7 @@ const s = {
       <path d="M612 210C672 210 700 140 716 138" />
     </g>
 
-    <!-- ---------- 核心：同一套知识库与 Agent ---------- -->
+    <!-- ---------- Core: the same knowledge base and agent ---------- -->
     <circle cx="760" cy="122" r="53" fill="none" stroke="currentColor" stroke-width="1" opacity="0.16" />
     <circle cx="760" cy="122" r="46" fill="none" :stroke="gold" stroke-width="1.5" />
     <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.75">
@@ -162,13 +162,13 @@ const s = {
     </g>
     <circle cx="775" cy="136" r="3.4" :fill="gold" />
 
-    <!-- 核心扇形展开到九种客户端 -->
+    <!-- Core fanning out to nine kinds of clients -->
     <g stroke="currentColor" stroke-width="1.1" opacity="0.3">
       <path v-for="(sp, i) in spokes" :key="i" :d="sp.d" />
     </g>
 
-    <!-- ---------- 右：九种客户端 ---------- -->
-    <!-- Web 控制台：窗口里是带出处标记的回答 -->
+    <!-- ---------- Right: nine kinds of clients ---------- -->
+    <!-- Web console: window showing an answer with source markers -->
     <g :transform="`translate(${spokes[0].cx} ${spokes[0].cy})`">
       <rect x="-13" y="-10" width="26" height="20" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.3" />
       <path d="M-13-4h26" stroke="currentColor" stroke-width="1.1" opacity="0.45" />
@@ -177,14 +177,14 @@ const s = {
       <rect x="-9" y="4" width="7" height="4" rx="1.5" fill="none" :stroke="gold" stroke-width="1.2" />
     </g>
 
-    <!-- 桌面客户端 -->
+    <!-- Desktop client -->
     <g :transform="`translate(${spokes[1].cx} ${spokes[1].cy})`" fill="none">
       <rect x="-13" y="-11" width="26" height="17" rx="3" stroke="currentColor" stroke-width="1.3" />
       <path stroke="currentColor" stroke-width="1.3" stroke-linecap="round" d="M-5 11h10M0 6v5" />
       <path :stroke="gold" stroke-width="1.2" stroke-linecap="round" d="M-8-5h11" />
     </g>
 
-    <!-- Chrome 插件：网页右侧的问答边栏 -->
+    <!-- Chrome extension: Q&A sidebar on the right side of a webpage -->
     <g :transform="`translate(${spokes[2].cx} ${spokes[2].cy})`" fill="none">
       <rect x="-13" y="-10" width="26" height="20" rx="3.5" stroke="currentColor" stroke-width="1.3" />
       <path d="M-9-4h9M-9 1h6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.4" />
@@ -192,14 +192,14 @@ const s = {
       <path :stroke="gold" stroke-width="1.1" stroke-linecap="round" opacity="0.75" d="M7-3h4M7 2h4" />
     </g>
 
-    <!-- 网页嵌入挂件：站点角上的悬浮问答 -->
+    <!-- Web embed widget: floating Q&A in the corner of a site -->
     <g :transform="`translate(${spokes[3].cx} ${spokes[3].cy})`" fill="none">
       <rect x="-13" y="-11" width="26" height="22" rx="3.5" stroke="currentColor" stroke-width="1.3" />
       <path d="M-9-6h10M-9-1h7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.4" />
       <path :stroke="gold" stroke-width="1.3" stroke-linejoin="round" d="M0 2h11v7H5l-3 2.6V9H0z" />
     </g>
 
-    <!-- IM 机器人 -->
+    <!-- IM bot -->
     <g :transform="`translate(${spokes[4].cx} ${spokes[4].cy})`" fill="none">
       <rect x="-11" y="-6" width="22" height="17" rx="5" stroke="currentColor" stroke-width="1.3" />
       <path d="M0-10.5v4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
@@ -210,21 +210,21 @@ const s = {
       </g>
     </g>
 
-    <!-- 微信小程序 -->
+    <!-- WeChat mini program -->
     <g :transform="`translate(${spokes[5].cx} ${spokes[5].cy})`" fill="none">
       <rect x="-7" y="-12" width="14" height="24" rx="3.5" stroke="currentColor" stroke-width="1.3" />
       <rect x="-4" y="-6" width="8" height="8" rx="2" :stroke="gold" stroke-width="1.3" />
       <path d="M-2.5 8.5h5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.45" />
     </g>
 
-    <!-- 命令行 -->
+    <!-- Command line -->
     <g :transform="`translate(${spokes[6].cx} ${spokes[6].cy})`" fill="none">
       <rect x="-13" y="-10" width="26" height="20" rx="3.5" stroke="currentColor" stroke-width="1.3" />
       <path :stroke="gold" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M-7-3.5L-3.5 0-7 3.5" />
       <path d="M0 4h7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" opacity="0.45" />
     </g>
 
-    <!-- REST API 与 SDK -->
+    <!-- REST API and SDK -->
     <g :transform="`translate(${spokes[7].cx} ${spokes[7].cy})`" fill="none">
       <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
         <path d="M-4-10c-2.8 0-3.2 1.4-3.2 3.4v2.6c0 2-1 3-2.6 3 1.6 0 2.6 1 2.6 3v2.6c0 2 .4 3.4 3.2 3.4" />
@@ -233,7 +233,7 @@ const s = {
       <circle cx="0" cy="1" r="1.8" :fill="gold" />
     </g>
 
-    <!-- MCP：双向 -->
+    <!-- MCP: bidirectional -->
     <g :transform="`translate(${spokes[8].cx} ${spokes[8].cy})`" fill="none">
       <g stroke="currentColor" stroke-width="1.3">
         <rect x="-13" y="-7" width="9" height="14" rx="2.5" />
@@ -244,9 +244,9 @@ const s = {
     </g>
   </svg>
 
-  <!-- ==================== 处理流程 四枚 ==================== -->
+  <!-- ==================== Processing pipeline, four items ==================== -->
 
-  <!-- 读懂文档：版式还原 -->
+  <!-- Understanding documents: layout preserved -->
   <svg v-else-if="name === 'read'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M5 3h9l5 5v13H5z" />
     <path v-bind="s" d="M14 3v5h5" />
@@ -254,14 +254,14 @@ const s = {
     <path :stroke="gold" stroke-width="1.4" stroke-linecap="round" d="M8 19h5" />
   </svg>
 
-  <!-- 切好知识：父块套子块 -->
+  <!-- Well-chunked knowledge: parent blocks containing child blocks -->
   <svg v-else-if="name === 'chunk'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="3" y="3.5" width="18" height="17" rx="2" />
     <path v-bind="s" opacity="0.5" d="M3 9h18M3 15h18" />
     <rect x="5.5" y="10" width="9" height="4" rx="1" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- 找准证据：两路召回汇合成一份排好序的结果 -->
+  <!-- Precise evidence: two recall paths merging into one ranked result -->
   <svg v-else-if="name === 'retrieve'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M2.5 5.5c5.5 0 3.5 6.5 8 6.5" />
     <path v-bind="s" d="M2.5 18.5c5.5 0 3.5-6.5 8-6.5" />
@@ -269,30 +269,30 @@ const s = {
     <path v-bind="s" opacity="0.55" d="M13.5 12.5h6M13.5 16.5h4" />
   </svg>
 
-  <!-- 可核对的回答：气泡 + 出处角标 -->
+  <!-- Verifiable answers: bubble + source badge -->
   <svg v-else-if="name === 'answer'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M4 4h16v12H9l-5 4z" />
     <path v-bind="s" opacity="0.5" d="M7.5 8.5h9M7.5 12h5" />
     <circle cx="17" cy="12" r="2" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- ==================== 核心能力 九枚 ==================== -->
+  <!-- ==================== Core capabilities, nine items ==================== -->
 
-  <!-- Wiki：互链的页面 -->
+  <!-- Wiki: cross-linked pages -->
   <svg v-else-if="name === 'wiki'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="3" width="8" height="10" rx="1.5" />
     <rect v-bind="s" x="13.5" y="11" width="8" height="10" rx="1.5" />
     <path :stroke="gold" stroke-width="1.4" stroke-linecap="round" fill="none" d="M10.5 8h5a2 2 0 012 2v1" />
   </svg>
 
-  <!-- 分块编辑与版本：历史堆叠 -->
+  <!-- Chunk editing and versions: stacked history -->
   <svg v-else-if="name === 'version'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" opacity="0.45" x="3" y="3" width="14" height="8" rx="1.5" />
     <rect v-bind="s" x="7" y="9.5" width="14" height="8" rx="1.5" />
     <path :stroke="gold" stroke-width="1.4" stroke-linecap="round" d="M6 21h12" />
   </svg>
 
-  <!-- 多渠道：中心向外分发 -->
+  <!-- Multi-channel: distributing outward from the center -->
   <svg v-else-if="name === 'channels'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="12" cy="12" r="3" fill="none" :stroke="gold" stroke-width="1.4" />
     <path v-bind="s" opacity="0.7" d="M12 9V4.8M12 15v4.2M9 12H4.8M15 12h4.2" />
@@ -304,7 +304,7 @@ const s = {
     </g>
   </svg>
 
-  <!-- MCP：双向 -->
+  <!-- MCP: bidirectional -->
   <svg v-else-if="name === 'mcp'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="6" width="7" height="12" rx="1.5" />
     <rect v-bind="s" x="14.5" y="6" width="7" height="12" rx="1.5" />
@@ -319,7 +319,7 @@ const s = {
     <path v-bind="s" d="M14 14.5H9.5M11.1 13l-1.6 1.5" />
   </svg>
 
-  <!-- 多空间隔离与审计：盾 -->
+  <!-- Multi-tenant isolation and auditing: shield -->
   <svg v-else-if="name === 'govern'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M12 2.8l7.5 3v6.4c0 4-3.2 7.4-7.5 9-4.3-1.6-7.5-5-7.5-9V5.8z" />
     <path
@@ -332,14 +332,14 @@ const s = {
     />
   </svg>
 
-  <!-- 可插拔：底板上的可替换模块 -->
+  <!-- Pluggable: replaceable modules on a base plate -->
   <svg v-else-if="name === 'pluggable'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="4" width="19" height="16" rx="2" />
     <path v-bind="s" opacity="0.5" d="M2.5 9.5h5M2.5 14.5h5" />
     <rect x="10" y="8" width="8" height="8" rx="1.5" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- 知识图谱：实体与关系 -->
+  <!-- Knowledge graph: entities and relations -->
   <svg v-else-if="name === 'graph'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" opacity="0.5" d="M7.2 5.9l9.2 -1.4M6.4 8.7l9.6 8.2M9.9 19.4l5.4 -0.9" />
     <circle v-bind="s" cx="5" cy="6.5" r="2.3" />
@@ -348,7 +348,7 @@ const s = {
     <circle cx="18.6" cy="4.4" r="2.4" fill="none" :stroke="gold" stroke-width="1.5" />
   </svg>
 
-  <!-- 数据源：按计划同步 -->
+  <!-- Data sources: scheduled sync -->
   <svg v-else-if="name === 'sync'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M20 12a8 8 0 10-2.6 5.9" />
     <path
@@ -362,9 +362,9 @@ const s = {
     <path v-bind="s" opacity="0.5" d="M12 7.8V12l2.8 1.8" />
   </svg>
 
-  <!-- ==================== 部署形态 三枚 ==================== -->
+  <!-- ==================== Deployment forms, three items ==================== -->
 
-  <!-- Docker Compose：一叠一起起来的服务 -->
+  <!-- Docker Compose: a stack of services brought up together -->
   <svg v-else-if="name === 'compose'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect x="3" y="3.5" width="18" height="5" rx="1.4" fill="none" :stroke="gold" stroke-width="1.4" />
     <g v-bind="s">
@@ -377,23 +377,23 @@ const s = {
     </g>
   </svg>
 
-  <!-- Helm / Kubernetes：舵轮 -->
+  <!-- Helm / Kubernetes: ship's wheel -->
   <svg v-else-if="name === 'helm'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M12 2.6l8.2 4v7.6L12 21.4 3.8 14.2V6.6z" />
     <circle cx="12" cy="12" r="2.4" fill="none" :stroke="gold" stroke-width="1.4" />
     <path v-bind="s" opacity="0.55" d="M12 6.4v3.2M9.9 13.4l-2.6 1.9M14.1 13.4l2.6 1.9" />
   </svg>
 
-  <!-- Lite：单机一台 -->
+  <!-- Lite: a single machine -->
   <svg v-else-if="name === 'lite'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="4" y="4" width="16" height="11" rx="1.8" />
     <path v-bind="s" opacity="0.5" d="M2.5 18.5h19" />
     <rect x="9" y="7.5" width="6" height="4" rx="1" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- ==================== 文档地图 六枚 ==================== -->
+  <!-- ==================== Documentation map, six items ==================== -->
 
-  <!-- 快速开始：起播 -->
+  <!-- Quick start: play button -->
   <svg v-else-if="name === 'start'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <circle v-bind="s" cx="12" cy="12" r="9" />
     <path
@@ -406,7 +406,7 @@ const s = {
     />
   </svg>
 
-  <!-- 架构：自上而下的层级 -->
+  <!-- Architecture: top-down layers -->
   <svg v-else-if="name === 'arch'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect x="8.5" y="2.5" width="7" height="5" rx="1.2" fill="none" :stroke="gold" stroke-width="1.4" />
     <rect v-bind="s" x="2.5" y="16" width="7" height="5" rx="1.2" />
@@ -414,7 +414,7 @@ const s = {
     <path v-bind="s" opacity="0.6" d="M12 7.5v4M6 16v-4.5h12V16" />
   </svg>
 
-  <!-- 功能模块：栅格 -->
+  <!-- Feature modules: grid -->
   <svg v-else-if="name === 'modules'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <g v-bind="s">
       <rect x="3" y="3" width="7" height="7" rx="1.4" />
@@ -424,22 +424,22 @@ const s = {
     <rect x="14" y="3" width="7" height="7" rx="1.4" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- 客户端：多端 -->
+  <!-- Clients: multiple platforms -->
   <svg v-else-if="name === 'clients'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M14.5 17H3.5a1 1 0 01-1-1V5a1 1 0 011-1h15a1 1 0 011 1v2.5" />
     <path v-bind="s" opacity="0.5" d="M7.5 20h5M10 17v3" />
     <rect x="15" y="10" width="6.5" height="10" rx="1.5" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- 开发指南：源码尖括号 -->
+  <!-- Developer guide: source code angle brackets -->
   <svg v-else-if="name === 'dev'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M8 7.5L3.5 12 8 16.5M16 7.5l4.5 4.5-4.5 4.5" />
     <path :stroke="gold" stroke-width="1.5" stroke-linecap="round" d="M13.6 5.5l-3.2 13" />
   </svg>
 
-  <!-- ==================== 客户端入口 九枚 ==================== -->
+  <!-- ==================== Client entry points, nine items ==================== -->
 
-  <!-- Web 控制台：浏览器窗口 -->
+  <!-- Web console: browser window -->
   <svg v-else-if="name === 'console'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="4" width="19" height="16" rx="2" />
     <path v-bind="s" d="M2.5 8.5h19" />
@@ -447,7 +447,7 @@ const s = {
     <path v-bind="s" opacity="0.45" d="M6 12.5h8M6 16h5" />
   </svg>
 
-  <!-- Chrome 插件：网页右侧的问答边栏 -->
+  <!-- Chrome extension: Q&A sidebar on the right side of a webpage -->
   <svg v-else-if="name === 'extension'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="4" width="19" height="16" rx="2" />
     <path v-bind="s" opacity="0.45" d="M5.5 8.5h6M5.5 12h4" />
@@ -455,7 +455,7 @@ const s = {
     <path :stroke="gold" stroke-width="1.4" stroke-linecap="round" opacity="0.75" d="M17 9h2M17 12.5h2" />
   </svg>
 
-  <!-- 网页嵌入挂件：站点角上的悬浮问答 -->
+  <!-- Web embed widget: floating Q&A in the corner of a site -->
   <svg v-else-if="name === 'embed'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="3.5" width="19" height="17" rx="2" />
     <path v-bind="s" opacity="0.45" d="M6 8h7M6 11.5h5" />
@@ -468,14 +468,14 @@ const s = {
     />
   </svg>
 
-  <!-- 桌面客户端：显示器 -->
+  <!-- Desktop client: monitor -->
   <svg v-else-if="name === 'desktop'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="4" width="19" height="12.5" rx="2" />
     <path v-bind="s" d="M9.5 20h5M12 16.5V20" />
     <path :stroke="gold" stroke-width="1.4" stroke-linecap="round" d="M6.5 8.5h7" />
   </svg>
 
-  <!-- IM 机器人 -->
+  <!-- IM bot -->
   <svg v-else-if="name === 'bot'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="3.5" y="7.5" width="17" height="12" rx="3" />
     <path v-bind="s" d="M12 4.2v3.3" />
@@ -486,14 +486,14 @@ const s = {
     </g>
   </svg>
 
-  <!-- 微信小程序：手机 -->
+  <!-- WeChat mini program: phone -->
   <svg v-else-if="name === 'mobile'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="6" y="2.5" width="12" height="19" rx="2.5" />
     <path v-bind="s" opacity="0.5" d="M10.6 19h2.8" />
     <rect x="9" y="7" width="6" height="6" rx="1.4" fill="none" :stroke="gold" stroke-width="1.4" />
   </svg>
 
-  <!-- 命令行 -->
+  <!-- Command line -->
   <svg v-else-if="name === 'cli'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <rect v-bind="s" x="2.5" y="4" width="19" height="16" rx="2" />
     <path
@@ -507,14 +507,14 @@ const s = {
     <path v-bind="s" opacity="0.5" d="M12 15h5.5" />
   </svg>
 
-  <!-- REST API 与 SDK：花括号 -->
+  <!-- REST API and SDK: curly braces -->
   <svg v-else-if="name === 'api'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M9 3.5c-2.2 0-2.6 1.2-2.6 3v2.3c0 1.8-.8 2.6-2.4 3.2 1.6.6 2.4 1.4 2.4 3.2v2.3c0 1.8.4 3 2.6 3" />
     <path v-bind="s" d="M15 3.5c2.2 0 2.6 1.2 2.6 3v2.3c0 1.8.8 2.6 2.4 3.2-1.6.6-2.4 1.4-2.4 3.2v2.3c0 1.8-.4 3-2.6 3" />
     <circle :fill="gold" cx="12" cy="12" r="1.5" />
   </svg>
 
-  <!-- FAQ：问答对 -->
+  <!-- FAQ: question-answer pairs -->
   <svg v-else-if="name === 'faq'" class="illus" viewBox="0 0 24 24" aria-hidden="true">
     <path v-bind="s" d="M3 3.5h13v9H8l-5 4z" />
     <path v-bind="s" opacity="0.5" d="M6 7h7M6 10h4" />

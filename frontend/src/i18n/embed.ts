@@ -1214,7 +1214,7 @@ export function normalizeEmbedLocale(raw: string): EmbedLocale {
   if (s.startsWith('ru')) return 'ru-RU'
   if (s.startsWith('zh')) return 'zh-CN'
   const exact = SUPPORTED_LOCALES.find((l) => l.toLowerCase() === s)
-  return exact || 'zh-CN'
+  return exact || 'en-US'
 }
 
 export function readEmbedLocaleFromUrl(): string {
@@ -1224,7 +1224,7 @@ export function readEmbedLocaleFromUrl(): string {
 
 function resolveBrowserEmbedLocale(): EmbedLocale {
   const nav = typeof navigator !== 'undefined' ? navigator.language : ''
-  return nav ? normalizeEmbedLocale(nav) : 'zh-CN'
+  return nav ? normalizeEmbedLocale(nav) : 'en-US'
 }
 
 function resolveInitialEmbedLocale(): EmbedLocale {

@@ -22,7 +22,7 @@ type CustomAgentHandler struct {
 	service      interfaces.CustomAgentService
 	imService    *im.Service
 	disabledRepo interfaces.TenantDisabledSharedAgentRepository
-	// userService 仅用于 list 接口批量回填 creator_name，作用见
+	// userService is only used by the list endpoint to batch-fill creator_name; see
 	// KnowledgeBaseHandler.userService。
 	userService interfaces.UserService
 }
@@ -59,14 +59,14 @@ type UpdateAgentRequest struct {
 }
 
 // CreateAgent godoc
-// @Summary      创建智能体
-// @Description  创建新的自定义智能体
-// @Tags         智能体
+// @Summary      Create agent
+// @Description  Create a new custom agent
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Param        request  body      CreateAgentRequest  true  "智能体信息"
-// @Success      201      {object}  map[string]interface{}  "创建的智能体"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        request  body      CreateAgentRequest  true  "Agent info"
+// @Success      201      {object}  map[string]interface{}  "Created agent"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents [post]
@@ -124,15 +124,15 @@ func (h *CustomAgentHandler) CreateAgent(c *gin.Context) {
 }
 
 // GetAgent godoc
-// @Summary      获取智能体详情
-// @Description  根据ID获取智能体详情
-// @Tags         智能体
+// @Summary      Get agent details
+// @Description  Get agent details by ID
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "智能体ID"
-// @Success      200  {object}  map[string]interface{}  "智能体详情"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      404  {object}  errors.AppError         "智能体不存在"
+// @Param        id   path      string  true  "Agent ID"
+// @Success      200  {object}  map[string]interface{}  "Agent details"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404  {object}  errors.AppError         "Agent does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/{id} [get]
@@ -171,13 +171,13 @@ func (h *CustomAgentHandler) GetAgent(c *gin.Context) {
 }
 
 // ListAgents godoc
-// @Summary      获取智能体列表
-// @Description  获取当前空间的所有智能体（包括内置智能体）
-// @Tags         智能体
+// @Summary      Get agent list
+// @Description  Get all agents in the current workspace (including built-in agents)
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "智能体列表"
-// @Failure      500  {object}  errors.AppError         "服务器错误"
+// @Success      200  {object}  map[string]interface{}  "Agent list"
+// @Failure      500  {object}  errors.AppError         "Internal server error"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents [get]
@@ -242,9 +242,9 @@ func (h *CustomAgentHandler) ListAgents(c *gin.Context) {
 		return
 	}
 
-	// 批量回填 creator_name，作用同 KB 列表：让前端能区分「我创建」与「同空间其他成员」。
-	// 内建 agent（IsBuiltin=true, CreatedBy=""）不会有 creator_name，前端按 builtin
-	// 分支单独渲染。
+	// Batch-fill creator_name, same purpose as the KB list: let the frontend distinguish "created by me" from "other members of the same space".
+	// Built-in agents (IsBuiltin=true, CreatedBy="") have no creator_name; the frontend renders the builtin
+	// branch separately.
 	enrichAgentCreatorNames(ctx, h.userService, agents)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -254,8 +254,8 @@ func (h *CustomAgentHandler) ListAgents(c *gin.Context) {
 	})
 }
 
-// enrichAgentCreatorNames 批量把 agent.CreatedBy 解析成展示名。失败吞掉，
-// 不影响列表本身可用。与 enrichKBCreatorNames 行为对齐。
+// enrichAgentCreatorNames batch-resolves agent.CreatedBy into display names. Failures are swallowed,
+// so the list itself remains usable. Behavior aligned with enrichKBCreatorNames.
 func enrichAgentCreatorNames(ctx context.Context, userSvc interfaces.UserService, agents []*types.CustomAgent) {
 	if userSvc == nil || len(agents) == 0 {
 		return
@@ -292,16 +292,16 @@ func enrichAgentCreatorNames(ctx context.Context, userSvc interfaces.UserService
 }
 
 // UpdateAgent godoc
-// @Summary      更新智能体
-// @Description  更新智能体的名称、描述和配置
-// @Tags         智能体
+// @Summary      Update agent
+// @Description  Update an agent's name, description and configuration
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string              true  "智能体ID"
-// @Param        request  body      UpdateAgentRequest  true  "更新请求"
-// @Success      200      {object}  map[string]interface{}  "更新后的智能体"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
-// @Failure      403      {object}  errors.AppError         "无法修改内置智能体"
+// @Param        id       path      string              true  "Agent ID"
+// @Param        request  body      UpdateAgentRequest  true  "Update request"
+// @Success      200      {object}  map[string]interface{}  "Updated agent"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
+// @Failure      403      {object}  errors.AppError         "Cannot modify built-in agents"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/{id} [put]
@@ -374,16 +374,16 @@ func (h *CustomAgentHandler) UpdateAgent(c *gin.Context) {
 }
 
 // DeleteAgent godoc
-// @Summary      删除智能体
-// @Description  删除指定的智能体
-// @Tags         智能体
+// @Summary      Delete agent
+// @Description  Delete the given agent
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "智能体ID"
-// @Success      200  {object}  map[string]interface{}  "删除成功"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      403  {object}  errors.AppError         "无法删除内置智能体"
-// @Failure      404  {object}  errors.AppError         "智能体不存在"
+// @Param        id   path      string  true  "Agent ID"
+// @Success      200  {object}  map[string]interface{}  "Deleted successfully"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      403  {object}  errors.AppError         "Cannot delete built-in agents"
+// @Failure      404  {object}  errors.AppError         "Agent does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/{id} [delete]
@@ -441,15 +441,15 @@ func (h *CustomAgentHandler) DeleteAgent(c *gin.Context) {
 }
 
 // CopyAgent godoc
-// @Summary      复制智能体
-// @Description  复制指定的智能体
-// @Tags         智能体
+// @Summary      Duplicate agent
+// @Description  Duplicate the given agent
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "智能体ID"
-// @Success      201  {object}  map[string]interface{}  "复制成功"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      404  {object}  errors.AppError         "智能体不存在"
+// @Param        id   path      string  true  "Agent ID"
+// @Success      201  {object}  map[string]interface{}  "Duplicated successfully"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404  {object}  errors.AppError         "Agent does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/{id}/copy [post]
@@ -509,12 +509,12 @@ func (h *CustomAgentHandler) CopyAgent(c *gin.Context) {
 }
 
 // GetPlaceholders godoc
-// @Summary      获取占位符定义
-// @Description  获取所有可用的提示词占位符定义，按字段类型分组
-// @Tags         智能体
+// @Summary      Get placeholder definitions
+// @Description  Get all available prompt placeholder definitions, grouped by field type
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "占位符定义"
+// @Success      200  {object}  map[string]interface{}  "Placeholder definitions"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/placeholders [get]
@@ -535,12 +535,12 @@ func (h *CustomAgentHandler) GetPlaceholders(c *gin.Context) {
 }
 
 // GetAgentTypePresets godoc
-// @Summary      获取智能体类型预设列表
-// @Description  返回所有 smart-reasoning 下可用的智能体类型预设（RAG/Wiki/Hybrid/Custom），用于编辑器自动填充系统提示词、工具和 KB 兼容性
-// @Tags         智能体
+// @Summary      Get agent type preset list
+// @Description  Return all available agent type presets under smart-reasoning (RAG/Wiki/Hybrid/Custom) for auto-filling system prompts, tools and KB compatibility in the editor
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Success      200  {object}  map[string]interface{}  "预设列表"
+// @Success      200  {object}  map[string]interface{}  "Preset list"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/type-presets [get]
@@ -554,19 +554,19 @@ func (h *CustomAgentHandler) GetAgentTypePresets(c *gin.Context) {
 }
 
 // GetSuggestedQuestions godoc
-// @Summary      获取推荐问题
-// @Description  基于智能体关联的知识库，返回推荐问题供用户快捷提问
-// @Tags         智能体
+// @Summary      Get suggested questions
+// @Description  Return suggested questions based on the agent's linked knowledge bases for quick asking
+// @Tags         Agents
 // @Accept       json
 // @Produce      json
-// @Param        id                  path      string  true   "智能体ID"
-// @Param        knowledge_base_ids  query     string  false  "知识库ID列表（逗号分隔），覆盖智能体默认配置"
-// @Param        knowledge_ids       query     string  false  "知识ID列表（逗号分隔），限定到具体文档"
-// @Param        tag_scopes          query     string  false  "带知识库归属的标签范围（JSON）"
-// @Param        limit               query     int     false  "返回数量上限（未传时使用智能体配置的开场问题数量，最大30）"
-// @Success      200                 {object}  map[string]interface{}  "推荐问题列表"
-// @Failure      400                 {object}  errors.AppError         "请求参数错误"
-// @Failure      404                 {object}  errors.AppError         "智能体不存在"
+// @Param        id                  path      string  true   "Agent ID"
+// @Param        knowledge_base_ids  query     string  false  "Knowledge base ID list (comma-separated), overrides the agent default config"
+// @Param        knowledge_ids       query     string  false  "Knowledge ID list (comma-separated), scoped to specific documents"
+// @Param        tag_scopes          query     string  false  "Tag scope with knowledge base ownership (JSON)"
+// @Param        limit               query     int     false  "Max number of results (falls back to the agent's configured opener question count, max 30)"
+// @Success      200                 {object}  map[string]interface{}  "Suggested question list"
+// @Failure      400                 {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404                 {object}  errors.AppError         "Agent does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /agents/{id}/suggested-questions [get]

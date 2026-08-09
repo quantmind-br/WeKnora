@@ -29,7 +29,7 @@ var FormFeedPattern = regexp.MustCompile(`\f`)
 
 // NumberedSectionPattern matches lines starting with numeric or roman numbering
 // followed by a non-empty title, e.g. "1. Intro", "2.3 Methods", "IV. Results",
-// "2.2.1 用户与权限". The trailing dot after a multi-level numeral is optional
+// "2.2.1 User and Permissions". The trailing dot after a multi-level numeral is optional
 // because many technical documents write "1.1 Foo" without a closing dot.
 var NumberedSectionPattern = regexp.MustCompile(`(?m)^[ \t]*(?:\d+(?:\.\d+){1,3}\.?|(?:\d+|[IVX]{1,5})\.)[ \t]+\S.{0,200}$`)
 

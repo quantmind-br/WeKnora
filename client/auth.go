@@ -120,8 +120,8 @@ func (c *Client) Login(ctx context.Context, req LoginRequest) (*LoginResponse, e
 	if err := parseResponse(resp, &out); err != nil {
 		return nil, err
 	}
-	// 后端已将 tenant 字段重命名为 active_tenant；为照顾仍读取旧字段名的下游
-	// 调用者，在反序列化后镜像一份到 Tenant 上。两者总是指向同一指针。
+	// The backend has renamed the tenant field to active_tenant; to accommodate downstream
+	// callers that still read the old field name, mirror a copy onto Tenant after deserialization. Both always point to the same pointer.
 	out.Tenant = out.ActiveTenant
 	return &out, nil
 }

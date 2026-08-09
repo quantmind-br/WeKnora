@@ -7,7 +7,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// ConvertMessages 转换消息格式为 OpenAI 格式（导出供子类使用）
+// ConvertMessages converts message format to OpenAI format (exported for subclass use)
 func (c *RemoteAPIChat) ConvertMessages(messages []Message) []openai.ChatCompletionMessage {
 	openaiMessages := make([]openai.ChatCompletionMessage, 0, len(messages))
 	for _, msg := range messages {
@@ -15,7 +15,7 @@ func (c *RemoteAPIChat) ConvertMessages(messages []Message) []openai.ChatComplet
 			Role: msg.Role,
 		}
 
-		// 优先处理多内容消息（包含图片等）
+		// Prioritizes handling multi-content messages (including images, etc.)
 		if len(msg.MultiContent) > 0 {
 			openaiMsg.MultiContent = make([]openai.ChatMessagePart, 0, len(msg.MultiContent))
 			for _, part := range msg.MultiContent {
@@ -92,12 +92,12 @@ func (c *RemoteAPIChat) ConvertMessages(messages []Message) []openai.ChatComplet
 	return openaiMessages
 }
 
-// BuildChatCompletionRequest 构建标准聊天请求参数（导出供子类使用）。
+// BuildChatCompletionRequest builds standard chat request parameters (exported for subclass use).
 //
-// 这是一个不含任何 provider 特定逻辑的通用实现：所有采样参数（temperature /
-// top_p / penalties）与 max_tokens 都按 opts 直接映射。供应商相关的特判
-// （OpenAI o-series / GPT-5 改用 max_completion_tokens、Moonshot 固定温度等）
-// 由对应的 providerAdapter.ShapeRequest 在事后施加，见 provider.go。
+// This is a generic implementation with no provider-specific logic: all sampling parameters (temperature /
+// top_p / penalties) and max_tokens are mapped directly from opts. Provider-specific special cases
+// (OpenAI o-series / GPT-5 switching to max_completion_tokens, Moonshot fixed temperature, etc.)
+// are applied afterward by the corresponding providerAdapter.ShapeRequest, see provider.go.
 func (c *RemoteAPIChat) BuildChatCompletionRequest(
 	messages []Message, opts *ChatOptions, isStream bool,
 ) openai.ChatCompletionRequest {
@@ -133,7 +133,7 @@ func (c *RemoteAPIChat) BuildChatCompletionRequest(
 		req.MaxCompletionTokens = opts.MaxCompletionTokens
 	}
 
-	// 处理 Tools
+	// Handles Tools
 	if len(opts.Tools) > 0 {
 		req.Tools = make([]openai.Tool, 0, len(opts.Tools))
 		for _, tool := range opts.Tools {
@@ -152,13 +152,13 @@ func (c *RemoteAPIChat) BuildChatCompletionRequest(
 		}
 	}
 
-	// 处理 ParallelToolCalls
+	// Handles ParallelToolCalls
 	if opts.ParallelToolCalls != nil {
 		val := *opts.ParallelToolCalls
 		req.ParallelToolCalls = val
 	}
 
-	// 处理 ToolChoice（标准实现）
+	// Handles ToolChoice (standard implementation)
 	if opts.ToolChoice != "" {
 		switch opts.ToolChoice {
 		case "none", "required", "auto":

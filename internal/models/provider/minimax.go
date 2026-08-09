@@ -7,20 +7,20 @@ import (
 )
 
 const (
-	// MiniMaxBaseURL MiniMax 国际版 API BaseURL
+	// MiniMaxBaseURL MiniMax international API BaseURL
 	MiniMaxBaseURL = "https://api.minimax.io/v1"
-	// MiniMaxCNBaseURL MiniMax 国内版 API BaseURL
+	// MiniMaxCNBaseURL MiniMax China API BaseURL
 	MiniMaxCNBaseURL = "https://api.minimaxi.com/v1"
 )
 
-// MiniMaxProvider 实现 MiniMax 的 Provider 接口
+// MiniMaxProvider implements the Provider interface for MiniMax
 type MiniMaxProvider struct{}
 
 func init() {
 	Register(&MiniMaxProvider{})
 }
 
-// Info 返回 MiniMax provider 的元数据
+// Info returns metadata for the MiniMax provider
 func (p *MiniMaxProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderMiniMax,
@@ -36,7 +36,7 @@ func (p *MiniMaxProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证 MiniMax provider 配置
+// ValidateConfig validates the MiniMax provider configuration
 func (p *MiniMaxProvider) ValidateConfig(config *Config) error {
 	if config.APIKey == "" {
 		return fmt.Errorf("API key is required for MiniMax provider")

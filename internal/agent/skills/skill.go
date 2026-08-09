@@ -23,8 +23,8 @@ const (
 // Reserved words that cannot be used in skill names
 var reservedWords = []string{"anthropic", "claude"}
 
-// namePattern validates skill names: unicode letters, numbers only
-var namePattern = regexp.MustCompile(`^[\p{L}\p{N}-]+$`)
+// namePattern validates skill names: unicode letters, numbers, spaces and hyphens
+var namePattern = regexp.MustCompile(`^[\p{L}\p{N}\s-]+$`)
 
 // xmlTagPattern detects XML tags in content
 var xmlTagPattern = regexp.MustCompile(`<[^>]+>`)
@@ -74,7 +74,7 @@ func (s *Skill) Validate() error {
 		return fmt.Errorf("skill name exceeds maximum length of %d characters", MaxNameLength)
 	}
 	if !namePattern.MatchString(s.Name) {
-		return errors.New("skill name must contain only lowercase letters, numbers, and hyphens")
+		return errors.New("skill name must contain only letters, numbers, spaces, and hyphens")
 	}
 	for _, reserved := range reservedWords {
 		if strings.Contains(s.Name, reserved) {

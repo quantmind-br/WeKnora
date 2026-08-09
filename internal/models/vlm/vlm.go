@@ -33,16 +33,16 @@ type Config struct {
 	// back to the process-wide default (see limiter.GateN).
 	MaxConcurrency int
 	Extra          map[string]any
-	// CustomHeaders 允许在调用远程 API 时附加自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
+	// CustomHeaders allows attaching custom HTTP headers to remote API calls (like OpenAI Python SDK's extra_headers).
 	CustomHeaders map[string]string
 	AppID         string
 	AppSecret     string
 }
 
-// ConfigFromModel 根据 types.Model 构造 vlm.Config。
-// 生产路径（从 DB 拉起）和测试连接路径（临时表单）共享这份映射。
-// appID / appSecret 是已解密的 WeKnoraCloud 凭证，调用方负责传入。
-// InterfaceType 会根据 source / 模型参数自动回退到合理默认值。
+// ConfigFromModel constructs a vlm.Config from types.Model.
+// The production path (pulled from the DB) and the test-connection path (temporary form) share this mapping.
+// appID / appSecret are decrypted WeKnoraCloud credentials, the caller is responsible for providing them.
+// InterfaceType automatically falls back to a sensible default based on source / model parameters.
 func ConfigFromModel(m *types.Model, appID, appSecret string) *Config {
 	if m == nil {
 		return nil

@@ -47,7 +47,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 
 	if IsVideoType(getFileType(fileName)) {
 		logger.Error(ctx, "Video file upload is not supported")
-		return nil, werrors.NewBadRequestError("暂不支持上传视频文件")
+		return nil, werrors.NewBadRequestError("Video file upload is not supported yet")
 	}
 
 	// Get knowledge base configuration
@@ -60,7 +60,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 
 	// FAQ knowledge bases should not accept file uploads — use the FAQ import API instead
 	if kb.Type == types.KnowledgeBaseTypeFAQ {
-		return nil, werrors.NewBadRequestError("FAQ 知识库不支持文件上传，请使用 FAQ 导入功能")
+		return nil, werrors.NewBadRequestError("FAQ knowledge bases do not support file upload; please use FAQ import")
 	}
 
 	if err := s.checkStorageEngineConfigured(ctx, kb); err != nil {
@@ -126,11 +126,11 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 		metadataJSON = types.JSON(metadataBytes)
 	}
 
-	// 验证文件名安全性
+	// Validate filename safety
 	safeFilename, isValid := secutils.ValidateInput(fileName)
 	if !isValid {
 		logger.Errorf(ctx, "Invalid filename: %s", fileName)
-		return nil, werrors.NewValidationError("文件名包含非法字符")
+		return nil, werrors.NewValidationError("File name contains invalid characters")
 	}
 
 	// The folder path is rendered as sidebar tree labels, so it goes through the
@@ -139,7 +139,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 		safeFolderPath, folderValid := secutils.ValidateInput(folderPath)
 		if !folderValid {
 			logger.Errorf(ctx, "Invalid folder path: %s", folderPath)
-			return nil, werrors.NewValidationError("文件夹路径包含非法字符")
+			return nil, werrors.NewValidationError("Folder path contains invalid characters")
 		}
 		folderPath = types.NormalizeKnowledgeFolderPath(safeFolderPath)
 	}
@@ -237,7 +237,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 				"title": knowledge.Title, "source_type": "file", "file_type": knowledge.FileType,
 				"processing_status": "failed", "failure_stage": "enqueue",
 			})
-		// 即使入队失败，也返回knowledge，因为文件已保存
+		// Even if enqueueing fails, still return knowledge, since the file has already been saved
 		return knowledge, nil
 	}
 
@@ -255,7 +255,7 @@ func (s *knowledgeService) CreateKnowledgeFromFile(ctx context.Context,
 				"title": knowledge.Title, "source_type": "file", "file_type": knowledge.FileType,
 				"processing_status": "failed", "failure_stage": "enqueue",
 			})
-		// 即使入队失败，也返回knowledge，因为文件已保存
+		// Even if enqueueing fails, still return knowledge, since the file has already been saved
 		return knowledge, nil
 	}
 	recordKBActivity(ctx, s.audit, knowledge.TenantID, kbID, types.AuditActionKnowledgeCreated,
@@ -521,7 +521,7 @@ func (s *knowledgeService) createKnowledgeFromFileURL(
 	}
 
 	if kb.Type == types.KnowledgeBaseTypeFAQ {
-		return nil, werrors.NewBadRequestError("FAQ 知识库不支持文件上传，请使用 FAQ 导入功能")
+		return nil, werrors.NewBadRequestError("FAQ knowledge bases do not support file upload; please use FAQ import")
 	}
 
 	if err := s.checkStorageEngineConfigured(ctx, kb); err != nil {
@@ -546,7 +546,7 @@ func (s *knowledgeService) createKnowledgeFromFileURL(
 		safeFilename, ok := secutils.ValidateInput(fileName)
 		if !ok {
 			logger.Errorf(ctx, "Invalid filename: %s", fileName)
-			return nil, werrors.NewValidationError("文件名包含非法字符")
+			return nil, werrors.NewValidationError("File name contains invalid characters")
 		}
 		fileName = safeFilename
 	}
@@ -730,20 +730,20 @@ func (s *knowledgeService) CreateKnowledgeFromManual(ctx context.Context,
 	logger.Info(ctx, "Start creating manual knowledge entry")
 
 	if payload == nil {
-		return nil, werrors.NewBadRequestError("请求内容不能为空")
+		return nil, werrors.NewBadRequestError("Request content cannot be empty")
 	}
 
 	cleanContent := secutils.CleanMarkdown(payload.Content)
 	if strings.TrimSpace(cleanContent) == "" {
-		return nil, werrors.NewValidationError("内容不能为空")
+		return nil, werrors.NewValidationError("Content cannot be empty")
 	}
 	if len([]rune(cleanContent)) > manualContentMaxLength {
-		return nil, werrors.NewValidationError(fmt.Sprintf("内容长度超出限制（最多%d个字符）", manualContentMaxLength))
+		return nil, werrors.NewValidationError(fmt.Sprintf("Content length exceeds the limit (max %d characters)", manualContentMaxLength))
 	}
 
 	safeTitle, ok := secutils.ValidateInput(payload.Title)
 	if !ok {
-		return nil, werrors.NewValidationError("标题包含非法字符或超出长度限制")
+		return nil, werrors.NewValidationError("Title contains invalid characters or exceeds the length limit")
 	}
 
 	status := strings.ToLower(strings.TrimSpace(payload.Status))
@@ -751,7 +751,7 @@ func (s *knowledgeService) CreateKnowledgeFromManual(ctx context.Context,
 		status = types.ManualKnowledgeStatusDraft
 	}
 	if status != types.ManualKnowledgeStatusDraft && status != types.ManualKnowledgeStatusPublish {
-		return nil, werrors.NewValidationError("状态仅支持 draft 或 publish")
+		return nil, werrors.NewValidationError("Status only supports draft or publish")
 	}
 
 	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, kbID)
@@ -859,13 +859,13 @@ func (s *knowledgeService) createKnowledgeFromPassageInternal(ctx context.Contex
 	}
 	logger.Infof(ctx, "Knowledge base ID: %s, passage count: %d", kbID, len(passage))
 
-	// 验证段落内容安全性
+	// Validate paragraph content safety
 	safePassages := make([]string, 0, len(passage))
 	for i, p := range passage {
 		safePassage, isValid := secutils.ValidateInput(p)
 		if !isValid {
 			logger.Errorf(ctx, "Invalid passage content at index %d", i)
-			return nil, werrors.NewValidationError(fmt.Sprintf("段落 %d 包含非法内容", i+1))
+			return nil, werrors.NewValidationError(fmt.Sprintf("Paragraph %d contains invalid content", i+1))
 		}
 		safePassages = append(safePassages, safePassage)
 	}
@@ -933,7 +933,7 @@ func (s *knowledgeService) createKnowledgeFromPassageInternal(ctx context.Contex
 			KnowledgeID:              knowledge.ID,
 			KnowledgeBaseID:          kbID,
 			Passages:                 safePassages,
-			EnableMultimodel:         false, // 文本段落不支持多模态
+			EnableMultimodel:         false, // Text paragraphs don't support multimodal
 			EnableQuestionGeneration: enableQuestionGeneration,
 			QuestionCount:            questionCount,
 			Language:                 lang,
@@ -949,7 +949,7 @@ func (s *knowledgeService) createKnowledgeFromPassageInternal(ctx context.Contex
 					"title": knowledge.Title, "source_type": "passage",
 					"processing_status": "failed", "failure_stage": "enqueue",
 				})
-			// 即使入队失败，也返回knowledge
+			// Even if enqueueing fails, still return knowledge
 			return knowledge, nil
 		}
 
@@ -988,20 +988,20 @@ func (s *knowledgeService) UpdateManualKnowledge(ctx context.Context,
 ) (*types.Knowledge, error) {
 	logger.Info(ctx, "Start updating manual knowledge entry")
 	if payload == nil {
-		return nil, werrors.NewBadRequestError("请求内容不能为空")
+		return nil, werrors.NewBadRequestError("Request content cannot be empty")
 	}
 
 	cleanContent := secutils.CleanMarkdown(payload.Content)
 	if strings.TrimSpace(cleanContent) == "" {
-		return nil, werrors.NewValidationError("内容不能为空")
+		return nil, werrors.NewValidationError("Content cannot be empty")
 	}
 	if len([]rune(cleanContent)) > manualContentMaxLength {
-		return nil, werrors.NewValidationError(fmt.Sprintf("内容长度超出限制（最多%d个字符）", manualContentMaxLength))
+		return nil, werrors.NewValidationError(fmt.Sprintf("Content length exceeds the limit (max %d characters)", manualContentMaxLength))
 	}
 
 	safeTitle, ok := secutils.ValidateInput(payload.Title)
 	if !ok {
-		return nil, werrors.NewValidationError("标题包含非法字符或超出长度限制")
+		return nil, werrors.NewValidationError("Title contains invalid characters or exceeds the length limit")
 	}
 
 	status := strings.ToLower(strings.TrimSpace(payload.Status))
@@ -1009,7 +1009,7 @@ func (s *knowledgeService) UpdateManualKnowledge(ctx context.Context,
 		status = types.ManualKnowledgeStatusDraft
 	}
 	if status != types.ManualKnowledgeStatusDraft && status != types.ManualKnowledgeStatusPublish {
-		return nil, werrors.NewValidationError("状态仅支持 draft 或 publish")
+		return nil, werrors.NewValidationError("Status only supports draft or publish")
 	}
 
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
@@ -1019,7 +1019,7 @@ func (s *knowledgeService) UpdateManualKnowledge(ctx context.Context,
 		return nil, err
 	}
 	if !existing.IsManual() {
-		return nil, werrors.NewBadRequestError("仅支持手工知识的在线编辑")
+		return nil, werrors.NewBadRequestError("Online editing is only supported for manual knowledge")
 	}
 
 	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, existing.KnowledgeBaseID)
@@ -1044,7 +1044,7 @@ func (s *knowledgeService) UpdateManualKnowledge(ctx context.Context,
 	if safeTitle != "" {
 		existing.Title = safeTitle
 	} else if existing.Title == "" {
-		existing.Title = fmt.Sprintf("手工知识-%s", time.Now().Format("20060102-150405"))
+		existing.Title = fmt.Sprintf("Manual knowledge-%s", time.Now().Format("20060102-150405"))
 	}
 	existing.FileName = ensureManualFileName(existing.Title)
 	existing.FileType = types.KnowledgeTypeManual

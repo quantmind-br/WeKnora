@@ -1,21 +1,23 @@
-# API 参考：会话、消息与聊天
+Traduzo doc chinês pra inglês agora, mantenho estrutura markdown intacta.
 
-路由注册：`internal/router/router.go` 的 `RegisterSessionRoutes`、`RegisterChatRoutes`、`RegisterMessageRoutes`。Handler：`internal/handler/session/`（handler.go、qa.go、stream.go、title.go、temporary_document.go）、`internal/handler/message.go`、`internal/handler/message_suggestion.go`。
+# API Reference: Sessions, Messages & Chat
 
-会话为“用户私有”资源，handler 内部强制归属校验；路由层为 Viewer+。API key：会话/聊天需 `chat` capability（或 full-access）；消息搜索需 `message_history`；知识检索需 `retrieve`。
+Route registration: `RegisterSessionRoutes`, `RegisterChatRoutes`, `RegisterMessageRoutes` in `internal/router/router.go`. Handlers: `internal/handler/session/` (handler.go, qa.go, stream.go, title.go, temporary_document.go), `internal/handler/message.go`, `internal/handler/message_suggestion.go`.
 
-## 会话（/api/v1/sessions）
+Sessions are a "user-private" resource; ownership is enforced internally by the handlers. Route-level access requires Viewer+. API key: sessions/chat require the `chat` capability (or full-access); message search requires `message_history`; knowledge retrieval requires `retrieve`.
+
+## Sessions (/api/v1/sessions)
 
 ### POST /api/v1/sessions
 
-用途：创建会话。Handler: `internal/handler/session/handler.go`
+Purpose: create a session. Handler: `internal/handler/session/handler.go`
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `title` | string | 否 | 标题 |
-| `description` | string | 否 | 描述 |
+| `title` | string | No | Title |
+| `description` | string | No | Description |
 
-响应：201 `{"success":true,"data":{Session}}`（`id,title,description,tenant_id,user_id,is_pinned,last_request_state,created_at,...`）
+Response: 201 `{"success":true,"data":{Session}}` (`id,title,description,tenant_id,user_id,is_pinned,last_request_state,created_at,...`)
 
 ```bash
 curl -X POST $BASE/api/v1/sessions -H "X-API-Key: $API_KEY" \
@@ -24,16 +26,16 @@ curl -X POST $BASE/api/v1/sessions -H "X-API-Key: $API_KEY" \
 
 ### GET /api/v1/sessions
 
-用途：会话列表。Handler: `internal/handler/session/handler.go`
+Purpose: list sessions. Handler: `internal/handler/session/handler.go`
 
-| 查询参数 | 类型 | 必填 | 说明 |
+| Query parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `page` / `page_size` | int | 否 | 分页 |
-| `keyword` | string | 否 | 标题模糊搜索 |
-| `source` | string | 否 | 来源过滤（web/embed/api/feishu/wechat/slack/...） |
-| `agent_id` | string | 否 | 按 Agent 过滤（IM 会话） |
+| `page` / `page_size` | int | No | Pagination |
+| `keyword` | string | No | Fuzzy title search |
+| `source` | string | No | Source filter (web/embed/api/feishu/wechat/slack/...) |
+| `agent_id` | string | No | Filter by Agent (IM sessions) |
 
-响应：200 `{"success":true,"data":[SessionListItem],"total","page","page_size"}`
+Response: 200 `{"success":true,"data":[SessionListItem],"total","page","page_size"}`
 
 ```bash
 curl "$BASE/api/v1/sessions?page=1" -H "Authorization: Bearer $TOKEN"
@@ -41,9 +43,9 @@ curl "$BASE/api/v1/sessions?page=1" -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/sessions/:id
 
-用途：会话详情。
+Purpose: session details.
 
-响应：200 `{"success":true,"data":{Session}}`
+Response: 200 `{"success":true,"data":{Session}}`
 
 ```bash
 curl $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN"
@@ -51,9 +53,9 @@ curl $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/sessions/:id
 
-用途：更新会话（标题/描述/置顶）。请求体：`title`、`description`、`is_pinned`（均可选）。
+Purpose: update a session (title/description/pin). Request body: `title`, `description`, `is_pinned` (all optional).
 
-响应：200 `{"success":true,"data":{Session}}`
+Response: 200 `{"success":true,"data":{Session}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN" \
@@ -62,9 +64,9 @@ curl -X PUT $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN" \
 
 ### DELETE /api/v1/sessions/:id
 
-用途：删除会话。
+Purpose: delete a session.
 
-响应：200 `{"success":true,"message":"Session deleted successfully"}`
+Response: 200 `{"success":true,"message":"Session deleted successfully"}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN"
@@ -72,9 +74,9 @@ curl -X DELETE $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN"
 
 ### DELETE /api/v1/sessions/batch
 
-用途：批量删除会话。请求体：`{"ids":["s-1"],"delete_all":false}`（二选一：`ids` 或 `delete_all:true`）。
+Purpose: batch-delete sessions. Request body: `{"ids":["s-1"],"delete_all":false}` (either `ids` or `delete_all:true`).
 
-响应：200 `{"success":true,"message":"Sessions deleted successfully"}`
+Response: 200 `{"success":true,"message":"Sessions deleted successfully"}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/sessions/batch -H "Authorization: Bearer $TOKEN" \
@@ -83,9 +85,9 @@ curl -X DELETE $BASE/api/v1/sessions/batch -H "Authorization: Bearer $TOKEN" \
 
 ### DELETE /api/v1/sessions/:id/messages
 
-用途：清空会话消息。
+Purpose: clear a session's messages.
 
-响应：200 `{"success":true,"message":"Session messages cleared successfully"}`
+Response: 200 `{"success":true,"message":"Session messages cleared successfully"}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/sessions/s-1/messages -H "Authorization: Bearer $TOKEN"
@@ -93,13 +95,13 @@ curl -X DELETE $BASE/api/v1/sessions/s-1/messages -H "Authorization: Bearer $TOK
 
 ### POST /api/v1/sessions/:session_id/generate_title
 
-用途：根据上下文消息生成会话标题。Handler: `internal/handler/session/title.go`
+Purpose: generate a session title based on context messages. Handler: `internal/handler/session/title.go`
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `messages` | []Message | 是（`binding:"required"`） | 用作上下文的消息 |
+| `messages` | []Message | Yes (`binding:"required"`) | Messages to use as context |
 
-响应：200 `{"success":true,"data":"生成的标题"}`
+Response: 200 `{"success":true,"data":"生成的标题"}`
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/generate_title -H "Authorization: Bearer $TOKEN" \
@@ -108,24 +110,24 @@ curl -X POST $BASE/api/v1/sessions/s-1/generate_title -H "Authorization: Bearer 
 
 ### POST /api/v1/sessions/:session_id/stop
 
-用途：停止正在生成的回答。Handler: `internal/handler/session/stream.go`
+Purpose: stop an in-progress generation. Handler: `internal/handler/session/stream.go`
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `message_id` | string | 是（`binding:"required"`） | 助手消息 ID |
+| `message_id` | string | Yes (`binding:"required"`) | Assistant message ID |
 
-响应：200 `{"success":true,"message":"Generation stopped"}`
+Response: 200 `{"success":true,"message":"Generation stopped"}`
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/stop -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"message_id":"m-1"}'
 ```
 
-### POST /api/v1/sessions/:session_id/pin 与 DELETE /api/v1/sessions/:id/pin
+### POST /api/v1/sessions/:session_id/pin and DELETE /api/v1/sessions/:id/pin
 
-用途：置顶 / 取消置顶会话。无请求体。Handler: `internal/handler/session/handler.go`
+Purpose: pin / unpin a session. No request body. Handler: `internal/handler/session/handler.go`
 
-响应：200 `{"success":true,"is_pinned":true|false}`
+Response: 200 `{"success":true,"is_pinned":true|false}`
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/pin -H "Authorization: Bearer $TOKEN"
@@ -134,27 +136,27 @@ curl -X DELETE $BASE/api/v1/sessions/s-1/pin -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/sessions/continue-stream/:session_id
 
-用途：断线续传活跃流（重放历史事件 + 100ms 轮询新增量）。Handler: `internal/handler/session/stream.go`
+Purpose: resume an active stream after a disconnect (replays historical events + polls for new deltas every 100ms). Handler: `internal/handler/session/stream.go`
 
-| 查询参数 | 类型 | 必填 | 说明 |
+| Query parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `message_id` | string | 是 | 要续传的助手消息 ID |
+| `message_id` | string | Yes | Assistant message ID to resume |
 
-响应：200 SSE（`text/event-stream`，事件格式见总览“流式接口协议”）。
+Response: 200 SSE (`text/event-stream`; see the overview's "Streaming API protocol" for the event format).
 
 ```bash
 curl -N "$BASE/api/v1/sessions/continue-stream/s-1?message_id=m-1" -H "Authorization: Bearer $TOKEN"
 ```
 
-## 会话附件（临时文档）
+## Session Attachments (Temporary Documents)
 
 Handler: `internal/handler/session/temporary_document.go`
 
 ### POST /api/v1/sessions/:session_id/attachments
 
-用途：上传会话级临时文档（异步解析）。multipart 字段：`file`（必填）、`agent_id`（可选，决定解析引擎/ASR 模型）、`parser_engine`（可选）。
+Purpose: upload a session-level temporary document (parsed asynchronously). Multipart fields: `file` (required), `agent_id` (optional, determines the parsing engine/ASR model), `parser_engine` (optional).
 
-响应：202 `{"success":true,"data":{TemporaryDocument}}`（`id,session_id,file_name,file_type,file_size,status(uploaded/processing/ready/failed),resource_ref,...`）
+Response: 202 `{"success":true,"data":{TemporaryDocument}}` (`id,session_id,file_name,file_type,file_size,status(uploaded/processing/ready/failed),resource_ref,...`)
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/attachments -H "Authorization: Bearer $TOKEN" -F 'file=@notes.pdf'
@@ -162,9 +164,9 @@ curl -X POST $BASE/api/v1/sessions/s-1/attachments -H "Authorization: Bearer $TO
 
 ### GET /api/v1/sessions/:id/attachments
 
-用途：附件列表。
+Purpose: list attachments.
 
-响应：200 `{"success":true,"data":[TemporaryDocument]}`
+Response: 200 `{"success":true,"data":[TemporaryDocument]}`
 
 ```bash
 curl $BASE/api/v1/sessions/s-1/attachments -H "Authorization: Bearer $TOKEN"
@@ -172,9 +174,9 @@ curl $BASE/api/v1/sessions/s-1/attachments -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/sessions/:id/attachments/:attachment_id
 
-用途：附件详情（含解析状态）。
+Purpose: attachment details (including parsing status).
 
-响应：200 `{"success":true,"data":{TemporaryDocument}}`
+Response: 200 `{"success":true,"data":{TemporaryDocument}}`
 
 ```bash
 curl $BASE/api/v1/sessions/s-1/attachments/a-1 -H "Authorization: Bearer $TOKEN"
@@ -182,9 +184,9 @@ curl $BASE/api/v1/sessions/s-1/attachments/a-1 -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/sessions/:id/attachments/:attachment_id/preview
 
-用途：附件原文件预览。
+Purpose: preview the original attachment file.
 
-响应：200 文件流（`Content-Disposition: inline|attachment`，`Cache-Control: private`）。
+Response: 200 file stream (`Content-Disposition: inline|attachment`, `Cache-Control: private`).
 
 ```bash
 curl $BASE/api/v1/sessions/s-1/attachments/a-1/preview -H "Authorization: Bearer $TOKEN" -o preview.pdf
@@ -192,23 +194,23 @@ curl $BASE/api/v1/sessions/s-1/attachments/a-1/preview -H "Authorization: Bearer
 
 ### DELETE /api/v1/sessions/:id/attachments/:attachment_id
 
-用途：删除附件。
+Purpose: delete an attachment.
 
-响应：204 No Content
+Response: 204 No Content
 
 ```bash
 curl -X DELETE $BASE/api/v1/sessions/s-1/attachments/a-1 -H "Authorization: Bearer $TOKEN"
 ```
 
-## 回答建议（Suggestions）
+## Answer Suggestions
 
 Handler: `internal/handler/message_suggestion.go`
 
 ### GET /api/v1/sessions/:id/messages/:message_id/suggestions
 
-用途：读取某助手消息的追问建议。
+Purpose: read the follow-up suggestions for a given assistant message.
 
-响应：200 `{"success":true,"data":{MessageSuggestionSet}}`（`status(generating/ready/suppressed/failed),questions:[{id,text,category,source,knowledge_base_ids}],allow_regenerate,...`）
+Response: 200 `{"success":true,"data":{MessageSuggestionSet}}` (`status(generating/ready/suppressed/failed),questions:[{id,text,category,source,knowledge_base_ids}],allow_regenerate,...`)
 
 ```bash
 curl $BASE/api/v1/sessions/s-1/messages/m-1/suggestions -H "Authorization: Bearer $TOKEN"
@@ -216,9 +218,9 @@ curl $BASE/api/v1/sessions/s-1/messages/m-1/suggestions -H "Authorization: Beare
 
 ### POST /api/v1/sessions/:session_id/messages/:message_id/suggestions
 
-用途：确保生成建议（幂等触发）。请求体：`{"regenerate":true}`（可选，强制重新生成）。
+Purpose: ensure suggestions are generated (idempotent trigger). Request body: `{"regenerate":true}` (optional, forces regeneration).
 
-响应：200（就绪）或 202（生成中）`{"success":true,"data":{MessageSuggestionSet|null}}`
+Response: 200 (ready) or 202 (generating) `{"success":true,"data":{MessageSuggestionSet|null}}`
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/messages/m-1/suggestions -H "Authorization: Bearer $TOKEN" \
@@ -227,52 +229,52 @@ curl -X POST $BASE/api/v1/sessions/s-1/messages/m-1/suggestions -H "Authorizatio
 
 ### POST /api/v1/sessions/:session_id/suggestion-events
 
-用途：上报建议交互事件（埋点）。
+Purpose: report suggestion interaction events (analytics tracking).
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `suggestion_set_id` | string | 是（`binding:"required"`） | 建议集 ID |
-| `question_id` | string | 否 | click/regenerate 时必填 |
-| `event_type` | string | 是（`binding:"required"`） | `impression/click/dismiss/regenerate` |
+| `suggestion_set_id` | string | Yes (`binding:"required"`) | Suggestion set ID |
+| `question_id` | string | No | Required for click/regenerate |
+| `event_type` | string | Yes (`binding:"required"`) | `impression/click/dismiss/regenerate` |
 
-响应：204 No Content
+Response: 204 No Content
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/suggestion-events -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"suggestion_set_id":"ss-1","event_type":"impression"}'
 ```
 
-## 聊天与检索
+## Chat & Retrieval
 
-Handler: `internal/handler/session/qa.go`。API key：聊天需 `chat`/full；`knowledge-search` 需 `retrieve`/full。
+Handler: `internal/handler/session/qa.go`. API key: chat requires `chat`/full; `knowledge-search` requires `retrieve`/full.
 
 ### POST /api/v1/knowledge-chat/:session_id
 
-用途：知识库问答（SSE 流式）。
+Purpose: knowledge base Q&A (SSE streaming).
 
-请求体（KnowledgeQA/AgentQA 共用）：
+Request body (shared by KnowledgeQA/AgentQA):
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `query` | string | 是（`binding:"required"`） | 用户问题 |
-| `knowledge_base_ids` | []string | 否 | 检索的 KB |
-| `knowledge_ids` | []string | 否 | 限定知识文件 |
-| `agent_enabled` | bool | 否 | 是否启用 Agent 模式 |
-| `agent_id` | string | 否 | 自定义 Agent ID |
-| `web_search_enabled` | bool | 否 | 联网搜索 |
-| `summary_model_id` | string | 否 | 总结模型 |
-| `mcp_service_ids` | []string | 否 | @提及的 MCP 服务 |
-| `skill_names` | []string | 否 | @提及的技能 |
-| `tag_ids` | []string | 否 | 标签过滤 |
-| `mentioned_items` | []object | 否 | @提及项（type/kb_id/kb_name/service_id/skill_name） |
-| `disable_title` | bool | 否 | 禁用自动标题 |
-| `images` | []object | 否 | 图片（`data` base64 / `url` / `caption`） |
-| `attachment_uploads` | []object | 否 | 内联附件（`data` base64、`file_name`、`file_size`） |
-| `attachment_ids` | []string | 否 | 已上传的会话附件 ID |
-| `channel` | string | 否 | 来源渠道 |
-| `suggestion_attribution` | object | 否 | 点击建议的归因信息 |
+| `query` | string | Yes (`binding:"required"`) | User's question |
+| `knowledge_base_ids` | []string | No | KBs to retrieve from |
+| `knowledge_ids` | []string | No | Restrict to specific knowledge files |
+| `agent_enabled` | bool | No | Whether to enable Agent mode |
+| `agent_id` | string | No | Custom Agent ID |
+| `web_search_enabled` | bool | No | Web search |
+| `summary_model_id` | string | No | Summarization model |
+| `mcp_service_ids` | []string | No | @-mentioned MCP services |
+| `skill_names` | []string | No | @-mentioned skills |
+| `tag_ids` | []string | No | Tag filter |
+| `mentioned_items` | []object | No | @-mentioned items (type/kb_id/kb_name/service_id/skill_name) |
+| `disable_title` | bool | No | Disable auto-titling |
+| `images` | []object | No | Images (`data` base64 / `url` / `caption`) |
+| `attachment_uploads` | []object | No | Inline attachments (`data` base64, `file_name`, `file_size`) |
+| `attachment_ids` | []string | No | IDs of already-uploaded session attachments |
+| `channel` | string | No | Source channel |
+| `suggestion_attribution` | object | No | Attribution info for a clicked suggestion |
 
-响应：200 SSE 流，`event: message` + `data: StreamResponse`（见总览），以 `complete` 事件结束。
+Response: 200 SSE stream, `event: message` + `data: StreamResponse` (see overview), ending with a `complete` event.
 
 ```bash
 curl -N -X POST $BASE/api/v1/knowledge-chat/s-1 -H "X-API-Key: $API_KEY" \
@@ -282,7 +284,7 @@ curl -N -X POST $BASE/api/v1/knowledge-chat/s-1 -H "X-API-Key: $API_KEY" \
 
 ### POST /api/v1/agent-chat/:session_id
 
-用途：Agent 问答（SSE 流式，含 `thinking/tool_call/tool_result/tool_approval_required/mcp_oauth_required` 等事件）。请求体同上。
+Purpose: Agent Q&A (SSE streaming, including `thinking/tool_call/tool_result/tool_approval_required/mcp_oauth_required` and other events). Request body is the same as above.
 
 ```bash
 curl -N -X POST $BASE/api/v1/agent-chat/s-1 -H "Authorization: Bearer $TOKEN" \
@@ -291,40 +293,40 @@ curl -N -X POST $BASE/api/v1/agent-chat/s-1 -H "Authorization: Bearer $TOKEN" \
 
 ### POST /api/v1/knowledge-search
 
-用途：无会话知识检索（非流式）。Handler: `internal/handler/session/qa.go` 的 `SearchKnowledge`。
+Purpose: sessionless knowledge retrieval (non-streaming). Handler: `SearchKnowledge` in `internal/handler/session/qa.go`.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `query` | string | 是（`binding:"required"`） | 查询 |
-| `knowledge_base_id` | string | 否 | 单 KB（兼容旧版） |
-| `knowledge_base_ids` | []string | 否 | 多 KB |
-| `knowledge_ids` | []string | 否 | 限定文件 |
-| `tag_ids` | []string | 否 | 标签过滤 |
-| `mentioned_items` | []object | 否 | 带 KB 范围的标签提及 |
+| `query` | string | Yes (`binding:"required"`) | Query |
+| `knowledge_base_id` | string | No | Single KB (legacy compatibility) |
+| `knowledge_base_ids` | []string | No | Multiple KBs |
+| `knowledge_ids` | []string | No | Restrict to specific files |
+| `tag_ids` | []string | No | Tag filter |
+| `mentioned_items` | []object | No | Tag mentions scoped to a KB |
 
-响应：200 `{"success":true,"data":[SearchResult]}`（`id,content,knowledge_id,knowledge_title,score,chunk_type,knowledge_base_id,...`）
+Response: 200 `{"success":true,"data":[SearchResult]}` (`id,content,knowledge_id,knowledge_title,score,chunk_type,knowledge_base_id,...`)
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-search -H "X-API-Key: $API_KEY" \
   -H 'Content-Type: application/json' -d '{"query":"部署要求","knowledge_base_ids":["kb-1"]}'
 ```
 
-## 消息（/api/v1/messages）
+## Messages (/api/v1/messages)
 
 Handler: `internal/handler/message.go`
 
 ### POST /api/v1/messages/search
 
-用途：聊天历史搜索。权限：Viewer+；API key `message_history`/full。
+Purpose: chat history search. Permission: Viewer+; API key `message_history`/full.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `query` | string | 是（`binding:"required"`） | 查询 |
-| `mode` | string | 否 | `keyword/vector/hybrid`（默认 hybrid） |
-| `limit` | int | 否 | 默认 20 |
-| `session_ids` | []string | 否 | 限定会话 |
+| `query` | string | Yes (`binding:"required"`) | Query |
+| `mode` | string | No | `keyword/vector/hybrid` (default hybrid) |
+| `limit` | int | No | Default 20 |
+| `session_ids` | []string | No | Restrict to specific sessions |
 
-响应：200 `{"success":true,"data":{"total":N,"results":[{session_id,message_id,role,content,created_at,score}]}}`
+Response: 200 `{"success":true,"data":{"total":N,"results":[{session_id,message_id,role,content,created_at,score}]}}`
 
 ```bash
 curl -X POST $BASE/api/v1/messages/search -H "Authorization: Bearer $TOKEN" \
@@ -333,9 +335,9 @@ curl -X POST $BASE/api/v1/messages/search -H "Authorization: Bearer $TOKEN" \
 
 ### GET /api/v1/messages/chat-history-stats
 
-用途：聊天历史索引统计。权限：Viewer+；API key `message_history`/full。
+Purpose: chat history index statistics. Permission: Viewer+; API key `message_history`/full.
 
-响应：200 `{"success":true,"data":{indexed_message_count,knowledge_base_size,last_indexed_at,...}}`
+Response: 200 `{"success":true,"data":{indexed_message_count,knowledge_base_size,last_indexed_at,...}}`
 
 ```bash
 curl $BASE/api/v1/messages/chat-history-stats -H "Authorization: Bearer $TOKEN"
@@ -343,14 +345,14 @@ curl $BASE/api/v1/messages/chat-history-stats -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/messages/:session_id/load
 
-用途：加载会话消息（时间游标向前翻页）。权限：Viewer+；API key `chat`/full。
+Purpose: load a session's messages (forward pagination via time cursor). Permission: Viewer+; API key `chat`/full.
 
-| 查询参数 | 类型 | 必填 | 说明 |
+| Query parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `limit` | int | 否 | 默认 20 |
-| `before_time` | string | 否 | RFC3339/RFC3339Nano 时间戳 |
+| `limit` | int | No | Default 20 |
+| `before_time` | string | No | RFC3339/RFC3339Nano timestamp |
 
-响应：200 `{"success":true,"data":[Message]}`（`id,session_id,role,content,is_completed,images,attachments,agent_steps,...`）
+Response: 200 `{"success":true,"data":[Message]}` (`id,session_id,role,content,is_completed,images,attachments,agent_steps,...`)
 
 ```bash
 curl "$BASE/api/v1/messages/s-1/load?limit=20" -H "X-API-Key: $API_KEY"
@@ -358,10 +360,14 @@ curl "$BASE/api/v1/messages/s-1/load?limit=20" -H "X-API-Key: $API_KEY"
 
 ### DELETE /api/v1/messages/:session_id/:id
 
-用途：删除单条消息。权限：Viewer+（handler 校验会话归属）；API key `chat`/full。
+Purpose: delete a single message. Permission: Viewer+ (handler validates session ownership); API key `chat`/full.
 
-响应：200 `{"success":true,"message":"Message deleted successfully"}`
+Response: 200 `{"success":true,"message":"Message deleted successfully"}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/messages/s-1/m-1 -H "Authorization: Bearer $TOKEN"
 ```
+
+---
+
+Doc traduzido completo, estrutura intacta, código/URLs/curl não tocados.

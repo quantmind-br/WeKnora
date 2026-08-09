@@ -1,175 +1,175 @@
 ---
-name: 数据处理器
-description: 数据处理与分析技能。当用户需要对知识库检索结果进行数据分析、统计计算、格式转换、数据提取或生成报告时使用此技能。支持 Python 脚本执行进行高级数据处理。
+name: Data Processor
+description: Data processing and analysis skill. Use this skill when the user needs data analysis, statistical calculations, format conversion, data extraction, or report generation on knowledge base retrieval results. Supports advanced data processing through Python script execution.
 ---
 
 # Data Processor
 
-企业级知识库数据处理与分析技能，用于处理 RAG 检索结果和执行数据分析任务。
+Enterprise-grade knowledge base data processing and analysis skill for handling RAG retrieval results and performing data analysis tasks.
 
-## 核心能力
+## Core Capabilities
 
-1. **数据分析**: 对检索到的文档数据进行统计分析
-2. **格式转换**: JSON/CSV/Markdown 等格式相互转换
-3. **数据提取**: 从非结构化文本中提取结构化信息
-4. **报告生成**: 生成数据分析报告和摘要
+1. **Data analysis**: perform statistical analysis on retrieved document data
+2. **Format conversion**: convert between JSON, CSV, Markdown and other formats
+3. **Data extraction**: extract structured information from unstructured text
+4. **Report generation**: generate data analysis reports and summaries
 
-## 使用场景
+## Use Cases
 
-当用户请求涉及以下内容时，使用此技能：
-- "分析这些数据"、"统计一下"、"计算总数/平均值"
-- "转换为 JSON/CSV 格式"
-- "提取关键信息"、"整理成表格"
-- "生成报告"、"数据汇总"
+Use this skill when the user's request involves:
+- "analyze this data", "run statistics", "calculate totals/averages"
+- "convert to JSON/CSV format"
+- "extract key information", "organize into a table"
+- "generate a report", "summarize the data"
 
-## 可用脚本
+## Available Scripts
 
-### 1. analyze.py - 数据分析脚本
+### 1. analyze.py - Data Analysis Script
 
-分析输入的 JSON 数据，生成统计报告。
+Analyzes input JSON data and produces a statistical report.
 
-**命令行用法** (仅供参考):
+**Command-line usage** (for reference):
 ```bash
-# 通过 stdin 传入 JSON 数据
+# Pass JSON data via stdin
 echo '{"items": [1, 2, 3, 4, 5]}' | python scripts/analyze.py
 
-# 或传入文件路径（需要文件实际存在）
+# Or pass a file path (the file must actually exist)
 python scripts/analyze.py --file data.json
 ```
 
-**使用 execute_skill_script 工具时**:
-- 如果你有内存中的数据（如 JSON 字符串），使用 `input` 参数传入，不要使用 `args`
-- `--file` 参数仅用于读取技能目录中已存在的文件，不适用于传递内存数据
+**When using the execute_skill_script tool**:
+- If you have in-memory data (such as a JSON string), pass it via the `input` parameter, not `args`
+- The `--file` parameter is only for reading files that already exist in the skill directory, not for passing in-memory data
 
 ```json
-// ✅ 正确：通过 input 传入数据
+// ✅ Correct: pass data via input
 {
-  "skill_name": "数据处理器",
+  "skill_name": "data-processor",
   "script_path": "scripts/analyze.py",
-  "input": "{\"items\": [1, 2, 3], \"query\": \"统计分析\"}"
+  "input": "{\"items\": [1, 2, 3], \"query\": \"statistical analysis\"}"
 }
 
-// ❌ 错误：--file 需要文件路径，不能单独使用
+// ❌ Wrong: --file requires a real file path and cannot be used alone
 {
-  "skill_name": "数据处理器",
+  "skill_name": "data-processor",
   "script_path": "scripts/analyze.py",
   "args": ["--file"],
   "input": "{...}"
 }
 ```
 
-**输入格式**:
+**Input format**:
 ```json
 {
-  "items": [数据项数组],
-  "query": "可选的查询描述"
+  "items": [array of data items],
+  "query": "optional query description"
 }
 ```
 
-**输出**: JSON 格式的统计结果，包含计数、求和、平均值等。
+**Output**: statistical results in JSON, including count, sum, average, etc.
 
-### 2. format_converter.py - 格式转换脚本
+### 2. format_converter.py - Format Conversion Script
 
-在 JSON、CSV、Markdown 表格之间转换数据。
+Converts data between JSON, CSV, and Markdown tables.
 
-**用法**:
+**Usage**:
 ```bash
-# JSON 转 CSV
+# JSON to CSV
 echo '[{"name": "A", "value": 1}]' | python scripts/format_converter.py --to csv
 
-# JSON 转 Markdown 表格
+# JSON to Markdown table
 echo '[{"name": "A", "value": 1}]' | python scripts/format_converter.py --to markdown
 
-# CSV 转 JSON
+# CSV to JSON
 echo 'name,value\nA,1' | python scripts/format_converter.py --from csv --to json
 ```
 
-### 3. extract_info.py - 信息提取脚本
+### 3. extract_info.py - Information Extraction Script
 
-从文本中提取结构化信息（数字、日期、关键词等）。
+Extracts structured information from text (numbers, dates, keywords, etc.).
 
-**用法**:
+**Usage**:
 ```bash
-echo "2024年销售额为100万元，同比增长15%" | python scripts/extract_info.py
+echo "2024 sales reached 1 million yuan, up 15% year over year" | python scripts/extract_info.py
 ```
 
-**输出**:
+**Output**:
 ```json
 {
-  "numbers": ["100", "15"],
-  "dates": ["2024年"],
+  "numbers": ["1", "15"],
+  "dates": ["2024"],
   "percentages": ["15%"],
-  "amounts": ["100万元"]
+  "amounts": ["1 million yuan"]
 }
 ```
 
-## 处理流程
+## Processing Workflow
 
-### 分析 RAG 检索结果
+### Analyzing RAG Retrieval Results
 
-当需要分析知识库检索结果时：
+When you need to analyze knowledge base retrieval results:
 
-1. 收集检索到的文档片段
-2. 提取关键数据点
-3. 使用 `analyze.py` 进行统计
-4. 整理并呈现分析结果
+1. Collect the retrieved document snippets
+2. Extract key data points
+3. Use `analyze.py` for statistics
+4. Organize and present the analysis results
 
-**示例**：
+**Example**:
 ```
-用户: "帮我统计知识库中提到的所有产品销售数据"
+User: "Help me summarize all product sales data mentioned in the knowledge base"
 
-步骤:
-1. 使用 knowledge_search 检索相关文档
-2. 整理数据为 JSON 格式
-3. 调用 execute_skill_script:
+Steps:
+1. Use knowledge_search to retrieve relevant documents
+2. Organize the data into JSON format
+3. Call execute_skill_script:
    - skill_name: "data-processor"
    - script_path: "scripts/analyze.py"
-   - 通过 stdin 传入数据
-4. 解析输出并生成报告
+   - Pass the data via stdin
+4. Parse the output and generate a report
 ```
 
-### 数据格式转换
+### Data Format Conversion
 
-当用户需要特定格式输出时：
+When the user needs output in a specific format:
 
-1. 整理数据为标准 JSON 格式
-2. 使用 `format_converter.py` 转换
-3. 返回目标格式结果
+1. Organize the data into standard JSON format
+2. Use `format_converter.py` to convert
+3. Return the target-format result
 
-## 最佳实践
+## Best Practices
 
-1. **数据预处理**: 调用脚本前，确保数据格式正确
-2. **错误处理**: 检查脚本执行结果，处理异常情况
-3. **结果验证**: 验证输出结果的合理性
-4. **渐进处理**: 大数据量时分批处理
+1. **Data preprocessing**: ensure the data format is correct before calling scripts
+2. **Error handling**: check script execution results and handle exceptions
+3. **Result validation**: verify the reasonableness of the output
+4. **Incremental processing**: process large datasets in batches
 
-## 输出格式
+## Output Format
 
-分析结果示例：
+Example analysis result:
 ```markdown
-## 数据分析报告
+## Data Analysis Report
 
-### 基本统计
-- 数据条数: 50
-- 数值总和: 1,234,567
-- 平均值: 24,691.34
-- 最大值: 99,999
-- 最小值: 100
+### Basic Statistics
+- Data count: 50
+- Total sum: 1,234,567
+- Average: 24,691.34
+- Max: 99,999
+- Min: 100
 
-### 分布情况
-| 区间 | 数量 | 占比 |
+### Distribution
+| Range | Count | Percentage |
 |------|------|------|
 | 0-1000 | 10 | 20% |
 | 1000-10000 | 25 | 50% |
 | >10000 | 15 | 30% |
 
-### 结论
-根据数据分析，XXX...
+### Conclusion
+Based on the data analysis, XXX...
 ```
 
-## 注意事项
+## Notes
 
-- 脚本在 Docker 沙箱中执行，确保安全隔离
-- 执行超时默认为 60 秒
-- 输入数据大小有限制，大文件请分批处理
-- 脚本输出为 JSON 格式，便于后续处理
+- Scripts run in a Docker sandbox for safe isolation
+- Execution timeout defaults to 60 seconds
+- Input data size is limited; split large files into batches
+- Script output is JSON for easy downstream processing

@@ -1,114 +1,114 @@
-# 常见问题
+# Frequently Asked Questions
 
-## 1. 如何查看日志？
+## 1. How do I view the logs?
 ```bash
 docker compose logs -f app docreader postgres
 ```
 
-## 2. 如何启动和停止服务？
+## 2. How do I start and stop the services?
 ```bash
-# 启动服务
+# Start services
 ./scripts/start_all.sh
 
-# 停止服务
+# Stop services
 ./scripts/start_all.sh --stop
 
-# 清空数据库
+# Clear the database
 ./scripts/start_all.sh --stop && make clean-db
 ```
 
-## 3. 服务启动后无法正常上传文档？
+## 3. The service starts but I can't upload documents?
 
-通常是Embedding模型和对话模型没有正确被设置导致。按照以下步骤进行排查
+This is usually caused by the Embedding model and chat model not being configured correctly. Follow these steps to troubleshoot:
 
-1. 查看`.env`配置中的模型信息是否配置完整，其中如果使用ollama访问本地模型，需要确保本地ollama服务正常运行，同时在`.env`中的如下环境变量需要正确设置:
+1. Check whether the model information in your `.env` configuration is complete. If you're using ollama to access a local model, make sure the local ollama service is running properly, and that the following environment variables in `.env` are set correctly:
 ```bash
 # LLM Model
 INIT_LLM_MODEL_NAME=your_llm_model
 # Embedding Model
 INIT_EMBEDDING_MODEL_NAME=your_embedding_model
-# Embedding模型向量维度
+# Embedding model vector dimension
 INIT_EMBEDDING_MODEL_DIMENSION=your_embedding_model_dimension
-# Embedding模型的ID，通常是一个字符串
+# Embedding model ID, usually a string
 INIT_EMBEDDING_MODEL_ID=your_embedding_model_id
 ```
 
-如果是通过remote api访问模型，则需要额外提供对应的`BASE_URL`和`API_KEY`:
+If you're accessing the model via a remote API, you also need to provide the corresponding `BASE_URL` and `API_KEY`:
 ```bash
-# LLM模型的访问地址
+# LLM model access URL
 INIT_LLM_MODEL_BASE_URL=your_llm_model_base_url
-# LLM模型的API密钥，如果需要身份验证，可以设置
+# LLM model API key, set this if authentication is required
 INIT_LLM_MODEL_API_KEY=your_llm_model_api_key
-# Embedding模型的访问地址
+# Embedding model access URL
 INIT_EMBEDDING_MODEL_BASE_URL=your_embedding_model_base_url
-# Embedding模型的API密钥，如果需要身份验证，可以设置
+# Embedding model API key, set this if authentication is required
 INIT_EMBEDDING_MODEL_API_KEY=your_embedding_model_api_key
 ```
 
-当需要重排序功能时，需要额外配置Rerank模型，具体配置如下：
+When you need the reranking feature, you'll need to configure a Rerank model as well, as follows:
 ```bash
-# 使用的Rerank模型名称
+# Name of the Rerank model to use
 INIT_RERANK_MODEL_NAME=your_rerank_model_name
-# Rerank模型的访问地址
+# Rerank model access URL
 INIT_RERANK_MODEL_BASE_URL=your_rerank_model_base_url
-# Rerank模型的API密钥，如果需要身份验证，可以设置
+# Rerank model API key, set this if authentication is required
 INIT_RERANK_MODEL_API_KEY=your_rerank_model_api_key
 ```
 
-2. 查看主服务日志，是否有`ERROR`日志输出
+2. Check the main service logs to see whether there is any `ERROR` output.
 
-## 4. 没有图片或者显示无效的图片链接？
+## 4. No images, or invalid image links are shown?
 
-当使用多模态功能时，如果遇到图片无法显示或显示无效链接的问题，请按照以下步骤排查：
+When using multimodal features, if you run into issues where images fail to display or show invalid links, troubleshoot as follows:
 
-### 1. 确认多模态功能已正确配置
+### 1. Confirm the multimodal feature is configured correctly
 
-在知识库设置中开启**高级设置 - 多模态功能**，并在界面中配置相应的多模态模型。
+In the knowledge base settings, enable **Advanced Settings - Multimodal**, and configure the corresponding multimodal model in the interface.
 
-### 2. 确认 MinIO 服务已启动
+### 2. Confirm the MinIO service is running
 
-如果多模态功能配置使用的是 MinIO 存储，需要确保 MinIO 镜像已正确启动：
+If the multimodal feature is configured to use MinIO storage, make sure the MinIO image has been started correctly:
 
 ```bash
-# 启动 MinIO 服务
+# Start the MinIO service
 docker-compose --profile minio up -d
 
-# 或者启动完整服务（包括 MinIO、Neo4j、Qdrant）
+# Or start the full set of services (including MinIO, Neo4j, Qdrant)
 docker-compose --profile full up -d
 ```
 
-### 3. 检查 MinIO Bucket 权限
+### 3. Check MinIO bucket permissions
 
-确保 MinIO 对应的 bucket 具有正确的读写权限：
+Make sure the corresponding MinIO bucket has the correct read/write permissions:
 
-1. 访问 MinIO 控制台：`http://localhost:9001`（默认端口）
-2. 使用 `.env` 中配置的 `MINIO_ACCESS_KEY_ID` 和 `MINIO_SECRET_ACCESS_KEY` 登录
-3. 进入对应的 bucket，检查并设置访问策略为**公开读取**或**公开读写**
+1. Access the MinIO console: `http://localhost:9001` (default port)
+2. Log in using the `MINIO_ACCESS_KEY_ID` and `MINIO_SECRET_ACCESS_KEY` configured in `.env`
+3. Go to the corresponding bucket, and check and set the access policy to **public read** or **public read/write**
 
-**重要提示**：
-- Bucket 名称不要包含特殊字符（包括中文），建议使用小写字母、数字和连字符
-- 如果无法修改现有 bucket 的权限，可以在配置中填入一个不存在的 bucket 名称，本项目会自动创建对应的 bucket 并设置好正确的权限
+**Important**:
+- Bucket names should not contain special characters (including Chinese characters); it's recommended to use lowercase letters, digits, and hyphens
+- If you can't modify the permissions of an existing bucket, you can enter a bucket name that doesn't exist yet in the configuration — the project will automatically create the corresponding bucket and set up the correct permissions
 
-### 4. 配置 MINIO_PUBLIC_ENDPOINT
+### 4. Configure MINIO_PUBLIC_ENDPOINT
 
-在 `docker-compose.yml` 文件中，`MINIO_PUBLIC_ENDPOINT` 变量默认配置为 `http://localhost:9000`。
+In the `docker-compose.yml` file, the `MINIO_PUBLIC_ENDPOINT` variable defaults to `http://localhost:9000`.
 
-**重要提示**：如果你需要从其他设备或容器访问图片，`localhost` 可能无法正常工作，需要将其替换为本机的实际 IP 地址：
+**Important**: If you need to access images from another device or container, `localhost` may not work properly, and you'll need to replace it with the actual IP address of the machine:
 
 
-## 5. 平台兼容性说明
+## 5. Platform compatibility notes
 
-**重要提示**：`OCR_BACKEND=paddle` 模式在部分平台上可能无法正常运行。如果遇到 PaddleOCR 启动失败的问题，请选择以下解决方案
+**Important**: The `OCR_BACKEND=paddle` mode may not work properly on some platforms. If PaddleOCR fails to start, choose one of the following solutions:
 
-### 方案一：关闭 OCR 识别
+### Option 1: Disable OCR recognition
 
-在 `docker-compose.yml` 文件的 `docreader` 服务中删除 `OCR_BACKEND` 配置，然后重启 docreader 服务
+Remove the `OCR_BACKEND` configuration from the `docreader` service in the `docker-compose.yml` file, then restart the docreader service.
 
-**注意**：设置为 `no_ocr` 后，文档解析将不会使用 OCR 功能，这可能会影响图片和扫描文档的文字识别效果。
+**Note**: After setting it to `no_ocr`, document parsing will no longer use the OCR feature, which may affect text recognition for images and scanned documents.
 
-### 方案二：使用外部 OCR 模型（推荐）
+### Option 2: Use an external OCR model (recommended)
 
-如果需要 OCR 功能，可以使用外部的视觉语言模型（VLM）来替代 PaddleOCR。在 `docker-compose.yml` 文件的 `docreader` 服务中配置：
+If you need OCR functionality, you can use an external Vision Language Model (VLM) instead of PaddleOCR. Configure the following in the `docreader` service in the `docker-compose.yml` file:
 
 ```yaml
 environment:
@@ -118,332 +118,332 @@ environment:
   - OCR_MODEL=${OCR_MODEL:-}
 ```
 
-然后重启 docreader 服务
+Then restart the docreader service.
 
-**优势**：使用外部 OCR 模型可以获得更好的识别效果，且不受平台限制。
+**Advantage**: Using an external OCR model gets better recognition results and isn't limited by platform.
 
-## 6. 如何使用数据分析功能？
+## 6. How do I use the data analysis feature?
 
-在使用数据分析功能前，请确保智能体已配置相关工具：
+Before using the data analysis feature, make sure the agent has the relevant tools configured:
 
-1. **智能推理**：需在工具配置中勾选以下两个工具：
-   - 查看数据元信息
-   - 数据分析
+1. **Intelligent reasoning**: You need to check the following two tools in the tool configuration:
+   - View data metadata
+   - Data analysis
 
-2. **快速问答智能体**：无需手动选择工具，即可直接进行简单的数据查询操作。
+2. **Quick Q&A agent**: No need to manually select tools — you can perform simple data queries directly.
 
-### 注意事项与使用规范
+### Notes and usage guidelines
 
-1. **支持的文件格式**
-   - 目前仅支持 **CSV** (`.csv`) 和 **Excel** (`.xlsx`, `.xls`) 格式的文件。
-   - 对于复杂的 Excel 文件，如果读取失败，建议将其转换为标准的 CSV 格式后重新上传。
+1. **Supported file formats**
+   - Currently only **CSV** (`.csv`) and **Excel** (`.xlsx`, `.xls`) file formats are supported.
+   - For complex Excel files, if reading fails, it's recommended to convert them to standard CSV format before re-uploading.
 
-2. **查询限制**
-   - 仅支持 **只读查询**，包括 `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`, `PRAGMA` 等语句。
-   - 禁止执行任何修改数据的操作，如 `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP` 等。
+2. **Query restrictions**
+   - Only **read-only queries** are supported, including statements like `SELECT`, `SHOW`, `DESCRIBE`, `EXPLAIN`, `PRAGMA`, etc.
+   - Any operations that modify data are prohibited, such as `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`, etc.
 
-## 7. 页面里刚保存的配置几秒后又消失了？
+## 7. Configuration I just saved on the page disappears again after a few seconds?
 
-这类问题通常不是配置真的被系统清掉了，而是浏览器代理、缓存或插件干扰导致前端读到了异常响应，页面随后又被旧状态覆盖。
+This kind of issue is usually not the system actually clearing the configuration — rather, browser proxies, caching, or plugin interference cause the frontend to read an abnormal response, and the page then gets overwritten by stale state.
 
-建议按下面顺序排查：
+We recommend troubleshooting in the following order:
 
-1. 先关闭浏览器代理、抓包工具、自动改写请求的插件，再重新打开页面。
-2. 确认浏览器没有把 `localhost` 或当前访问域名走代理；如果配置了 PAC，请将 `localhost`、`127.0.0.1` 和实际部署域名加入直连名单。
-3. 强制刷新页面，或直接使用无痕窗口重新登录后再保存一次配置。
-4. 打开浏览器开发者工具的 `Network` 面板，确认保存配置相关请求返回的是最新内容，且没有被代理改写、缓存命中或重定向到其他环境。
-5. 如果是调试模式部署，可尝试重启 `app` 服务后再验证一次：
+1. First disable your browser proxy, packet-capturing tools, and any plugins that auto-rewrite requests, then reopen the page.
+2. Confirm your browser isn't routing `localhost` or the domain you're accessing through a proxy; if you have a PAC configured, add `localhost`, `127.0.0.1`, and the actual deployment domain to the direct-connection list.
+3. Force-refresh the page, or log in again in an incognito window and save the configuration once more.
+4. Open the `Network` panel in your browser's developer tools, and confirm that the request related to saving the configuration returns the latest content, and hasn't been rewritten by a proxy, served from cache, or redirected to another environment.
+5. If this is a debug-mode deployment, try restarting the `app` service and verify again:
 
 ```bash
 docker compose restart app
 ```
 
-如果重启后短时间恢复正常，但再次访问又出现相同现象，仍应优先检查浏览器代理、缓存和多环境串连问题，而不是直接判断为后端配置丢失。
+If things return to normal briefly after restarting but the same issue reappears on a later visit, you should still prioritize checking for browser proxy, caching, and cross-environment issues rather than jumping to the conclusion that the backend configuration was lost.
 
-## 8. SSRF 校验白名单（`SSRF_WHITELIST`）
+## 8. SSRF validation whitelist (`SSRF_WHITELIST`)
 
-可选配置。在 `.env` 中设置 `SSRF_WHITELIST`，用于在 URL 校验等环节将指定目标加入白名单，从而绕过常规 SSRF 限制。值为逗号分隔的多条规则，每条可以是：
+Optional configuration. Set `SSRF_WHITELIST` in `.env` to add specified targets to a whitelist during URL validation and similar steps, allowing them to bypass the usual SSRF restrictions. The value is a comma-separated list of rules, where each entry can be:
 
-- **精确域名**：如 `api.internal`
-- **通配域名**：如 `*.example.com`
-- **IPv4**：如 `203.0.113.5`
-- **IPv6**：如 `2001:db8::1`（不要带方括号）
-- **CIDR**：如 `10.0.0.0/8`、`2001:db8::/32`
+- **Exact domain**: e.g. `api.internal`
+- **Wildcard domain**: e.g. `*.example.com`
+- **IPv4**: e.g. `203.0.113.5`
+- **IPv6**: e.g. `2001:db8::1` (do not include brackets)
+- **CIDR**: e.g. `10.0.0.0/8`, `2001:db8::/32`
 
-列入白名单的地址会在 URL 校验等处绕过常规 SSRF 规则，**生产环境请谨慎配置**，仅加入确实需要且可信的目标。
+Whitelisted addresses will bypass the usual SSRF rules during URL validation and similar checks — **configure this with caution in production**, and only add targets that are genuinely needed and trusted.
 
-示例（与 `.env.example` 一致，可按需取消注释并修改）：
+Example (consistent with `.env.example`; uncomment and modify as needed):
 
 ```bash
 # SSRF_WHITELIST=internal.service,*.corp.example,172.16.0.0/12,2001:db8::1,fd00::/8
 ```
 
 
-## 9. 如何开启和查看 Langfuse 可观测性追踪？
+## 9. How do I enable and view Langfuse observability tracing?
 
-WeKnora 支持通过 Langfuse 对 Agent 的 ReAct 循环、大模型 Token 消耗、工具调用以及异步任务流水线进行全链路追踪。
+WeKnora supports full-chain tracing of the Agent's ReAct loop, LLM token consumption, tool calls, and asynchronous task pipelines via Langfuse.
 
-**开启步骤**：
-1. 准备一个可用的 Langfuse 实例（支持云端版或私有部署版）。
-2. 在 `.env` 文件中配置以下环境变量：
+**Setup steps**:
+1. Prepare a usable Langfuse instance (cloud or self-hosted).
+2. Configure the following environment variables in the `.env` file:
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
-LANGFUSE_HOST=https://cloud.langfuse.com # 或你的私有部署地址
+LANGFUSE_HOST=https://cloud.langfuse.com # or your self-hosted address
 ```
-3. 重启服务后，系统会自动对所有支持的模型调用和 Agent 运行轨迹进行追踪，你可以在 Langfuse 的 Traces 面板中直观地看到每次对话和后台任务的详细执行瀑布图与 Token 统计。
+3. After restarting the services, the system will automatically trace all supported model calls and Agent run trajectories. You can view the detailed execution waterfall diagram and token statistics for each conversation and background task directly in the Langfuse Traces panel.
 
-## 10. 什么是 Wiki 模式？如何使用？
+## 10. What is Wiki mode? How do I use it?
 
-Wiki 模式允许 Agent 根据原始文档自动生成并维护一套结构化、相互链接的 Markdown Wiki 知识库，从而实现复杂知识的体系化沉淀和图谱化。
+Wiki mode allows the Agent to automatically generate and maintain a structured, interlinked Markdown wiki knowledge base based on the source documents, enabling systematic consolidation and graph-based organization of complex knowledge.
 
-**使用方法**：
-1. 进入指定**知识库的设置** -> **索引策略 (Indexing Strategy)**。
-2. 开启 **Wiki** 索引功能（可同时结合开启**知识图谱**）。
-3. 当你向该知识库上传文档时，系统会自动触发异步任务，通过大模型提取文档中的实体与核心概念，并自动生成结构化的 Wiki 页面及页面间的知识图谱链接。
-4. 你可以在该知识库的“Wiki”标签页中，使用专用的 Wiki 浏览器查阅、管理页面，并通过可视化的知识图谱查看不同内容之间的关联关系。
+**How to use it**:
+1. Go to the settings of the specific **knowledge base** -> **Indexing Strategy**.
+2. Enable the **Wiki** indexing feature (this can be combined with enabling **Knowledge Graph** at the same time).
+3. When you upload documents to that knowledge base, the system automatically triggers an asynchronous task that uses the LLM to extract entities and core concepts from the documents, and automatically generates structured wiki pages along with knowledge graph links between pages.
+4. In the "Wiki" tab of that knowledge base, you can use the dedicated wiki browser to view and manage pages, and view the relationships between different content via the visualized knowledge graph.
 
-## 11. 升级到 0.6.0 后，原本能做的操作变成了「权限不足」？
+## 11. After upgrading to 0.6.0, an operation I used to be able to do now says "Insufficient permissions"?
 
-0.6.0 引入了空间内 RBAC（角色矩阵 + 资源归属），所有写入接口都会按角色 + `creator_id` 鉴权。常见现象：
+0.6.0 introduces in-space RBAC (role matrix + resource ownership) — all write endpoints are now authorized based on role + `creator_id`. Common scenarios:
 
-- **看得到但点不动**：你大概率是该资源的 `Viewer` 或非创建者的 `Contributor`，UI 已经把写操作隐藏/置灰。检查 **用户菜单 → 当前工作区** 角色徽章。
-- **共享空间里的 KB / Agent**：他人共享给你的 KB 默认按 `Viewer` 看待；要写需要在源空间里被授予 `Admin+`。
-- **API Key 调用**：`X-API-Key` 合成虚拟用户固定为所属空间的 `Admin`（仅删除空间需 `Owner`），脚本一般无需迁移。
-- **跨空间超管**：要 `User.CanAccessAllTenants=true` 且 `enable_cross_tenant_access=true`，并通过 `X-Tenant-ID` 切空间。
+- **You can see it but can't click it**: You're most likely a `Viewer` on this resource, or a `Contributor` who isn't the creator. The UI already hides/disables write actions in this case. Check the role badge under **User menu → Current workspace**.
+- **KBs / Agents in a shared space**: KBs shared with you by others are treated as `Viewer` access by default; to get write access, you need to be granted `Admin+` in the source space.
+- **API Key calls**: `X-API-Key` synthesizes a virtual user that's fixed as `Admin` of the space it belongs to (only deleting the space requires `Owner`) — scripts generally don't need any migration.
+- **Cross-space super admin**: Requires `User.CanAccessAllTenants=true` and `enable_cross_tenant_access=true`, and switching spaces via `X-Tenant-ID`.
 
-如需临时回退到「仅审计、不拦截」灰度窗口，可在配置里设置 `tenant.enable_rbac=false`（或环境变量 `WEKNORA_TENANT_ENABLE_RBAC=false`）。完整的角色矩阵和归属链请见 [`docs/RBAC说明.md`](./RBAC说明.md)。
+If you need to temporarily roll back to an "audit only, no enforcement" grayscale window, you can set `tenant.enable_rbac=false` in the configuration (or the environment variable `WEKNORA_TENANT_ENABLE_RBAC=false`). For the complete role matrix and ownership chain, see [`docs/RBAC说明.md`](./RBAC说明.md).
 
-## 12. 为什么登录后没有自动回到上次的工作区？
+## 12. Why doesn't the system automatically return to my last workspace after login?
 
-升级到 0.6.0 后系统会记住「最后活跃工作区」并在登录后自动恢复。若仍未恢复，通常是：
+After upgrading to 0.6.0, the system remembers your "last active workspace" and automatically restores it after login. If it's still not being restored, this is usually because:
 
-1. 浏览器清理了 LocalStorage / 切换了浏览器；
-2. 你最后访问的那个工作区已经把你移除（`/leave` 或被管理员剔除）— 系统会回退到默认空间；
-3. JWT 中携带了 `tenant_id` 但已无效 — 退出重登录即可。
+1. Your browser cleared LocalStorage, or you switched browsers;
+2. The workspace you last visited has removed you (via `/leave` or being removed by an admin) — the system will fall back to the default space;
+3. The JWT carries a `tenant_id` that's no longer valid — simply log out and log back in.
 
-## 13. 如何让多人协作时正确分配权限？
+## 13. How do I correctly assign permissions for multi-person collaboration?
 
-按照 [`docs/RBAC说明.md`](./RBAC说明.md) 的角色矩阵：
+Following the role matrix in [`docs/RBAC说明.md`](./RBAC说明.md):
 
-- 只读用户 → `Viewer`
-- 普通成员（上传文档、维护「自己」的 KB / Agent）→ `Contributor`
-- 运维人员（管理共享模型、向量库、解析器等基础设施）→ `Admin`
-- 空间所有者（拥有删除空间权限；每空间至少一位，可以有多位，最后一位不能被降级或移除）→ `Owner`
+- Read-only users → `Viewer`
+- Regular members (upload documents, maintain "their own" KBs / Agents) → `Contributor`
+- Operations staff (manage shared models, vector stores, parsers, and other infrastructure) → `Admin`
+- Space owner (has permission to delete the space; at least one per space, can have multiple, and the last one can't be demoted or removed) → `Owner`
 
-如果你希望开启「invite-only」（不允许自助注册到本空间），可在空间设置里打开邀请制，并通过「邀请」入口签发邀请码或链接。
+If you want to enable "invite-only" mode (disallowing self-service sign-up to this space), you can turn on the invitation system in the space settings and issue invite codes or links via the "Invite" entry point.
 
-## 14. 文档解析卡在「处理中」/ 解析追踪时间线打不开怎么办？
+## 14. Document parsing is stuck at "Processing" / the parsing trace timeline won't open?
 
-0.6.1 起每个文档解析都会记录一棵 Langfuse 风格的 Span 树（`knowledge_processing_spans` 表），可在知识库卡片菜单或卡片上的「Trace」入口打开侧边时间线，逐阶段查看进度。常见情况：
+Starting in 0.6.1, every document parse records a Langfuse-style span tree (the `knowledge_processing_spans` table), which you can open via the "Trace" entry point on the knowledge base card menu or card itself, to view a step-by-step sidebar timeline. Common scenarios:
 
-- **文档长时间停在「处理中」**：先打开时间线看是哪个阶段没有推进（解析 / 切分 / 向量化 / 后处理）。0.6.1 已修复多数「卡死」场景，并加入看门狗轮询；如确认是某次解析挂死，可在时间线面板点击「中止解析」，文档会进入 finalizing 后处理状态后结束。
-- **时间线一直显示「更新中」但无数据**：通常是轮询请求静默失败（网络 / 反向代理截断 SSE）。0.6.1 会显式暴露轮询失败，刷新页面或检查 Nginx 是否缓冲了响应即可。
-- **升级后没有时间线数据**：确认数据库迁移 `000055_knowledge_processing_spans`、`000056_knowledge_pending_subtasks` 已执行（服务启动会自动迁移）。
+- **A document stays at "Processing" for a long time**: First open the timeline to see which stage isn't progressing (parsing / splitting / vectorization / post-processing). 0.6.1 has fixed most "stuck" scenarios and added watchdog polling; if you confirm a particular parse has hung, you can click "Abort parsing" in the timeline panel, and the document will enter the finalizing post-processing state before ending.
+- **The timeline keeps showing "Updating" but has no data**: This is usually because the polling request is silently failing (network / reverse proxy truncating the SSE stream). 0.6.1 now explicitly surfaces polling failures — refresh the page or check whether Nginx is buffering the response.
+- **No timeline data after upgrading**: Confirm that database migrations `000055_knowledge_processing_spans` and `000056_knowledge_pending_subtasks` have run (these run automatically when the service starts).
 
-## 15. 如何启用 OpenSearch 作为向量库？
+## 15. How do I enable OpenSearch as the vector store?
 
-0.6.1 新增了 OpenSearch 向量库驱动（k-NN）。在 **设置 → 向量库** 中新增 OpenSearch 引擎并填写连接地址、凭据即可；KB 可绑定该向量库。注意：
+0.6.1 adds an OpenSearch vector store driver (k-NN). In **Settings → Vector Store**, add a new OpenSearch engine and fill in the connection address and credentials — a KB can then be bound to this vector store. Notes:
 
-- 连接地址会经过 SSRF 策略校验，内网 / 回环地址需符合放行规则；可用「测试连接」先行校验。
-- 集成测试与索引映射细节见 [`docs/dev/opensearch-integration-test.md`](./dev/opensearch-integration-test.md)。
+- The connection address goes through SSRF policy validation; internal / loopback addresses must comply with the allow rules. You can use "Test Connection" to validate first.
+- For integration test and index mapping details, see [`docs/dev/opensearch-integration-test.md`](./dev/opensearch-integration-test.md).
 
-## 16. 内置模型（builtin models）如何用 YAML 声明式管理？
+## 16. How are built-in models managed declaratively via YAML?
 
-0.6.1 起平台内置模型由 `config/builtin_models.yaml` 声明式驱动，支持 `${ENV}` 变量插值，并通过 `managed_by` 字段与漂移巡检保持数据库与 YAML 一致。常见问题：
+Starting in 0.6.1, the platform's built-in models are driven declaratively by `config/builtin_models.yaml`, which supports `${ENV}` variable interpolation, and stays in sync between the database and YAML via the `managed_by` field and drift reconciliation. Common issues:
 
-- **改了 YAML 不生效**：内置模型在服务启动时做生命周期对账（drift sweep）；确认重启了服务，且条目通过了 schema 校验（ID 长度、必填字段）。
-- **Docker 下环境变量未注入**：`builtin_models` 依赖 `env_file` 数组形式注入变量，确认 compose 中按数组形式挂载了 `.env`。
-- 参考样例：`config/builtin_models.yaml.example`。
+- **Changed the YAML but it's not taking effect**: Built-in models undergo lifecycle reconciliation (drift sweep) at service startup; confirm you've restarted the service and that the entries pass schema validation (ID length, required fields).
+- **Environment variables not injected under Docker**: `builtin_models` relies on variables being injected via the `env_file` array form — confirm your compose file mounts `.env` in array form.
+- Reference example: `config/builtin_models.yaml.example`.
 
-## 17. 系统管理员（System Admin）与平台设置怎么用？
+## 17. How do System Admin and platform settings work?
 
-0.6.1 引入了系统管理员与统一平台设置面板（含平台审计日志），与空间内 RBAC 区分：系统管理员管理的是「平台级」配置，而非单个空间内的资源。首次启用需通过系统管理员 bootstrap 流程晋升首个管理员；撤销管理员权限有安全防护（避免误撤导致无人可管）。相关迁移为 `000053_system_admin_and_settings`。
+0.6.1 introduces the System Admin role and a unified Platform Settings panel (including a platform audit log), distinct from in-space RBAC: the System Admin manages "platform-level" configuration, not resources within a single space. To enable this for the first time, you need to promote the first admin via the System Admin bootstrap process; revoking admin privileges has safety protections (to avoid an accidental revocation leaving no one able to manage the platform). The related migration is `000053_system_admin_and_settings`.
 
-## 18. 上传时如何自定义解析配置（process_config）？
+## 18. How do I customize the parsing configuration (process_config) at upload time?
 
-0.6.2 起，文件 / URL / 文件夹上传可携带 `process_config`（`KnowledgeProcessOverrides`），在**本次批次**内覆盖知识库默认的解析引擎、分块、多模态（VLM / ASR）、问题生成、图谱抽取等设置，而不会改动 KB 全局配置。Web UI 在上传前会弹出确认对话框供调整；API 与 `weknora doc upload` 传同名 JSON 即可。
+Starting in 0.6.2, file / URL / folder uploads can carry a `process_config` (`KnowledgeProcessOverrides`), which overrides the knowledge base's default parsing engine, chunking, multimodal (VLM / ASR), question generation, graph extraction, and other settings **for this batch only**, without changing the KB's global configuration. The web UI pops up a confirmation dialog for adjustments before uploading; the API and `weknora doc upload` accept a JSON payload with the same field names.
 
-- **与 KB 默认配置的关系**：未传的字段沿用 KB 默认值；`graph_enabled` 仅在 `extract_config.enabled` 为 true 时生效。
-- **重新解析**：`POST /knowledge/:id/reparse` 可在 body 中传 `process_config` 以新配置重跑解析，覆盖项会写入 `knowledge.metadata.process_overrides`。
-- **图片 / 音频校验**：批次含图片时需 KB 已配置 VLM；含音频时需已配置 ASR，否则上传会被拒绝。
-- 详见 [`docs/api/knowledge.md`](./api/knowledge.md)。
+- **Relationship with KB default configuration**: Fields that aren't passed fall back to the KB default values; `graph_enabled` only takes effect when `extract_config.enabled` is true.
+- **Reparsing**: `POST /knowledge/:id/reparse` can pass `process_config` in the body to rerun parsing with new settings — the overrides get written to `knowledge.metadata.process_overrides`.
+- **Image / audio validation**: If a batch contains images, the KB must have a VLM configured; if it contains audio, an ASR must be configured, otherwise the upload will be rejected.
+- See [`docs/api/knowledge.md`](./api/knowledge.md) for details.
 
-## 19. 升级到 0.6.2 后 `weknora` CLI 登录或 MCP 工具报错？
+## 19. After upgrading to 0.6.2, the `weknora` CLI login or MCP tools throw errors?
 
-0.6.2 随附 **CLI v0.9**（破坏性变更），常见迁移：
+0.6.2 ships with **CLI v0.9** (breaking changes); common migration steps:
 
-- **`auth login` 不再创建 profile**：先 `weknora profile add <name> --host <url> --use`，再 `weknora auth login`；切换 profile 用全局 `--profile <name>`。
-- **`auth logout` / `auth refresh` 去掉 `--name`**：作用于当前 active profile。
-- **MCP 工具 `agent_invoke` 已更名为 `session_ask`**：外部 MCP 客户端需刷新工具 schema。
-- **`agent create --kb` 改为 `--attach-kb`**；`doc delete --all` 与 `search chunks` / `search docs` 的 `--kb` 必填且支持名称或 ID。
-- 新增 `weknora session stop <session-id>` 可中止进行中的 Agent 运行；仓库内附带 `weknora-rag-search` / `weknora-shared` 内置 Skills。
-- 详见 [`cli/CHANGELOG.md`](../cli/CHANGELOG.md)。
+- **`auth login` no longer creates a profile**: First run `weknora profile add <name> --host <url> --use`, then `weknora auth login`; switch profiles with the global `--profile <name>`.
+- **`auth logout` / `auth refresh` no longer take `--name`**: They now act on the current active profile.
+- **The MCP tool `agent_invoke` has been renamed to `session_ask`**: External MCP clients need to refresh their tool schema.
+- **`agent create --kb` has become `--attach-kb`**; the `--kb` flag on `doc delete --all` and `search chunks` / `search docs` is now required, and supports either a name or an ID.
+- Added `weknora session stop <session-id>` to abort an in-progress Agent run; the repo now ships with the built-in `weknora-rag-search` / `weknora-shared` Skills.
+- See [`cli/CHANGELOG.md`](../cli/CHANGELOG.md) for details.
 
-## 20. pgvector 检索变慢或刚升级后需要做什么？
+## 20. pgvector retrieval is slow, or what do I need to do right after upgrading?
 
-0.6.2 新增迁移 `000059_embeddings_hnsw_1024`，为 **1024 维** embedding（如 bge-m3）在 PostgreSQL pgvector 上创建 HNSW 索引。服务启动会自动执行迁移；若你使用其他维度，该索引可能不适用，需按自身 embedding 维度另行调优。升级后首次大批量入库期间索引构建可能占用额外 I/O，属正常现象。
+0.6.2 adds migration `000059_embeddings_hnsw_1024`, which creates an HNSW index on PostgreSQL pgvector for **1024-dimension** embeddings (such as bge-m3). This migration runs automatically at service startup; if you use a different dimension, this index may not apply, and you'll need to tune it separately for your own embedding dimension. During the first large-scale ingestion after upgrading, index building may consume extra I/O — this is expected behavior.
 
-## 21. 如何在网站嵌入 WeKnora 智能体（Embed Widget）？
+## 21. How do I embed a WeKnora Agent on a website (Embed Widget)?
 
-0.6.3 起支持**嵌入渠道**：在 **集成中心** 或 Agent 编辑器中创建 embed 渠道，绑定自定义 Agent，获取渠道 ID 与发布 Token（`em_…`），将 `weknora-widget.js` 嵌入外部网页即可提供访客问答。
+Starting in 0.6.3, **embed channels** are supported: create an embed channel in the **Integration Center** or the Agent editor, bind it to a custom Agent, and get a channel ID and publishable token (`em_…`) — then embed `weknora-widget.js` into an external web page to provide visitor Q&A.
 
-- **域名白名单**：必须在渠道配置中填写允许加载 Widget 的 Origin，否则 exchange 会返回 403。
-- **安全模式（推荐）**：生产环境不要把 `em_…` 写在页面 HTML 里；由业务后端提供 `token-endpoint`，用发布 Token 调 `POST /api/v1/embed/:id/exchange` 换取短时令牌 `ems_…`（约 30 分钟有效）。详见 [`docs/embed-secure-mode.md`](./embed-secure-mode.md) 与 [`docs/embed-subdomain.md`](./embed-subdomain.md)。
-- **限流**：渠道可配置每分钟 / 每日请求上限；超限返回 429。
-- **子域部署**：若 embed 页面与 API 不同子域，参考 `docs/embed-subdomain.md` 配置 CORS 与 Nginx。
+- **Domain whitelist**: You must fill in the Origins allowed to load the Widget in the channel configuration, otherwise the exchange will return a 403.
+- **Secure mode (recommended)**: In production, don't put the `em_…` token directly in the page HTML; instead, have your backend provide a `token-endpoint` that uses the publishable token to call `POST /api/v1/embed/:id/exchange` to obtain a short-lived token `ems_…` (valid for about 30 minutes). See [`docs/embed-secure-mode.md`](./embed-secure-mode.md) and [`docs/embed-subdomain.md`](./embed-subdomain.md) for details.
+- **Rate limiting**: Channels can be configured with per-minute / per-day request limits; exceeding the limit returns 429.
+- **Subdomain deployment**: If the embed page and API are on different subdomains, see `docs/embed-subdomain.md` for CORS and Nginx configuration.
 
-## 22. 文档如何设置多个标签？
+## 22. How do I set multiple tags on a document?
 
-0.6.3 将文档标签从单选升级为**多标签**（迁移 `000063_knowledge_multi_tags`）。在知识库列表可为文档打多个标签，侧边栏支持按标签筛选；**标签管理**抽屉可批量维护标签。API 上传 / 更新知识时传 `tag_ids` 数组（取代旧的单 `tag_id`）。
+0.6.3 upgrades document tags from single-select to **multi-tag** (migration `000063_knowledge_multi_tags`). In the knowledge base list, you can assign multiple tags to a document, and the sidebar supports filtering by tag; the **Tag Management** drawer lets you batch-manage tags. In the API, pass a `tag_ids` array when uploading / updating knowledge items (replacing the old single `tag_id`).
 
-## 23. 如何批量重新解析文档？
+## 23. How do I batch reparse documents?
 
-在知识库文档列表框选多篇文档后，使用批量操作栏的 **重新解析**；也可调用 `POST /knowledge/batch-reparse`，body 可含 `ids` 与可选 `process_config`。任务异步入队，UI 会在入队后刷新状态。单篇仍可用 `POST /knowledge/:id/reparse`。
+Select multiple documents in the knowledge base document list using checkboxes, then use **Reparse** in the batch action bar; alternatively, call `POST /knowledge/batch-reparse`, with the body optionally containing `ids` and `process_config`. The task is enqueued asynchronously, and the UI refreshes the status once queued. For a single document, you can still use `POST /knowledge/:id/reparse`.
 
-## 24. RSS 数据源如何配置？
+## 24. How do I configure an RSS data source?
 
-0.6.3 新增 **RSS / Atom** 连接器。在知识库 **设置 → 数据源** 中选择 RSS，填写 Feed URL 与同步策略即可全量 / 增量拉取正文入库。若部分条目失败，同步日志会展示 partial failure 详情；编辑数据源保存配置**不会**自动触发同步，需手动点同步。
+0.6.3 adds an **RSS / Atom** connector. In the knowledge base's **Settings → Data Sources**, select RSS, and fill in the Feed URL and sync strategy to pull content into the knowledge base, either as a full sync or incrementally. If some entries fail, the sync log will show partial failure details; editing a data source's configuration and saving it will **not** automatically trigger a sync — you need to click sync manually.
 
-## 25. MCP 远程服务如何配置 OAuth2？
+## 25. How do I configure OAuth2 for a remote MCP service?
 
-0.6.3 支持 MCP 服务的 **OAuth2 授权**（迁移 `000062_mcp_oauth`）。在 **设置 → MCP** 添加 HTTP 类型服务并选择 OAuth2，按向导完成授权回调；另支持自定义 HTTP Header 与 JSON **代码导入**快速粘贴配置。授权 Token 加密存储，过期后需在 UI 重新授权。
+0.6.3 supports **OAuth2 authorization** for MCP services (migration `000062_mcp_oauth`). In **Settings → MCP**, add an HTTP-type service and select OAuth2, then complete the authorization callback via the wizard; custom HTTP headers and JSON **code import** for quickly pasting configuration are also supported. Authorization tokens are stored encrypted, and you'll need to re-authorize in the UI once they expire.
 
-## 26. Embedding 维度如何覆盖？
+## 26. How can I override the Embedding dimension?
 
-在 **设置 → 模型** 编辑 Embedding 模型时可填写 **dimensions** 覆盖值（如 1024、1536）。0.6.3 修复了部分提供商请求未携带 `dimensions` 的问题（#1654）。若向量库索引维度与模型不一致，检索可能异常，请保持 KB 绑定向量库与模型维度一致。
+When editing an Embedding model in **Settings → Models**, you can fill in a **dimensions** override value (e.g. 1024, 1536). 0.6.3 fixed an issue where some providers' requests weren't carrying `dimensions` (#1654). If the vector store's index dimension doesn't match the model, retrieval may behave abnormally — make sure the vector store bound to the KB stays consistent with the model's dimension.
 
-## 27. Agent 提示「模型未就绪」无法对话？
+## 27. The Agent shows "Model not ready" and I can't chat?
 
-0.6.3 在 Agent 选择器引入**模型就绪校验**：绑定的 LLM / Embedding / Rerank / VLM 缺失或配置无效时会阻断对话并给出修复指引。可在模型卡片打开 **调试抽屉** 先测试连通性；确认 KB 与 Agent 引用的模型均存在且可用。
+0.6.3 introduces **model readiness validation** in the Agent selector: if the bound LLM / Embedding / Rerank / VLM is missing or misconfigured, the conversation is blocked and remediation guidance is shown. You can open the **Debug Drawer** on a model card to test connectivity first; confirm that the models referenced by both the KB and the Agent exist and are usable.
 
-## 28. 如何创建并限制权限范围 API Key？
+## 28. How do I create and scope-restrict an API Key?
 
-0.7.0 引入**权限范围 API Key 与 Principal 模型**（迁移 `000064_principal_model`、`000065_tenant_api_keys`）。API Key 不再等同于某个人类用户，而是独立的 Principal，携带显式角色与能力（capability）授权：
+0.7.0 introduces the **scoped API Key and Principal model** (migrations `000064_principal_model`, `000065_tenant_api_keys`). An API Key is no longer equivalent to a specific human user — it's now an independent Principal, carrying explicit role and capability authorizations:
 
-- 在 **设置 → API 集成**（Owner 可见）中创建 Key，可勾选能力（如 `manage_kbs` 覆盖 KB 全生命周期、`manage_storage_backends` 等），并可限制到指定知识库。
-- Key 的 `last_used_at` 按节流更新，避免高频写库。
-- 路由级守卫会拒绝越权访问；管理类接口对 API Key Principal 默认拒绝，请为集成使用具备对应能力的 Key，而非全权 Key。
-- MCP OAuth 与嵌入会话按 Principal 隔离，不同集成之间互不串号。
+- In **Settings → API Integrations** (visible to Owners), you can create a Key and check capabilities (such as `manage_kbs` for full KB lifecycle management, `manage_storage_backends`, etc.), and optionally restrict it to specific knowledge bases.
+- The Key's `last_used_at` is updated with throttling, to avoid high-frequency database writes.
+- Route-level guards reject out-of-scope access; management endpoints deny API Key Principals by default — for integrations, use a Key with the appropriate capabilities rather than a full-access Key.
+- MCP OAuth and embed sessions are isolated by Principal, so different integrations don't cross-contaminate.
 
-### 如何用一个 API Key 自动化管理多个空间？
+### How do I use a single API Key to automate management across multiple spaces?
 
-SystemAdmin 可在 **系统管理 → 平台 API Key** 创建 `scope_type=platform` 的 Key。平台 Key 不绑定单一空间：调用普通空间 API 时必须携带 `X-Tenant-ID`，并继续受原有 capability 和知识库范围守卫约束；调用开放的系统控制面接口则需要对应的 `system_*` capability。平台 Key 不支持 `full_access`，也不能创建、轮换或吊销其他平台 Key。
+A SystemAdmin can create a `scope_type=platform` Key under **System Admin → Platform API Keys**. A platform Key isn't bound to a single space: when calling regular space APIs, it must carry `X-Tenant-ID`, and remains subject to the usual capability and knowledge-base-scope guards; calling open system control-plane endpoints requires the corresponding `system_*` capability. Platform Keys don't support `full_access`, and can't create, rotate, or revoke other platform Keys.
 
-## 29. 一个空间如何绑定多个对象存储实例？
+## 29. How can a space bind multiple object storage instances?
 
-0.7.0 支持**多实例存储后端**（迁移 `000068_storage_backends`）。一个空间可注册多个存储实例（`local` / `minio` / `cos` / `tos` / `s3` / `oss` / `ks3` / `obs`），不同知识库绑定到不同实例，空间维度还有一个默认实例：
+0.7.0 supports **multi-instance storage backends** (migration `000068_storage_backends`). A space can register multiple storage instances (`local` / `minio` / `cos` / `tos` / `s3` / `oss` / `ks3` / `obs`), with different knowledge bases bound to different instances, and the space also has a default instance:
 
-- 在 **设置 → 存储后端** 创建/测试/设为默认（需 Admin+；API Key 需 `manage_storage_backends` 能力）。
-- 未显式绑定的新知识库使用空间默认实例；响应中的 `access_key_id` / `secret_access_key` 会被掩码，更新时提交掩码占位符不会覆盖库中真实凭据。
-- 若创建知识库时提示存储引擎不可用，请确认目标 provider 在 `STORAGE_ALLOW_LIST` 允许范围内。详见 [`docs/api/storage-backend.md`](./api/storage-backend.md)。
+- In **Settings → Storage Backends**, you can create/test/set an instance as default (requires Admin+; API Keys need the `manage_storage_backends` capability).
+- New knowledge bases without an explicit binding use the space's default instance; `access_key_id` / `secret_access_key` are masked in responses, and submitting the masked placeholder on update won't overwrite the real credentials in the database.
+- If you're told the storage engine is unavailable when creating a knowledge base, confirm the target provider is within the `STORAGE_ALLOW_LIST` allowed range. See [`docs/api/storage-backend.md`](./api/storage-backend.md) for details.
 
-## 30. 后台解析/入库任务积压或需要排查失败任务怎么办？
+## 30. What do I do about backlogged parsing/ingestion tasks, or troubleshooting failed tasks?
 
-0.7.0 新增系统管理员的**运行时任务队列面板**与 **Worker 池治理**。文档处理从单一聚合池改为分阶段独立池（core / 后处理 / enrichment / maintenance）+ 弹性共享池，Wiki 独立治理：
+0.7.0 adds a System Admin **Runtime Task Queue panel** and **worker pool governance**. Document processing has moved from a single aggregated pool to separate pools per stage (core / post-processing / enrichment / maintenance) plus an elastic shared pool, with Wiki governed independently:
 
-- 在 **系统设置 → 运行时队列** 查看队列深度、按模型并发统计、失败任务详情，并可手动重试。
-- 可通过 `WEKNORA_ASYNQ_*_CONCURRENCY` 与 `asynq.*_concurrency` 系统设置调整各池并发（需重启服务）；`model.max_concurrency` 用于约束单模型后台并发。
-- 详见 [`docs/worker-pool-governance.md`](./worker-pool-governance.md)。注意：Worker 并发只是调度预算，仍受模型配额、DocReader 容量、向量库与数据库连接数限制。
+- In **System Settings → Runtime Queue**, you can view queue depth, per-model concurrency statistics, and failed task details, and manually retry tasks.
+- You can adjust each pool's concurrency via `WEKNORA_ASYNQ_*_CONCURRENCY` environment variables and `asynq.*_concurrency` system settings (requires a service restart); `model.max_concurrency` is used to constrain a single model's background concurrency.
+- See [`docs/worker-pool-governance.md`](./worker-pool-governance.md) for details. Note: worker concurrency is only a scheduling budget — it's still constrained by model quotas, DocReader capacity, vector store, and database connection limits.
 
-## 31. 对话中如何临时上传图片/文档做一次性问答？
+## 31. How do I temporarily upload an image/document in a conversation for a one-off Q&A?
 
-0.7.0 支持**会话级临时附件**（迁移 `000070_temporary_documents`）。在对话输入区上传图片或文档，系统异步解析后仅用于当前会话的问答，不会写入知识库。图片与附件共享一个合并数量上限；附件内容会在多轮对话中保留。
+0.7.0 supports **session-level temporary attachments** (migration `000070_temporary_documents`). You can upload an image or document in the conversation input area; the system parses it asynchronously and uses it only for Q&A in the current session, without writing it to the knowledge base. Images and attachments share a combined count limit; attachment content is retained across multiple turns of conversation.
 
-## 32. 如何接入 QQBot / Lark（飞书国际版）？
+## 32. How do I integrate with QQBot / Lark (international Feishu)?
 
-0.7.0 新增 **QQBot** 平台集成，并支持飞书国际版 **Lark**（区域感知路由）。在 **设置 → IM 集成** 添加对应渠道并填写凭据即可；飞书回复通过 reply-message 接口发送，回复会落在原消息线程内。
+0.7.0 adds **QQBot** platform integration, and supports the international version of Feishu, **Lark** (region-aware routing). In **Settings → IM Integrations**, add the corresponding channel and fill in the credentials; Lark replies are sent via the reply-message interface, and replies land in the original message thread.
 
-## 33. 如何为 Redis 启用 TLS？
+## 33. How do I enable TLS for Redis?
 
-0.7.0 支持 Redis 的 **TLS 连接**（#1930）。按环境变量启用 TLS 后，启动日志会打印 TLS 配置状态便于确认。若连接失败，请核对证书/CA 配置与 Redis 服务端是否要求 TLS。
+0.7.0 supports **TLS connections** for Redis (#1930). After enabling TLS via environment variables, the startup log will print the TLS configuration status for confirmation. If the connection fails, check the certificate/CA configuration and whether the Redis server requires TLS.
 
-## 34. 升级到 0.7.0 后 `weknora` CLI 命令找不到或行为变化？
+## 34. After upgrading to 0.7.0, `weknora` CLI commands are missing or behave differently?
 
-0.7.0 随附 **CLI v0.10**（Agent 优先，破坏性变更）：新增 `model` / `message` / `config` / `skills` 命令组，`doc reparse` / `doc update`，`kb config` / `kb config set`；`session continue` 更名为 `session resume`，新增 `session tool-approval`；提供 agent-first 的 chat 与 `session ask` 输出模式，并强化了 SSE 可靠性与类型化错误。详见 [`cli/CHANGELOG.md`](../cli/CHANGELOG.md)。
+0.7.0 ships with **CLI v0.10** (Agent-first, breaking changes): added `model` / `message` / `config` / `skills` command groups, `doc reparse` / `doc update`, `kb config` / `kb config set`; `session continue` has been renamed to `session resume`, and `session tool-approval` has been added; agent-first chat and `session ask` output modes are now provided, along with strengthened SSE reliability and typed errors. See [`cli/CHANGELOG.md`](../cli/CHANGELOG.md) for details.
 
-## 35. 如何接入云之家（Yunzhijia）？
+## 35. How do I integrate with Yunzhijia?
 
-0.7.1 新增 **云之家 IM 集成**。在 **设置 → IM 集成** 添加云之家渠道并填写应用凭据即可；集成基于 WebSocket 长连接接收消息，支持图片消息入库（带 SSRF 安全下载），默认以 **Markdown** 格式回复。若图片无法下载，请检查出站网络与凭据是否具备下载权限。
+0.7.1 adds **Yunzhijia IM integration**. In **Settings → IM Integrations**, add a Yunzhijia channel and fill in the application credentials; the integration is based on a persistent WebSocket connection to receive messages, supports ingesting image messages (with SSRF-safe downloading), and replies in **Markdown** format by default. If images fail to download, check outbound network access and whether the credentials have download permission.
 
-## 36. 如何使用火山引擎 Rerank / 智谱 AI 网络搜索？
+## 36. How do I use Volcano Engine Rerank / Zhipu AI web search?
 
-0.7.1 新增两个供应商：
+0.7.1 adds two new providers:
 
-- **火山引擎 Rerank**：在 **设置 → 模型** 中添加 Rerank 模型并选择火山引擎。当单次请求文档数超过 API 上限时，客户端会自动分批发送并合并结果。vLLM Rerank 现默认不再发送 `truncate_prompt_tokens` 以提升兼容性。
-- **智谱 AI 网络搜索**：在 **设置 → 网络搜索** 中选择智谱 AI 作为搜索供应商并填写凭据即可，用于 Agent 联网检索。
+- **Volcano Engine Rerank**: In **Settings → Models**, add a Rerank model and select Volcano Engine. When a single request's document count exceeds the API limit, the client will automatically batch the requests and merge the results. vLLM Rerank no longer sends `truncate_prompt_tokens` by default, to improve compatibility.
+- **Zhipu AI web search**: In **Settings → Web Search**, select Zhipu AI as the search provider and fill in the credentials, for use in Agent web search.
 
-## 37. 升级到 0.7.1 后对话记忆（Memory）设置消失了？还需要 Neo4j 吗？
+## 37. After upgrading to 0.7.1, conversation memory settings are gone? Do I still need Neo4j?
 
-0.7.1 **移除了基于 Neo4j 的会话记忆（episodic memory）** 功能，相关 API 字段、设置项与嵌入开关一并下线，对话不再依赖 Neo4j 做记忆召回。**注意：知识图谱（GraphRAG / 图检索）仍然使用 Neo4j**，因此若你启用了图谱检索，Neo4j 依旧是必需组件，无需移除部署。若你此前仅为记忆功能部署 Neo4j 且未使用图谱，可按需精简。
+0.7.1 **removes the Neo4j-based conversation memory (episodic memory)** feature — the related API fields, settings, and embedding toggle have all been removed, and conversations no longer rely on Neo4j for memory recall. **Note: Knowledge Graph (GraphRAG / graph retrieval) still uses Neo4j**, so if you have graph retrieval enabled, Neo4j is still a required component — there's no need to remove it from your deployment. If you previously deployed Neo4j only for the memory feature and don't use the knowledge graph, you can remove it as needed.
 
-## 38. 官方文档在哪里看？如何本地或独立部署文档站？
+## 38. Where can I find the official documentation? How do I run the docs site locally or deploy it standalone?
 
-0.7.2 新增了完整的官方产品文档，位于仓库 [`website-docs/`](../website-docs/README.md) 目录，按「入门 → 架构 → 功能 → API → 客户端 → 开发」六个板块组织，覆盖约 360 个 API 端点、约 150 个环境变量与 9 大扩展点。
+0.7.2 adds complete official product documentation, located in the repository's [`website-docs/`](../website-docs/README.md) directory, organized into six sections — "Getting Started → Architecture → Features → API → Clients → Development" — covering about 360 API endpoints, about 150 environment variables, and 9 major extension points.
 
-该目录同时是一个 VitePress 站点，两种使用方式：
+This directory is also a VitePress site, with two ways to use it:
 
 ```bash
-# 本地预览
+# Local preview
 cd website-docs && npm install && npm run dev
 
-# 独立容器部署（容器内 Nginx 监听 8081）
+# Standalone container deployment (Nginx inside the container listens on 8081)
 docker build -t weknora-docs website-docs
 docker run -d -p 8081:8081 weknora-docs
 ```
 
-站点的版本号在构建时自动读取仓库根目录的 `VERSION` 文件，因此升级版本后无需手动改文档。若某处截图显示为虚线占位框，说明 `website-docs/public/screenshots/` 下缺少同名图片，补图即可生效，不需要改 Markdown。
+The site's version number is automatically read from the repository root's `VERSION` file at build time, so you don't need to manually update the docs after a version upgrade. If a screenshot shows as a dashed placeholder box, it means the corresponding image is missing under `website-docs/public/screenshots/` — just add the image, no Markdown changes needed.
 
-`website-docs/sample-data/` 下还提供了 4 份 Markdown 样例文档与 1 份 FAQ 导入 JSON，可以直接用来跑一遍「建库 → 上传 → 问答」；`examples/mcp-demo/` 是一个可直接运行的本地 MCP 服务示例。
+`website-docs/sample-data/` also provides 4 sample Markdown documents and 1 FAQ import JSON, which you can use directly to run through a "create KB → upload → Q&A" flow; `examples/mcp-demo/` is a locally runnable MCP service example.
 
-## 39. 文件夹上传后文档标题变成了一长串路径？
+## 39. After uploading a folder, the document title becomes one long path?
 
-这是 0.7.2 之前的行为：文件夹上传会把相对目录塞进 `file_name`，导致列表里显示整条路径，也无法按文件夹筛选。
+This was the behavior prior to 0.7.2: folder uploads stuffed the relative directory into `file_name`, causing the full path to display in the list, with no way to filter by folder.
 
-0.7.2 把路径拆到独立的 `folder_path` 字段（迁移 `000079_knowledge_folder_path`），并**自动回填历史数据**，因此升级后已有知识库同样会呈现正确的文件夹树，无需重新上传。文档列表左侧会出现文件夹树，可以像文件管理器一样浏览、重命名文件夹，也可以通过行内的文件夹选择器把文档重新归档到其他文件夹。单独上传（非文件夹）的文档统一挂在树的根目录下。
+0.7.2 splits the path out into a separate `folder_path` field (migration `000079_knowledge_folder_path`), and **automatically backfills historical data**, so after upgrading, existing knowledge bases will also display the correct folder tree without needing to re-upload. A folder tree appears on the left side of the document list, letting you browse and rename folders like a file manager; you can also use the inline folder picker to re-file a document into a different folder. Documents uploaded individually (not via folder) are all attached at the root of the tree.
 
-## 40. 分块内容不准确，可以手动修改吗？改完会重新建索引吗？
+## 40. Chunk content is inaccurate — can I edit it manually? Does editing rebuild the index?
 
-可以。0.7.2 支持在界面上直接编辑检索分块（迁移 `000078_chunk_editing_and_custom_metadata`）：
+Yes. 0.7.2 supports editing retrieval chunks directly in the interface (migration `000078_chunk_editing_and_custom_metadata`):
 
-- 每次编辑都会把改动前的版本存入 `chunk_revisions`，可在「分块编辑历史」里逐版本查看 diff 并一键回滚。
-- **编辑保存后会自动重建该分块的索引**（`index_status` 字段跟踪重建状态），无需手动 reparse。
-- 分块的生成问题可以单独增删改与重新生成，且在内容编辑后仍会保留。
-- 注意：重新解析（reparse）整篇文档会按新的解析结果重建分块，此前的人工编辑不会被保留，请谨慎操作。
+- Every edit saves the pre-edit version to `chunk_revisions`, and you can view a version-by-version diff in "Chunk Edit History" and roll back with one click.
+- **The chunk's index is automatically rebuilt after an edit is saved** (the `index_status` field tracks rebuild status), so no manual reparse is needed.
+- A chunk's generated questions can be individually added, removed, edited, and regenerated, and are preserved after content edits.
+- Note: reparsing the entire document rebuilds chunks based on the new parsing result, and any manual edits made previously will not be preserved — proceed with caution.
 
-## 41. Wiki 页面被 Agent 覆盖了，能找回旧版本吗？
+## 41. A Wiki page got overwritten by the Agent — can I recover an old version?
 
-能。0.7.2 为 Wiki 页面引入版本历史（迁移 `000075_wiki_page_revisions`）：页面每次被覆盖前都会留存一份快照，在 Wiki 浏览器右上角打开「版本历史」抽屉即可查看完整历史、行级 diff，并一键回滚到任意版本。每个版本都会记录来源（`pipeline` 流水线 / `agent` 修复工具 / `user` 手动编辑 / `revert` 回滚），便于判断是谁改的。页面也支持在浏览器内直接手动编辑。
+Yes. 0.7.2 introduces version history for wiki pages (migration `000075_wiki_page_revisions`): a snapshot is saved every time a page is about to be overwritten. Open the "Version History" drawer in the top-right corner of the wiki browser to view the full history and line-level diffs, and roll back to any version with one click. Each version records its source (`pipeline` for the pipeline, `agent` for the repair tool, `user` for manual edits, or `revert` for a rollback), making it easy to tell who made a change.
 
-另外，0.7.2 移除了 Wiki 浏览器里重复的操作日志（迁移 `000077_remove_wiki_log`），Wiki 的变更记录统一并入**知识库活动流**查看。
+Additionally, 0.7.2 removes the duplicate operation log in the wiki browser (migration `000077_remove_wiki_log`) — wiki change records are now consolidated into the **knowledge base activity feed**.
 
-## 42. 第三方 App 拿到的图片链接是 `resource://...` 无法显示，怎么办？
+## 42. Third-party apps get an image link of `resource://...` that won't display — what do I do?
 
-默认情况下 API 返回的是内部句柄 `resource://<handle>`，客户端需要再调用带鉴权的 `/files` 代理才能取到图。0.7.2 新增直链模式，让接口直接返回可加载的 http(s) 链接：
+By default, the API returns an internal handle `resource://<handle>`, and the client needs to call the authenticated `/files` proxy again to fetch the image. 0.7.2 adds a direct-link mode, letting the API return a loadable http(s) link directly:
 
-- **单次请求**：在 URL 上加 `?resource_urls=public`。
-- **整个部署**：设置环境变量 `RESOURCE_URL_MODE=public`。
+- **Single request**: Add `?resource_urls=public` to the URL.
+- **Entire deployment**: Set the environment variable `RESOURCE_URL_MODE=public`.
 
-注意事项：
+Notes:
 
-- 直链依赖 `APP_EXTERNAL_URL`（或存储后端本身公网可达）才能生成；无法生成时该引用会保持 `resource://` 原样，客户端仍可回退到 `/files`。
-- `public` 会为每个被引用文件签发**限时匿名可读**链接（WeKnora 侧 2 小时，MinIO 24 小时），请评估是否符合你的安全要求。
-- 匿名的 embed 渠道与限定了知识库范围的 API Key **始终返回 handle**，不受该变量影响。
-- 建议同时配置 `SYSTEM_AES_KEY`，以便复用 grant 行、稳定直链 URL 并降低读接口的写入压力。
+- Direct links depend on `APP_EXTERNAL_URL` (or the storage backend itself being publicly reachable) to be generated; if it can't be generated, the reference stays as `resource://`, and the client can still fall back to `/files`.
+- `public` issues a **time-limited, anonymously readable** link for each referenced file (2 hours on the WeKnora side, 24 hours on MinIO) — evaluate whether this meets your security requirements.
+- Anonymous embed channels and API Keys scoped to specific knowledge bases **always return a handle**, unaffected by this variable.
+- It's recommended to also configure `SYSTEM_AES_KEY`, so grant rows can be reused, direct-link URLs stay stable, and write pressure on read endpoints is reduced.
 
-详见 [API 文档 · 文件与图片引用](./api/README.md)。
+See [API Documentation · File and Image References](./api/README.md) for details.
 
-## 43. 使用 AWS S3 但不想在配置里写 AK/SK？
+## 43. Using AWS S3 but don't want to put an AK/SK in the configuration?
 
-0.7.2 支持 **AWS SDK 默认凭据链**（#2008）：把 `S3_ACCESS_KEY` 与 `S3_SECRET_KEY` **同时留空**即可，SDK 会依次尝试 EC2/ECS/EKS 实例角色、IRSA / Web Identity、环境变量与共享配置文件。注意两者必须同时填写或同时留空，只填一个会报配置错误。`S3_ENDPOINT` 也可留空，此时使用 `S3_REGION` 对应的 AWS 标准端点。
+0.7.2 supports the **AWS SDK default credential chain** (#2008): leave **both** `S3_ACCESS_KEY` and `S3_SECRET_KEY` empty, and the SDK will try EC2/ECS/EKS instance roles, IRSA / Web Identity, environment variables, and shared configuration files, in that order. Note that both must be either filled in or left empty together — filling in only one will cause a configuration error. `S3_ENDPOINT` can also be left empty, in which case the standard AWS endpoint corresponding to `S3_REGION` is used.
 
-## 44. MCP Server 用 `uvx` 启动失败，或者应该装哪个包？
+## 44. The MCP Server fails to start with `uvx`, or which package should I install?
 
-请安装**官方包 `tencent-weknora-mcp`**（由 Tencent/WeKnora 仓库 CI 通过 Trusted Publishing 发布）。此前社区包 `weknora-mcp` 非官方维护，请迁移安装命令。
+Please install the **official package `tencent-weknora-mcp`** (published by the Tencent/WeKnora repository's CI via Trusted Publishing). The previous community package `weknora-mcp` was not officially maintained — please migrate your install command.
 
-0.7.2 随附 MCP Server 1.1.x，已迁移到 mcp 2.x 的高级 `MCPServer` API，修复了 `uvx` 拉到 SDK 2.x 时的启动崩溃（`AttributeError: 'Server' object has no attribute 'list_tools'`），并恢复了 HTTP（`stateless_http`）与 SSE（`/sse/messages/`）传输的路由兼容性。工具总数为 29 个，新增 `create_knowledge_from_text`（用 Markdown 文本直接建知识条目）与 `list_shared_knowledge_bases`（共享知识库也纳入按名称解析）。
+0.7.2 ships with MCP Server 1.1.x, which has migrated to the mcp 2.x advanced `MCPServer` API, fixing a startup crash when `uvx` pulls SDK 2.x (`AttributeError: 'Server' object has no attribute 'list_tools'`), and restoring routing compatibility for HTTP (`stateless_http`) and SSE (`/sse/messages/`) transports. The total tool count is 29, with new additions `create_knowledge_from_text` (create a knowledge entry directly from Markdown text) and `list_shared_knowledge_bases` (shared knowledge bases are now also included in name-based resolution).
 
-行为变化提醒：工具执行失败时，MCPServer 2.x 返回 `CallToolResult(isError=True)`，不再像旧版低层 API 那样以成功响应返回 `"Error executing …"` 文本前缀。只解析 `content[0].text` 的客户端通常无感，依赖 `isError` 标志的集成方行为会更符合 MCP 规范。
+Behavior change notice: When a tool execution fails, MCPServer 2.x returns `CallToolResult(isError=True)`, instead of returning a successful response with an `"Error executing …"` text prefix as the old low-level API did. Clients that only parse `content[0].text` will generally be unaffected, while integrations that rely on the `isError` flag will now behave more in line with the MCP specification.
 
 ## P.S.
-如果以上方式未解决问题，请在issue中描述您的问题，并提供必要的日志信息辅助我们进行问题排查
+If the above methods don't resolve your issue, please describe your problem in an issue and provide the necessary log information to help us troubleshoot.

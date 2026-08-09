@@ -26,11 +26,11 @@ import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timel
 const { t } = useI18n();
 const authStore = useAuthStore();
 
-// canDeleteGeneratedQuestion 对应后端 DELETE /chunks/by-id/:id/questions
-// 的 OwnedChunkKBOrAdminFromChunkID 守卫——KB 创建者或空间 Admin+
-// 才允许删除。父组件 KnowledgeBase.vue 通过 :canEditKB 把 KB 级权限
-// 传下来（包含 KB creator / Admin / 组织分享 editor 三种来源），未
-// 传时按更严格的 Admin 兜底，避免 Viewer 看到一个会 403 的入口。
+// canDeleteGeneratedQuestion corresponds to the backend DELETE /chunks/by-id/:id/questions
+// OwnedChunkKBOrAdminFromChunkID guard — only the KB creator or a space Admin+
+// is allowed to delete. The parent component KnowledgeBase.vue passes down KB-level permissions via :canEditKB
+// (covering three sources: KB creator / Admin / org-shared editor); when not
+// passed, it falls back to the stricter Admin default, to avoid exposing an entry point to a Viewer that would 403.
 const canDeleteGeneratedQuestion = computed(() => {
   if (props.canEditKB === true) return true;
   return authStore.hasRole('admin');
@@ -179,10 +179,10 @@ const showSummarySection = computed(() =>
   || Boolean(props.details?.id && canEditContent.value),
 );
 
-// Mermaid 初始化计数器，用于生成唯一ID
+// Mermaid init counter, used to generate a unique ID
 let mermaidRenderCount = 0;
 
-// 初始化 Mermaid
+// Initialize Mermaid
 mermaid.initialize({
   startOnLoad: false,
   theme: 'default',
@@ -380,7 +380,7 @@ function cleanupTraceDrawerResize() {
   timelineDrawerResizing.value = false;
 }
 
-// ============== 主抽屉（文档详情）宽度可调 ==============
+// ============== Main drawer (document details) resizable width ==============
 const MAIN_DRAWER_WIDTH_KEY = 'weknora-doc-drawer-width';
 const MAIN_DRAWER_DEFAULT_WIDTH = 654;
 const MAIN_DRAWER_MIN_WIDTH = 480;
@@ -422,7 +422,7 @@ function onMainDrawerResizeStart(e: MouseEvent) {
 }
 
 function onMainDrawerResizeMove(e: MouseEvent) {
-  // 抽屉在右侧，向左拖动变宽
+  // The drawer is on the right side; dragging left widens it
   const delta = mainResizeStartX - e.clientX;
   mainDrawerWidth.value = clampMainDrawerWidth(mainResizeStartWidth + delta);
 }
@@ -481,8 +481,8 @@ const traceEntryTitle = computed(() => {
 defineExpose({ openTimeline });
 
 marked.use({
-  breaks: true,      // 启用单行换行转 <br>
-  gfm: true,         // 启用 GitHub Flavored Markdown
+  breaks: true,      // Enable single-line-break-to-<br> conversion
+  gfm: true,         // Enable GitHub Flavored Markdown
 });
 marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
 
@@ -509,33 +509,33 @@ const docMarkdownRoot = ref<HTMLElement | null>(null)
 const getMarkdownRenderRoot = (): ParentNode | null =>
   docMarkdownRoot.value ?? (mdContentWrap.value as ParentNode | null) ?? null
 let url = ref('')
-// 视图模式：chunks / merged / preview
-// file 类型默认「预览」，URL / 手动创建 默认「全文」
+// View mode: chunks / merged / preview
+// file type defaults to "preview", URL / manually created defaults to "full text"
 const viewMode = ref<'chunks' | 'merged' | 'preview'>('merged');
 
-// 合并后的文档内容（在下方通过 computed 定义）
+// Merged document content (defined below via computed)
 
 /**
- * 把已合并文本 acc 和下一个 chunk 内容 next 拼接，并去除两者的重叠部分。
+ * Concatenate the already-merged text acc with the next chunk's content next, removing the overlap between them.
  *
- * 不再依赖 start_at / end_at 做位置裁剪，而是用「文本重叠匹配」：在 next 的
- * 开头窗口里找 acc 后缀首次出现的位置，从该位置之后接上。这样能同时兼容：
- *  1. chunker 给拆分表格补写的表头（零宽 start/end，位置上不可见）——表头出现
- *     在重叠行之前，会被自然跳过；
- *  2. HTML 实体编码（&#34; 等）导致的 content 长度与原文区间不一致——比对的是
- *     文本本身，不受长度偏差影响。
+ * No longer relying on start_at / end_at for position-based trimming; instead use "text overlap matching": in
+ * the opening window of next, find the first occurrence of acc's suffix, and append everything after that position. This handles both:
+ * 1. Headers the chunker re-inserts for split tables (zero-width start/end, invisible positionally) — the header appears
+ * before the overlapping line and gets naturally skipped;
+ * 2. HTML entity encoding (&#34；etc.) causing content length to not match the original text span — the comparison is
+ * on the text itself, unaffected by length discrepancies.
  *
- * @param positionOverlap 由 start/end 估算的重叠量，仅用于界定搜索窗口大小。
+ * @param positionOverlap the overlap amount estimated from start/end, used only to bound the search window size.
  */
 const appendChunkContent = (acc: string, next: string, positionOverlap: number): string => {
   if (!acc) return next;
   if (!next) return acc;
 
-  const MIN_OVERLAP = 12;          // 过短的后缀容易误匹配（如分隔行），忽略
+  const MIN_OVERLAP = 12;          // Suffixes that are too short are prone to false matches (e.g. separator lines) — ignore them
   const span = Math.max(positionOverlap, 0);
-  // 搜索的后缀最大长度；按位置重叠量放大几倍兜底，并设下限
+  // Maximum length of the searched suffix; scaled up by a multiple of the position-based overlap as a fallback, with a lower bound
   const maxK = Math.min(acc.length, next.length, Math.max(span * 3, 400));
-  // 重叠行之前最多允许多少前缀（补写的表头）被跳过
+  // Maximum number of prefix lines (re-inserted headers) allowed to be skipped before an overlapping line
   const headSlack = Math.max(span * 2, 320);
 
   for (let k = maxK; k >= MIN_OVERLAP; k--) {
@@ -549,12 +549,12 @@ const appendChunkContent = (acc: string, next: string, positionOverlap: number):
 };
 
 /**
- * 合并分块内容，还原完整文档。chunks 按 start_at 排序后逐段用文本重叠匹配拼接。
+ * Merge chunk contents to restore the full document. Chunks are sorted by start_at, then stitched together segment by segment using text-overlap matching.
  */
 const mergeChunks = (chunks: any[]): string => {
   if (!chunks || chunks.length === 0) return '';
 
-  // 按 start_at 排序
+  // Sort by start_at
   const sortedChunks = [...chunks].sort((a, b) => {
     const startA = a.start_at ?? a.chunk_index ?? 0;
     const startB = b.start_at ?? b.chunk_index ?? 0;
@@ -572,7 +572,7 @@ const mergeChunks = (chunks: any[]): string => {
 
     if (!currentContent) continue;
 
-    // 与上一段有明显间隙（位置不相邻），用空行分隔后整段拼接
+    // If there's a clear gap from the previous segment (non-adjacent positions), separate with a blank line before concatenating the segment
     if (currentStartAt > mergedEnd && mergedEnd > 0) {
       merged = merged + '\n\n' + currentContent;
     } else {
@@ -676,18 +676,18 @@ renderer.image = function ({ href, title, text }) {
             </figure>`;
 };
 
-// 自定义代码块渲染器，只显示语言标签
+// Custom code block renderer that only shows the language tag
 renderer.code = function ({ text, lang }) {
-  // 空值校验：防止 text 为 undefined 或 null
+  // Null check: prevent text from being undefined or null
   if (!text || typeof text !== 'string') {
     text = '';
   }
 
-  // Mermaid 图表处理
+  // Mermaid diagram handling
   if (lang === 'mermaid') {
-    // 生成唯一ID
+    // Generate a unique ID
     const id = `mermaid-${++mermaidRenderCount}`;
-    // 返回带有 mermaid 类的 div，后续由 mermaid.run() 处理
+    // Return a div with the mermaid class, to be processed later by mermaid.run()
     return `<div class="mermaid" id="${id}">${text}</div>`;
   }
 
@@ -715,7 +715,7 @@ renderer.code = function ({ text, lang }) {
     </div>
   `;
 };
-// 监听 chunks 变化，自动更新合并内容（已改为 computed 属性）
+// Watch for changes to chunks and auto-update the merged content (now changed to a computed property)
 const mergedContent = computed(() => {
   const newChunks = props.details?.md;
   if (newChunks && newChunks.length > 0) {
@@ -724,7 +724,7 @@ const mergedContent = computed(() => {
   return '';
 });
 
-// 计算处理后的分块数据，避免在模板中频繁调用方法和 JSON.parse
+// Compute the processed chunk data to avoid calling methods and JSON.parse repeatedly in the template
 const processedChunks = computed(() => {
   return (props.details?.md || []).map((item: any, index: number) => {
     return {
@@ -752,20 +752,20 @@ const canPreview = (): boolean => {
   if (props.details?.type !== 'file') return false;
   const ft = props.details?.file_type?.toLowerCase();
   if (!ft) return false;
-  if (audioExtensions.has(ft)) return false; // 音频不走预览tab，播放器已内嵌
+  if (audioExtensions.has(ft)) return false; // Audio doesn't use the preview tab, the player is already embedded
   return previewSupportedTypes.has(ft);
 };
 
-// 当文档详情加载完成时，file 类型自动切换到「预览」；音频类型使用 merged + 播放器
+// When document details finish loading, file type auto-switches to "Preview"; audio type uses merged + player
 watch(() => props.details?.id, (newId) => {
-  // 清理旧音频
+  // Clean up old audio
   if (audioBlobUrl.value) {
     URL.revokeObjectURL(audioBlobUrl.value);
     audioBlobUrl.value = '';
   }
   if (!newId) return;
   if (isAudioFile(props.details?.file_type)) {
-    viewMode.value = 'merged'; // 音频默认全文视图，播放器已内嵌
+    viewMode.value = 'merged'; // Audio defaults to full-text view, player is already embedded
     loadAudioPreview();
   } else if (props.details?.type === 'file' && canPreview()) {
     viewMode.value = 'preview';
@@ -785,7 +785,7 @@ const isMarkdownFile = (fileType?: string): boolean => {
   return markdownTypes.includes(fileType.toLowerCase());
 };
 
-// 音频文件判断与播放器状态
+// Audio file detection and player state
 const audioExtensions = new Set(['mp3', 'wav', 'm4a', 'flac', 'ogg']);
 const isAudioFile = (fileType?: string): boolean => {
   if (!fileType) return false;
@@ -825,7 +825,7 @@ const runMarkdownPostRenderPipeline = async () => {
       }
     })
   }
-  // 渲染 Mermaid 图表
+  // Render Mermaid diagram
   await renderMermaidDiagrams();
 };
 
@@ -848,7 +848,7 @@ watch(() => props.visible, (visible) => {
   }
 }, { flush: 'post' });
 
-// 渲染 Mermaid 图表的函数
+// Function to render Mermaid diagrams
 const renderMermaidDiagrams = async () => {
   try {
     const mermaidElements = getMarkdownRenderRoot()?.querySelectorAll('.mermaid');
@@ -858,7 +858,7 @@ const renderMermaidDiagrams = async () => {
         nodes: mermaidElements
       });
       console.log('[Mermaid] Rendering complete');
-      // 渲染完成后绑定点击事件
+      // Bind click events after rendering completes
       nextTick(() => {
         bindMermaidClickEvents();
       });
@@ -868,7 +868,7 @@ const renderMermaidDiagrams = async () => {
   }
 };
 
-// Mermaid 点击处理函数 - 必须在 bindMermaidClickEvents 之前定义
+// Mermaid click handler function - must be defined before bindMermaidClickEvents
 const handleMermaidClick = (e: Event) => {
   e.stopPropagation();
   const target = e.currentTarget as HTMLElement;
@@ -878,34 +878,34 @@ const handleMermaidClick = (e: Event) => {
   }
 };
 
-// 为 Mermaid 容器绑定点击全屏事件（绑定在 div 上，不是 SVG 上）
+// Bind click-to-fullscreen event to the Mermaid container (bound on the div, not the SVG)
 const bindMermaidClickEvents = () => {
   const renderRoot = getMarkdownRenderRoot();
   if (!renderRoot) {
     console.log('[Mermaid] markdown render root is null');
     return;
   }
-  // 绑定在 .mermaid div 上，而不是 SVG 上
+  // Bound on the .mermaid div, not the SVG
   const mermaidDivs = renderRoot.querySelectorAll('.mermaid');
   console.log('[Mermaid] Found mermaid divs:', mermaidDivs.length);
   mermaidDivs.forEach((div, index) => {
     const divEl = div as HTMLElement;
     divEl.style.cursor = 'pointer';
-    // 移除旧的事件监听器（避免重复绑定）
+    // Remove old event listeners (avoid duplicate binding)
     divEl.removeEventListener('click', handleMermaidClick);
     divEl.addEventListener('click', handleMermaidClick);
     console.log(`[Mermaid] Bound click event to div ${index}`);
   });
 };
 
-// 安全地处理 Markdown 内容（使用 marked）
+// Safely process Markdown content (using marked)
 const processMarkdown = (markdownText) => {
   if (!markdownText || typeof markdownText !== 'string') return '';
 
-  // 去除 Markdown 头部的 YAML Frontmatter（例如 --- title: xxx ---）
+  // Strip YAML frontmatter from the top of the Markdown (e.g. --- title: xxx ---)
   let processedText = markdownText.replace(/^\s*---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
 
-  // 先还原原始文本中的 HTML 实体，让它们作为普通字符参与渲染
+  // First restore HTML entities in the original text so they render as normal characters
   processedText = processedText
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/gi, "'")
@@ -917,26 +917,26 @@ const processMarkdown = (markdownText) => {
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
 
-  // 处理被 <p> 包裹的表格行，转换为正常的表格行，并在前后补空行
+  // Handle table rows wrapped in <p>, convert them into normal table rows, and pad with blank lines before and after
   processedText = processedText.replace(/<p>\s*(\|[\s\S]*?\|)\s*<\/p>/gi, '\n$1\n');
 
-  // MarkItDown 常在表格前插入空行 + 分隔行，渲染会出现多余空行
+  // MarkItDown often inserts a blank line + separator line before tables, causing extra blank lines to render
   processedText = normalizeSpuriousTablePrefixes(processedText);
 
-  // 保留表格单元格中的 <br>，不转成换行，避免打散表格；其他区域原样交给 marked 处理
+  // Preserve <br> inside table cells instead of converting to newlines, to avoid breaking up the table; leave everything else as-is for marked to handle
 
-  // 先预处理数学定界符，再做安全预处理
+  // Preprocess math delimiters first, then do safe preprocessing
   const mathSafeText = preprocessMathDelimiters(processedText);
   const safeMarkdown = safeMarkdownToHTML(mathSafeText);
 
-  // 使用标记渲染
+  // Render using marked
   marked.use({ renderer });
   let html = marked.parse(safeMarkdown) as string;
 
-  // 还原被转义的 <br>
+  // Restore escaped <br>
   html = html.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
 
-  // 最终安全清理
+  // Final safety cleanup
   let result = sanitizeHTML(html);
 
   return result;
@@ -948,15 +948,15 @@ const handleClose = () => {
   viewMode.value = 'merged';
 };
 
-// 获取显示标题
+// Get the display title
 const getDisplayTitle = () => {
   if (!props.details.title) return '';
   if (props.details.type === 'file') {
-    // 文件类型去掉扩展名
+    // Strip the extension from the file type
     const lastDotIndex = props.details.title.lastIndexOf(".");
     return lastDotIndex > 0 ? props.details.title.substring(0, lastDotIndex) : props.details.title;
   }
-  // URL和手动创建直接返回标题
+  // URL and manually-created items return the title directly
   return props.details.title;
 };
 
@@ -981,7 +981,7 @@ const getChannelLabel = (channel: string) => {
   return key ? t(key) : t('knowledgeBase.channelUnknown');
 };
 
-// 获取类型标签
+// Get the type label
 const getTypeLabel = () => {
   switch (props.details.type) {
     case 'url':
@@ -995,7 +995,7 @@ const getTypeLabel = () => {
   }
 };
 
-// 获取类型主题色
+// Get the type theme color
 const getTypeTheme = () => {
   switch (props.details.type) {
     case 'url':
@@ -1009,7 +1009,7 @@ const getTypeTheme = () => {
   }
 };
 
-// 获取内容标签
+// Get content tag
 const getContentLabel = () => {
   switch (props.details.type) {
     case 'url':
@@ -1022,7 +1022,7 @@ const getContentLabel = () => {
   }
 };
 
-// 获取时间标签
+// Get time tag
 const getTimeLabel = () => {
   switch (props.details.type) {
     case 'url':
@@ -1035,12 +1035,12 @@ const getTimeLabel = () => {
   }
 };
 
-// 获取Chunk样式类
+// Get Chunk style class
 const getChunkClass = (index: number) => {
   return index % 2 !== 0 ? 'chunk-odd' : 'chunk-even';
 };
 
-// 获取Chunk元数据
+// Get Chunk metadata
 const getChunkMeta = (item: any) => {
   if (!item) return '';
   const parts = [];
@@ -1053,23 +1053,23 @@ const getChunkMeta = (item: any) => {
   return parts.join(' · ');
 };
 
-// 生成的问题类型
+// Generated question type
 interface GeneratedQuestion {
   id: string;
   question: string;
   content_revision?: number;
 }
 
-// 解析生成的问题
+// Parse generated question
 const getGeneratedQuestions = (item: any): GeneratedQuestion[] => {
   if (!item || !item.metadata) return [];
   try {
     const metadata = typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata;
     const questions = metadata.generated_questions || [];
-    // 兼容旧格式（字符串数组）和新格式（对象数组）
+    // Compatible with old format (string array) and new format (object array)
     return questions.map((q: string | GeneratedQuestion, index: number) => {
       if (typeof q === 'string') {
-        // 旧格式：字符串，生成临时ID
+        // Old format: string, generate temporary ID
         return { id: `legacy-${index}`, question: q };
       }
       return q;
@@ -1431,17 +1431,17 @@ const regenerateQuestions = async (item: any) => {
   }
 };
 
-// 删除中的状态
+// Deleting state
 const deletingQuestion = ref<{ chunkIndex: number; questionId: string } | null>(null);
 
-// 删除生成的问题
+// Delete generated question
 const handleDeleteQuestion = async (item: any, chunkIndex: number, question: GeneratedQuestion) => {
   if (!item || !item.id) {
     MessagePlugin.error(t('common.error'));
     return;
   }
 
-  // 检查是否是旧格式数据（无法删除）
+  // Check if it's old-format data (cannot be deleted)
   if (question.id.startsWith('legacy-')) {
     MessagePlugin.warning(t('knowledgeBase.legacyQuestionCannotDelete'));
     return;
@@ -1452,7 +1452,7 @@ const handleDeleteQuestion = async (item: any, chunkIndex: number, question: Gen
     await deleteGeneratedQuestion(item.id, question.id);
     MessagePlugin.success(t('common.deleteSuccess'));
 
-    // 更新本地数据
+    // Update local data
     const metadata = typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata;
     if (metadata && metadata.generated_questions) {
       const idx = metadata.generated_questions.findIndex((q: GeneratedQuestion) => q.id === question.id);
@@ -1462,7 +1462,7 @@ const handleDeleteQuestion = async (item: any, chunkIndex: number, question: Gen
       item.metadata = typeof item.metadata === 'string' ? JSON.stringify(metadata) : metadata;
     }
 
-    // 通知父组件刷新数据
+    // Notify parent component to refresh data
     emit('questionDeleted', { chunkId: item.id, questionId: question.id });
   } catch (error: any) {
     MessagePlugin.error(error?.message || t('common.deleteFailed'));
@@ -1471,12 +1471,12 @@ const handleDeleteQuestion = async (item: any, chunkIndex: number, question: Gen
   }
 };
 
-// 检查是否正在删除某个问题
+// Check if a question is currently being deleted
 const isDeleting = (chunkIndex: number, questionId: string) => {
   return deletingQuestion.value?.chunkIndex === chunkIndex && deletingQuestion.value?.questionId === questionId;
 };
 
-// 父 Chunk 上下文通过 Header Popup 展示，避免在每个分块下方占用高度。
+// Parent Chunk context is shown via the Header Popup, avoiding taking up height under each chunk.
 const parentContextPopup = ref('');
 const parentContextCache = ref<Map<string, string>>(new Map());
 const parentContextLoading = ref<Set<number>>(new Set());
@@ -1649,7 +1649,7 @@ const handleDetailsScroll = () => {
           @update:summary="timelineSummary = $event" />
       </div>
 
-      <!-- 二级抽屉：完整 Langfuse-style waterfall -->
+      <!-- Secondary drawer: full Langfuse-style waterfall -->
       <teleport to="body">
         <div v-if="timelineDrawerVisible" class="trace-drawer-resize-handle"
           :style="{ right: `${timelineDrawerWidth}px` }" role="separator" aria-orientation="vertical"
@@ -1850,7 +1850,7 @@ const handleDetailsScroll = () => {
             </div>
           </div>
 
-          <!-- 音频播放器（音频文件时固定显示在内容区顶部） -->
+          <!-- Audio player (fixed at the top of the content area for audio files) -->
           <div v-if="isAudioFile(details.file_type)" class="audio-player-section">
             <div v-if="audioLoading" class="audio-loading">
               <t-loading size="small" />
@@ -1861,13 +1861,13 @@ const handleDetailsScroll = () => {
             </audio>
           </div>
 
-          <!-- 合并视图 -->
+          <!-- Merged view -->
           <div v-if="viewMode === 'merged'">
             <div v-if="!mergedContent" class="no_content">{{ $t('common.noData') }}</div>
             <div v-else class="md-content" v-html="processMarkdown(mergedContent)"></div>
           </div>
 
-          <!-- 分块视图 -->
+          <!-- Chunked view -->
           <div v-else-if="viewMode === 'chunks'">
             <div v-if="!processedChunks.length" class="no_content">{{ $t('common.noData') }}</div>
             <div v-else class="chunk-list">
@@ -2124,7 +2124,7 @@ const handleDetailsScroll = () => {
             </div>
           </div>
 
-          <!-- 文档预览视图 -->
+          <!-- Document preview view -->
           <div v-else-if="viewMode === 'preview'">
             <DocumentPreview :knowledgeId="details.id" :fileType="details.file_type" :fileName="details.title"
               :active="viewMode === 'preview'" />
@@ -2173,7 +2173,7 @@ const handleDetailsScroll = () => {
    dev mode (Vite injects scoped <style> tags later than non-scoped,
    inverting prod). Inline width via the prop is unambiguous. */
 
-// 代码块样式
+// Code block style
 :deep(.code-block-wrapper) {
   margin: 12px 0;
   border: 1px solid var(--td-component-border);
@@ -2562,7 +2562,7 @@ const handleDetailsScroll = () => {
   background: var(--td-bg-color-container);
 }
 
-// 文档摘要区域
+// Document summary area
 .summary_wrapper {
   position: relative;
   background: var(--td-bg-color-container);
@@ -2623,7 +2623,7 @@ const handleDetailsScroll = () => {
   font-size: 13px;
 }
 
-// URL链接区域
+// URL link area
 .url_link_box {
   border-radius: 4px;
   background: var(--td-bg-color-container-hover);
@@ -2705,7 +2705,7 @@ const handleDetailsScroll = () => {
   text-align: center;
 }
 
-// Chunk列表样式
+// Chunk list style
 .chunk-list {
   display: flex;
   flex-direction: column;
@@ -3152,7 +3152,7 @@ const handleDetailsScroll = () => {
   flex: 1;
 }
 
-// 音频播放器样式
+// Audio player style
 .audio-player-section {
   margin-bottom: 16px;
   padding: 12px 16px;
@@ -3181,7 +3181,7 @@ const handleDetailsScroll = () => {
   color: var(--td-text-color-primary);
 }
 
-// 保留旧样式作为兼容（已被chunk-item替代）
+// Keep old style for compatibility (replaced by chunk-item)
 .content {
   word-break: break-word;
   padding: 4px;
@@ -3209,8 +3209,8 @@ const handleDetailsScroll = () => {
   }
 }
 
-/* 主抽屉宽度可调：拖拽手柄通过 teleport 挂到 body，不受 scoped 影响，
-   故样式写在非 scoped 块里。手柄贴在抽屉面板左缘（right = 抽屉宽度）。 */
+/* Main drawer width is resizable: the drag handle is teleported to body, unaffected by scoped styles,
+   so the style is written in a non-scoped block. The handle sits against the drawer panel's left edge (right = drawer width). */
 .doc-drawer-resize-handle {
   position: fixed;
   top: 0;
@@ -3238,13 +3238,13 @@ const handleDetailsScroll = () => {
   background: var(--td-brand-color);
 }
 
-/* 拖拽过程中关闭宽度过渡，避免跟手卡顿 */
+/* Disable the width transition while dragging to avoid lag */
 .t-drawer.doc-main-drawer--resizing .t-drawer__content {
   transition: none !important;
 }
 
-/* Trace 二级抽屉拖拽手柄：与主抽屉保持一致，teleport 到 body，
-   position: fixed，z-index 高于二级抽屉本体，避免被其他层级遮挡。 */
+/* Trace secondary drawer drag handle: consistent with the main drawer, teleported to body,
+   position: fixed, z-index higher than the secondary drawer itself, to avoid being covered by other layers. */
 .trace-drawer-resize-handle {
   position: fixed;
   top: 0;

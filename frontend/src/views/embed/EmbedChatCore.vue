@@ -298,7 +298,7 @@ const showGlobalTypingIndicator = computed(() =>
   shouldShowGlobalTypingIndicator(messagesList, loading.value),
 )
 
-/** 访客未发言前始终展示欢迎语（含历史加载中），发送后隐藏 */
+/** Always show the welcome message before the guest has spoken (including while history is loading); hide it after sending */
 const showWelcome = computed(() => hasWelcomeText.value && !hasUserMessage.value)
 
 const showSuggestedBlock = computed(() =>

@@ -1,66 +1,66 @@
 ---
-title: MCP功能使用说明
-tags: [核心功能, MCP, 工具集成]
-aliases: [MCP使用, MCP功能]
+title: MCP Feature Usage Guide
+tags: [Core Features, MCP, Tool Integration]
+aliases: [MCP Usage, MCP Features]
 source: MCP功能使用说明.md
 ---
 
-# MCP 功能使用说明
+# MCP Feature Usage Guide
 
-## 功能概述
+## Feature Overview
 
-- MCP（Model Context Protocol）让 WeKnora 可以安全地连接外部工具或数据源，扩展 Agent 在推理时可调用的能力。
-- 在前端 `设置 > MCP 服务`（`frontend/src/views/settings/McpSettings.vue`）中集中管理所有服务，无需手动改配置文件。
-- 每个服务都包含名称、传输方式（SSE / HTTP Streamable / Stdio）、连接地址或命令、认证信息以及高级超时与重试策略。
+- MCP (Model Context Protocol) lets WeKnora securely connect to external tools or data sources, extending the capabilities the Agent can invoke during reasoning.
+- All services are centrally managed from `Settings > MCP Services` (`frontend/src/views/settings/McpSettings.vue`) in the frontend, with no need to manually edit configuration files.
+- Each service includes a name, transport method (SSE / HTTP Streamable / Stdio), connection address or command, authentication information, and advanced timeout and retry policies.
 
-> 关于系统级的内置 MCP 服务管理，参见 [内置MCP服务管理](内置MCP服务管理.md)
+> For system-level management of built-in MCP services, see [Built-in MCP Service Management](内置MCP服务管理.md)
 
-## 入口与界面
+## Entry Point and Interface
 
-- 打开控制台左侧菜单 `设置 -> MCP 服务`，即可看到当前空间下的所有 MCP 服务列表。
-- 列表中可快速启停服务、查看描述，并通过右侧菜单执行"测试 / 编辑 / 删除"。
-- "添加服务"按钮会弹出 `McpServiceDialog`，用于创建或修改服务。
+- Open the `Settings -> MCP Services` menu on the left side of the console to see the list of all MCP services in the current space.
+- From the list you can quickly enable/disable services, view descriptions, and use the menu on the right to perform "Test / Edit / Delete".
+- The "Add Service" button opens the `McpServiceDialog` for creating or modifying a service.
 
-## 常用操作流程
+## Common Workflows
 
-### 1. 新建服务
+### 1. Creating a New Service
 
-- 点击"添加服务"，填写名称与描述，选择传输方式。
-- SSE / HTTP Streamable 需提供可访问的服务 URL；Stdio 需配置 `uvx`/`npx` 命令与参数，可附加环境变量。
-- 根据需要填写 API Key、Bearer Token、超时与重试策略，保存后服务会出现在列表中。
+- Click "Add Service", fill in the name and description, and select a transport method.
+- SSE / HTTP Streamable requires an accessible service URL; Stdio requires configuring a `uvx`/`npx` command and arguments, with optional environment variables attached.
+- Fill in the API Key, Bearer Token, timeout, and retry policy as needed. Once saved, the service will appear in the list.
 
-### 2. 启停服务
+### 2. Enabling/Disabling a Service
 
-- 在列表开关中切换启用状态，系统会即时调用后端 `updateMCPService`，失败时会自动回滚状态并弹出提示。
+- Toggle the enable state in the list, and the system will immediately call the backend `updateMCPService`. If it fails, the state is automatically rolled back and an alert is shown.
 
-### 3. 连接测试
+### 3. Connection Test
 
-- 通过更多菜单选择"测试"，前端会调用 `/api/v1/mcp-services/{id}/test` 并弹出 `McpTestResult`。
-- 成功时会展示服务可用的工具清单（含输入 schema）和资源列表；失败时会显示错误信息，方便排查网络或鉴权问题。
+- Select "Test" from the overflow menu; the frontend calls `/api/v1/mcp-services/{id}/test` and displays `McpTestResult`.
+- On success, it shows the list of tools available on the service (including input schema) and resources; on failure, it displays an error message to help troubleshoot network or authentication issues.
 
-### 4. 编辑 / 删除
+### 4. Edit / Delete
 
-- "编辑"会带出原有配置，修改后保存即可。
-- "删除"需要在弹窗中确认，完成后列表自动刷新。
+- "Edit" brings up the existing configuration; save after making changes.
+- "Delete" requires confirmation in the popup, after which the list refreshes automatically.
 
-## 使用建议
+## Usage Recommendations
 
-- **传输方式选择**：优先使用 SSE 获取流式体验；需要标准 HTTP Streamable 兼容时再切换；本地调试或离线环境适合使用 Stdio 并在同机启动 MCP Server。
-- **鉴权管理**：将 API Key / Token 保存在"认证配置"中，生产环境建议单独创建最小权限 Key，并定期轮换。
-- **重试策略**：对公网或第三方服务适当提高 `retry_count` 与 `retry_delay`，避免间歇性超时导致 Agent 中断
+- **Choosing a transport method**: Prefer SSE for a streaming experience; switch to standard HTTP Streamable compatibility when needed; Stdio is suitable for local debugging or offline environments, running the MCP Server on the same machine.
+- **Authentication management**: Store the API Key / Token in "Authentication Configuration". In production, it's recommended to create a separate minimal-privilege Key and rotate it regularly.
+- **Retry policy**: For public internet or third-party services, increase `retry_count` and `retry_delay` appropriately to avoid Agent interruptions caused by intermittent timeouts.
 
-## 相关主题
+## Related Topics
 
-- [内置MCP服务管理](../核心功能/内置MCP服务管理.md) — 系统管理员视角的内置 MCP 服务配置
-- [Agent技能系统](Agent技能系统.md) — 另一种 Agent 扩展机制
-- [IM集成开发](../集成扩展/IM集成开发.md) — IM 渠道中 Agent 使用 MCP 工具
-- [添加网络搜索引擎](../集成扩展/添加网络搜索引擎.md) — 扩展搜索能力的另一种方式
+- [Built-in MCP Service Management](../核心功能/内置MCP服务管理.md) — Built-in MCP service configuration from a system administrator's perspective
+- [Agent Skills System](Agent技能系统.md) — Another Agent extension mechanism
+- [IM Integration Development](../集成扩展/IM集成开发.md) — Using MCP tools with the Agent in IM channels
+- [Add Web Search Engine](../集成扩展/添加网络搜索引擎.md) — Another way to extend search capabilities
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [内置MCP服务管理](内置MCP服务管理.md) — MCP 的系统级管理（管理员视角）
-- [Agent技能系统](Agent技能系统.md) — 与 MCP 并列的 Agent 扩展机制
-- [IM集成开发](../集成扩展/IM集成开发.md) — Agent 在 IM 渠道中可调用 MCP 工具
+- [Home](../Home.md) — Wiki home navigation
+- [Built-in MCP Service Management](内置MCP服务管理.md) — System-level management of MCP (administrator's perspective)
+- [Agent Skills System](Agent技能系统.md) — An Agent extension mechanism parallel to MCP
+- [IM Integration Development](../集成扩展/IM集成开发.md) — The Agent can invoke MCP tools in IM channels

@@ -14,7 +14,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// parseCompletionResponse 解析非流式响应
+// parseCompletionResponse parses the non-streaming response
 func (c *RemoteAPIChat) parseCompletionResponse(resp *openai.ChatCompletionResponse) (*types.ChatResponse, error) {
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("no response from API")
@@ -22,8 +22,8 @@ func (c *RemoteAPIChat) parseCompletionResponse(resp *openai.ChatCompletionRespo
 
 	choice := resp.Choices[0]
 
-	// 处理思考模型的输出：移除 <think></think> 标签包裹的思考过程
-	// 为设置了 Thinking=false 但模型仍返回思考内容的情况和部分不支持Thinking=false的思考模型(例如Miniax-M2.1)提供兜底策略
+	// Handle output from thinking models: strip the reasoning content wrapped in <think></think> tags
+	// Fallback strategy for cases where Thinking=false is set but the model still returns reasoning content, and for some thinking models that don't support Thinking=false (e.g. Minimax-M2.1)
 	content := removeThinkingContent(choice.Message.Content)
 
 	usage := tokenUsageFromOpenAI(resp.Usage, c.provider)
@@ -81,8 +81,8 @@ func (c *RemoteAPIChat) applyCompletionToolCallMetadata(body []byte, result *typ
 	}
 }
 
-// removeThinkingContent 移除思考模型输出中的 <think></think> 思考过程
-// 仅当内容以 <think> 开头时才处理
+// removeThinkingContent strips the <think></think> reasoning content from a thinking model's output
+// Only process content that starts with <think>
 func removeThinkingContent(content string) string {
 	const thinkStartTag = "<think>"
 	const thinkEndTag = "</think>"
@@ -92,7 +92,7 @@ func removeThinkingContent(content string) string {
 		return content
 	}
 
-	// 查找最后一个 </think> 标签（处理嵌套情况）
+	// Find the last </think> tag (handles nested cases)
 	if lastEndIdx := strings.LastIndex(trimmed, thinkEndTag); lastEndIdx != -1 {
 		if result := strings.TrimSpace(trimmed[lastEndIdx+len(thinkEndTag):]); result != "" {
 			return result
@@ -100,10 +100,10 @@ func removeThinkingContent(content string) string {
 		return ""
 	}
 
-	return "" // 未找到 </think>，可能思考内容过长被截断，返回空字符串
+	return "" // No </think> found — the reasoning content may have been truncated for being too long; return an empty string
 }
 
-// processStream 处理 OpenAI SDK 流式响应
+// processStream handles the OpenAI SDK streaming response
 func (c *RemoteAPIChat) processStream(
 	ctx context.Context,
 	stream *openai.ChatCompletionStream,
@@ -154,7 +154,7 @@ func (c *RemoteAPIChat) processStream(
 	}
 }
 
-// processRawHTTPStream 处理原始 HTTP 流式响应
+// processRawHTTPStream handles the raw HTTP streaming response
 func (c *RemoteAPIChat) processRawHTTPStream(
 	ctx context.Context,
 	resp *http.Response,
@@ -213,13 +213,13 @@ func (c *RemoteAPIChat) processRawHTTPStream(
 		}
 
 		if dumper != nil {
-			// 保留上游 SSE data 行的原始 JSON，不经过中间结构体裁剪。
+			// Preserve the raw JSON of the upstream SSE data line without trimming it through an intermediate struct.
 			raw := make([]byte, len(event.Data))
 			copy(raw, event.Data)
 			dumper.WritePacketRaw(raw)
 		}
 
-		// 使用局部结构体进行一次性解析，同时捕捉标准字段和 vLLM 的 reasoning 字段，避免性能损失
+		// Use a local struct for a single-pass parse that captures both standard fields and vLLM's reasoning field, avoiding a performance penalty
 		var streamResp struct {
 			openai.ChatCompletionStreamResponse
 			Choices []struct {
@@ -245,13 +245,13 @@ func (c *RemoteAPIChat) processRawHTTPStream(
 
 		if len(streamResp.Choices) > 0 {
 			choice := streamResp.Choices[0]
-			// 统一获取逻辑（支持标准和 vLLM 两种路径）
+			// Unified retrieval logic (supports both the standard and vLLM paths)
 			reasoning := choice.Delta.Reasoning
 			if reasoning == "" {
 				reasoning = choice.Delta.ReasoningContent
 			}
 
-			// 构造一个标准 SDK 兼容的 choice 对象传给下游，保证现有逻辑完全不动
+			// Build a standard SDK-compatible choice object to pass downstream, so existing logic remains completely untouched
 			sdkChoice := openai.ChatCompletionStreamChoice{
 				Index:        choice.Index,
 				Delta:        choice.Delta.ChatCompletionStreamChoiceDelta,
@@ -296,7 +296,7 @@ func (c *RemoteAPIChat) applyStreamToolCallMetadata(data []byte, state *streamSt
 	}
 }
 
-// streamState 流式处理状态
+// streamState streaming processing state
 type streamState struct {
 	thinkingEmitter
 	toolCallMap      map[int]*types.LLMToolCall
@@ -374,7 +374,7 @@ func (s *streamState) setToolCallProviderMetadata(index int, metadata types.Tool
 	toolCallEntry.ProviderMetadata = metadata
 }
 
-// processStreamDelta 处理流式响应的单个 delta
+// processStreamDelta handles a single delta from the streaming response
 func (c *RemoteAPIChat) processStreamDelta(
 	ctx context.Context,
 	choice *openai.ChatCompletionStreamChoice,
@@ -390,7 +390,7 @@ func (c *RemoteAPIChat) processStreamDelta(
 		state.lastFinishReason = string(choice.FinishReason)
 	}
 
-	// 处理 tool calls
+	// Handle tool calls
 	if len(delta.ToolCalls) > 0 {
 		c.processToolCallsDelta(ctx, delta.ToolCalls, state, streamChan)
 	}
@@ -410,7 +410,7 @@ func (c *RemoteAPIChat) processStreamDelta(
 		state.noToolCallStopLogged = true
 	}
 
-	// 发送思考内容（ReasoningContent，支持 DeepSeek 等模型）
+	// Send reasoning content (ReasoningContent, supports models like DeepSeek)
 	if reasoningContent != "" {
 		// Earliest reasoning_content signal at the OpenAI-protocol level. Fired
 		// once per stream so we can distinguish "model emitted thinking before
@@ -424,7 +424,7 @@ func (c *RemoteAPIChat) processStreamDelta(
 		state.emit(streamChan, reasoningContent)
 	}
 
-	// 发送回答内容
+	// Send answer content
 	if delta.Content != "" {
 		// Earliest delta.Content signal at the OpenAI-protocol level. Fired once
 		// per stream so we can measure TTFC (time-to-first-content) and tell
@@ -476,7 +476,7 @@ func (c *RemoteAPIChat) processStreamDelta(
 	}
 }
 
-// processToolCallsDelta 处理 tool calls 的增量更新
+// processToolCallsDelta handles incremental updates to tool calls
 func (c *RemoteAPIChat) processToolCallsDelta(
 	ctx context.Context,
 	toolCalls []openai.ToolCall,
@@ -534,8 +534,8 @@ func (c *RemoteAPIChat) processToolCallsDelta(
 			toolCallEntry.Type = string(tc.Type)
 		}
 		if tc.Function.Name != "" {
-			// 防御性校验：解决部分供应商（如vLLM Ascend等）在每个流 Chunk 中重复发送完整工具名的问题。
-			// 如果当前已存名字与新收到名字一致，则视为冗余重复，不进行叠加。
+			// Defensive check: works around some providers (e.g. vLLM Ascend) resending the full tool name in every stream chunk.
+			// If the currently stored name matches the newly received name, treat it as redundant duplication and skip appending it.
 			if toolCallEntry.Function.Name != tc.Function.Name {
 				toolCallEntry.Function.Name += tc.Function.Name
 			}

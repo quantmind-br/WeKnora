@@ -6,11 +6,11 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-// WeKnoraCloudService 处理 WeKnoraCloud 凭证管理
+// WeKnoraCloudService handles WeKnoraCloud credential management
 type WeKnoraCloudService interface {
-	// SaveCredentials 仅保存 APPID/APPSECRET 凭证到空间配置，不自动创建模型
+	// SaveCredentials only saves APPID/APPSECRET credentials to the space configuration, without automatically creating a model
 	SaveCredentials(ctx context.Context, appID, appSecret string) error
-	// CheckStatus 检查当前空间的 WeKnoraCloud 凭证是否可正常解密
-	// needsReinit=true 表示加密状态已损坏（salt 变更等），需要用户重新填写凭证
+	// CheckStatus checks whether the current space's WeKnoraCloud credentials can be decrypted successfully
+	// needsReinit=true indicates the encryption state is corrupted (salt changed, etc.) and the user needs to re-enter credentials
 	CheckStatus(ctx context.Context) (*types.WeKnoraCloudStatusResult, error)
 }

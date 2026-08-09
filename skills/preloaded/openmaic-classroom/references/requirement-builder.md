@@ -1,195 +1,181 @@
-# 需求构建指南
+# Requirement Building Guide
 
-将 WeKnora RAG 检索结果转换为 OpenMAIC 课程生成所需的 `requirement` 格式。
+Converts WeKnora RAG retrieval results into the `requirement` format needed by OpenMAIC course generation.
 
-## 核心原则
+## Core Principles
 
-OpenMAIC 的 `requirement` 字段需要是**结构化的教学需求描述**，而不是原始文档片段。构建时需考虑：
+The `requirement` field of OpenMAIC needs to be a **structured instructional requirement description**, not a raw document snippet. When building it, consider:
 
-1. **教学主题**: 明确要教什么
-2. **目标受众**: 面向谁教学（如：初学者、专业人士、学生等）
-3. **教学深度**: 入门级、中级、高级
-4. **内容范围**: 基于哪些知识源构建
+1. **Teaching topic**: what exactly to teach
+2. **Target audience**: who you are teaching (e.g., beginners, professionals, students)
+3. **Teaching depth**: introductory, intermediate, advanced
+4. **Content scope**: which knowledge sources it is based on
 
-## 转换模板
+## Conversion Templates
 
-### 模板 1: 纯需求（无检索结果）
+### Template 1: Pure Requirement (no retrieval results)
 
-用户直接描述需求时，直接使用用户描述作为 requirement：
+When the user describes the need directly, use their description as the requirement:
 
 ```
-用户: "帮我创建一个关于量子力学的入门课程"
+User: "Help me create an introductory course about quantum mechanics"
 → requirement: "Create an introductory classroom on quantum mechanics for beginners"
 ```
 
-### 模板 2: 基于 RAG 检索结果
+### Template 2: Based on RAG Retrieval Results
 
 ```
-步骤：
-1. 使用 knowledge_search 检索相关知识
-2. 从检索结果中提取：
-   - 核心主题/概念
-   - 关键知识点
-   - 文档来源信息
-3. 构建结构化 requirement
+Steps:
+1. Use knowledge_search to retrieve relevant knowledge
+2. Extract from the retrieval results:
+   - Core topics / concepts
+   - Key knowledge points
+   - Document source information
+3. Build a structured requirement
 ```
 
-构建格式：
+Build format:
 ```
-基于以下知识内容，创建一个面向[目标受众]的[深度级别]课程：
+Based on the following knowledge content, create a [depth-level] course for [target audience]:
 
-核心主题：[从检索结果提取的主要概念]
-关键知识点：
-- [知识点1]
-- [知识点2]
+Core topic: [main concepts extracted from the retrieval results]
+Key knowledge points:
+- [knowledge point 1]
+- [knowledge point 2]
 - ...
-内容来源：[文档名称列表]
+Content sources: [list of document names]
 ```
 
-### 模板 3: 基于单个文档
+### Template 3: Based on a Single Document
 
 ```
-基于文档《[文档名称]》的内容，创建一个面向[目标受众]的课程，
-重点讲解以下方面：
-- [用户指定的重点1]
-- [用户指定的重点2]
+Based on the content of the document "[Document Name]", create a course for [target audience],
+focusing on the following aspects:
+- [focus area 1 specified by the user]
+- [focus area 2 specified by the user]
 ```
 
-### 模板 4: 基于多个文档/知识块
+### Template 4: Based on Multiple Documents / Knowledge Chunks
 
 ```
-综合以下文档内容，创建一个系统的课程：
+Combining the content of the following documents, create a systematic course:
 
-文档1《[名称1]》: [简要内容摘要]
-文档2《[名称2]》: [简要内容摘要]
-文档3《[名称3]》: [简要内容摘要]
+Document 1 "[Name 1]": [brief content summary]
+Document 2 "[Name 2]": [brief content summary]
+Document 3 "[Name 3]": [brief content summary]
 
-要求：
-- 教学深度：[级别]
-- 目标受众：[描述]
-- 重点覆盖：[关键主题列表]
+Requirements:
+- Teaching depth: [level]
+- Target audience: [description]
+- Key coverage: [list of key topics]
 ```
 
-### 模板 5: 基于概念图遍历（Concept Graph）
+### Template 5: Concept Graph Traversal (Concept Graph)
 
-当从知识图谱 concept 页面及其关联 entity 生成微课堂时使用此模板。由 `scripts/concept-to-requirement.py` 自动生成。
+Use this template when generating micro-classrooms from knowledge graph concept pages and their linked entities. It is generated automatically by `scripts/concept-to-requirement.py`.
 
-**输入结构**：
+**Input structure**:
 ```json
 {
-  "concept": { "slug": "concept/rag", "title": "RAG 检索增强生成", "summary": "...", "content": "..." },
+  "concept": { "slug": "concept/rag", "title": "RAG retrieval-augmented generation", "summary": "...", "content": "..." },
   "entities": [
-    { "slug": "entity/vector-db", "title": "向量数据库", "summary": "...", "link_type": "outlink" },
-    { "slug": "entity/embedding", "title": "Embedding 模型", "summary": "...", "link_type": "bidirectional" }
+    { "slug": "entity/vector-db", "title": "Vector database", "summary": "...", "link_type": "outlink" },
+    { "slug": "entity/embedding", "title": "Embedding model", "summary": "...", "link_type": "bidirectional" }
   ],
-  "language": "zh-CN",
+  "language": "en-US",
   "depth": "intermediate",
-  "audience": "相关领域的学习者"
+  "audience": "learners in the relevant field"
 }
 ```
 
-**输出 requirement 结构**：
+**Output requirement structure**:
 ```
-基于知识图谱概念「[concept.title]」，为[audience]创建一个[depth]微课堂（micro-classroom）。
+Based on the knowledge graph concept "[concept.title]", create a [depth] micro-classroom for [audience].
 
-教学锚点：[concept.summary]
+Teaching anchor: [concept.summary]
 
-学习目标：
-  - 理解[concept.summary 中的关键句]
+Learning objectives:
+  - understand [key sentence from concept.summary]
 
-核心知识点：
-  - [从 concept.content 解析的定义/机制]
+Core knowledge points:
+  - [definitions/mechanisms parsed from concept.content]
 
-关联实体（实践环节）：
-  - 案例：[entity.title]：[entity.summary]
-  - 工具：[entity.title]：[entity.summary]
-  - 应用场景：[entity.title]：[entity.summary]
-  - 前置知识：[entity.title]
+Linked entities (practice segment):
+  - Case study: [entity.title]: [entity.summary]
+  - Tool: [entity.title]: [entity.summary]
+  - Application scenarios: [entity.title]: [entity.summary]
+  - Prerequisites: [entity.title]
 
-实践任务：
-  - 通过 [entity.title] 实践 [concept.title] 的应用
+Practice tasks:
+  - practice the application of [concept.title] through [entity.title]
 
-常见误区检查：
-  - [从 concept.content 解析的误区]
+Common misconception check:
+  - [misconceptions parsed from concept.content]
 
-评估提示：
-  - 请解释 [concept.title] 的核心定义
-
-请使用中文生成课程内容。
-```
-
-**entity 分类排序规则**（纯文本操作，无 LLM/embedding）：
-- link_type 权重：bidirectional (+3) > outlink (+2) > inlink (+1)
-- title token overlap：concept title 分词后与 entity title 的交集数 (+1 per hit, cap +2)
-- summary keyword hit：concept summary 关键词在 entity summary 中出现 (+1 per hit, cap +2)
-- slug token hit：concept slug token 在 entity slug 中出现 (+1)
-- summary 为空扣分 (-2)
-- 取 top 3-5 entities，分为 Examples / Tools / Application Scenarios / Prerequisites
-
-**概念内容解析逻辑**：
-- 优先解析 markdown 结构：标题列表（定义段、机制段、案例段、误区段）
-- fallback 到前 N 字
-
-## 示例
-
-### 示例 1: 技术文档 → 课程
-
-```
-检索结果：
-- 文档: "Kubernetes 部署指南.pdf"
-- 关键内容: Pod 管理、Service 配置、Ingress 路由、存储卷
-
-构建的 requirement：
-"基于 Kubernetes 部署指南，创建一个面向 DevOps 工程师的中级课程。
-重点涵盖：Pod 生命周期管理、Service 和 Ingress 网络配置、持久化存储卷管理。
-课程应包含实践操作环节。"
+Assessment prompts:
+  - please explain [concept.title]
+  - apply [concept.title] to a real scenario
 ```
 
-### 示例 2: 产品手册 → 入门课程
+### Template 6: Technical Document → Course
 
 ```
-检索结果：
-- 文档: "产品使用手册 v2.0.pdf"
-- 关键内容: 产品概述、快速开始、核心功能、常见问题
+Retrieval results:
+- Document: "Kubernetes Deployment Guide.pdf"
+- Key content: Pod management, Service configuration, Ingress routing, storage volumes
 
-构建的 requirement：
-"基于产品使用手册 v2.0，为新用户创建一个入门课程。
-帮助用户快速了解产品核心功能，掌握基本操作方法，
-并能够独立完成常见任务。课程语言为中文。"
+Built requirement:
+"Based on the Kubernetes deployment guide, create an intermediate course for DevOps engineers.
+Focus on: Pod lifecycle management, Service and Ingress network configuration, and persistent storage volume management.
+The course should include hands-on practice."
 ```
 
-### 示例 3: 研究论文 → 高级课程
+### Example 2: Product Manual → Introductory Course
 
 ```
-检索结果：
-- 文档: "Transformer 架构研究综述.pdf"
-- 关键内容: Attention 机制、位置编码、多头注意力、训练技巧
+Retrieval results:
+- Document: "Product User Manual v2.0.pdf"
+- Key content: product overview, quick start, core features, FAQs
 
-构建的 requirement：
-"基于 Transformer 架构研究综述，为具有深度学习基础的研究人员
-创建高级课程。深入讲解 Attention 机制的数学原理、位置编码的
-各种变体、多头注意力的设计动机，以及训练大模型时的实践技巧。"
+Built requirement:
+"Based on the product user manual v2.0, create an introductory course for new users.
+Help users quickly understand the product's core features, master the basic operations,
+and complete common tasks independently. The course language should be English."
 ```
 
-## 可选功能配置建议
+### Example 3: Research Paper → Advanced Course
 
-在构建 request 时，根据用户需求推荐可选功能：
+```
+Retrieval results:
+- Document: "Transformer Architecture Survey.pdf"
+- Key content: Attention mechanism, positional encoding, multi-head attention, training tips
 
-| 场景 | 推荐功能 |
+Built requirement:
+"Based on the Transformer architecture survey, create an advanced course for researchers
+with a deep learning background. Cover in depth the mathematical principles of the
+Attention mechanism, the variants of positional encoding, the design rationale behind
+multi-head attention, and practical tips for training large models."
+```
+
+## Optional Feature Configuration Suggestions
+
+When building a request, recommend optional features based on the user's needs:
+
+| Scenario | Recommended features |
 |------|----------|
-| 技术培训 | `enableWebSearch: true`（补充最新技术动态） |
-| 产品介绍 | `enableImageGeneration: true`（生成产品截图/界面图） |
-| 市场营销 | `enableImageGeneration: true, enableVideoGeneration: true` |
-| 语言教学 | `enableTTS: true`（语音朗读） |
-| 学术研究 | 默认配置即可（不需要多媒体） |
+| Technical training | `enableWebSearch: true` (supplement with the latest technical developments) |
+| Product introduction | `enableImageGeneration: true` (generate product screenshots / interface images) |
+| Marketing | `enableImageGeneration: true, enableVideoGeneration: true` |
+| Language teaching | `enableTTS: true` (voice narration) |
+| Academic research | default configuration is fine (no multimedia needed) |
 
-## 多文档处理
+## Multi-Document Handling
 
-当需要将多个独立文档分别生成课程时：
+When several independent documents each need their own course:
 
-1. 为每个文档单独构建 requirement
-2. 依次调用生成 API（不可并行）
-3. 每完成一个即返回 URL，继续下一个
-4. 最终汇总所有 Classroom URL
+1. Build a separate requirement for each document
+2. Call the generation API sequentially (no parallelism)
+3. Return the URL as soon as each is complete, then continue with the next
+4. Finally, summarize all Classroom URLs
 
-> 注意：OpenMAIC 托管模式每天最多 10 次生成配额，本地模式取决于 LLM Provider 配额。
+> Note: OpenMAIC hosted mode allows at most 10 generations per day; local mode depends on the LLM Provider's quota.

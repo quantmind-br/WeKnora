@@ -10,7 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-// RegisterTenantRoutes 注册空间相关的路由
+// RegisterTenantRoutes registers tenant-related routes
 //
 // Tenant-internal RBAC for /tenants/:id:
 //   - GET   /:id          Viewer+ (read tenant settings)
@@ -57,17 +57,17 @@ func RegisterTenantRoutes(
 		apiKeyPlatform(types.APIKeyCapabilitySystemTenantsRead, types.APIKeyCapabilitySystemTenantsManage),
 		g.CrossTenant(), handler.SearchTenants)
 
-	// 空间路由组
+	// Tenant route group
 	tenantRoutes := r.Group("/tenants")
 	{
-		// 创建空间对所有已登录用户开放：用户可以为自己再开一个工作区，
-		// handler 内部会调 EnsureOwner 把调用者写成新空间的 Owner。
-		// 跨空间超管走同一个端点，但能携带 storage_quota / status 等
-		// 全字段（见 handler.CreateTenant 内部分支）。
-		// 安全说明：这里不挂 g.CrossTenant()，因为 self-service 创建
-		// 不需要跨空间特权；handler 也不读写 X-Tenant-ID 指向的现有
-		// 空间，所以越过 PathTenantMatch 守卫不会扩大攻击面。
-		// 创建空间不对 API key 开放（注册在原始 group，默认拒绝）。
+		// Tenant creation is open to all logged-in users: a user can open another workspace for themselves,
+		// the handler internally calls EnsureOwner to set the caller as the Owner of the new tenant.
+		// Cross-tenant superadmins go through the same endpoint, but can carry storage_quota / status, etc.
+		// all fields (see the internal branch in handler.CreateTenant).
+		// Security note: g.CrossTenant() is not attached here, because self-service creation
+		// doesn't require cross-tenant privileges; the handler also doesn't read/write an existing tenant
+		// pointed to by X-Tenant-ID, so bypassing the PathTenantMatch guard doesn't widen the attack surface.
+		// Tenant creation is not exposed to API keys (registered in the original group, denied by default).
 		g.apiKeyRoute(tenantRoutes, http.MethodPost, "",
 			apiKeyPlatform(types.APIKeyCapabilitySystemTenantsManage), handler.CreateTenant)
 		g.apiKeyRoute(tenantRoutes, http.MethodGet, "", apiKeyManageTenantSettings(apiKeyFullAccess()), handler.ListTenants)

@@ -73,17 +73,17 @@ func TestCleanPassageForRerank(t *testing.T) {
 		},
 		{
 			name:   "remove markdown images",
-			input:  "前文 ![图片说明](https://example.com/img.png) 后文",
+			input:  "前文 ![图片说明](https:// example.com/img.png) trailing text",
 			expect: "前文  后文",
 		},
 		{
 			name:   "convert markdown links to text",
-			input:  "请参考 [官方文档](https://docs.example.com) 了解详情",
+			input:  "请参考 [官方文档](https:// docs.example.com) for details",
 			expect: "请参考 官方文档 了解详情",
 		},
 		{
 			name:   "remove standalone URLs",
-			input:  "访问 https://example.com/path?q=1&b=2 获取更多信息",
+			input:  "访问 https:// example.com/path?q=1&b=2 for more info",
 			expect: "访问  获取更多信息",
 		},
 		{

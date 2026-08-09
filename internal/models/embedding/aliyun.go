@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// AliyunMultimodalEmbeddingEndpoint 阿里云 DashScope 多模态 Embedding API 端点
+	// AliyunMultimodalEmbeddingEndpoint is the Alibaba Cloud DashScope multimodal Embedding API endpoint
 	AliyunMultimodalEmbeddingEndpoint = "/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding"
 )
 
@@ -35,7 +35,7 @@ type AliyunEmbedder struct {
 	EmbedderPooler
 }
 
-// SetCustomHeaders 设置用户自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
+// SetCustomHeaders sets user-defined custom HTTP request headers (similar to the OpenAI Python SDK's extra_headers).
 func (e *AliyunEmbedder) SetCustomHeaders(headers map[string]string) {
 	e.customHeaders = headers
 }

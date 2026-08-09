@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div v-if="visible" class="settings-overlay" @click.self="handleClose">
         <div class="settings-modal" :class="{ 'join-mode': mode === 'join' }">
-          <!-- 关闭按钮 -->
+          <!-- close button -->
           <button class="close-btn" @click="handleClose" :aria-label="$t('common.close')">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -11,7 +11,7 @@
           </button>
 
           <div class="settings-container">
-            <!-- 左侧导航 -->
+            <!-- left-side navigation -->
             <div class="settings-sidebar">
               <div class="sidebar-header">
                 <h2 class="sidebar-title">{{ modalTitle }}</h2>
@@ -29,10 +29,10 @@
               </div>
             </div>
 
-            <!-- 右侧内容区域 -->
+            <!-- right-side content area -->
             <div class="settings-content">
               <div class="content-wrapper">
-                <!-- 创建组织 - 基本信息 -->
+                <!-- create organization - basic info -->
                 <div v-if="mode === 'create'" v-show="currentSection === 'basic'" class="section">
                   <div class="section-content">
                     <div class="section-header">
@@ -67,7 +67,7 @@
                   </div>
                 </div>
 
-                <!-- 创建组织 - 权限说明 -->
+                <!-- create organization - permission notes -->
                 <div v-if="mode === 'create'" v-show="currentSection === 'permissions'" class="section">
                   <div class="section-content">
                     <div class="section-header">
@@ -139,7 +139,7 @@
                   </div>
                 </div>
 
-                <!-- 加入组织 -->
+                <!-- join organization -->
                 <div v-if="mode === 'join'" v-show="currentSection === 'join'" class="section">
                   <div class="section-content">
                     <div class="section-header">
@@ -186,7 +186,7 @@
                 </div>
               </div>
 
-              <!-- 底部按钮 -->
+              <!-- bottom buttons -->
               <div class="settings-footer">
                 <t-button theme="default" variant="outline" @click="handleClose">
                   {{ $t('common.cancel') }}
@@ -201,7 +201,7 @@
       </div>
     </Transition>
 
-    <!-- 加入确认弹窗 -->
+    <!-- join confirmation popup -->
     <t-dialog
       v-model:visible="showJoinConfirm"
       :header="$t('organization.join.confirmTitle')"
@@ -285,7 +285,7 @@ const joinForm = ref({
   invite_code: ''
 })
 
-// 计算属性
+// computed properties
 const modalTitle = computed(() => {
   return props.mode === 'create' 
     ? t('organization.createOrg') 
@@ -305,7 +305,7 @@ const navItems = computed(() => {
   }
 })
 
-// 方法
+// methods
 const resetForm = () => {
   createForm.value = { name: '', description: '' }
   joinForm.value = { invite_code: '' }
@@ -400,7 +400,7 @@ const confirmJoin = async () => {
   }
 }
 
-// 监听
+// watchers
 watch(() => props.visible, (newVal) => {
   if (newVal) {
     resetForm()
@@ -616,7 +616,7 @@ watch(() => props.mode, () => {
   min-width: 0;
 }
 
-// 权限说明样式
+// permission notes style
 .permissions-info {
   display: flex;
   flex-direction: column;
@@ -714,7 +714,7 @@ watch(() => props.mode, () => {
   }
 }
 
-// 加入组织样式
+// join organization style
 .join-illustration {
   text-align: center;
   padding: 24px 0 32px;
@@ -800,7 +800,7 @@ watch(() => props.mode, () => {
   flex-shrink: 0;
 }
 
-// 过渡动画
+// transition animation
 .modal-enter-active,
 .modal-leave-active {
   transition: all 0.3s ease;
@@ -815,7 +815,7 @@ watch(() => props.mode, () => {
   }
 }
 
-// 加入确认弹窗样式
+// join confirmation popup style
 .join-confirm-content {
   padding: 8px 0;
 }

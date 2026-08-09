@@ -25,15 +25,15 @@ const (
 	ChannelAPI              = "api"               // External API call
 	ChannelBrowserExtension = "browser_extension" // Browser extension / plugin
 	ChannelWechat           = "wechat"            // WeChat
-	ChannelWecom            = "wecom"             // WeCom (企业微信)
+	ChannelWecom            = "wecom"             // WeCom (WeChat Work)
 	ChannelFeishu           = "feishu"            // Feishu / Lark
-	ChannelFeishuDrive      = "feishu_drive"      // Feishu Drive (云盘)
+	ChannelFeishuDrive      = "feishu_drive"      // Feishu Drive (cloud storage)
 	ChannelLarkDrive        = "lark_drive"        // Lark Drive (international)
 	ChannelDingtalk         = "dingtalk"          // DingTalk
 	ChannelSlack            = "slack"             // Slack
 	ChannelIM               = "im"                // Generic IM channel
 	ChannelNotion           = "notion"            // Notion
-	ChannelYuque            = "yuque"             // Yuque (语雀)
+	ChannelYuque            = "yuque"             // Yuque
 	ChannelRSS              = "rss"               // RSS / Atom feed
 )
 

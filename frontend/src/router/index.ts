@@ -3,7 +3,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { autoSetup, getCurrentUser, userInfoFromApi } from '@/api/auth'
 
-/** Lite /桌面 WebView 硬刷新时可能只打开 `/`，用 session 记住上次页面以便恢复 */
+/** Lite/desktop WebView hard refresh may only open `/`; use session to remember the last page for recovery */
 const LITE_LAST_PATH_KEY = 'weknora_lite_last_path'
 const AUTO_SETUP_FAILED_KEY = 'weknora_auto_setup_failed'
 
@@ -72,7 +72,7 @@ const router = createRouter({
     {
       path: "/join",
       name: "joinOrganization",
-      // 重定向到组织列表页，并将 code 参数转换为 invite_code
+      // Redirect to the organization list page, converting the code parameter into invite_code
       redirect: (to) => {
         const code = to.query.code as string
         return {
@@ -119,7 +119,7 @@ const router = createRouter({
         },
         {
           path: "knowledge-search",
-          // 旧路径保留为重定向，打开全局命令面板（⌘K），带上可选的 q 参数
+          // Old path kept as a redirect; opens the global command palette (⌘K), with an optional q parameter
           redirect: (to) => {
             const q = to.query.q
             return {
@@ -208,7 +208,7 @@ const router = createRouter({
   ],
 });
 
-// 持久化 auto-setup / login 返回的认证信息到 store
+// Persist the auth info returned by auto-setup / login to the store
 function persistLoginResponse(authStore: ReturnType<typeof useAuthStore>, response: any) {
   if (response.user && response.tenant && response.token) {
     authStore.setUser(userInfoFromApi(response.user, response.tenant.id))
@@ -290,18 +290,18 @@ async function hydrateSessionFromToken(authStore: ReturnType<typeof useAuthStore
 let autoSetupAttempted = false
 let liteDeepLinkRestoreDone = false
 
-// 路由守卫：检查认证状态和系统初始化状态
+// Route guard: check auth status and system initialization status
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
-  // OIDC 回跳登录结果依赖 App.vue 在挂载后消费 URL hash。
-  // 如果这里先按“未登录”拦截到 /login，会导致回调结果没有机会落盘。
+  // The OIDC callback login result depends on App.vue consuming the URL hash after mount.
+  // If "not logged in" is intercepted here first and redirected to /login, the callback result won't get a chance to be persisted.
   if (hasPendingOIDCCallback()) {
     next()
     return
   }
 
-  // Lite：硬刷新后若落在默认首页，恢复本次会话中最后访问的 /platform 子路径
+  // Lite: after a hard refresh, if landing on the default homepage, restore the last visited /platform subpath from this session
   if (!liteDeepLinkRestoreDone) {
     liteDeepLinkRestoreDone = true
     if (isLiteEdition(authStore)) {
@@ -333,9 +333,9 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // 如果访问的是登录页面或初始化页面，直接放行
+  // If accessing the login page or the init page, pass through directly
   if (to.meta.requiresAuth === false || to.meta.requiresInit === false) {
-    // 如果已登录用户访问登录页面，重定向到知识库列表页面
+    // If a logged-in user visits the login page, redirect to the knowledge base list page
     if (to.path === '/login' && authStore.isLoggedIn) {
       next(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
       return
@@ -344,7 +344,7 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // 检查用户认证状态
+  // Check the user's authentication status
   if (to.meta.requiresAuth !== false) {
     if (!authStore.isLoggedIn) {
       const restored = await hydrateSessionFromToken(authStore)

@@ -283,7 +283,7 @@ func TestReadBitableRecords_SplitsTokenAndBuildsTable(t *testing.T) {
 // allows 500). The connector must request page_size=100 and page through fields,
 // or a table with >100 columns would silently lose its header tail (or the whole
 // bitable would degrade if Feishu rejects page_size=500). Verified against the
-// official docs: bitable-v1/app-table-field/list "最大值：100".
+// official docs: bitable-v1/app-table-field/list "maximum value: 100".
 func TestReadBitableRecords_PaginatesFieldsAtMax100(t *testing.T) {
 	const totalFields = 150 // spans two pages: 100 + 50
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

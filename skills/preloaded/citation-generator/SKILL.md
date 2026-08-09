@@ -1,58 +1,58 @@
 ---
-name: 引用生成器
-description: 自动生成规范引用格式。当用户需要生成参考文献、引用来源、标注知识库内容出处、或要求提供引用信息时使用此技能。
+name: Citation Generator
+description: Generates well-formed citations automatically. Use this skill when the user needs to generate references, cite sources, attribute knowledge base content, or provide citation information.
 ---
 
 # Citation Generator
 
-为知识库检索结果生成规范的引用格式。
+Generates well-formed citation formats for knowledge base retrieval results.
 
-## 核心能力
+## Core Capabilities
 
-1. **来源标注**: 为回答中使用的每个知识点标注来源
-2. **格式化引用**: 支持多种引用格式（APA、MLA、Chicago、简化格式）
-3. **参考文献列表**: 在回答末尾生成完整的参考文献列表
+1. **Source attribution**: mark the source for every piece of knowledge used in an answer
+2. **Formatted citations**: supports multiple citation formats (APA, MLA, Chicago, simplified)
+3. **Reference lists**: produce a complete reference list at the end of the answer
 
-## 引用格式
+## Citation Formats
 
-### 简化格式（默认）
+### Simplified Format (default)
 
-对于知识库内容，使用以下格式：
+For knowledge base content, use the following format:
 ```
-[文档名称, 第X页/段落X]
-```
-
-示例：
-```
-根据公司政策[员工手册2024.pdf, 第15页]，年假申请需提前...
+[Document Name, Page X/Paragraph X]
 ```
 
-### APA 格式
+Example:
+```
+According to company policy [Employee Handbook 2024.pdf, Page 15], annual leave requests must be submitted...
+```
+
+### APA Format
 
 ```
-作者. (年份). 标题. 来源.
+Author. (Year). Title. Source.
 ```
 
-### 参考文献列表格式
+### Reference List Format
 
-在回答末尾，使用以下格式列出所有引用：
+At the end of the answer, list all citations as follows:
 
 ```
 ---
-**参考文献**
+**References**
 
-1. [1] 文档A - 第X章/第Y页
-2. [2] 文档B - 第Z段
+1. [1] Document A - Chapter X/Page Y
+2. [2] Document B - Paragraph Z
 ```
 
-## 使用指南
+## Usage Guide
 
-1. **检索内容时**: 记录每个检索结果的来源信息（文档名、页码、分块ID）
-2. **引用时**: 在使用知识点后立即标注来源
-3. **汇总时**: 在回答末尾列出完整参考文献
+1. **When retrieving content**: record the source info of each result (document name, page, chunk ID)
+2. **When citing**: attribute the source immediately after using a piece of knowledge
+3. **When summarizing**: list the complete references at the end of the answer
 
-## 注意事项
+## Notes
 
-- 如果检索结果未提供页码，使用分块或段落编号
-- 对于同一文档的多次引用，可合并为一条
-- 引用应准确对应原文内容，不可虚构来源
+- If the retrieval result has no page number, use the chunk or paragraph number
+- Multiple citations from the same document can be merged into one
+- Citations must accurately correspond to the original content; never fabricate sources

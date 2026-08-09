@@ -12,7 +12,7 @@ import { useChatResourcesStore } from '@/stores/chatResources'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useOrganizationStore } from '@/stores/organization'
 
-/** 登出时丢弃 Pinia 内的空间级资源缓存，避免 SPA 重登复用上一账号数据。 */
+/** On logout, discard the space-level resource cache in Pinia to avoid the SPA reusing the previous account's data on re-login. */
 function clearSessionResourceCaches() {
   useChatResourcesStore().invalidate()
   useEditorResourcesStore().invalidate()
@@ -29,7 +29,7 @@ function reloadUserPreferences() {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  // 状态
+  // State
   const user = ref<UserInfo | null>(null)
   const tenant = ref<TenantInfo | null>(null)
   const token = ref<string>('')
@@ -59,7 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
   // then reject with 403/2005.
   const canCreateTenant = ref(false)
 
-  // 计算属性
+  // Computed properties
   const isLoggedIn = computed(() => {
     return !!token.value && !!user.value
   })
@@ -179,15 +179,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const effectiveTenantId = computed(() => {
-    // 如果选择了其他空间，使用选择的空间ID，否则使用用户默认空间ID
+    // If another space is selected, use the selected space ID; otherwise use the user's default space ID
     return selectedTenantId.value || (tenant.value?.id ? Number(tenant.value.id) : null)
   })
 
-  // 操作方法
+  // Action methods
   const setUser = (userData: UserInfo) => {
     const previousId = user.value?.id
     user.value = userData
-    // 保存到localStorage
+    // Save to localStorage
     localStorage.setItem('weknora_user', JSON.stringify(userData))
     if (previousId !== userData.id) {
       reloadUserPreferences()
@@ -215,7 +215,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const setKnowledgeBases = (kbList: KnowledgeBaseInfo[]) => {
-    // 确保输入是数组
+    // Ensure the input is an array
     knowledgeBases.value = Array.isArray(kbList) ? kbList : []
     localStorage.setItem('weknora_knowledge_bases', JSON.stringify(knowledgeBases.value))
   }
@@ -388,7 +388,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = () => {
-    // 清空状态
+    // Clear state
     user.value = null
     tenant.value = null
     token.value = ''
@@ -403,7 +403,7 @@ export const useAuthStore = defineStore('auth', () => {
     canCreateTenant.value = false
     clearSessionResourceCaches()
 
-    // 清空localStorage
+    // Clear localStorage
     localStorage.removeItem('weknora_user')
     localStorage.removeItem('weknora_tenant')
     localStorage.removeItem('weknora_token')
@@ -424,7 +424,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const initFromStorage = () => {
-    // 从localStorage恢复状态
+    // Restore state from localStorage
     const storedUser = localStorage.getItem('weknora_user')
     const storedTenant = localStorage.getItem('weknora_tenant')
     const storedToken = localStorage.getItem('weknora_token')
@@ -436,10 +436,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (storedUser) {
       try {
-        // 走 userInfoFromApi 把老 localStorage（可能缺新字段，如
-        // is_system_admin）规范化一遍，避免「我新加了字段、但老登录态
-        // 没经过登录响应处理过、字段就永远是 undefined」的死角。
-        // 这是「漏拷 4 处」之外的第 5 个隐藏入口，专门给页面刷新走的。
+        // Run it through userInfoFromApi to normalize the old localStorage (which may lack new fields, such as
+        // is_system_admin), avoiding the blind spot where "I added a new field, but the old login
+        // state never went through login-response processing, so the field stays undefined forever."
+        // This is the 5th hidden entry point beyond the "4 missed copies" — dedicated to the page-refresh path.
         user.value = userInfoFromApi(JSON.parse(storedUser))
       } catch (e) {
         console.error(i18n.global.t('authStore.errors.parseUserFailed'), e)
@@ -507,11 +507,11 @@ export const useAuthStore = defineStore('auth', () => {
     isLiteMode.value = localStorage.getItem('weknora_lite_mode') === 'true'
   }
 
-  // 初始化时从localStorage恢复状态
+  // Initialize by restoring state from localStorage on startup
   initFromStorage()
 
   return {
-    // 状态
+    // State
     user,
     tenant,
     token,
@@ -525,7 +525,7 @@ export const useAuthStore = defineStore('auth', () => {
     pendingInvitationCount,
     canCreateTenant,
 
-    // 计算属性
+    // Computed properties
     isLoggedIn,
     hasValidTenant,
     currentTenantId,
@@ -538,7 +538,7 @@ export const useAuthStore = defineStore('auth', () => {
     effectiveTenantId,
     isLiteMode,
 
-    // 方法
+    // Methods
     setUser,
     setTenant,
     setToken,

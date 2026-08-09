@@ -1,19 +1,19 @@
-# 系统管理 API
+# System Management API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-| 方法   | 路径                              | 描述                   |
-| ------ | --------------------------------- | ---------------------- |
-| GET    | `/system/info`                    | 获取系统信息           |
-| GET    | `/system/parser-engines`          | 获取解析引擎列表       |
-| POST   | `/system/parser-engines/check`    | 检查解析引擎可用性     |
-| POST   | `/system/docreader/reconnect`     | 重连文档解析服务       |
-| GET    | `/system/storage-engine-status`   | 获取存储引擎状态       |
-| POST   | `/system/storage-engine-check`    | 检查存储引擎连通性     |
+| Method | Path                              | Description                     |
+| ------ | --------------------------------- | -------------------------------- |
+| GET    | `/system/info`                    | Get system information           |
+| GET    | `/system/parser-engines`          | Get parser engine list           |
+| POST   | `/system/parser-engines/check`    | Check parser engine availability |
+| POST   | `/system/docreader/reconnect`     | Reconnect document parsing service |
+| GET    | `/system/storage-engine-status`   | Get storage engine status        |
+| POST   | `/system/storage-engine-check`    | Check storage engine connectivity |
 
-## GET `/system/info` - 获取系统信息
+## GET `/system/info` - Get System Information
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/system/info' \
@@ -21,7 +21,7 @@ curl --location 'http://localhost:8080/api/v1/system/info' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -41,9 +41,9 @@ curl --location 'http://localhost:8080/api/v1/system/info' \
 }
 ```
 
-## GET `/system/parser-engines` - 获取解析引擎列表
+## GET `/system/parser-engines` - Get Parser Engine List
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/system/parser-engines' \
@@ -51,7 +51,7 @@ curl --location 'http://localhost:8080/api/v1/system/parser-engines' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -59,13 +59,13 @@ curl --location 'http://localhost:8080/api/v1/system/parser-engines' \
         {
             "name": "docreader",
             "label": "DocReader",
-            "description": "高精度文档解析引擎",
+            "description": "High-precision document parsing engine",
             "available": true
         },
         {
             "name": "tika",
             "label": "Apache Tika",
-            "description": "通用文档解析引擎",
+            "description": "General-purpose document parsing engine",
             "available": false
         }
     ],
@@ -74,9 +74,9 @@ curl --location 'http://localhost:8080/api/v1/system/parser-engines' \
 }
 ```
 
-## POST `/system/parser-engines/check` - 检查解析引擎可用性
+## POST `/system/parser-engines/check` - Check Parser Engine Availability
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/system/parser-engines/check' \
@@ -87,7 +87,7 @@ curl --location 'http://localhost:8080/api/v1/system/parser-engines/check' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -95,7 +95,7 @@ curl --location 'http://localhost:8080/api/v1/system/parser-engines/check' \
         {
             "name": "docreader",
             "label": "DocReader",
-            "description": "高精度文档解析引擎",
+            "description": "High-precision document parsing engine",
             "available": true
         }
     ],
@@ -103,9 +103,9 @@ curl --location 'http://localhost:8080/api/v1/system/parser-engines/check' \
 }
 ```
 
-## POST `/system/docreader/reconnect` - 重连文档解析服务
+## POST `/system/docreader/reconnect` - Reconnect Document Parsing Service
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/system/docreader/reconnect' \
@@ -116,7 +116,7 @@ curl --location 'http://localhost:8080/api/v1/system/docreader/reconnect' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -124,9 +124,9 @@ curl --location 'http://localhost:8080/api/v1/system/docreader/reconnect' \
 }
 ```
 
-## GET `/system/storage-engine-status` - 获取存储引擎状态
+## GET `/system/storage-engine-status` - Get Storage Engine Status
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/system/storage-engine-status' \
@@ -134,7 +134,7 @@ curl --location 'http://localhost:8080/api/v1/system/storage-engine-status' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -143,22 +143,22 @@ curl --location 'http://localhost:8080/api/v1/system/storage-engine-status' \
             {
                 "name": "minio",
                 "available": true,
-                "description": "MinIO 对象存储"
+                "description": "MinIO object storage"
             },
             {
                 "name": "cos",
                 "available": false,
-                "description": "腾讯云 COS 对象存储"
+                "description": "Tencent Cloud COS object storage"
             },
             {
                 "name": "s3",
                 "available": false,
-                "description": "AWS S3 对象存储"
+                "description": "AWS S3 object storage"
             },
             {
                 "name": "oss",
                 "available": false,
-                "description": "阿里云 OSS 对象存储"
+                "description": "Alibaba Cloud OSS object storage"
             }
         ],
         "minio_env_available": true
@@ -167,9 +167,9 @@ curl --location 'http://localhost:8080/api/v1/system/storage-engine-status' \
 }
 ```
 
-## POST `/system/storage-engine-check` - 检查存储引擎连通性
+## POST `/system/storage-engine-check` - Check Storage Engine Connectivity
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/system/storage-engine-check' \
@@ -187,17 +187,15 @@ curl --location 'http://localhost:8080/api/v1/system/storage-engine-check' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "ok": true,
-        "message": "连接成功",
+        "message": "Connection successful",
         "bucket_created": false
     },
     "success": true
 }
 ```
-
-

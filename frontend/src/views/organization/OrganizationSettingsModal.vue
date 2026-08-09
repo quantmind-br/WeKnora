@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div v-if="visible" class="settings-overlay" @click.self="handleClose">
         <div class="settings-modal">
-          <!-- 关闭按钮 -->
+          <!-- Close button -->
           <button class="close-btn" @click="handleClose" :aria-label="$t('common.close')">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -11,7 +11,7 @@
           </button>
 
           <div class="settings-container">
-            <!-- 左侧导航 -->
+            <!-- Left navigation -->
             <div class="settings-sidebar">
               <div class="sidebar-header">
                 <h2 class="sidebar-title">{{ modalTitle }}</h2>
@@ -36,15 +36,15 @@
               </div>
             </div>
 
-            <!-- 右侧内容区域 -->
+            <!-- Right content area -->
             <div class="settings-content">
               <div ref="contentWrapperRef" class="content-wrapper">
-                <!-- 组织管理员但空间角色不足，给出只读提示 -->
+                <!-- Org admin but insufficient space role, show read-only notice -->
                 <div v-if="showTenantRoleHint" class="tenant-role-hint">
                   <t-icon name="info-circle" size="16px" />
                   <span>{{ $t('organization.rbac.needTenantAdminTip') }}</span>
                 </div>
-                <!-- 基本信息 -->
+                <!-- Basic info -->
                 <div v-show="currentSection === 'basic'" class="section">
                   <div class="section-header">
                     <h2>{{ $t('organization.editor.basicTitle') }}</h2>
@@ -52,7 +52,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- 空间名称与头像：一行展示，头像点击弹出 Emoji 选择 -->
+                    <!-- Space name and avatar: shown on one line, click avatar to open Emoji picker -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('organization.name') }} <span class="required">*</span></label>
@@ -90,7 +90,7 @@
                       </div>
                     </div>
 
-                    <!-- 空间描述 -->
+                    <!-- Space description -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('organization.description') }}</label>
@@ -103,7 +103,7 @@
                       </div>
                     </div>
 
-                    <!-- 邀请成员 (仅管理员可见) -->
+                    <!-- Invite members (admin only) -->
                     <div v-if="isAdmin && orgId" class="setting-row setting-row-vertical">
                       <div class="setting-info full-width">
                         <label>{{ $t('organization.settings.inviteMembers') }}</label>
@@ -111,7 +111,7 @@
                       </div>
                       <div class="setting-control full-width">
                         <div class="invite-card">
-                          <!-- 邀请码 -->
+                          <!-- Invite code -->
                           <div class="invite-method">
                             <div class="invite-method-header">
                               <t-icon name="qrcode" class="invite-icon" />
@@ -138,7 +138,7 @@
 
                           <div class="invite-divider"></div>
 
-                          <!-- 邀请链接有效期 -->
+                          <!-- Invite link expiration -->
                           <div class="invite-method">
                             <div class="invite-method-header">
                               <t-icon name="time" class="invite-icon" />
@@ -153,7 +153,7 @@
 
                           <div class="invite-divider"></div>
 
-                          <!-- 邀请链接 -->
+                          <!-- Invite link -->
                           <div class="invite-method">
                             <div class="invite-method-header">
                               <t-icon name="link" class="invite-icon" />
@@ -171,7 +171,7 @@
 
                           <div class="invite-divider"></div>
 
-                          <!-- 需要审核开关 -->
+                          <!-- Review required toggle -->
                           <div class="invite-method">
                             <div class="invite-method-header">
                               <t-icon name="check-circle" class="invite-icon" />
@@ -185,7 +185,7 @@
 
                           <div class="invite-divider"></div>
 
-                          <!-- 开放可被搜索 -->
+                          <!-- Open to search toggle -->
                           <div class="invite-method">
                             <div class="invite-method-header">
                               <t-icon name="search" class="invite-icon" />
@@ -199,7 +199,7 @@
 
                           <div class="invite-divider"></div>
 
-                          <!-- 成员人数上限 -->
+                          <!-- Member limit -->
                           <div class="invite-method">
                             <div class="invite-method-header">
                               <t-icon name="user-add" class="invite-icon" />
@@ -225,7 +225,7 @@
                   </div>
                 </div>
 
-                <!-- 创建空间 - 权限说明 -->
+                <!-- Create space - permission notes -->
                 <div v-if="isCreateMode" v-show="currentSection === 'permissions'" class="section">
                   <div class="section-header">
                     <h2>{{ $t('organization.editor.permissionsTitle') }}</h2>
@@ -294,7 +294,7 @@
                   </div>
                 </div>
 
-                <!-- 成员管理 -->
+                <!-- Member management -->
                 <div v-show="currentSection === 'members'" class="section">
                   <div class="section-header">
                     <div class="section-header-row">
@@ -500,7 +500,7 @@
                   </div>
                 </div>
 
-                <!-- 加入申请（待审核） -->
+                <!-- Join requests (pending review) -->
                 <div v-show="currentSection === 'joinRequests'" class="section">
                   <div class="section-header">
                     <h2>{{ $t('organization.settings.joinRequests') }}</h2>
@@ -621,7 +621,7 @@
                   </div>
                 </div>
 
-                <!-- 共享知识库 -->
+                <!-- Shared knowledge bases -->
                 <div v-show="currentSection === 'sharedKb'" class="section">
                   <div class="section-header">
                     <div class="section-header-row">
@@ -715,7 +715,7 @@
                   </div>
                 </div>
 
-                <!-- 共享智能体 -->
+                <!-- Shared agents -->
                 <div v-show="currentSection === 'sharedAgents'" class="section">
                   <div class="section-header">
                     <div class="section-header-row">
@@ -802,7 +802,7 @@
 
               </div>
 
-              <!-- 底部操作按钮 -->
+              <!-- Bottom action buttons -->
               <div class="settings-footer">
                 <t-button variant="outline" @click="handleClose">{{ $t('common.cancel') }}</t-button>
                 <t-button v-if="isAdmin" theme="primary" :loading="submitting" @click="handleSave">
@@ -887,9 +887,9 @@ const upgradeForm = ref({
   message: ''
 })
 
-// 添加成员（按空间邀请）相关状态。Plan 3 之后，邀请实际上是把
-// 一整个空间拉进空间；这里的「搜索结果」是空间候选列表，每条带一个
-// 代表用户用于展示。`selectedTenantId` 是真正提交给后端的 tenant_id。
+// State for adding members (space invitation). After Plan 3, invitations actually pull
+// an entire space into a space; the "search results" here are candidate spaces, each with a
+// Represents the user for display. `selectedTenantId` is the tenant_id actually submitted to the backend.
 const addMemberPopupVisible = ref(false)
 const addMemberSubmitting = ref(false)
 const tenantSearchLoading = ref(false)
@@ -907,7 +907,7 @@ const formData = ref({
   member_limit: 50 as number // 0 = unlimited
 })
 
-// 空间头像可选 Emoji（方案三：Emoji 作为头像）
+// Space avatar can optionally use an Emoji (Option 3: Emoji as avatar)
 const avatarEmojiOptions = [
   '🚀', '📁', '👥', '🏢', '💡', '📚', '🌟', '🔧', '📌', '🎯',
   '📂', '🔒', '🌐', '⚡', '🎨', '📊', '🤝', '💼', '📧', '🏠',
@@ -927,10 +927,10 @@ function clearAvatarEmoji() {
 // Computed
 const isCreateMode = computed(() => props.mode === 'create')
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create')
-// 后端组织相关变更接口（保存设置、邀请、搜索用户、改/删成员、审核加入申请、
-// 升级申请、刷新邀请码、移除共享等）在路由层都要求当前空间角色 ≥ admin（见
-// internal/router/router.go 的 RegisterOrganizationRoutes）。跨空间超管可绕过。
-// 因此前端任何"管理类"入口必须同时满足：组织内是 admin/owner ∩ 当前空间 admin+。
+// Organization-related backend change endpoints (save settings, invite, search users, edit/remove members, review join requests,
+// upgrade requests, refresh invite code, remove sharing, etc.) all require the current space role ≥ admin at the router layer (see
+// RegisterOrganizationRoutes in internal/router/router.go). Cross-space super admins can bypass this.
+// Therefore, any "admin-type" entry point on the frontend must satisfy both: admin/owner within the organization ∩ admin+ in the current space.
 const hasTenantAdmin = computed(
   () => authStore.hasRole('admin') || authStore.canAccessAllTenants
 )
@@ -940,14 +940,14 @@ const isAdmin = computed(() => {
   return !!orgAdmin && hasTenantAdmin.value
 })
 
-// 当用户在组织内是 admin/owner 但当前空间角色不足时，展示只读提示
+// When the user is admin/owner within the organization but their role in the current space is insufficient, show a read-only notice
 const showTenantRoleHint = computed(() => {
   if (isCreateMode.value) return !hasTenantAdmin.value
   const orgAdmin = orgInfo.value?.my_role === 'admin' || orgInfo.value?.is_owner
   return !!orgAdmin && !hasTenantAdmin.value
 })
 
-// 是否可以申请权限升级（非管理员成员可申请；后端也要求空间 admin+）
+// Whether permission upgrade can be requested (non-admin members can request; the backend also requires space admin+)
 const canRequestUpgrade = computed(() => {
   if (isCreateMode.value || !props.orgId) return false
   const myRole = orgInfo.value?.my_role
@@ -955,7 +955,7 @@ const canRequestUpgrade = computed(() => {
   return hasTenantAdmin.value
 })
 
-// 可申请的角色选项（比当前角色高的角色）
+// Requestable role options (roles higher than the current role)
 const upgradeRoleOptions = computed(() => {
   const myRole = orgInfo.value?.my_role || 'viewer'
   const options = []
@@ -968,15 +968,15 @@ const upgradeRoleOptions = computed(() => {
   return options
 })
 
-// 添加成员时可选的角色
+// Roles selectable when adding a member
 const addMemberRoleOptions = computed(() => [
   { label: t('organization.role.viewer'), value: 'viewer' },
   { label: t('organization.role.editor'), value: 'editor' },
   { label: t('organization.role.admin'), value: 'admin' },
 ])
 
-// 空间搜索结果选项。成员单位是空间，只按空间名搜索，因此直接展示空间名；
-// 空间名缺失时回退到空间 ID。
+// Space search result option. The member unit is a space, and search is by space name only, so the space name is shown directly;
+// falls back to the space ID when the space name is missing.
 const tenantSearchOptions = computed(() =>
   tenantSearchResults.value.map((c) => ({
     label: c.tenant_name || `tenant#${c.tenant_id}`,
@@ -996,7 +996,7 @@ const navItems = computed(() => {
   if (isCreateMode.value) {
     items.push({ key: 'permissions', icon: 'user-safety', label: t('organization.editor.navPermissions') })
   }
-  // 只有在编辑已有组织时才显示成员管理、加入申请（仅管理员）、共享知识库
+  // Member management, join requests (admins only), and shared knowledge base are only shown when editing an existing organization
   if (props.orgId && !isCreateMode.value) {
     items.push({ key: 'members', icon: 'user', label: t('organization.manageMembers') })
     if (isAdmin.value) {
@@ -1239,16 +1239,16 @@ function joinRequestApplicantSecondary(req: JoinRequestResponse): string {
   return ''
 }
 
-// 成员行的主标题：优先展示「空间名」，回退到代表用户名 / 空间 ID。Plan 3
-// 之后每一行成员都对应一个空间，UI 必须先于代表用户呈现空间身份，
-// 否则用户会误以为这是按"人"加进来的。
+// Primary title of the member row: prefer showing the "space name", falling back to the representative username / space ID. Plan 3
+// every subsequent member row corresponds to a space, so the UI must present the space identity before the representative user,
+// otherwise users would mistakenly think this was added on a per-"person" basis.
 const memberPrimaryLabel = (m: OrganizationMember): string => {
   return m.tenant_name || m.username || `tenant#${m.tenant_id}`
 }
 
-// 副标题：主标题展示的是空间名时，副标题展示代表用户名；如果主标题已经
-// 是用户名（无 tenant_name 时的回退），副标题留空，避免重复信息。
-// 邮箱在空间成员列表里没什么用（不是邀请人需要联系的对象），不展示。
+// Subtitle: when the primary title shows the space name, the subtitle shows the representative username; if the primary title
+// is already the username (the fallback when there's no tenant_name), leave the subtitle empty to avoid redundant information.
+// Email is not useful in the space member list (not someone the inviter needs to contact), so it isn't shown.
 const memberSecondaryLabel = (m: OrganizationMember): string => {
   if (m.tenant_name && m.username) {
     return m.username
@@ -1321,7 +1321,7 @@ const fetchOrgDetail = async () => {
       }
       inviteCode.value = res.data.invite_code || ''
       inviteCodeExpiresAt.value = res.data.invite_code_expires_at ?? null
-      // 初始化是否有待处理的升级申请
+      // Initialize whether there are pending upgrade requests
       hasPendingUpgrade.value = res.data.has_pending_upgrade || false
     }
   } catch (error) {
@@ -1425,8 +1425,8 @@ const fetchJoinRequests = async () => {
 }
 
 /**
- * 审批结果会同时影响设置弹窗、空间卡片和全局侧栏中的待审批数量。
- * 后两处读取的是 organization store，因此必须绕过列表缓存并同步最新计数。
+ * The approval result affects the pending-approval count in the settings dialog, the space card, and the global sidebar simultaneously.
+ * The latter two read from the organization store, so the list cache must be bypassed to sync the latest count.
  */
 const refreshOrganizationAfterReview = async () => {
   await Promise.all([
@@ -1500,7 +1500,7 @@ const handleSave = async () => {
   submitting.value = true
   try {
     if (isCreateMode.value) {
-      // 创建模式
+      // Create mode
       const result = await orgStore.create(
         formData.value.name.trim(),
         formData.value.description.trim(),
@@ -1514,7 +1514,7 @@ const handleSave = async () => {
         MessagePlugin.error(orgStore.error || t('organization.createFailed'))
       }
     } else {
-      // 编辑模式
+      // Edit mode
       if (!props.orgId) return
       const result = await orgStore.updateOrganization(props.orgId, {
         name: formData.value.name.trim(),
@@ -1606,7 +1606,7 @@ const handleSubmitUpgrade = async () => {
   }
 }
 
-// 添加成员：搜索空间（仅按空间名模糊匹配，按 tenant_id 去重）
+// Add member: search spaces (fuzzy match by space name only, deduplicated by tenant_id)
 let tenantSearchTimer: ReturnType<typeof setTimeout> | null = null
 const handleTenantSearch = (query: string) => {
   if (tenantSearchTimer) {
@@ -1632,8 +1632,8 @@ const handleTenantSearch = (query: string) => {
   }, 300)
 }
 
-// 添加成员：把选中的空间拉入空间。后端要求 tenant_id；representative_user_id
-// 仅做展示/审计用，所以把搜索结果中代表用户也一并带上。
+// Add member: pull the selected space into the space. The backend requires tenant_id; representative_user_id
+// is for display/audit purposes only, so the representative user from the search results is included as well.
 const handleAddMember = async () => {
   if (!props.orgId || selectedTenantId.value == null) return
 
@@ -1652,7 +1652,7 @@ const handleAddMember = async () => {
       MessagePlugin.success(t('organization.addMember.success'))
       addMemberPopupVisible.value = false
       resetAddMemberDialog()
-      fetchMembers() // 刷新成员列表
+      fetchMembers() // Refresh member list
     } else {
       MessagePlugin.error(res.message || t('organization.addMember.failed'))
     }
@@ -1663,7 +1663,7 @@ const handleAddMember = async () => {
   }
 }
 
-// 重置添加成员弹窗
+// Reset the add-member dialog
 const resetAddMemberDialog = () => {
   selectedTenantId.value = null
   addMemberRole.value = 'viewer'
@@ -1750,7 +1750,7 @@ const handleValidityChange = async (value: number) => {
   }
 }
 
-// 切换审核开关时立即保存
+// Save immediately when toggling the review switch
 const handleApprovalToggle = async (value: boolean) => {
   if (!props.orgId) return
   try {
@@ -1760,18 +1760,18 @@ const handleApprovalToggle = async (value: boolean) => {
     if (result) {
       MessagePlugin.success(t('common.saveSuccess'))
     } else {
-      // 回滚
+      // Rollback
       formData.value.require_approval = !value
       MessagePlugin.error(orgStore.error || t('common.saveFailed'))
     }
   } catch (error: any) {
-    // 回滚
+    // Rollback
     formData.value.require_approval = !value
     MessagePlugin.error(error?.message || t('common.saveFailed'))
   }
 }
 
-// 切换开放可被搜索时立即保存
+// Save immediately when toggling searchable/open
 const handleSearchableToggle = async (value: boolean) => {
   if (!props.orgId) return
   try {
@@ -1888,14 +1888,14 @@ watch(() => props.visible, (newVal) => {
     approvePopupRequestId.value = null
     joinRequests.value = []
     if (props.mode === 'create') {
-      // 创建模式：重置表单
+      // Create mode: reset form
       formData.value = { name: '', description: '', avatar: '', require_approval: false, searchable: false, invite_code_validity_days: 7, member_limit: 50 }
       orgStore.clearCurrentOrganizationContext()
       sharedKnowledgeBases.value = []
       inviteCode.value = ''
       inviteCodeExpiresAt.value = null
     } else if (props.orgId) {
-      // 清空上一个组织的详情上下文，避免在 fetchOrgDetail 返回前短暂显示旧组织信息
+      // Clear the previous organization's detail context to avoid briefly showing stale organization info before fetchOrgDetail returns
       if (orgStore.currentOrganization?.id !== props.orgId) {
         orgStore.clearCurrentOrganizationContext()
         sharedKnowledgeBases.value = []
@@ -2325,7 +2325,7 @@ watch(addMemberPopupVisible, (visible) => {
   }
 }
 
-// 创建模式权限说明卡片
+// Permission description card for create mode
 .permissions-info {
   display: flex;
   flex-direction: column;
@@ -2423,7 +2423,7 @@ watch(addMemberPopupVisible, (visible) => {
   }
 }
 
-/* 头像 Emoji 弹层内容 */
+/* Avatar Emoji popover content */
 .avatar-popover-content {
   padding: 12px;
   min-width: 260px;
@@ -2478,7 +2478,7 @@ watch(addMemberPopupVisible, (visible) => {
   color: var(--td-brand-color-active);
 }
 
-// 邀请卡片样式
+// Invite card style
 .invite-card {
   background: var(--td-bg-color-secondarycontainer);
   border: 1px solid var(--td-component-stroke);
@@ -2594,7 +2594,7 @@ watch(addMemberPopupVisible, (visible) => {
   }
 }
 
-// 成员管理（对齐 TenantMembers 列表 + 权限弹层）
+// Member management (aligned with TenantMembers list + permission popover)
 .section-header-row {
   display: flex;
   align-items: center;
@@ -3141,7 +3141,7 @@ watch(addMemberPopupVisible, (visible) => {
   }
 }
 
-// 权限升级申请弹出层（对齐添加成员 popup）
+// Permission upgrade request popover (aligned with the add-member popup)
 
 .add-member-tip {
   margin: 0 0 14px;
@@ -3213,7 +3213,7 @@ watch(addMemberPopupVisible, (visible) => {
 </style>
 
 <style lang="less">
-/* 权限说明 / 提示弹出层（t-popup 挂到 body，须全局样式） */
+/* Permission notes / tooltip popup (t-popup mounted to body, requires global styles) */
 .org-permissions-popup-overlay {
   z-index: 3050 !important;
 
@@ -3363,7 +3363,7 @@ watch(addMemberPopupVisible, (visible) => {
   }
 }
 
-/* 添加成员 / 权限升级弹出层（与空间成员管理邀请弹层一致） */
+/* Add member / permission upgrade popup (same as the space member management invite popup) */
 .org-add-member-popup-overlay,
 .org-upgrade-popup-overlay,
 .org-approve-request-popup-overlay {

@@ -273,7 +273,7 @@ function handleGoToOrgSettings(orgId: string) {
     path: '/platform/organizations',
     query: { orgId }
   })
-  // 关闭当前弹窗
+  // Close the current dialog
   emit('update:visible', false)
 }
 </script>

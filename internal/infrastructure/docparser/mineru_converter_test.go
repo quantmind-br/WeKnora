@@ -89,7 +89,7 @@ func TestProcessImagesKeepsReferencedVariants(t *testing.T) {
 
 // TestProcessImagesMatchesPathsWithSpaces guards against a regression where
 // MinerU image filenames containing spaces (common on Chinese documents,
-// e.g. "images/第 1 页.jpg") would be silently dropped because the markdown
+// e.g. "images/page 1.jpg") would be silently dropped because the markdown
 // regex used to extract refs disallowed whitespace inside the URL group.
 func TestProcessImagesMatchesPathsWithSpaces(t *testing.T) {
 	reader := &MinerUReader{}

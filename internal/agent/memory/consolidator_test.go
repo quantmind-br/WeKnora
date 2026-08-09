@@ -118,7 +118,7 @@ func TestBuildConsolidationPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "**Tool [web_search]**: results here")
 }
 
-// ---------- Consolidate() 核心流程测试 ----------
+// ---------- Consolidate() core process test ----------
 
 func TestConsolidate_TooFewMessages(t *testing.T) {
 	est, err := token.NewEstimator()

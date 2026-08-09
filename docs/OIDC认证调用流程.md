@@ -1,59 +1,60 @@
-# WeKnora OIDC 认证调用流程
+--- DOCUMENT START ---
+# WeKnora OIDC Authentication Flow
 
-本文档说明 WeKnora 当前 OIDC 登录能力的实际调用过程，覆盖：
+This document describes the actual call flow of WeKnora's current OIDC login capability, covering:
 
-- 前端如何判断是否展示 OIDC 登录入口
-- 用户点击 OIDC 登录后的前后端调用链路
-- 后端如何与 OIDC Provider 交互
-- 登录成功后前端如何接收结果并落盘本地登录态
-- 关键配置项与本地联调方式
+- How the frontend determines whether to display the OIDC login entry point
+- The frontend-backend call chain after a user clicks OIDC login
+- How the backend interacts with the OIDC Provider
+- How the frontend receives the result after a successful login and persists the local login state
+- Key configuration items and how to test locally
 
-本文内容基于当前项目实现，相关代码主要位于：
+The content of this document is based on the current project implementation. The relevant code is mainly located at:
 
-- 后端路由：`internal/router/router.go`
-- 认证处理：`internal/handler/auth.go`
-- 认证服务：`internal/application/service/user.go`
-- 配置定义：`internal/config/config.go`
-- 前端登录页：`frontend/src/views/auth/Login.vue`
-- 前端全局回调处理：`frontend/src/App.vue`
-- 前端认证 API：`frontend/src/api/auth/index.ts`
-- 本地 Dex 示例：`misc/dex-config.yaml`
-
----
-
-## 1. 整体设计说明
-
-本项目的 OIDC 登录采用的是 **后端发起授权参数生成、后端接收回调并完成 code 换 token、前端通过 URL hash 接收最终登录结果** 的模式。
-
-和常见的纯前端 OIDC SDK 不同，WeKnora 的特点是：
-
-1. **前端只负责发起跳转**，不直接和 OIDC Provider 交换 token。
-2. **后端负责用授权码 `code` 向 OIDC Provider 换取 token**。
-3. 后端拿到 OIDC 用户信息后，会：
-   - 查找本地用户；
-   - 若用户不存在，则自动创建本地账号和默认空间；
-   - 最终签发 WeKnora 自己的本地 JWT（`token` / `refresh_token`）。
-4. 后端不会直接把登录结果放在 query string 中，而是：
-   - 将登录结果 JSON（ `success`、`token`、`refresh_token` 等字段）序列化后再做 base64url 编码；
-   - 以 `#oidc_result=...` 的形式重定向回前端；
-   - 前端在 `App.vue` 中统一解析 hash，再调用 `/api/v1/auth/me` 补全用户和空间信息。
-
-因此，**OIDC Provider 的 token 只用于后端换取用户身份，本项目真正的业务访问凭证仍然是 WeKnora 自己签发的 JWT**。
+- Backend routing: `internal/router/router.go`
+- Authentication handling: `internal/handler/auth.go`
+- Authentication service: `internal/application/service/user.go`
+- Configuration definitions: `internal/config/config.go`
+- Frontend login page: `frontend/src/views/auth/Login.vue`
+- Frontend global callback handling: `frontend/src/App.vue`
+- Frontend authentication API: `frontend/src/api/auth/index.ts`
+- Local Dex example: `misc/dex-config.yaml`
 
 ---
 
-## 2. 相关接口
+## 1. Overall Design Description
 
-当前 OIDC 相关接口均注册在 `internal/router/router.go` 中：
+The project's OIDC login uses a model where **the backend initiates authorization parameter generation, the backend receives the callback and completes the code-for-token exchange, and the frontend receives the final login result via the URL hash**.
+
+Unlike the common pure-frontend OIDC SDK approach, WeKnora's characteristics are:
+
+1. **The frontend is only responsible for initiating the redirect**, and does not directly exchange tokens with the OIDC Provider.
+2. **The backend is responsible for exchanging the authorization code `code` for a token with the OIDC Provider**.
+3. After the backend obtains the OIDC user information, it will:
+   - Look up the local user;
+   - If the user does not exist, automatically create a local account and default space;
+   - Finally issue WeKnora's own local JWT (`token` / `refresh_token`).
+4. Instead of placing the login result directly in the query string, the backend will:
+   - Serialize the login result JSON (fields such as `success`, `token`, `refresh_token`) and base64url-encode it;
+   - Redirect back to the frontend in the form `#oidc_result=...`;
+   - The frontend uniformly parses the hash in `App.vue`, then calls `/api/v1/auth/me` to complete the user and space information.
+
+Therefore, **the OIDC Provider's token is only used by the backend to obtain the user's identity — the actual business access credential used by this project is still the JWT issued by WeKnora itself**.
+
+---
+
+## 2. Related Endpoints
+
+The current OIDC-related endpoints are all registered in `internal/router/router.go`:
 
 - `GET /api/v1/auth/oidc/config`
-  - 获取 OIDC 是否启用，以及 Provider 展示名称
+  - Retrieves whether OIDC is enabled and the Provider's display name
 - `GET /api/v1/auth/oidc/url`
-  - 生成第三方登录跳转地址
+  - Generates the third-party login redirect address
 - `GET /api/v1/auth/oidc/callback`
-  - OIDC Provider 回调地址
+  - The OIDC Provider callback address
 
-其中，前端常规登录仍然使用：
+The frontend's regular login flow still uses:
 
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
@@ -62,186 +63,186 @@
 
 ---
 
-## 3. 调用流程图
+## 3. Call Flow Diagrams
 
-### 3.1 总体时序图
+### 3.1 Overall Sequence Diagram
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as 用户浏览器
-    participant FE as 前端(Login/App)
-    participant BE as WeKnora 后端
+    participant U as User Browser
+    participant FE as Frontend(Login/App)
+    participant BE as WeKnora Backend
     participant OP as OIDC Provider
 
     FE->>BE: GET /api/v1/auth/oidc/config
     BE-->>FE: { enabled, provider_display_name }
 
-    U->>FE: 点击“OIDC 登录”
+    U->>FE: Click "OIDC Login"
     FE->>BE: GET /api/v1/auth/oidc/url?redirect_uri=...
     BE-->>FE: { success, authorization_url, state }
-    FE->>OP: 浏览器跳转到 authorization_url
+    FE->>OP: Browser redirects to authorization_url
 
     OP-->>BE: GET /api/v1/auth/oidc/callback?code=...&state=...
-    BE->>OP: POST token endpoint (code 换 token)
+    BE->>OP: POST token endpoint (exchange code for token)
     OP-->>BE: access_token / id_token
-    BE->>OP: GET userinfo endpoint（可选）
-    OP-->>BE: 用户信息 claims
+    BE->>OP: GET userinfo endpoint (optional)
+    OP-->>BE: user info claims
 
-    BE->>BE: 查找/自动创建本地用户
-    BE->>BE: 签发本地 token、refresh_token
-    BE-->>FE: 302 到 /#oidc_result=...
+    BE->>BE: Look up / auto-create local user
+    BE->>BE: Issue local token, refresh_token
+    BE-->>FE: 302 to /#oidc_result=...
 
-    FE->>FE: App.vue 解析 hash
+    FE->>FE: App.vue parses hash
     FE->>BE: GET /api/v1/auth/me
     BE-->>FE: { user, tenant }
-    FE->>FE: 写入 authStore/token/user/tenant
-    FE-->>U: 跳转 /platform/knowledge-bases
+    FE->>FE: Write authStore/token/user/tenant
+    FE-->>U: Redirect to /platform/knowledge-bases
 ```
 
-### 3.2 后端回调处理分支图
+### 3.2 Backend Callback Handling Branch Diagram
 
 ```mermaid
 flowchart TD
-    A[OIDC Provider 回调到 /api/v1/auth/oidc/callback] --> B{query 中是否有 error}
-    B -- 是 --> C[拼接 #oidc_error 和 error_description]
-    C --> D[302 重定向到前端登录页]
+    A[OIDC Provider callback to /api/v1/auth/oidc/callback] --> B{Does query contain error}
+    B -- Yes --> C[Append #oidc_error and error_description]
+    C --> D[302 redirect to frontend login page]
 
-    B -- 否 --> E[解析 state]
-    E --> F{state 是否合法且包含 redirect_uri}
-    F -- 否 --> G[302 到前端并带 #oidc_error=invalid_state]
+    B -- No --> E[Parse state]
+    E --> F{Is state valid and contains redirect_uri}
+    F -- No --> G[302 to frontend with #oidc_error=invalid_state]
 
-    F -- 是 --> H{是否有 code}
-    H -- 否 --> I[302 到前端并带 #oidc_error=missing_code]
+    F -- Yes --> H{Is there a code}
+    H -- No --> I[302 to frontend with #oidc_error=missing_code]
 
-    H -- 是 --> J[调用 LoginWithOIDC，传入 code 和 redirect_uri]
-    J --> K[向 OIDC token endpoint 换 token]
-    K --> L[解析 id_token / 调用 userinfo]
-    L --> M{本地用户是否存在}
-    M -- 否 --> N[自动注册新用户并创建默认空间]
-    M -- 是 --> O[使用现有用户]
-    N --> P[签发 WeKnora JWT]
+    H -- Yes --> J[Call LoginWithOIDC, passing code and redirect_uri]
+    J --> K[Exchange for token at OIDC token endpoint]
+    K --> L[Parse id_token / call userinfo]
+    L --> M{Does the local user exist}
+    M -- No --> N[Automatically register a new user and create default space]
+    M -- Yes --> O[Use existing user]
+    N --> P[Issue WeKnora JWT]
     O --> P
-    P --> Q[编码最小必要登录结果为 oidc_result]
-    Q --> R[302 重定向到前端首页 hash]
+    P --> Q[Encode minimal necessary login result as oidc_result]
+    Q --> R[302 redirect to frontend home page hash]
 ```
 
 ---
 
-## 4. 前端调用流程
+## 4. Frontend Call Flow
 
-## 4.1 登录页初始化：决定是否展示 OIDC 登录按钮
+## 4.1 Login Page Initialization: Deciding Whether to Show the OIDC Login Button
 
-登录页组件位于 `frontend/src/views/auth/Login.vue`。
+The login page component is located at `frontend/src/views/auth/Login.vue`.
 
-页面加载时会执行：
+When the page loads, it executes:
 
 ```ts
 loadOIDCConfig()
 ```
 
-该函数调用：
+This function calls:
 
 ```ts
 getOIDCConfig() -> GET /api/v1/auth/oidc/config
 ```
 
-后端 `GetOIDCConfig` 会读取 `configInfo.OIDCAuth`：
+The backend's `GetOIDCConfig` reads `configInfo.OIDCAuth`:
 
-- `enabled`: 是否启用 OIDC
-- `provider_display_name`: 登录按钮上展示的供应商名称
+- `enabled`: whether OIDC is enabled
+- `provider_display_name`: the provider name displayed on the login button
 
-前端据此决定：
+Based on this, the frontend decides:
 
-- 是否显示 OIDC 登录按钮；
-- 按钮文案是否显示为“使用 XXX 登录”。
+- Whether to show the OIDC login button;
+- Whether the button text should read "Sign in with XXX".
 
 ---
 
-## 4.2 用户点击 OIDC 登录按钮
+## 4.2 User Clicks the OIDC Login Button
 
-用户点击按钮后，`Login.vue` 中会执行 `handleOIDCLogin()`。
+After the user clicks the button, `Login.vue` executes `handleOIDCLogin()`.
 
-核心逻辑：
+Core logic:
 
-1. 前端先构造后端回调地址：
+1. The frontend first constructs the backend callback address:
 
 ```ts
 const getBackendOIDCRedirectURI = () => `${window.location.origin}/api/v1/auth/oidc/callback`
 ```
 
-其中：
+Where:
 
-- `redirect_uri`：提供给 OIDC Provider 的回调地址，必须是后端地址。
+- `redirect_uri`: the callback address provided to the OIDC Provider, which must be a backend address.
 
-登录成功后，后端固定回跳前端首页 `/`，并通过 hash 传递 OIDC 结果。
+After a successful login, the backend always redirects back to the frontend home page `/`, passing the OIDC result via the hash.
 
-2. 前端调用：
+2. The frontend calls:
 
 ```ts
 GET /api/v1/auth/oidc/url?redirect_uri=...
 ```
 
-3. 后端返回 `authorization_url` 后，前端直接执行：
+3. After the backend returns `authorization_url`, the frontend directly executes:
 
 ```ts
 window.location.href = authorizationURL
 ```
 
-浏览器随后离开 WeKnora 页面，跳转到 OIDC Provider 的授权页。
+The browser then leaves the WeKnora page and navigates to the OIDC Provider's authorization page.
 
 ---
 
-## 5. 后端生成授权地址
+## 5. Backend Generation of the Authorization Address
 
-对应处理器：`AuthHandler.GetOIDCAuthorizationURL`
+Corresponding handler: `AuthHandler.GetOIDCAuthorizationURL`
 
-对应服务：`userService.GetOIDCAuthorizationURL`
+Corresponding service: `userService.GetOIDCAuthorizationURL`
 
-### 5.1 参数校验
+### 5.1 Parameter Validation
 
-后端要求以下参数必须存在：
+The backend requires the following parameter to be present:
 
 - `redirect_uri`
 
-否则直接返回校验错误。
+Otherwise it returns a validation error directly.
 
-### 5.2 读取 OIDC 配置
+### 5.2 Reading OIDC Configuration
 
-`getOIDCConfig()` 会执行以下逻辑：
+`getOIDCConfig()` performs the following logic:
 
-1. 检查 `OIDCAuth.Enable` 是否为 `true`；
-2. 设置默认值：
-   - `ProviderDisplayName` 默认是 `OIDC`
-   - `Scopes` 默认是 `openid profile email`
-   - `UserInfoMapping.Username` 默认是 `name`
-   - `UserInfoMapping.Email` 默认是 `email`
-3. 若未显式配置授权/令牌端点，则通过 `discovery_url` 拉取 OIDC Discovery 文档；
-4. 自动补齐：
+1. Checks whether `OIDCAuth.Enable` is `true`;
+2. Sets default values:
+   - `ProviderDisplayName` defaults to `OIDC`
+   - `Scopes` defaults to `openid profile email`
+   - `UserInfoMapping.Username` defaults to `name`
+   - `UserInfoMapping.Email` defaults to `email`
+3. If the authorization/token endpoints are not explicitly configured, it fetches the OIDC Discovery document via `discovery_url`;
+4. Automatically fills in:
    - `authorization_endpoint`
    - `token_endpoint`
    - `userinfo_endpoint`
 
-### 5.3 生成 state
+### 5.3 Generating the State
 
-后端不会把 state 只当成随机串，而是编码了一个 JSON 结构：
+Instead of treating state as just a random string, the backend encodes a JSON structure:
 
 ```json
 {
-  "nonce": "随机字符串",
-  "redirect_uri": "后端回调地址"
+  "nonce": "random string",
+  "redirect_uri": "backend callback address"
 }
 ```
 
-然后再做 base64url 编码，作为 `state` 传给 Provider。
+This is then base64url-encoded and passed to the Provider as `state`.
 
-这样在 OIDC Provider 回调时，后端就可以从 `state` 里还原：
+This way, when the OIDC Provider calls back, the backend can restore from `state`:
 
-- 本次使用的后端 `redirect_uri`
+- The backend `redirect_uri` used for this request
 
-### 5.4 拼接授权地址
+### 5.4 Constructing the Authorization Address
 
-后端最终拼接的参数包含：
+The parameters the backend ultimately assembles include:
 
 - `response_type=code`
 - `client_id`
@@ -249,7 +250,7 @@ window.location.href = authorizationURL
 - `scope`
 - `state`
 
-然后返回给前端：
+Then returns to the frontend:
 
 ```json
 {
@@ -262,80 +263,80 @@ window.location.href = authorizationURL
 
 ---
 
-## 6. OIDC Provider 回调到后端
+## 6. OIDC Provider Callback to the Backend
 
-OIDC Provider 完成认证后，会回调：
+After the OIDC Provider completes authentication, it calls back:
 
 ```text
 GET /api/v1/auth/oidc/callback
 ```
 
-处理器为 `AuthHandler.OIDCRedirectCallback`。
+The handler is `AuthHandler.OIDCRedirectCallback`.
 
-### 6.1 Provider 返回错误时
+### 6.1 When the Provider Returns an Error
 
-如果 query 中带有：
+If the query contains:
 
 - `error`
 - `error_description`
 
-后端不会返回 JSON，而是直接 302 到前端首页 `/`，并带上 hash：
+The backend does not return JSON, but instead issues a 302 directly to the frontend home page `/`, with the hash:
 
 ```text
 #oidc_error=...&oidc_error_description=...
 ```
 
-### 6.2 解析 state
+### 6.2 Parsing State
 
-后端会把 `state` 做 base64url 解码并解析为结构体。
+The backend base64url-decodes `state` and parses it into a struct.
 
-如果出现以下情况，将判定失败：
+The following cases are treated as failure:
 
-- `state` 无法解码
-- JSON 结构非法
-- `state.redirect_uri` 为空
+- `state` cannot be decoded
+- The JSON structure is invalid
+- `state.redirect_uri` is empty
 
-失败时会重定向到前端首页：
+On failure, it redirects to the frontend home page:
 
 ```text
 #oidc_error=invalid_state
 ```
 
-### 6.3 校验 code
+### 6.3 Validating the Code
 
-如果没有收到 `code`，则重定向：
+If no `code` is received, it redirects:
 
 ```text
 #oidc_error=missing_code
 ```
 
-### 6.4 正式执行 OIDC 登录
+### 6.4 Executing OIDC Login
 
-若 `state` 与 `code` 都合法，则调用：
+If both `state` and `code` are valid, it calls:
 
 ```go
 LoginWithOIDC(ctx, code, decodedState.RedirectURI, h.resolveDefaultTenantMode(ctx))
 ```
 
-注意这里传入的是 **state 中保存的 redirect_uri**，而不是重新拼接的地址，这样保证了 code 交换时使用的 `redirect_uri` 和授权时完全一致。
+Note that the `redirect_uri` passed here is the one **saved in the state**, not a freshly reconstructed address — this ensures that the `redirect_uri` used during the code exchange exactly matches the one used at authorization time.
 
-第四个参数是首次自动开户时的默认空间策略，由 `resolveDefaultTenantMode` 从 `auth.default_tenant_mode`（SystemSetting，DB > `WEKNORA_AUTH_DEFAULT_TENANT_MODE` > 配置文件）解析，与本地密码注册共用同一开关；OIDC 不再有独立的 `OIDC_AUTH_DEFAULT_TENANT_MODE`。
+The fourth parameter is the default space strategy used for first-time automatic account provisioning, resolved by `resolveDefaultTenantMode` from `auth.default_tenant_mode` (SystemSetting, DB > `WEKNORA_AUTH_DEFAULT_TENANT_MODE` > config file), sharing the same switch with local password registration; OIDC no longer has an independent `OIDC_AUTH_DEFAULT_TENANT_MODE`.
 
 ---
 
-## 7. 后端用 code 换 token 并解析用户身份
+## 7. Backend Exchanges Code for Token and Resolves User Identity
 
-核心逻辑位于 `internal/application/service/user.go`。
+The core logic is located in `internal/application/service/user.go`.
 
-## 7.1 换取 OIDC token
+## 7.1 Exchanging for the OIDC Token
 
-`exchangeOIDCCode()` 会向 OIDC Provider 的 `token_endpoint` 发起：
+`exchangeOIDCCode()` sends the following to the OIDC Provider's `token_endpoint`:
 
 ```text
 POST application/x-www-form-urlencoded
 ```
 
-表单参数包括：
+The form parameters include:
 
 - `grant_type=authorization_code`
 - `code`
@@ -343,67 +344,67 @@ POST application/x-www-form-urlencoded
 - `client_id`
 - `client_secret`
 
-期望返回字段：
+Expected returned fields:
 
 - `access_token`
 - `id_token`
 - `token_type`
 
-如果 `access_token` 和 `id_token` 都缺失，则认为失败。
+If both `access_token` and `id_token` are missing, it is treated as a failure.
 
-## 7.2 解析用户信息
+## 7.2 Parsing User Information
 
-`resolveOIDCUserInfo()` 的处理顺序是：
+The processing order of `resolveOIDCUserInfo()` is:
 
-1. 如果有 `id_token`，先本地解码 JWT payload，提取 claims；
-2. 如果配置了 `userinfo_endpoint` 且有 `access_token`，再调用 userinfo 接口；
-3. 将两部分 claims 合并，userinfo 的字段可覆盖前面已取到的字段；
-4. 根据配置的 `user_info_mapping` 提取：
-   - 用户名字段
-   - 邮箱字段
+1. If there is an `id_token`, first decode the JWT payload locally to extract claims;
+2. If `userinfo_endpoint` is configured and there is an `access_token`, then call the userinfo endpoint;
+3. Merge the two sets of claims, where userinfo's fields can override fields already obtained earlier;
+4. Extract the following according to the configured `user_info_mapping`:
+   - The username field
+   - The email field
 
-默认映射：
+Default mapping:
 
 - `username -> name`
 - `email -> email`
 
-另外还有回退逻辑：
+There is also fallback logic:
 
-1. 若 username 为空，尝试 `preferred_username`
-2. 再尝试 `name`
-3. 再尝试从邮箱前缀生成用户名
+1. If username is empty, try `preferred_username`
+2. Then try `name`
+3. Then try generating a username from the email prefix
 
-如果最终没有拿到邮箱，则直接报错，因为本地用户是按 email 关联的。
+If an email still cannot be obtained in the end, an error is raised directly, since local users are associated by email.
 
 ---
 
-## 8. 本地用户关联与自动开通
+## 8. Local User Association and Automatic Provisioning
 
-### 8.1 通过邮箱查找用户
+### 8.1 Looking Up the User by Email
 
-后端使用 OIDC 返回的邮箱执行：
+The backend uses the email returned by OIDC to execute:
 
 ```go
 userRepo.GetUserByEmail(ctx, userInfo.Email)
 ```
 
-### 8.2 用户不存在时自动注册
+### 8.2 Automatic Registration When the User Does Not Exist
 
-若本地不存在该邮箱用户，则调用 `provisionOIDCUser()` 自动创建账号。
+If no local user exists with that email, `provisionOIDCUser()` is called to automatically create an account.
 
-自动创建逻辑包括：
+The automatic creation logic includes:
 
-1. 根据 OIDC 用户名/邮箱生成本地用户名；
-2. 若用户名冲突，则自动追加 `-1`、`-2` 等后缀；
-3. 生成随机密码；
-4. 调用现有 `Register()` 流程创建用户；
-5. `Register()` 内部还会自动创建默认空间。
+1. Generating a local username based on the OIDC username/email;
+2. If the username conflicts, automatically appending suffixes such as `-1`, `-2`, etc.;
+3. Generating a random password;
+4. Calling the existing `Register()` flow to create the user;
+5. `Register()` internally also automatically creates a default space.
 
-因此，**首次使用 OIDC 登录的用户，不需要提前在 WeKnora 中手工建号**。
+Therefore, **users logging in via OIDC for the first time do not need to manually create an account in WeKnora beforehand**.
 
-### 8.3 用户禁用处理
+### 8.3 Handling Disabled Users
 
-如果找到的本地用户 `IsActive=false`，则登录失败，回调给前端的错误信息为：
+If the found local user has `IsActive=false`, the login fails, and the error message returned to the frontend via the callback is:
 
 ```text
 Account is disabled
@@ -411,22 +412,22 @@ Account is disabled
 
 ---
 
-## 9. 生成 WeKnora 本地登录态
+## 9. Generating the WeKnora Local Login State
 
-OIDC 登录成功后，后端不会直接把 OIDC token 交给前端使用，而是继续执行：
+After a successful OIDC login, instead of directly handing the OIDC token to the frontend for use, the backend continues to execute:
 
 ```go
 GenerateTokens(ctx, user)
 ```
 
-生成两类 JWT：
+Two types of JWT are generated:
 
-- `token`：访问令牌，默认 24 小时
-- `refresh_token`：刷新令牌，默认 7 天
+- `token`: access token, 24 hours by default
+- `refresh_token`: refresh token, 7 days by default
 
-并写入本地 `auth_tokens` 存储（通过 `tokenRepo.CreateToken`）。
+These are written to the local `auth_tokens` store (via `tokenRepo.CreateToken`).
 
-最终后端会返回 OIDC 回调载荷，其中包含：
+Finally, the backend returns the OIDC callback payload, which includes:
 
 - `token`
 - `refresh_token`
@@ -434,131 +435,131 @@ GenerateTokens(ctx, user)
 - `message`
 - `is_new_user`
 
-这一步意味着：
+This step means:
 
-> OIDC 只负责“确认你是谁”，WeKnora 自己负责“签发系统内可用的业务令牌”。
+> OIDC is only responsible for "confirming who you are" — WeKnora itself is responsible for "issuing the business token usable within the system."
 
 ---
 
-## 10. 后端如何把结果传回前端
+## 10. How the Backend Passes the Result Back to the Frontend
 
-`OIDCRedirectCallback` 在拿到 `OIDCCallbackResponse` 后，会执行：
+After `OIDCRedirectCallback` obtains the `OIDCCallbackResponse`, it executes:
 
-1. 将响应对象 JSON 序列化；
-2. 用 base64url 编码；
-3. 302 重定向到：
+1. Serializes the response object to JSON;
+2. base64url-encodes it;
+3. Issues a 302 redirect to:
 
 ```text
 /#oidc_result=ENCODED_PAYLOAD
 ```
 
-失败时则返回：
+On failure, it returns:
 
 ```text
 /#oidc_error=...&oidc_error_description=...
 ```
 
-这里使用 hash 的好处是：
+The benefits of using the hash here are:
 
-- 不会把结果作为 query 参数再次发送给服务端；
-- 前端可以在浏览器本地直接读取并清理；
-- 避免刷新时重复向后端暴露这些参数。
+- The result is not sent to the server again as a query parameter;
+- The frontend can read and clean it up directly in the local browser;
+- It avoids re-exposing these parameters to the backend on refresh.
 
 ---
 
-## 11. 前端如何消费 OIDC 回调结果
+## 11. How the Frontend Consumes the OIDC Callback Result
 
-前端不是在 `Login.vue` 中处理回调，而是在 `frontend/src/App.vue` 中统一处理。
+The frontend does not handle the callback in `Login.vue`, but instead handles it uniformly in `frontend/src/App.vue`.
 
-这样即使后端把用户重定向到 `/`，应用根组件也能接住这次 OIDC 登录结果。
+This way, even if the backend redirects the user to `/`, the application's root component can still catch this OIDC login result.
 
-## 11.1 App.vue 解析 hash
+## 11.1 App.vue Parses the Hash
 
-应用挂载时执行：
+When the application mounts, it executes:
 
 ```ts
 handleGlobalOIDCCallback()
 ```
 
-它会读取：
+It reads:
 
 ```ts
 window.location.hash
 ```
 
-并解析以下字段：
+And parses the following fields:
 
 - `oidc_error`
 - `oidc_error_description`
 - `oidc_result`
 
-## 11.2 错误分支
+## 11.2 Error Branch
 
-如果存在 `oidc_error`：
+If `oidc_error` is present:
 
-1. 调用 `clearOIDCCallbackState('/login')` 清理 URL；
-2. 跳转到 `/login`；
-3. 弹出错误消息。
+1. Call `clearOIDCCallbackState('/login')` to clean up the URL;
+2. Redirect to `/login`;
+3. Show an error message.
 
-## 11.3 成功分支
+## 11.3 Success Branch
 
-如果存在 `oidc_result`：
+If `oidc_result` is present:
 
-1. base64url 解码并反序列化；
-2. 如果 `response.success=true`：
-   - 先写入 `authStore.setToken(...)`
-   - 再写入 `authStore.setRefreshToken(...)`
-   - 随后调用 `/api/v1/auth/me`
-   - 用 `/auth/me` 返回的 `user` / `tenant` 执行 `authStore.setUser(...)` 与 `authStore.setTenant(...)`
-3. 最终跳转到：
+1. base64url-decode and deserialize it;
+2. If `response.success=true`:
+   - First write `authStore.setToken(...)`
+   - Then write `authStore.setRefreshToken(...)`
+   - Then call `/api/v1/auth/me`
+   - Use the `user` / `tenant` returned by `/auth/me` to execute `authStore.setUser(...)` and `authStore.setTenant(...)`
+3. Finally redirect to:
 
 ```text
 /platform/knowledge-bases
 ```
 
-这与普通账号密码登录成功后的持久化逻辑保持一致。
+This is consistent with the persistence logic after a successful normal username/password login.
 
 ---
 
-## 12. 关键配置项
+## 12. Key Configuration Items
 
-OIDC 配置定义位于 `internal/config/config.go`，环境变量示例见 `.env.example`。
+The OIDC configuration definitions are located in `internal/config/config.go`; example environment variables are in `.env.example`.
 
-### 12.1 主要配置项
+### 12.1 Main Configuration Items
 
-| 配置项 | 说明 |
+| Configuration Item | Description |
 |---|---|
-| `OIDC_AUTH_ENABLE` | 是否启用 OIDC 登录 |
-| `OIDC_AUTH_ISSUER_URL` | Issuer 地址，可用于自动拼 discovery URL |
-| `OIDC_AUTH_DISCOVERY_URL` | OIDC Discovery 地址 |
-| `OIDC_AUTH_PROVIDER_DISPLAY_NAME` | 前端按钮显示名称 |
+| `OIDC_AUTH_ENABLE` | Whether to enable OIDC login |
+| `OIDC_AUTH_ISSUER_URL` | Issuer address, can be used to automatically construct the discovery URL |
+| `OIDC_AUTH_DISCOVERY_URL` | OIDC Discovery address |
+| `OIDC_AUTH_PROVIDER_DISPLAY_NAME` | Display name shown on the frontend button |
 | `OIDC_AUTH_CLIENT_ID` | OIDC Client ID |
 | `OIDC_AUTH_CLIENT_SECRET` | OIDC Client Secret |
-| `OIDC_AUTH_AUTHORIZATION_ENDPOINT` | 授权端点，可选 |
-| `OIDC_AUTH_TOKEN_ENDPOINT` | Token 端点，可选 |
-| `OIDC_AUTH_USER_INFO_ENDPOINT` | UserInfo 端点，可选 |
-| `OIDC_AUTH_SCOPES` | Scope 列表，默认 `openid profile email` |
-| `OIDC_USER_INFO_MAPPING_USER_NAME` | claims 中映射到用户名的字段名 |
-| `OIDC_USER_INFO_MAPPING_EMAIL` | claims 中映射到邮箱的字段名 |
+| `OIDC_AUTH_AUTHORIZATION_ENDPOINT` | Authorization endpoint, optional |
+| `OIDC_AUTH_TOKEN_ENDPOINT` | Token endpoint, optional |
+| `OIDC_AUTH_USER_INFO_ENDPOINT` | UserInfo endpoint, optional |
+| `OIDC_AUTH_SCOPES` | Scope list, default `openid profile email` |
+| `OIDC_USER_INFO_MAPPING_USER_NAME` | The field name in claims mapped to the username |
+| `OIDC_USER_INFO_MAPPING_EMAIL` | The field name in claims mapped to the email |
 
-### 12.2 启用时的最小要求
+### 12.2 Minimum Requirements When Enabled
 
-当 `OIDC_AUTH_ENABLE=true` 时，后端校验要求：
+When `OIDC_AUTH_ENABLE=true`, the backend validation requires:
 
-1. 必须有 `client_id`
-2. 必须有 `client_secret`
-3. 必须满足以下二选一：
-   - 配置 `discovery_url`
-   - 或同时配置 `authorization_endpoint + token_endpoint`
+1. `client_id` must be present
+2. `client_secret` must be present
+3. One of the following must be satisfied:
+   - `discovery_url` is configured
+   - or both `authorization_endpoint + token_endpoint` are configured
 
 ---
 
-## 13. 本地联调示例（Dex）
-[Dex](https://dexidp.io/) 是一个简单易用的OIDC Provider，您可以通过它对接多种第三方认证系统（如OAuth2.0，Google，GitHub，LDAP等）。除了Dex之外，您也可以选择[KeyCloak](https://www.keycloak.org/)等其他符合OpenID Connect协议的Provider进行接入。
+## 13. Local Testing Example (Dex)
+[Dex](https://dexidp.io/) is a simple, easy-to-use OIDC Provider that lets you connect to a variety of third-party authentication systems (such as OAuth2.0, Google, GitHub, LDAP, etc.). Besides Dex, you can also choose other OpenID Connect-compliant Providers such as [KeyCloak](https://www.keycloak.org/) for integration.
 
-项目中已提供 Dex 示例配置：`misc/dex-config.yaml`。
+The project already provides a Dex example configuration: `misc/dex-config.yaml`.
 
-其中静态客户端配置示例：
+The static client configuration example:
 
 ```yaml
 staticClients:
@@ -570,77 +571,79 @@ staticClients:
     # secret: <YOUR_SECRET_HERE>
 ```
 
-这说明本地调试时，需要确保 **Provider 注册的 redirect URI 与前端实际传给后端的 `redirect_uri` 完全一致**。
+This means that during local debugging, you need to ensure that **the redirect URI registered with the Provider exactly matches the `redirect_uri` actually passed by the frontend to the backend**.
 
-前端当前实现中使用的是：
+The current frontend implementation uses:
 
 ```ts
 ${window.location.origin}/api/v1/auth/oidc/callback
 ```
 
-所以：
+So:
 
-- 若前端从 `http://127.0.0.1:5173` 访问，则 redirect URI 为
+- If the frontend is accessed from `http://127.0.0.1:5173`, the redirect URI is
   `http://127.0.0.1:5173/api/v1/auth/oidc/callback`
-- 若通过 Nginx 统一入口访问，则可能是
+- If accessed through a unified Nginx entry point, it might be
   `http://127.0.0.1/api/v1/auth/oidc/callback`
 
-Provider 必须提前把这些地址加入白名单。
+The Provider must have these addresses whitelisted in advance.
 
 ---
 
-## 14. 调用链路总结
+## 14. Call Flow Summary
 
-可以把当前 OIDC 登录理解为以下 4 个阶段：
+The current OIDC login can be understood as consisting of the following 4 stages:
 
-### 阶段一：前端发现能力
+### Stage One: Frontend Discovers Capability
 
-前端调用 `/auth/oidc/config`，决定是否展示第三方登录入口。
+The frontend calls `/auth/oidc/config` to decide whether to display the third-party login entry point.
 
-### 阶段二：浏览器跳转授权
+### Stage Two: Browser Redirects for Authorization
 
-前端调用 `/auth/oidc/url` 获取授权地址，然后跳转到 OIDC Provider。
+The frontend calls `/auth/oidc/url` to obtain the authorization address, then redirects to the OIDC Provider.
 
-### 阶段三：后端完成身份兑换
+### Stage Three: Backend Completes Identity Exchange
 
-Provider 回调后端 `/auth/oidc/callback`，后端用 `code` 换 token、拉取用户信息、关联或创建本地用户，并签发 WeKnora JWT。
+The Provider calls back to the backend's `/auth/oidc/callback`; the backend exchanges the `code` for a token, fetches user information, associates or creates a local user, and issues a WeKnora JWT.
 
-### 阶段四：前端接收最终结果
+### Stage Four: Frontend Receives the Final Result
 
-后端 302 回前端，并通过 `#oidc_result` 传递登录结果；前端在 `App.vue` 中统一解析，写入本地登录态并进入业务页面。
-
----
-
-## 15. 注意事项
-
-1. **`redirect_uri` 必须严格匹配** Provider 客户端配置。
-2. **前端首页不是 OIDC Provider 回调地址**。
-   - Provider 回调的是后端 `/api/v1/auth/oidc/callback`
-	   - 后端再固定重定向到前端首页 `/`
-3. **邮箱是本地账号关联主键**。
-   - 若 Provider 没返回 email，将无法完成登录。
-4. **首次 OIDC 登录会自动创建用户和默认空间**。
-5. **真正用于访问 WeKnora API 的仍是本地 JWT**，不是 OIDC access token。
-6. 当前实现对 `state` 做了编码封装，但 **没有服务端持久化 state/nonce 校验**；它主要用于传递上下文和基本防错，而不是完整的防重放机制。
+The backend issues a 302 back to the frontend, passing the login result via `#oidc_result`; the frontend parses it uniformly in `App.vue`, writes the local login state, and enters the business pages.
 
 ---
 
-## 16. 相关源码定位
+## 15. Notes
 
-- 前端是否展示 OIDC 登录按钮：
+1. **`redirect_uri` must match exactly** with the Provider's client configuration.
+2. **The frontend home page is not the OIDC Provider callback address**.
+   - The Provider calls back to the backend's `/api/v1/auth/oidc/callback`
+	   - The backend then always redirects to the frontend home page `/`
+3. **Email is the primary key for local account association**.
+   - If the Provider does not return an email, the login cannot be completed.
+4. **A first-time OIDC login automatically creates a user and a default space**.
+5. **The credential actually used to access the WeKnora API is still the local JWT**, not the OIDC access token.
+6. The current implementation encodes and wraps `state`, but **there is no server-side persisted state/nonce validation**; it is mainly used to pass context and provide basic error prevention, not a complete anti-replay mechanism.
+
+---
+
+## 16. Related Source Code Locations
+
+- Whether the frontend displays the OIDC login button:
   - `frontend/src/views/auth/Login.vue`
-- 前端获取授权地址：
+- Frontend obtaining the authorization address:
   - `frontend/src/api/auth/index.ts`
   - `frontend/src/views/auth/Login.vue`
-- 前端解析回调 hash：
+- Frontend parsing the callback hash:
   - `frontend/src/App.vue`
-- OIDC 接口路由注册：
+- OIDC endpoint route registration:
   - `internal/router/router.go`
-- OIDC HTTP 处理：
+- OIDC HTTP handling:
   - `internal/handler/auth.go`
-- OIDC 业务逻辑：
+- OIDC business logic:
   - `internal/application/service/user.go`
-- OIDC 配置结构与环境变量覆盖：
+- OIDC configuration struct and environment variable overrides:
   - `internal/config/config.go`
-- Dex 本地示例：
+- Local Dex example:
   - `misc/dex-config.yaml`
+
+--- DOCUMENT END ---

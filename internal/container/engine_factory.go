@@ -10,7 +10,7 @@ import (
 
 	esv7 "github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/go-sql-driver/mysql" // 通过 database/sql 注册 mysql 驱动给 Doris 使用
+	"github.com/go-sql-driver/mysql" // Register the mysql driver via database/sql for Doris to use
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 	"github.com/qdrant/go-client/qdrant"
 	"github.com/weaviate/weaviate-go-client/v5/weaviate"
@@ -256,13 +256,13 @@ func createWeaviateEngine(store types.VectorStore) (interfaces.RetrieveEngineSer
 	return retriever.NewKVHybridRetrieveEngine(repo, types.WeaviateRetrieverEngineType), nil
 }
 
-// createDorisEngine 创建 Apache Doris 检索引擎服务。
+// createDorisEngine creates the Apache Doris retrieval engine service.
 //
-// Doris 同时使用两个端口：
-//   - MySQL 协议（默认 9030）走 database/sql 做主链路读写；
-//   - HTTP（默认 FE 8030）走 Stream Load 做 partial update。
+// Doris uses two ports simultaneously:
+// - MySQL protocol (default 9030) for the main read/write path via database/sql;
+// - HTTP (default FE 8030) for partial updates via Stream Load.
 //
-// Addr 字段承担 host:9030 的 MySQL 端点；HTTPPort + Addr 的 host 部分组成 HTTP base URL。
+// The Addr field carries the MySQL endpoint as host:9030; HTTPPort plus Addr's host portion form the HTTP base URL.
 func createDorisEngine(store types.VectorStore) (interfaces.RetrieveEngineService, error) {
 	cc := store.ConnectionConfig
 	if cc.Addr == "" {
@@ -301,7 +301,7 @@ func createDorisEngine(store types.VectorStore) (interfaces.RetrieveEngineServic
 	return retriever.NewKVHybridRetrieveEngine(repo, types.DorisRetrieverEngineType), nil
 }
 
-// hostFromAddr 从 "host:port" 中拆出 host 部分；Addr 没有冒号时整段当作 host。
+// hostFromAddr splits the host part out of "host:port"; if Addr has no colon, the whole string is treated as the host.
 func hostFromAddr(addr string) string {
 	if i := strings.LastIndex(addr, ":"); i > 0 {
 		return addr[:i]

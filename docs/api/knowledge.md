@@ -1,68 +1,68 @@
-# 知识管理 API
+# Knowledge Management API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-知识（Knowledge）是知识库下的一条可检索内容（来自文件、URL 或手工录入的 Markdown）。本文档涵盖知识的创建、查询、更新、删除、迁移与文件预览/下载等接口。
+Knowledge is a searchable piece of content under a knowledge base (from a file, a URL, or manually entered Markdown). This document covers the endpoints for creating, querying, updating, deleting, and migrating knowledge, as well as file preview/download.
 
-| 方法   | 路径                                       | 描述                                       |
-| ------ | ------------------------------------------ | ------------------------------------------ |
-| POST   | `/knowledge-bases/:id/knowledge/file`      | 上传文件创建知识（multipart）             |
-| POST   | `/knowledge-bases/:id/knowledge/url`       | 从 URL 创建知识（网页抓取或文件下载）       |
-| POST   | `/knowledge-bases/:id/knowledge/manual`    | 创建手工 Markdown 知识                     |
-| GET    | `/knowledge-bases/:id/knowledge`           | 列出知识库下的知识（支持分页/筛选）         |
-| GET    | `/knowledge-bases/:id/knowledge/folders`   | 获取知识库文件夹目录树                       |
-| PUT    | `/knowledge-bases/:id/knowledge/folders`   | 重命名或移动文件夹（含子目录）               |
-| DELETE | `/knowledge-bases/:id/knowledge`           | 清空知识库下的所有知识（异步任务）         |
-| GET    | `/knowledge/batch`                         | 按 ID 列表批量获取知识                     |
-| GET    | `/knowledge/:id`                           | 获取知识详情                               |
-| PUT    | `/knowledge/:id`                           | 更新知识（标题/描述/标签等）               |
-| DELETE | `/knowledge/:id`                           | 删除单条知识                               |
-| PUT    | `/knowledge/manual/:id`                    | 更新手工 Markdown 知识                     |
-| POST   | `/knowledge/:id/reparse`                   | 重新解析知识（异步）                       |
-| POST   | `/knowledge/:id/cancel-parse`              | 取消正在进行的解析任务                     |
-| GET    | `/knowledge/:id/download`                  | 下载原始文件（attachment）                 |
-| GET    | `/knowledge/:id/preview`                   | 内联预览文件（按扩展名设置 Content-Type）  |
-| PUT    | `/knowledge/image/:id/:chunk_id`           | 更新分块图像信息                           |
-| PUT    | `/knowledge/tags`                          | 批量更新知识标签                           |
-| GET    | `/knowledge/search`                        | 跨知识库搜索/过滤知识                      |
-| POST   | `/knowledge/batch-reparse`                 | 同一知识库内批量重新解析知识（异步任务）   |
-| POST   | `/knowledge/batch-delete`                  | 同一知识库内批量删除知识（异步任务）       |
-| POST   | `/knowledge/folder`                        | 批量移动知识到指定文件夹（仅改归类）       |
-| POST   | `/knowledge/move`                          | 迁移知识到另一知识库（异步任务）           |
-| GET    | `/knowledge/move/progress/:task_id`        | 查询知识迁移任务进度                       |
+| Method | Path                                       | Description                                       |
+| ------ | ------------------------------------------ | ------------------------------------------------- |
+| POST   | `/knowledge-bases/:id/knowledge/file`      | Upload a file to create knowledge (multipart)      |
+| POST   | `/knowledge-bases/:id/knowledge/url`       | Create knowledge from a URL (web scraping or file download) |
+| POST   | `/knowledge-bases/:id/knowledge/manual`    | Create manual Markdown knowledge                   |
+| GET    | `/knowledge-bases/:id/knowledge`           | List knowledge under a knowledge base (pagination/filtering supported) |
+| GET    | `/knowledge-bases/:id/knowledge/folders`   | Get the knowledge base's folder directory tree     |
+| PUT    | `/knowledge-bases/:id/knowledge/folders`   | Rename or move a folder (including subdirectories) |
+| DELETE | `/knowledge-bases/:id/knowledge`           | Clear all knowledge under a knowledge base (async task) |
+| GET    | `/knowledge/batch`                         | Batch-fetch knowledge by ID list                   |
+| GET    | `/knowledge/:id`                           | Get knowledge details                              |
+| PUT    | `/knowledge/:id`                           | Update knowledge (title/description/tags, etc.)    |
+| DELETE | `/knowledge/:id`                           | Delete a single piece of knowledge                 |
+| PUT    | `/knowledge/manual/:id`                    | Update manual Markdown knowledge                   |
+| POST   | `/knowledge/:id/reparse`                   | Re-parse knowledge (async)                         |
+| POST   | `/knowledge/:id/cancel-parse`              | Cancel an in-progress parsing task                 |
+| GET    | `/knowledge/:id/download`                  | Download the original file (attachment)            |
+| GET    | `/knowledge/:id/preview`                   | Inline file preview (Content-Type set by extension) |
+| PUT    | `/knowledge/image/:id/:chunk_id`           | Update chunk image information                     |
+| PUT    | `/knowledge/tags`                          | Batch-update knowledge tags                        |
+| GET    | `/knowledge/search`                        | Search/filter knowledge across knowledge bases      |
+| POST   | `/knowledge/batch-reparse`                 | Batch re-parse knowledge within the same knowledge base (async task) |
+| POST   | `/knowledge/batch-delete`                  | Batch delete knowledge within the same knowledge base (async task) |
+| POST   | `/knowledge/folder`                        | Batch move knowledge into a target folder (reclassification only) |
+| POST   | `/knowledge/move`                          | Migrate knowledge to another knowledge base (async task) |
+| GET    | `/knowledge/move/progress/:task_id`        | Query the progress of a knowledge migration task    |
 
-> **公共说明**：
-> - 路径中的 `:id`（知识库路径下）为**知识库 ID**，`/knowledge/:id` 中的 `:id` 为**知识 ID**。
-> - 所有写操作（创建、更新、删除、迁移、重新解析、取消解析）需要当前用户在知识库所属组织内具有 `editor` 或 `admin` 权限；清空知识库内容仅 KB **所有者**（admin 且空间匹配）可操作。
-> - 关键状态字段：`parse_status` 取值 `pending` / `processing` / `finalizing` / `completed` / `failed` / `cancelled`；`enable_status` 取值 `enabled` / `disabled`。
-> - `processing` 指 DocReader / 分块 / 向量化阶段；`finalizing` 指主解析已完成、仍在执行摘要 / 问题生成 / 图谱抽取等索引优化任务；只有当全部子任务到达终态后才进入 `completed`。
-> - `cancelled` 表示解析被用户主动取消，可通过 `reparse` 重新触发。`pending` / `processing` / `finalizing` 这三种状态都可通过 `cancel-parse` 终止。
+> **General notes**:
+> - The `:id` in a path under the knowledge base route is the **knowledge base ID**; the `:id` in `/knowledge/:id` is the **knowledge ID**.
+> - All write operations (create, update, delete, migrate, re-parse, cancel-parse) require the current user to have `editor` or `admin` permission within the organization the knowledge base belongs to; clearing a knowledge base's contents can only be performed by the KB **owner** (admin with a matching space).
+> - Key status fields: `parse_status` takes values `pending` / `processing` / `finalizing` / `completed` / `failed` / `cancelled`; `enable_status` takes values `enabled` / `disabled`.
+> - `processing` refers to the DocReader / chunking / vectorization stages; `finalizing` means the main parsing has completed but index optimization tasks such as summarization / question generation / graph extraction are still running; only once all subtasks reach a terminal state does it move to `completed`.
+> - `cancelled` means parsing was actively cancelled by the user, and can be re-triggered via `reparse`. All three states `pending` / `processing` / `finalizing` can be terminated via `cancel-parse`.
 
-## POST `/knowledge-bases/:id/knowledge/file` - 上传文件创建知识
+## POST `/knowledge-bases/:id/knowledge/file` - Upload a file to create knowledge
 
-通过 `multipart/form-data` 上传文件创建知识条目。文件大小受 `MAX_FILE_SIZE_MB` 环境变量限制。
+Creates a knowledge entry by uploading a file via `multipart/form-data`. File size is limited by the `MAX_FILE_SIZE_MB` environment variable.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description      |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**表单字段**:
+**Form fields**:
 
-| 字段                | 类型    | 必填 | 说明                                                                 |
+| Field                | Type    | Required | Description                                                                 |
 | ------------------- | ------- | ---- | -------------------------------------------------------------------- |
-| `file`              | file    | 是   | 待上传的文件                                                         |
-| `fileName`          | string  | 否   | 自定义文件名，用于"文件夹上传"时保留相对路径（如 `docs/intro.md`） |
-| `metadata`          | string  | 否   | JSON 字符串，会被反序列化为 `map[string]string`                     |
-| `enable_multimodel` | string  | 否   | `"true"` / `"false"`，是否启用图文多模态解析                         |
-| `process_config`    | string  | 否   | JSON 字符串，批次解析配置覆盖（`KnowledgeProcessOverrides`）；写入 `knowledge.metadata.process_overrides`。未传时行为与现网一致 |
-| `tag_id`            | string  | 否   | 标签 ID；传 `__untagged__` 或空字符串表示未分类                      |
-| `channel`           | string  | 否   | 来源渠道标识（写入 `channel` 字段，默认 `web`）                      |
+| `file`              | file    | Yes   | The file to upload                                                         |
+| `fileName`          | string  | No   | Custom file name, used to preserve the relative path (e.g. `docs/intro.md`) during "folder upload" |
+| `metadata`          | string  | No   | JSON string, deserialized into `map[string]string`                     |
+| `enable_multimodel` | string  | No   | `"true"` / `"false"`, whether to enable multimodal image-text parsing                        |
+| `process_config`    | string  | No   | JSON string, per-batch parsing configuration overrides (`KnowledgeProcessOverrides`); written to `knowledge.metadata.process_overrides`. If omitted, behavior matches the current production defaults |
+| `tag_id`            | string  | No   | Tag ID; pass `__untagged__` or an empty string to indicate "untagged"                      |
+| `channel`           | string  | No   | Source channel identifier (written to the `channel` field, defaults to `web`)                      |
 
-`process_config` 可选字段包括：`parser_engine_rules`、`chunking_config`、`enable_multimodel`、`vlm_config`、`asr_config`、`question_generation_config`、`graph_enabled`、`extract_config`。若同时传 `enable_multimodel` 与 `process_config.enable_multimodel`，以 `process_config` 为准。
+Optional fields in `process_config` include: `parser_engine_rules`, `chunking_config`, `enable_multimodel`, `vlm_config`, `asr_config`, `question_generation_config`, `graph_enabled`, `extract_config`. If both `enable_multimodel` and `process_config.enable_multimodel` are passed, `process_config` takes precedence.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge/file' \
@@ -73,9 +73,9 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 --form 'metadata="{\"source\":\"manual_upload\"}"'
 ```
 
-> 注意：使用 `-F`/`--form` 时 curl 会自动设置 `Content-Type: multipart/form-data; boundary=...`，不要再手动加 `--header 'Content-Type: application/json'`，否则请求体会被错误解析。
+> Note: when using `-F`/`--form`, curl automatically sets `Content-Type: multipart/form-data; boundary=...` — don't manually add `--header 'Content-Type: application/json'`, or the request body will be parsed incorrectly.
 
-**响应**（创建成功，`parse_status=processing` 表示解析任务已入队）:
+**Response** (creation successful, `parse_status=processing` indicates the parsing task has been queued):
 
 ```json
 {
@@ -110,30 +110,30 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-文件重复时返回 409 与已存在知识的引用；超过大小限制返回 400 `文件大小不能超过 N MB`。
+If the file is a duplicate, a reference to the existing knowledge entry is returned with HTTP 409; if it exceeds the size limit, HTTP 400 is returned with `File size cannot exceed N MB`.
 
-## POST `/knowledge-bases/:id/knowledge/url` - 从 URL 创建知识
+## POST `/knowledge-bases/:id/knowledge/url` - Create knowledge from a URL
 
-可创建**网页知识**或**远程文件知识**。后端根据下列规则自动判定：
+Can create either **web page knowledge** or **remote file knowledge**. The backend determines which automatically based on the following rules:
 
-- 当 `file_name` / `file_type` 任一被显式提供，或 URL 路径含已知文件扩展名时，按"文件下载模式"处理（拉取远端文件保存）；
-- 否则按"网页抓取模式"处理。
+- If either `file_name` / `file_type` is explicitly provided, or the URL path contains a known file extension, it is handled in "file download mode" (the remote file is fetched and saved);
+- Otherwise it is handled in "web scraping mode".
 
-URL 会经过 SSRF 安全校验，禁止指向内网/回环地址。
+The URL undergoes SSRF safety validation and is prohibited from pointing to internal/loopback addresses.
 
-**请求体**:
+**Request body**:
 
-| 字段                | 类型    | 必填 | 说明                                              |
-| ------------------- | ------- | ---- | ------------------------------------------------- |
-| `url`               | string  | 是   | 目标 URL                                          |
-| `file_name`         | string  | 否   | 显式指定文件名，强制走文件下载模式                |
-| `file_type`         | string  | 否   | 显式指定文件类型（如 `pdf`、`docx`）              |
-| `enable_multimodel` | boolean | 否   | 是否启用多模态解析                                |
-| `title`             | string  | 否   | 自定义标题                                        |
-| `tag_id`            | string  | 否   | 标签 ID                                           |
-| `channel`           | string  | 否   | 来源渠道标识                                      |
+| Field                | Type    | Required | Description                                              |
+| ------------------- | ------- | ---- | -------------------------------------------------- |
+| `url`               | string  | Yes   | Target URL                                          |
+| `file_name`         | string  | No   | Explicitly specify the file name, forcing file download mode                |
+| `file_type`         | string  | No   | Explicitly specify the file type (e.g. `pdf`, `docx`)              |
+| `enable_multimodel` | boolean | No   | Whether to enable multimodal parsing                                |
+| `title`             | string  | No   | Custom title                                        |
+| `tag_id`            | string  | No   | Tag ID                                           |
+| `channel`           | string  | No   | Source channel identifier                                      |
 
-**请求（网页模式）**:
+**Request (web page mode)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge/url' \
@@ -145,7 +145,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }'
 ```
 
-**请求（远程文件模式）**:
+**Request (remote file mode)**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge/url' \
@@ -158,7 +158,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }'
 ```
 
-**响应**（HTTP 201）:
+**Response** (HTTP 201):
 
 ```json
 {
@@ -193,21 +193,21 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-## POST `/knowledge-bases/:id/knowledge/manual` - 创建手工 Markdown 知识
+## POST `/knowledge-bases/:id/knowledge/manual` - Create manual Markdown knowledge
 
-适用于直接编写 Markdown 内容（无源文件）的场景。
+Suitable for scenarios where Markdown content is written directly (no source file).
 
-**请求体**:
+**Request body**:
 
-| 字段      | 类型   | 必填 | 说明                                                |
+| Field      | Type   | Required | Description                                                |
 | --------- | ------ | ---- | --------------------------------------------------- |
-| `title`   | string | 是   | 标题                                                |
-| `content` | string | 是   | Markdown 正文                                       |
-| `status`  | string | 否   | 草稿/发布等业务状态（草稿不会触发解析）             |
-| `tag_id`  | string | 否   | 标签 ID                                             |
-| `channel` | string | 否   | 来源渠道标识                                        |
+| `title`   | string | Yes   | Title                                                |
+| `content` | string | Yes   | Markdown body                                                       |
+| `status`  | string | No   | Business status such as draft/published (draft does not trigger parsing)             |
+| `tag_id`  | string | No   | Tag ID                                             |
+| `channel` | string | No   | Source channel identifier                                        |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge/manual' \
@@ -221,7 +221,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -256,42 +256,42 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-## GET `/knowledge-bases/:id/knowledge` - 列出知识库下的知识
+## GET `/knowledge-bases/:id/knowledge` - List knowledge under a knowledge base
 
-支持分页与按标签/关键词/文件类型筛选。
+Supports pagination and filtering by tag/keyword/file type.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明      |
+| Field | Type   | Description      |
 | ---- | ------ | --------- |
-| id   | string | 知识库 ID |
+| id   | string | Knowledge base ID |
 
-**查询参数**:
+**Query parameters**:
 
-| 字段           | 类型    | 默认 | 说明                                                                                                |
-| -------------- | ------- | ---- | --------------------------------------------------------------------------------------------------- |
-| `page`         | integer | 1    | 页码（从 1 开始）                                                                                   |
-| `page_size`    | integer | 20   | 每页条数                                                                                            |
-| `tag_id`       | string  | -    | 按标签 ID 过滤                                                                                      |
-| `keyword`      | string  | -    | 按标题/内容关键词过滤                                                                               |
-| `file_type`    | string  | -    | 按单个文件扩展名过滤（如 `pdf`）；特殊值 `manual` / `url` 命中 `type` 列                              |
-| `parse_status` | string  | -    | 按解析状态过滤：`pending` / `processing` / `completed` / `failed`                                    |
-| `source`       | string  | -    | 按来源/渠道过滤：`web` / `api` / `browser_extension` / `feishu` / `notion` / `yuque` / `wechat` 等； 特殊值 `manual` / `url` 命中 `type` 列 |
-| `start_time`   | string  | -    | 更新时间起点，接受 RFC3339 (`2024-05-01T00:00:00+08:00`) 或 `YYYY-MM-DD HH:MM:SS` / `YYYY-MM-DD`     |
-| `end_time`     | string  | -    | 更新时间终点，格式同 `start_time`                                                                   |
-| `folder_path`  | string  | -    | 按文件夹路径筛选；**仅当传入该参数时启用文件夹维度**。空字符串表示知识库根目录（不含子文件夹中的文档）；不传则列出全部文件夹下的文档（扁平视图） |
-| `folder_recursive` | bool | false | 为 `true` 时同时返回 `folder_path` 子目录内的文档；仅在传入 `folder_path` 时生效 |
+| Field           | Type    | Default | Description                                                                                                |
+| -------------- | ------- | ---- | ----------------------------------------------------------------------------------------------------------------- |
+| `page`         | integer | 1    | Page number (starting from 1)                                                                                   |
+| `page_size`    | integer | 20   | Items per page                                                                                            |
+| `tag_id`       | string  | -    | Filter by tag ID                                                                                      |
+| `keyword`      | string  | -    | Filter by title/content keyword                                                                               |
+| `file_type`    | string  | -    | Filter by a single file extension (e.g. `pdf`); the special values `manual` / `url` match the `type` column                              |
+| `parse_status` | string  | -    | Filter by parse status: `pending` / `processing` / `completed` / `failed`                                    |
+| `source`       | string  | -    | Filter by source/channel: `web` / `api` / `browser_extension` / `feishu` / `notion` / `yuque` / `wechat`, etc.; the special values `manual` / `url` match the `type` column |
+| `start_time`   | string  | -    | Update time start, accepts RFC3339 (`2024-05-01T00:00:00+08:00`) or `YYYY-MM-DD HH:MM:SS` / `YYYY-MM-DD`     |
+| `end_time`     | string  | -    | Update time end, same format as `start_time`                                                                   |
+| `folder_path`  | string  | -    | Filter by folder path; **folder-based filtering is enabled only when this parameter is passed**. An empty string means the knowledge base root directory (excluding documents in subfolders); if omitted, all documents across all folders are listed (flat view) |
+| `folder_recursive` | bool | false | When `true`, also returns documents in subdirectories of `folder_path`; only takes effect when `folder_path` is passed |
 
-> **文件夹筛选语义**：`folder_path` 是否出现在 query 中决定列表模式，不能仅凭空字符串区分「根目录」与「不按文件夹过滤」。集成方若需要浏览某一文件夹，应显式传 `folder_path`（根目录传 `folder_path=`）；若需要全库扁平列表，则省略该参数。
+> **Folder filtering semantics**: whether `folder_path` appears in the query determines the list mode — an empty string alone cannot distinguish "root directory" from "no folder filtering". Integrators who need to browse a specific folder should explicitly pass `folder_path` (pass `folder_path=` for the root directory); to get a flat list of the entire knowledge base, omit this parameter.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge?page=1&page_size=1&tag_id=tag-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -332,11 +332,11 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-## GET `/knowledge-bases/:id/knowledge/folders` - 获取文件夹目录树
+## GET `/knowledge-bases/:id/knowledge/folders` - Get the folder directory tree
 
-返回由 `folder_path` 聚合而成的目录树，包含每个文件夹的直接文档数与含子目录的总数。只读，权限与列出知识相同（Viewer+ 且对 KB 有 read 权限）。
+Returns a directory tree aggregated from `folder_path`, including the direct document count and the total count (including subdirectories) for each folder. Read-only, with the same permissions as listing knowledge (Viewer+ with read access to the KB).
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -365,18 +365,18 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-## PUT `/knowledge-bases/:id/knowledge/folders` - 重命名或移动文件夹
+## PUT `/knowledge-bases/:id/knowledge/folders` - Rename or move a folder
 
-把一个文件夹及其所有子目录改到新路径。目标路径已存在时两个文件夹合并；不能移动到自身子目录下。需要 KB **创建者**或 Admin+，且对 KB 有 write 权限。
+Changes a folder and all of its subdirectories to a new path. If the target path already exists, the two folders are merged; a folder cannot be moved into its own subdirectory. Requires the KB **creator** or Admin+, with write access to the KB.
 
-**请求体**:
+**Request body**:
 
-| 字段   | 类型   | 必填 | 说明                         |
-| ------ | ------ | ---- | ---------------------------- |
-| `from` | string | 是   | 源文件夹路径（不能为空）     |
-| `to`   | string | 是   | 目标文件夹路径（不能为空）   |
+| Field   | Type   | Required | Description                         |
+| ------ | ------ | ---- | ----------------------------- |
+| `from` | string | Yes   | Source folder path (cannot be empty)     |
+| `to`   | string | Yes   | Target folder path (cannot be empty)   |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -388,21 +388,21 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-`moved_count` 为 0 表示源文件夹不存在或已是 no-op。
+A `moved_count` of 0 means the source folder does not exist, or the operation was already a no-op.
 
-## POST `/knowledge/folder` - 批量移动知识到文件夹
+## POST `/knowledge/folder` - Batch move knowledge into a folder
 
-批量修改知识条目的 `folder_path`，仅调整归类，**不会**重新解析、分块或向量化。目标路径不存在时会自动创建；空路径表示移回知识库根目录。需要 editor/admin 且为 KB 创建者或 Admin+。
+Bulk-modifies the `folder_path` of knowledge entries — this only adjusts classification and does **not** trigger re-parsing, chunking, or vectorization. If the target path doesn't exist, it is created automatically; an empty path means moving back to the knowledge base root. Requires editor/admin, and the caller must be the KB creator or Admin+.
 
-**请求体**:
+**Request body**:
 
-| 字段            | 类型     | 必填 | 说明                                      |
+| Field            | Type     | Required | Description                                      |
 | --------------- | -------- | ---- | ----------------------------------------- |
-| `kb_id`         | string   | 是   | 知识库 ID                                 |
-| `knowledge_ids` | string[] | 是   | 知识 ID 列表（最多 200 条）               |
-| `folder_path`   | string   | 否   | 目标文件夹路径；省略或空字符串表示根目录 |
+| `kb_id`         | string   | Yes   | Knowledge base ID                                 |
+| `knowledge_ids` | string[] | Yes   | List of knowledge IDs (up to 200)               |
+| `folder_path`   | string   | No   | Target folder path; omitted or an empty string means the root directory |
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -414,18 +414,18 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 }
 ```
 
-## DELETE `/knowledge-bases/:id/knowledge` - 清空知识库下的所有知识
+## DELETE `/knowledge-bases/:id/knowledge` - Clear all knowledge under a knowledge base
 
-异步提交"清空任务"，删除该知识库下的全部知识条目；知识库本身保留。**仅 KB 所有者（admin 且空间匹配）可操作**。
+Asynchronously submits a "clear task" that deletes all knowledge entries under the knowledge base; the knowledge base itself is retained. **Only the KB owner (admin with a matching space) can perform this operation**.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**（已入队）:
+**Response** (queued):
 
 ```json
 {
@@ -435,7 +435,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/k
 }
 ```
 
-知识库已为空时：
+When the knowledge base is already empty:
 
 ```json
 {
@@ -445,26 +445,26 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/k
 }
 ```
 
-## GET `/knowledge/batch` - 批量获取知识
+## GET `/knowledge/batch` - Batch-fetch knowledge
 
-按 ID 列表一次性获取多条知识详情，常用于刷新页面后恢复选中列表。
+Fetches multiple knowledge details at once by ID list, commonly used to restore a selected list after refreshing a page.
 
-**查询参数**:
+**Query parameters**:
 
-| 字段        | 类型     | 必填 | 说明                                                                  |
-| ----------- | -------- | ---- | --------------------------------------------------------------------- |
-| `ids`       | string[] | 是   | 知识 ID，重复 `ids=...` 传多个                                        |
-| `kb_id`     | string   | 否   | 限定知识库范围；共享知识库场景下用于按 KB 校验权限并解析有效空间       |
-| `agent_id`  | string   | 否   | 共享 Agent ID；按 Agent 所属空间拉取，常用于共享场景刷新后的文件回填   |
+| Field        | Type     | Required | Description                                                                  |
+| ----------- | -------- | ---- | ----------------------------------------------------------------------------- |
+| `ids`       | string[] | Yes   | Knowledge IDs; pass multiple by repeating `ids=...`                                        |
+| `kb_id`     | string   | No   | Restricts the scope to a knowledge base; used in shared knowledge base scenarios to validate permissions by KB and resolve the effective space       |
+| `agent_id`  | string   | No   | Shared Agent ID; fetches based on the Agent's space, commonly used to backfill files after a refresh in shared scenarios   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/batch?ids=9c8af585-ae15-44ce-8f73-45ad18394651&ids=4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -500,18 +500,18 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch?ids=9c8af585-ae15-
 }
 ```
 
-> 上述响应字段省略了空值与一些大字段，实际返回的是完整 `Knowledge` 对象。
+> The fields in the response above omit empty values and some large fields; the actual response is the complete `Knowledge` object.
 
-## GET `/knowledge/:id` - 获取知识详情
+## GET `/knowledge/:id` - Get knowledge details
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -546,11 +546,11 @@ curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-
 }
 ```
 
-## PUT `/knowledge/:id` - 更新知识
+## PUT `/knowledge/:id` - Update knowledge
 
-更新知识条目的元信息（标题/描述/标签等）。请求体为 `Knowledge` 结构，仅服务侧白名单字段会被实际更新。
+Updates the metadata of a knowledge entry (title/description/tags, etc.). The request body is a `Knowledge` struct, but only fields whitelisted by the service side are actually updated.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5' \
@@ -564,7 +564,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-0
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -573,16 +573,16 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-0
 }
 ```
 
-## DELETE `/knowledge/:id` - 删除单条知识
+## DELETE `/knowledge/:id` - Delete a single piece of knowledge
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge/9c8af585-ae15-44ce-8f73-45ad18394651' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -591,11 +591,11 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge/9c8af58
 }
 ```
 
-## PUT `/knowledge/manual/:id` - 更新手工 Markdown 知识
+## PUT `/knowledge/manual/:id` - Update manual Markdown knowledge
 
-**请求体**：同 `POST /knowledge-bases/:id/knowledge/manual`，字段全部可选。
+**Request body**: Same as `POST /knowledge-bases/:id/knowledge/manual`, with all fields optional.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/manual/5a3b2c1d-0e9f-4a8b-7c6d-5e4f3a2b1c0d' \
@@ -607,7 +607,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/manual/5a3
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -626,18 +626,18 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/manual/5a3
 }
 ```
 
-## POST `/knowledge/:id/reparse` - 重新解析知识
+## POST `/knowledge/:id/reparse` - Re-parse knowledge
 
-异步重新解析：删除现有分块/向量并按最新配置重新解析。常用于解析配置变更或上次解析失败重试的场景。
+Asynchronously re-parses: deletes existing chunks/vectors and re-parses according to the latest configuration. Commonly used when the parsing configuration changes, or to retry after a previous parse failure.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/reparse' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -657,29 +657,29 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-
 }
 ```
 
-调用后 `parse_status` 会先变为 `pending`，再由后台 worker 转为 `processing` → `completed`/`failed`。
+After calling, `parse_status` first changes to `pending`, and is then transitioned by a background worker to `processing` → `completed`/`failed`.
 
-## POST `/knowledge/:id/cancel-parse` - 取消解析
+## POST `/knowledge/:id/cancel-parse` - Cancel parsing
 
-中止正在进行的解析任务，常用于资源紧张时主动放弃当前文档的解析过程。
+Aborts an in-progress parsing task, commonly used to proactively give up on parsing the current document when resources are tight.
 
-**行为**：
+**Behavior**:
 
-- 将 `parse_status` 置为 `cancelled`，`error_message` 写入「用户已取消解析」，并把 `pending_subtasks_count` 清零。
-- 已写入数据库的分块 / 索引保留，可通过 `reparse` 接口在同一记录上重新触发解析。
-- 后台异步会 best-effort 从队列中删除该知识对应的下游任务（多模态、问题生成、摘要、图谱抽取、Post-Process 等），并对正在执行的 worker 发出停止信号；worker 在下一个检查点退出。
-- **可取消的状态**：`pending` / `processing` / `finalizing`。`finalizing` 表示主解析已完成、摘要 / 问题生成 / 图谱抽取等索引优化任务仍在执行；在该状态取消可以及时停止后续 LLM 消耗（图谱抽取按 chunk 调用，开销最大）。
-- 已经完成 (`completed`) 或失败 (`failed`) 的知识不允许取消；正在删除 (`deleting`) 的知识不允许取消。
-- 接口幂等：对已经 `cancelled` 的记录重复调用直接返回当前状态。
+- Sets `parse_status` to `cancelled`, writes "Parsing cancelled by user" into `error_message`, and resets `pending_subtasks_count` to zero.
+- Chunks/indexes already written to the database are retained, and parsing can be re-triggered on the same record via the `reparse` endpoint.
+- A background asynchronous process makes a best-effort attempt to remove downstream tasks corresponding to this knowledge entry from the queue (multimodal, question generation, summarization, graph extraction, post-process, etc.), and sends a stop signal to any worker currently executing; the worker exits at its next checkpoint.
+- **Cancellable states**: `pending` / `processing` / `finalizing`. `finalizing` means the main parsing has completed but index optimization tasks such as summarization / question generation / graph extraction are still running; cancelling in this state promptly stops further LLM consumption (graph extraction is invoked per chunk and is the most expensive).
+- Knowledge that has already completed (`completed`) or failed (`failed`) cannot be cancelled; knowledge that is being deleted (`deleting`) cannot be cancelled.
+- The endpoint is idempotent: calling it repeatedly on an already-`cancelled` record simply returns the current status.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/cancel-parse' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -700,35 +700,35 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-
 }
 ```
 
-## GET `/knowledge/:id/download` - 下载原始文件
+## GET `/knowledge/:id/download` - Download the original file
 
-以 `attachment` 方式下载知识对应的原始文件。
+Downloads the original file corresponding to a knowledge entry as an `attachment`.
 
-**响应头**:
+**Response headers**:
 
 ```
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename="彗星.txt"
 ```
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location -OJ 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/download' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-响应体为文件二进制流。
+The response body is the file's binary stream.
 
-## GET `/knowledge/:id/preview` - 内联预览文件
+## GET `/knowledge/:id/preview` - Inline file preview
 
-返回原始文件用于浏览器**内嵌预览**：
+Returns the original file for **inline preview** in the browser:
 
-- `Content-Type` 按文件扩展名映射（`.pdf` → `application/pdf`，`.png` → `image/png`，`.txt`/`.md`/`.json` 等 → 对应文本 MIME 并带 `charset=utf-8`，未知扩展名回落到 `application/octet-stream`）。
-- `Content-Disposition: inline; filename="<原文件名>"`，浏览器会内嵌渲染而非下载。
-- `Cache-Control: private, max-age=3600`。
+- `Content-Type` is mapped based on the file extension (`.pdf` → `application/pdf`, `.png` → `image/png`, `.txt`/`.md`/`.json` etc. → the corresponding text MIME type with `charset=utf-8`; unknown extensions fall back to `application/octet-stream`).
+- `Content-Disposition: inline; filename="<original file name>"`, causing the browser to render inline rather than download.
+- `Cache-Control: private, max-age=3600`.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/preview' \
@@ -736,7 +736,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-
 -D -
 ```
 
-**响应头**示例：
+**Example response headers**:
 
 ```
 HTTP/1.1 200 OK
@@ -745,26 +745,26 @@ Content-Disposition: inline; filename="彗星.txt"
 Cache-Control: private, max-age=3600
 ```
 
-响应体为文件内容（按 `Content-Type` 解读）。
+The response body is the file content (to be interpreted according to `Content-Type`).
 
-## PUT `/knowledge/image/:id/:chunk_id` - 更新分块图像信息
+## PUT `/knowledge/image/:id/:chunk_id` - Update chunk image information
 
-为指定知识下的某个图像分块更新描述/替代文本等元信息。
+Updates metadata such as the description/alt text for a specific image chunk under a given knowledge entry.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段       | 类型   | 说明     |
+| Field       | Type   | Description     |
 | ---------- | ------ | -------- |
-| `id`       | string | 知识 ID  |
-| `chunk_id` | string | 分块 ID  |
+| `id`       | string | Knowledge ID  |
+| `chunk_id` | string | Chunk ID  |
 
-**请求体**:
+**Request body**:
 
-| 字段         | 类型   | 必填 | 说明                                 |
+| Field         | Type   | Required | Description                                 |
 | ------------ | ------ | ---- | ------------------------------------ |
-| `image_info` | string | 是   | 图像信息（业务侧 JSON 字符串）       |
+| `image_info` | string | Yes   | Image information (a business-side JSON string)       |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/image/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/df10b37d-cd05-4b14-ba8a-e1bd0eb3bbd7' \
@@ -775,7 +775,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/image/4c4e
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -784,20 +784,20 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/image/4c4e
 }
 ```
 
-## PUT `/knowledge/tags` - 批量更新知识标签
+## PUT `/knowledge/tags` - Batch-update knowledge tags
 
-批量为多条知识设置/清除标签。
+Batch sets/clears tags for multiple knowledge entries.
 
-**请求体**:
+**Request body**:
 
-| 字段      | 类型                       | 必填 | 说明                                                                       |
-| --------- | -------------------------- | ---- | -------------------------------------------------------------------------- |
-| `updates` | object<string, string\|null> | 是   | 知识 ID → 标签 ID 的映射；值为 `null` 表示清除该条知识的标签                |
-| `kb_id`   | string                     | 否   | 限定知识库范围；指定时按该 KB 校验编辑权限（共享 KB 场景必填）             |
+| Field      | Type                       | Required | Description                                                                       |
+| --------- | --------------------------- | ---- | -------------------------------------------------------------------------- |
+| `updates` | object<string, string\|null> | Yes   | Mapping of knowledge ID → tag ID; a value of `null` clears the tag on that knowledge entry                |
+| `kb_id`   | string                     | No   | Restricts the scope to a knowledge base; when specified, edit permission is validated against this KB (required in shared KB scenarios)             |
 
-未传 `kb_id` 时，服务会从 `updates` 中取首个 knowledge ID 推断其所属知识库并据此鉴权。
+If `kb_id` is not passed, the service infers the owning knowledge base from the first knowledge ID in `updates` and authorizes against that.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/tags' \
@@ -812,27 +812,27 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/tags' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-## GET `/knowledge/search` - 跨知识库搜索/过滤知识
+## GET `/knowledge/search` - Search/filter knowledge across knowledge bases
 
-按关键词在当前空间（含已共享给当前空间）的知识中检索；可按文件类型过滤；指定 `agent_id` 时按共享 Agent 所配置的知识库范围检索。
+Searches knowledge by keyword within the current space (including entries shared to the current space); can filter by file type; when `agent_id` is specified, the search is scoped to the knowledge base range configured for that shared Agent.
 
-**查询参数**:
+**Query parameters**:
 
-| 字段         | 类型    | 默认 | 说明                                                                  |
-| ------------ | ------- | ---- | --------------------------------------------------------------------- |
-| `keyword`    | string  | -    | 关键词（可选）                                                       |
-| `offset`     | integer | 0    | 偏移量                                                                |
-| `limit`      | integer | 20   | 返回条数                                                              |
-| `file_types` | string  | -    | 逗号分隔的扩展名列表，例如 `txt,pdf,docx`                            |
-| `agent_id`   | string  | -    | 共享 Agent ID；按该 Agent 的 KB 选择模式（`all`/`selected`/`none`）限定范围 |
+| Field         | Type    | Default | Description                                                                  |
+| ------------ | ------- | ---- | ----------------------------------------------------------------------- |
+| `keyword`    | string  | -    | Keyword (optional)                                                       |
+| `offset`     | integer | 0    | Offset                                                                |
+| `limit`      | integer | 20   | Number of results to return                                                              |
+| `file_types` | string  | -    | Comma-separated list of extensions, e.g. `txt,pdf,docx`                            |
+| `agent_id`   | string  | -    | Shared Agent ID; scoped according to that Agent's KB selection mode (`all`/`selected`/`none`) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --get 'http://localhost:8080/api/v1/knowledge/search' \
@@ -843,7 +843,7 @@ curl --location --get 'http://localhost:8080/api/v1/knowledge/search' \
 --data-urlencode 'file_types=txt,pdf'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -869,23 +869,23 @@ curl --location --get 'http://localhost:8080/api/v1/knowledge/search' \
 }
 ```
 
-> 注意：与其他列表接口不同，此处的 `data` 是**数组**而非 `{data, has_more}` 嵌套对象；`has_more` 与 `data` 同级。
+> Note: unlike other list endpoints, `data` here is an **array** rather than a nested `{data, has_more}` object; `has_more` is a sibling of `data`.
 
-`agent_id=...&` 且该 Agent 的 KB 选择模式为 `none` 时，将直接返回 `data: []` 与 `has_more: false`。
+When `agent_id=...` is passed and that Agent's KB selection mode is `none`, the response directly returns `data: []` and `has_more: false`.
 
-## POST `/knowledge/batch-reparse` - 同一知识库内批量重新解析
+## POST `/knowledge/batch-reparse` - Batch re-parse within the same knowledge base
 
-按 ID 列表在单个知识库内批量重新解析知识（异步任务）。单次最多 200 个 ID；服务侧会校验所有 ID 存在并属于同一 `kb_id`。
+Batch re-parses knowledge by ID list within a single knowledge base (async task). Up to 200 IDs per call; the service validates that all IDs exist and belong to the same `kb_id`.
 
-**请求体**:
+**Request body**:
 
-| 字段             | 类型     | 必填 | 说明                                             |
+| Field             | Type     | Required | Description                                             |
 | ---------------- | -------- | ---- | ------------------------------------------------ |
-| `kb_id`          | string   | 是   | 目标知识库 ID                                    |
-| `ids`            | string[] | 是   | 待重新解析的知识 ID 列表（≤ 200）                |
-| `process_config` | object   | 否   | 本批次共用的处理配置覆盖；省略时沿用各知识原配置 |
+| `kb_id`          | string   | Yes   | Target knowledge base ID                                    |
+| `ids`            | string[] | Yes   | List of knowledge IDs to re-parse (≤ 200)                |
+| `process_config` | object   | No   | Processing configuration overrides shared by this batch; if omitted, each knowledge entry's original configuration is used |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/batch-reparse' \
@@ -900,7 +900,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch-reparse' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -913,22 +913,22 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch-reparse' \
 }
 ```
 
-HTTP 成功表示批处理包装任务已入队。后台会尝试提交列表中的每个知识；单项提交失败时，该知识会进入 `failed` 状态并保留错误信息，批处理任务也会在运行队列中标记失败。为避免重复清理已成功提交的知识，出现部分失败后不会自动重试整个批次；可筛选失败知识后再次批量重新解析。
+An HTTP success indicates that the batch wrapper task has been queued. In the background, each knowledge entry in the list is attempted; if a single item's submission fails, that entry enters the `failed` state with the error retained, and the batch task is also marked as failed in the run queue. To avoid re-cleaning up entries that were already successfully submitted, the entire batch is not automatically retried after a partial failure — you can filter for the failed entries and re-submit a batch re-parse for those.
 
-任一 ID 不属于 `kb_id` 或不存在时，返回 400 并整批拒绝。
+If any ID does not belong to `kb_id` or does not exist, HTTP 400 is returned and the entire batch is rejected.
 
-## POST `/knowledge/batch-delete` - 同一知识库内批量删除
+## POST `/knowledge/batch-delete` - Batch delete within the same knowledge base
 
-按 ID 列表在单个知识库内批量删除知识（异步任务）。单次最多 200 个 ID；服务侧会校验所有 ID 属于同一 `kb_id`。
+Batch deletes knowledge by ID list within a single knowledge base (async task). Up to 200 IDs per call; the service validates that all IDs belong to the same `kb_id`.
 
-**请求体**:
+**Request body**:
 
-| 字段    | 类型     | 必填 | 说明                              |
-| ------- | -------- | ---- | --------------------------------- |
-| `kb_id` | string   | 是   | 目标知识库 ID                     |
-| `ids`   | string[] | 是   | 待删除的知识 ID 列表（≤ 200）     |
+| Field    | Type     | Required | Description                              |
+| ------- | -------- | ---- | ---------------------------------- |
+| `kb_id` | string   | Yes   | Target knowledge base ID                     |
+| `ids`   | string[] | Yes   | List of knowledge IDs to delete (≤ 200)     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/batch-delete' \
@@ -943,7 +943,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch-delete' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -956,27 +956,27 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch-delete' \
 }
 ```
 
-任一 ID 不属于 `kb_id` 或不存在时，返回 400 并整批拒绝。
+If any ID does not belong to `kb_id` or does not exist, HTTP 400 is returned and the entire batch is rejected.
 
-## POST `/knowledge/move` - 迁移知识到另一知识库
+## POST `/knowledge/move` - Migrate knowledge to another knowledge base
 
-将一条或多条**处于 `completed` 状态**的知识从源 KB 迁到目标 KB（异步）。约束：
+Migrates one or more knowledge entries **in the `completed` state** from the source KB to the target KB (async). Constraints:
 
-- 源/目标 KB 必须属于当前空间；
-- 源/目标必须为同一 KB 类型且**使用相同的 Embedding 模型**；
-- 源 KB ≠ 目标 KB；
-- 仅 `parse_status=completed` 的知识可迁移。
+- The source/target KB must both belong to the current space;
+- The source and target must be of the same KB type and **use the same Embedding model**;
+- Source KB ≠ target KB;
+- Only knowledge with `parse_status=completed` can be migrated.
 
-**请求体**:
+**Request body**:
 
-| 字段            | 类型     | 必填 | 说明                                                                            |
-| --------------- | -------- | ---- | ------------------------------------------------------------------------------- |
-| `knowledge_ids` | string[] | 是   | 待迁移的知识 ID 列表（至少 1 个）                                              |
-| `source_kb_id`  | string   | 是   | 源知识库 ID                                                                     |
-| `target_kb_id`  | string   | 是   | 目标知识库 ID                                                                   |
-| `mode`          | string   | 是   | 迁移模式：`reuse_vectors`（复用向量数据，零成本） / `reparse`（在目标库重新解析） |
+| Field            | Type     | Required | Description                                                                            |
+| --------------- | -------- | ---- | --------------------------------------------------------------------------------- |
+| `knowledge_ids` | string[] | Yes   | List of knowledge IDs to migrate (at least 1)                                              |
+| `source_kb_id`  | string   | Yes   | Source knowledge base ID                                                                     |
+| `target_kb_id`  | string   | Yes   | Target knowledge base ID                                                                     |
+| `mode`          | string   | Yes   | Migration mode: `reuse_vectors` (reuse vector data, zero cost) / `reparse` (re-parse in the target KB) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/move' \
@@ -990,7 +990,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/move' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1005,18 +1005,18 @@ curl --location 'http://localhost:8080/api/v1/knowledge/move' \
 }
 ```
 
-获取 `task_id` 后通过下一个接口轮询进度。
+After obtaining the `task_id`, poll progress via the next endpoint.
 
-## GET `/knowledge/move/progress/:task_id` - 查询迁移进度
+## GET `/knowledge/move/progress/:task_id` - Query migration progress
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge/move/progress/kg_move_1_kb-00000001_xxxx' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1038,4 +1038,4 @@ curl --location 'http://localhost:8080/api/v1/knowledge/move/progress/kg_move_1_
 }
 ```
 
-`status` 取值：`pending` / `processing` / `completed` / `failed`；`progress` 为 0-100 的整数百分比；`created_at` / `updated_at` 为 Unix 秒时间戳。
+`status` takes values: `pending` / `processing` / `completed` / `failed`; `progress` is an integer percentage from 0 to 100; `created_at` / `updated_at` are Unix timestamps in seconds.

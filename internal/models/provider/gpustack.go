@@ -7,20 +7,20 @@ import (
 )
 
 const (
-	// GPUStackBaseURL GPUStack API BaseURL (OpenAI 兼容模式)
+	// GPUStackBaseURL GPUStack API BaseURL (OpenAI-compatible mode)
 	GPUStackBaseURL = "http://your_gpustack_server_url/v1-openai"
-	// GPUStackRerankBaseURL GPUStack Rerank API 虽然兼容OpenAI，但路径不同 (/v1/rerank 而非 /v1-openai/rerank)
+	// GPUStackRerankBaseURL GPUStack Rerank API — although compatible with OpenAI, the path differs (/v1/rerank instead of /v1-openai/rerank)
 	GPUStackRerankBaseURL = "http://your_gpustack_server_url/v1"
 )
 
-// GPUStackProvider 实现 GPUStack 的 Provider 接口
+// GPUStackProvider implements the Provider interface for GPUStack
 type GPUStackProvider struct{}
 
 func init() {
 	Register(&GPUStackProvider{})
 }
 
-// Info 返回 GPUStack provider 的元数据
+// Info returns metadata for the GPUStack provider
 func (p *GPUStackProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderGPUStack,
@@ -40,11 +40,11 @@ func (p *GPUStackProvider) Info() ProviderInfo {
 			types.ModelTypeVLLM,
 			types.ModelTypeASR,
 		},
-		RequiresAuth: true, // GPUStack 需要 API Key
+		RequiresAuth: true, // GPUStack requires an API Key
 	}
 }
 
-// ValidateConfig 验证 GPUStack provider 配置
+// ValidateConfig validates the GPUStack provider configuration
 func (p *GPUStackProvider) ValidateConfig(config *Config) error {
 	if config.BaseURL == "" {
 		return fmt.Errorf("base URL is required for GPUStack provider")

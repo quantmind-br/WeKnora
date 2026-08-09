@@ -43,9 +43,9 @@ function shouldIgnoreTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * iOS Photos「选择」模式框选规则：
- * - 手势起点落在未选中项（或空白区域）→ 本次拖选全程追加选中
- * - 手势起点落在已选中项 → 本次拖选全程取消选中
+ * iOS Photos "Select" mode box-selection rules:
+ * - Gesture starts on an unselected item (or empty area) → the entire drag adds to selection
+ * - Gesture starts on a selected item → the entire drag removes from selection
  */
 function resolveMarqueeModeFromStart(
   e: MouseEvent,

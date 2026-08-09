@@ -1,16 +1,16 @@
-# API 参考：基础设施与数据源
+# API Reference: Infrastructure & Data Sources
 
-路由注册：`internal/router/router.go` 的 `RegisterVectorStoreRoutes`、`RegisterStorageBackendRoutes`、`RegisterWebSearchRoutes`、`RegisterWebSearchProviderRoutes`、`RegisterDataSourceRoutes`。Handler：`internal/handler/vectorstore.go`、`internal/handler/storagebackend.go`、`internal/handler/web_search.go`、`internal/handler/web_search_provider.go`、`internal/handler/web_search_provider_credentials.go`、`internal/handler/datasource.go`、`internal/handler/datasource_credentials.go`。
+Route registration: `RegisterVectorStoreRoutes`, `RegisterStorageBackendRoutes`, `RegisterWebSearchRoutes`, `RegisterWebSearchProviderRoutes`, `RegisterDataSourceRoutes` in `internal/router/router.go`. Handlers: `internal/handler/vectorstore.go`, `internal/handler/storagebackend.go`, `internal/handler/web_search.go`, `internal/handler/web_search_provider.go`, `internal/handler/web_search_provider_credentials.go`, `internal/handler/datasource.go`, `internal/handler/datasource_credentials.go`.
 
-统一约定：读 Viewer+，写/连接测试 Admin+（凭证探测外部系统）。API key capability：向量库 `manage_vector_stores`、存储后端 `manage_storage_backends`、Web 搜索 `manage_web_search`、数据源 `manage_datasources`（均可 full-access）。
+Common conventions: read access requires Viewer+, write/connection-test access requires Admin+ (since credential probing reaches external systems). API key capabilities: vector stores `manage_vector_stores`, storage backends `manage_storage_backends`, web search `manage_web_search`, data sources `manage_datasources` (all support full-access).
 
-## 向量存储（/api/v1/vector-stores）
+## Vector Stores (/api/v1/vector-stores)
 
 ### GET /api/v1/vector-stores/types
 
-用途：可用引擎类型与配置 schema。权限：Viewer+。
+Purpose: available engine types and their config schema. Permission: Viewer+.
 
-响应：200 `{"success":true,"data":[类型定义]}`
+Response: 200 `{"success":true,"data":[type definitions]}`
 
 ```bash
 curl $BASE/api/v1/vector-stores/types -H "Authorization: Bearer $TOKEN"
@@ -18,14 +18,14 @@ curl $BASE/api/v1/vector-stores/types -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/vector-stores/test
 
-用途：用原始配置测试连接（不落库）。权限：Admin+。
+Purpose: test a connection using a raw configuration (not persisted). Permission: Admin+.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `engine_type` | string | 是（`binding:"required"`） | 引擎类型 |
-| `connection_config` | object | 是（`binding:"required"`） | 连接配置 |
+| `engine_type` | string | Yes (`binding:"required"`) | Engine type |
+| `connection_config` | object | Yes (`binding:"required"`) | Connection configuration |
 
-响应：200 `{"success":true|false,"version":"...","error":"..."}`
+Response: 200 `{"success":true|false,"version":"...","error":"..."}`
 
 ```bash
 curl -X POST $BASE/api/v1/vector-stores/test -H "Authorization: Bearer $TOKEN" \
@@ -34,9 +34,9 @@ curl -X POST $BASE/api/v1/vector-stores/test -H "Authorization: Bearer $TOKEN" \
 
 ### POST /api/v1/vector-stores
 
-用途：创建向量库配置。权限：Admin+。字段：`name`（必填）、`engine_type`（必填）、`connection_config`（必填）、`index_config`（可选）。
+Purpose: create a vector store configuration. Permission: Admin+. Fields: `name` (required), `engine_type` (required), `connection_config` (required), `index_config` (optional).
 
-响应：201 `{"success":true,"data":{VectorStoreResponse}}`（`id,tenant_id,name,engine_type,connection_config,index_config,...`）
+Response: 201 `{"success":true,"data":{VectorStoreResponse}}` (`id,tenant_id,name,engine_type,connection_config,index_config,...`)
 
 ```bash
 curl -X POST $BASE/api/v1/vector-stores -H "Authorization: Bearer $TOKEN" \
@@ -45,9 +45,9 @@ curl -X POST $BASE/api/v1/vector-stores -H "Authorization: Bearer $TOKEN" \
 
 ### GET /api/v1/vector-stores
 
-用途：向量库列表（环境变量注入的 `__env_*` store 在前）。权限：Viewer+。
+Purpose: list vector stores (env-injected `__env_*` stores appear first). Permission: Viewer+.
 
-响应：200 `{"success":true,"data":[VectorStoreResponse]}`
+Response: 200 `{"success":true,"data":[VectorStoreResponse]}`
 
 ```bash
 curl $BASE/api/v1/vector-stores -H "Authorization: Bearer $TOKEN"
@@ -55,9 +55,9 @@ curl $BASE/api/v1/vector-stores -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/vector-stores/:id
 
-用途：向量库详情（支持 `__env_*` ID）。权限：Viewer+。
+Purpose: vector store details (supports `__env_*` IDs). Permission: Viewer+.
 
-响应：200 `{"success":true,"data":{VectorStoreResponse}}`
+Response: 200 `{"success":true,"data":{VectorStoreResponse}}`
 
 ```bash
 curl $BASE/api/v1/vector-stores/vs-1 -H "Authorization: Bearer $TOKEN"
@@ -65,9 +65,9 @@ curl $BASE/api/v1/vector-stores/vs-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/vector-stores/:id
 
-用途：更新（仅重命名；env store 不可改）。权限：Admin+。请求体：`{"name":"..."}`（`binding:"required"`）。
+Purpose: update (rename only; env stores cannot be modified). Permission: Admin+. Request body: `{"name":"..."}` (`binding:"required"`).
 
-响应：200 `{"success":true,"data":{VectorStoreResponse}}`
+Response: 200 `{"success":true,"data":{VectorStoreResponse}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/vector-stores/vs-1 -H "Authorization: Bearer $TOKEN" \
@@ -76,9 +76,9 @@ curl -X PUT $BASE/api/v1/vector-stores/vs-1 -H "Authorization: Bearer $TOKEN" \
 
 ### DELETE /api/v1/vector-stores/:id
 
-用途：删除（env store 不可删）。权限：Admin+。
+Purpose: delete (env stores cannot be deleted). Permission: Admin+.
 
-响应：200 `{"success":true}`
+Response: 200 `{"success":true}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/vector-stores/vs-1 -H "Authorization: Bearer $TOKEN"
@@ -86,28 +86,28 @@ curl -X DELETE $BASE/api/v1/vector-stores/vs-1 -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/vector-stores/:id/test
 
-用途：测试已保存/env 向量库。权限：Admin+。
+Purpose: test a saved/env vector store. Permission: Admin+.
 
-响应：200 `{"success":true|false,"version","error"}`
+Response: 200 `{"success":true|false,"version","error"}`
 
 ```bash
 curl -X POST $BASE/api/v1/vector-stores/vs-1/test -H "Authorization: Bearer $TOKEN"
 ```
 
-## 存储后端（/api/v1/storage-backends）
+## Storage Backends (/api/v1/storage-backends)
 
-请求体（Create/Update/TestRaw 共用 `storageBackendRequest`）：
+Request body (shared by Create/Update/TestRaw as `storageBackendRequest`):
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `name` | string | 是（`binding:"required"`） | 名称 |
-| `provider` | string | 是（`binding:"required"`） | 提供方（minio/cos/tos/s3/oss/ks3/obs…） |
-| `config` | object | 否 | 提供方配置（响应中凭证掩码） |
-| `status` | string | 否 | 状态 |
+| `name` | string | Yes (`binding:"required"`) | Name |
+| `provider` | string | Yes (`binding:"required"`) | Provider (minio/cos/tos/s3/oss/ks3/obs…) |
+| `config` | object | No | Provider configuration (credentials masked in responses) |
+| `status` | string | No | Status |
 
 ### GET /api/v1/storage-backends/types
 
-用途：允许的存储类型。权限：Viewer+。响应：200 `{"success":true,"data":[...]}`
+Purpose: allowed storage types. Permission: Viewer+. Response: 200 `{"success":true,"data":[...]}`
 
 ```bash
 curl $BASE/api/v1/storage-backends/types -H "Authorization: Bearer $TOKEN"
@@ -115,7 +115,7 @@ curl $BASE/api/v1/storage-backends/types -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/storage-backends/test
 
-用途：原始配置连接测试。权限：Admin+。响应：200 `{"success":bool,"error"}`
+Purpose: connection test using a raw configuration. Permission: Admin+. Response: 200 `{"success":bool,"error"}`
 
 ```bash
 curl -X POST $BASE/api/v1/storage-backends/test -H "Authorization: Bearer $TOKEN" \
@@ -124,7 +124,7 @@ curl -X POST $BASE/api/v1/storage-backends/test -H "Authorization: Bearer $TOKEN
 
 ### POST /api/v1/storage-backends
 
-用途：创建存储后端。权限：Admin+。响应：201 `{"success":true,"data":{StorageBackend}}`
+Purpose: create a storage backend. Permission: Admin+. Response: 201 `{"success":true,"data":{StorageBackend}}`
 
 ```bash
 curl -X POST $BASE/api/v1/storage-backends -H "Authorization: Bearer $TOKEN" \
@@ -133,7 +133,7 @@ curl -X POST $BASE/api/v1/storage-backends -H "Authorization: Bearer $TOKEN" \
 
 ### GET /api/v1/storage-backends
 
-用途：列表（含 `default_storage_backend_id`）。权限：Viewer+。响应：200 `{"success":true,"data":[...],"default_storage_backend_id":"..."}`
+Purpose: list (includes `default_storage_backend_id`). Permission: Viewer+. Response: 200 `{"success":true,"data":[...],"default_storage_backend_id":"..."}`
 
 ```bash
 curl $BASE/api/v1/storage-backends -H "Authorization: Bearer $TOKEN"
@@ -141,7 +141,7 @@ curl $BASE/api/v1/storage-backends -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/storage-backends/:id
 
-用途：详情（凭证掩码）。权限：Viewer+。响应：200 `{"success":true,"data":{StorageBackend}}`
+Purpose: details (credentials masked). Permission: Viewer+. Response: 200 `{"success":true,"data":{StorageBackend}}`
 
 ```bash
 curl $BASE/api/v1/storage-backends/sb-1 -H "Authorization: Bearer $TOKEN"
@@ -149,7 +149,7 @@ curl $BASE/api/v1/storage-backends/sb-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/storage-backends/:id
 
-用途：更新。权限：Admin+。响应：200 `{"success":true,"data":{StorageBackend}}`
+Purpose: update. Permission: Admin+. Response: 200 `{"success":true,"data":{StorageBackend}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/storage-backends/sb-1 -H "Authorization: Bearer $TOKEN" \
@@ -158,7 +158,7 @@ curl -X PUT $BASE/api/v1/storage-backends/sb-1 -H "Authorization: Bearer $TOKEN"
 
 ### DELETE /api/v1/storage-backends/:id
 
-用途：删除。权限：Admin+。响应：200 `{"success":true}`
+Purpose: delete. Permission: Admin+. Response: 200 `{"success":true}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/storage-backends/sb-1 -H "Authorization: Bearer $TOKEN"
@@ -166,7 +166,7 @@ curl -X DELETE $BASE/api/v1/storage-backends/sb-1 -H "Authorization: Bearer $TOK
 
 ### POST /api/v1/storage-backends/:id/test
 
-用途：测试已保存后端。权限：Admin+。响应：200 `{"success":bool,"error"}`
+Purpose: test a saved backend. Permission: Admin+. Response: 200 `{"success":bool,"error"}`
 
 ```bash
 curl -X POST $BASE/api/v1/storage-backends/sb-1/test -H "Authorization: Bearer $TOKEN"
@@ -174,19 +174,19 @@ curl -X POST $BASE/api/v1/storage-backends/sb-1/test -H "Authorization: Bearer $
 
 ### PUT /api/v1/storage-backends/:id/default
 
-用途：设为默认后端。权限：Admin+。响应：200 `{"success":true}`
+Purpose: set as the default backend. Permission: Admin+. Response: 200 `{"success":true}`
 
 ```bash
 curl -X PUT $BASE/api/v1/storage-backends/sb-1/default -H "Authorization: Bearer $TOKEN"
 ```
 
-## Web 搜索（/api/v1/web-search 与 /api/v1/web-search-providers）
+## Web Search (/api/v1/web-search and /api/v1/web-search-providers)
 
 ### GET /api/v1/web-search/providers
 
-用途：内置搜索提供方目录（只读）。权限：Viewer+，仅 JWT（未声明 API key 策略）。Handler: `internal/handler/web_search.go`
+Purpose: catalog of built-in search providers (read-only). Permission: Viewer+, JWT only (no API key policy declared). Handler: `internal/handler/web_search.go`
 
-响应：200 `{"success":true,"data":[...]}`
+Response: 200 `{"success":true,"data":[...]}`
 
 ```bash
 curl $BASE/api/v1/web-search/providers -H "Authorization: Bearer $TOKEN"
@@ -194,9 +194,9 @@ curl $BASE/api/v1/web-search/providers -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/web-search-providers/types
 
-用途：提供方类型与参数 schema。权限：Viewer+。Handler: `internal/handler/web_search_provider.go`
+Purpose: provider types and their parameter schema. Permission: Viewer+. Handler: `internal/handler/web_search_provider.go`
 
-响应：200 `{"success":true,"data":[...]}`
+Response: 200 `{"success":true,"data":[...]}`
 
 ```bash
 curl $BASE/api/v1/web-search-providers/types -H "Authorization: Bearer $TOKEN"
@@ -204,9 +204,9 @@ curl $BASE/api/v1/web-search-providers/types -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/web-search-providers/test
 
-用途：原始凭证测试（不落库）。权限：Admin+。请求体：`provider`（`binding:"required"`）、`parameters`（可选）。
+Purpose: test raw credentials (not persisted). Permission: Admin+. Request body: `provider` (`binding:"required"`), `parameters` (optional).
 
-响应：200 `{"success":bool,"error"}`
+Response: 200 `{"success":bool,"error"}`
 
 ```bash
 curl -X POST $BASE/api/v1/web-search-providers/test -H "Authorization: Bearer $TOKEN" \
@@ -215,17 +215,17 @@ curl -X POST $BASE/api/v1/web-search-providers/test -H "Authorization: Bearer $T
 
 ### POST /api/v1/web-search-providers
 
-用途：创建提供方配置。权限：Admin+。
+Purpose: create a provider configuration. Permission: Admin+.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `name` | string | 是（`binding:"required"`） | 名称 |
-| `provider` | string | 是（`binding:"required"`） | 类型（bing/tavily/google…） |
-| `description` | string | 否 | 描述 |
-| `parameters` | object | 否 | 参数（api_key 建议走 credentials 子资源） |
-| `is_default` | bool | 否 | 默认提供方 |
+| `name` | string | Yes (`binding:"required"`) | Name |
+| `provider` | string | Yes (`binding:"required"`) | Type (bing/tavily/google…) |
+| `description` | string | No | Description |
+| `parameters` | object | No | Parameters (it's recommended to set api_key via the credentials sub-resource) |
+| `is_default` | bool | No | Default provider |
 
-响应：201 `{"success":true,"data":{WebSearchProviderResponse}}`
+Response: 201 `{"success":true,"data":{WebSearchProviderResponse}}`
 
 ```bash
 curl -X POST $BASE/api/v1/web-search-providers -H "Authorization: Bearer $TOKEN" \
@@ -234,7 +234,7 @@ curl -X POST $BASE/api/v1/web-search-providers -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/web-search-providers
 
-用途：提供方列表。权限：Viewer+。响应：200 `{"success":true,"data":[...]}`
+Purpose: list providers. Permission: Viewer+. Response: 200 `{"success":true,"data":[...]}`
 
 ```bash
 curl $BASE/api/v1/web-search-providers -H "Authorization: Bearer $TOKEN"
@@ -242,7 +242,7 @@ curl $BASE/api/v1/web-search-providers -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/web-search-providers/:id
 
-用途：详情。权限：Viewer+。响应：200 `{"success":true,"data":{...}}`
+Purpose: details. Permission: Viewer+. Response: 200 `{"success":true,"data":{...}}`
 
 ```bash
 curl $BASE/api/v1/web-search-providers/wsp-1 -H "Authorization: Bearer $TOKEN"
@@ -250,9 +250,9 @@ curl $BASE/api/v1/web-search-providers/wsp-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/web-search-providers/:id
 
-用途：更新（空字段保留原值；APIKey 保留）。权限：Admin+。请求体：`name/description/parameters/is_default`（均可选）。
+Purpose: update (empty fields keep their original value; APIKey is preserved). Permission: Admin+. Request body: `name/description/parameters/is_default` (all optional).
 
-响应：200 `{"success":true,"data":{...}}`
+Response: 200 `{"success":true,"data":{...}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/web-search-providers/wsp-1 -H "Authorization: Bearer $TOKEN" \
@@ -261,7 +261,7 @@ curl -X PUT $BASE/api/v1/web-search-providers/wsp-1 -H "Authorization: Bearer $T
 
 ### DELETE /api/v1/web-search-providers/:id
 
-用途：删除。权限：Admin+。响应：200 `{"success":true}`
+Purpose: delete. Permission: Admin+. Response: 200 `{"success":true}`
 
 ```bash
 curl -X DELETE $BASE/api/v1/web-search-providers/wsp-1 -H "Authorization: Bearer $TOKEN"
@@ -269,9 +269,9 @@ curl -X DELETE $BASE/api/v1/web-search-providers/wsp-1 -H "Authorization: Bearer
 
 ### PUT /api/v1/web-search-providers/:id/credentials
 
-用途：设置 API key（`{"api_key":"..."}`，省略时返回状态）。权限：Admin+。Handler: `internal/handler/web_search_provider_credentials.go`
+Purpose: set the API key (`{"api_key":"..."}`; when omitted, returns the current status). Permission: Admin+. Handler: `internal/handler/web_search_provider_credentials.go`
 
-响应：200 `{"success":true,"data":{"fields":{"api_key":{"configured":bool}}}}`
+Response: 200 `{"success":true,"data":{"fields":{"api_key":{"configured":bool}}}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/web-search-providers/wsp-1/credentials -H "Authorization: Bearer $TOKEN" \
@@ -280,7 +280,7 @@ curl -X PUT $BASE/api/v1/web-search-providers/wsp-1/credentials -H "Authorizatio
 
 ### DELETE /api/v1/web-search-providers/:id/credentials/:field
 
-用途：删除凭证字段（`field` 仅 `api_key`）。权限：Admin+。响应：204。
+Purpose: delete a credential field (`field` can only be `api_key`). Permission: Admin+. Response: 204.
 
 ```bash
 curl -X DELETE $BASE/api/v1/web-search-providers/wsp-1/credentials/api_key -H "Authorization: Bearer $TOKEN"
@@ -288,21 +288,21 @@ curl -X DELETE $BASE/api/v1/web-search-providers/wsp-1/credentials/api_key -H "A
 
 ### POST /api/v1/web-search-providers/:id/test
 
-用途：测试已保存提供方。权限：Admin+。响应：200 `{"success":bool,"error"}`
+Purpose: test a saved provider. Permission: Admin+. Response: 200 `{"success":bool,"error"}`
 
 ```bash
 curl -X POST $BASE/api/v1/web-search-providers/wsp-1/test -H "Authorization: Bearer $TOKEN"
 ```
 
-## 数据源（/api/v1/datasource）
+## Data Sources (/api/v1/datasource)
 
-外部内容连接器（Feishu/Notion/语雀等），同步任务会写入 KB。Handler: `internal/handler/datasource.go`。本组多数响应为原始对象/数组（无 `success` 包装）。
+External content connectors (Feishu/Notion/Yuque, etc.); sync jobs write into a KB. Handler: `internal/handler/datasource.go`. Most responses in this group are raw objects/arrays (no `success` wrapper).
 
 ### GET /api/v1/datasource/types
 
-用途：可用连接器目录。权限：Viewer+。
+Purpose: catalog of available connectors. Permission: Viewer+.
 
-响应：200 `[{type,name,description,icon,priority,auth_type,capabilities}]`
+Response: 200 `[{type,name,description,icon,priority,auth_type,capabilities}]`
 
 ```bash
 curl $BASE/api/v1/datasource/types -H "Authorization: Bearer $TOKEN"
@@ -310,14 +310,14 @@ curl $BASE/api/v1/datasource/types -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/datasource/validate-credentials
 
-用途：校验原始凭证（“测试连接”按钮，不落库）。权限：Admin+。
+Purpose: validate raw credentials (the "test connection" button; not persisted). Permission: Admin+.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `type` | string | 是（`binding:"required"`） | 连接器类型 |
-| `credentials` | map | 是（`binding:"required"`） | 凭证 |
+| `type` | string | Yes (`binding:"required"`) | Connector type |
+| `credentials` | map | Yes (`binding:"required"`) | Credentials |
 
-响应：200 `{"status":"connected"}`；失败 400 `{"error":"..."}`
+Response: 200 `{"status":"connected"}`; on failure 400 `{"error":"..."}`
 
 ```bash
 curl -X POST $BASE/api/v1/datasource/validate-credentials -H "Authorization: Bearer $TOKEN" \
@@ -326,33 +326,33 @@ curl -X POST $BASE/api/v1/datasource/validate-credentials -H "Authorization: Bea
 
 ### POST /api/v1/datasource
 
-用途：创建数据源。权限：Admin+。请求体（`types.DataSource`）：
+Purpose: create a data source. Permission: Admin+. Request body (`types.DataSource`):
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `knowledge_base_id` | string | 是 | 目标 KB（须归属本空间） |
-| `name` | string | 是 | 名称 |
-| `type` | string | 是 | 连接器类型 |
-| `config` | object | 是 | 凭证（加密存储）+资源选择+设置 |
-| `sync_schedule` | string | 否 | cron 表达式 |
-| `sync_mode` | string | 否 | `incremental`（默认）/`full` |
-| `conflict_strategy` | string | 否 | `overwrite`（默认）/`skip` |
-| `sync_deletions` | bool | 否 | 默认 true |
-| `sync_log_retention_days` | int | 否 | 默认 30 |
+| `knowledge_base_id` | string | Yes | Target KB (must belong to this space) |
+| `name` | string | Yes | Name |
+| `type` | string | Yes | Connector type |
+| `config` | object | Yes | Credentials (stored encrypted) + resource selection + settings |
+| `sync_schedule` | string | No | Cron expression |
+| `sync_mode` | string | No | `incremental` (default) / `full` |
+| `conflict_strategy` | string | No | `overwrite` (default) / `skip` |
+| `sync_deletions` | bool | No | Defaults to true |
+| `sync_log_retention_days` | int | No | Defaults to 30 |
 
-响应：201 `DataSourceResponse`（凭证剥离，见 `internal/handler/dto/datasource.go`）。
+Response: 201 `DataSourceResponse` (credentials stripped, see `internal/handler/dto/datasource.go`).
 
 ```bash
 curl -X POST $BASE/api/v1/datasource -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"knowledge_base_id":"kb-1","name":"notion 同步","type":"notion","config":{}}'
+  -d '{"knowledge_base_id":"kb-1","name":"notion sync","type":"notion","config":{}}'
 ```
 
 ### GET /api/v1/datasource
 
-用途：数据源列表。权限：Viewer+。查询参数：`kb_id`（必填）。
+Purpose: list data sources. Permission: Viewer+. Query parameters: `kb_id` (required).
 
-响应：200 `[DataSourceResponse]`
+Response: 200 `[DataSourceResponse]`
 
 ```bash
 curl "$BASE/api/v1/datasource?kb_id=kb-1" -H "Authorization: Bearer $TOKEN"
@@ -360,7 +360,7 @@ curl "$BASE/api/v1/datasource?kb_id=kb-1" -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/datasource/:id
 
-用途：详情。权限：Viewer+。响应：200 `DataSourceResponse`；404 `{"error":"data source not found"}`
+Purpose: details. Permission: Viewer+. Response: 200 `DataSourceResponse`; 404 `{"error":"data source not found"}`
 
 ```bash
 curl $BASE/api/v1/datasource/ds-1 -H "Authorization: Bearer $TOKEN"
@@ -368,18 +368,18 @@ curl $BASE/api/v1/datasource/ds-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/datasource/:id
 
-用途：更新（`id/tenant_id/knowledge_base_id` 锁定为原值）。权限：Admin+。请求体同创建。
+Purpose: update (`id/tenant_id/knowledge_base_id` are locked to their original values). Permission: Admin+. Request body same as create.
 
-响应：200 `DataSourceResponse`
+Response: 200 `DataSourceResponse`
 
 ```bash
 curl -X PUT $BASE/api/v1/datasource/ds-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"notion 同步 v2","type":"notion","knowledge_base_id":"kb-1","config":{}}'
+  -H 'Content-Type: application/json' -d '{"name":"notion sync v2","type":"notion","knowledge_base_id":"kb-1","config":{}}'
 ```
 
 ### DELETE /api/v1/datasource/:id
 
-用途：删除。权限：Admin+。响应：204。
+Purpose: delete. Permission: Admin+. Response: 204.
 
 ```bash
 curl -X DELETE $BASE/api/v1/datasource/ds-1 -H "Authorization: Bearer $TOKEN"
@@ -387,9 +387,9 @@ curl -X DELETE $BASE/api/v1/datasource/ds-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/datasource/:id/credentials
 
-用途：整体替换凭证（数据源凭证为“单一逻辑字段 `credentials`”的原子 map）。权限：Admin+。请求体：`{"credentials":{...}}`（非空 map 必填）。Handler: `internal/handler/datasource_credentials.go`
+Purpose: replace credentials wholesale (data source credentials are an atomic map under a single logical field, `credentials`). Permission: Admin+. Request body: `{"credentials":{...}}` (a non-empty map is required). Handler: `internal/handler/datasource_credentials.go`
 
-响应：200 `{"success":true,"data":{"fields":{"credentials":{"configured":bool}}}}`
+Response: 200 `{"success":true,"data":{"fields":{"credentials":{"configured":bool}}}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/datasource/ds-1/credentials -H "Authorization: Bearer $TOKEN" \
@@ -398,7 +398,7 @@ curl -X PUT $BASE/api/v1/datasource/ds-1/credentials -H "Authorization: Bearer $
 
 ### DELETE /api/v1/datasource/:id/credentials/:field
 
-用途：清空凭证（`field` 必须为 `credentials`）。权限：Admin+。响应：204。
+Purpose: clear credentials (`field` must be `credentials`). Permission: Admin+. Response: 204.
 
 ```bash
 curl -X DELETE $BASE/api/v1/datasource/ds-1/credentials/credentials -H "Authorization: Bearer $TOKEN"
@@ -406,7 +406,7 @@ curl -X DELETE $BASE/api/v1/datasource/ds-1/credentials/credentials -H "Authoriz
 
 ### POST /api/v1/datasource/:id/validate
 
-用途：校验已保存数据源连接。权限：Admin+。响应：200 `{"status":"connected"}`
+Purpose: validate a saved data source's connection. Permission: Admin+. Response: 200 `{"status":"connected"}`
 
 ```bash
 curl -X POST $BASE/api/v1/datasource/ds-1/validate -H "Authorization: Bearer $TOKEN"
@@ -414,9 +414,9 @@ curl -X POST $BASE/api/v1/datasource/ds-1/validate -H "Authorization: Bearer $TO
 
 ### GET /api/v1/datasource/:id/resources
 
-用途：浏览外部资源树（懒加载）。权限：Admin+。查询参数：`parent_id`（可选，空=顶层）。
+Purpose: browse the external resource tree (lazy-loaded). Permission: Admin+. Query parameters: `parent_id` (optional; empty = top level).
 
-响应：200 `[{external_id,name,type,description,url,modified_at,parent_id,has_children,metadata}]`
+Response: 200 `[{external_id,name,type,description,url,modified_at,parent_id,has_children,metadata}]`
 
 ```bash
 curl "$BASE/api/v1/datasource/ds-1/resources?parent_id=" -H "Authorization: Bearer $TOKEN"
@@ -424,9 +424,9 @@ curl "$BASE/api/v1/datasource/ds-1/resources?parent_id=" -H "Authorization: Bear
 
 ### POST /api/v1/datasource/:id/resource-ancestors
 
-用途：解析资源祖先链（选择器展开）。权限：Admin+。请求体：`{"resource_ids":["..."]}`（必填）。
+Purpose: resolve a resource's ancestor chain (for selector expansion). Permission: Admin+. Request body: `{"resource_ids":["..."]}` (required).
 
-响应：200 `{"ancestors":[...]}`
+Response: 200 `{"ancestors":[...]}`
 
 ```bash
 curl -X POST $BASE/api/v1/datasource/ds-1/resource-ancestors -H "Authorization: Bearer $TOKEN" \
@@ -435,17 +435,17 @@ curl -X POST $BASE/api/v1/datasource/ds-1/resource-ancestors -H "Authorization: 
 
 ### POST /api/v1/datasource/:id/sync
 
-用途：手动触发同步。权限：Admin+。响应：200 `SyncLog`（`id,status,started_at,items_total,items_created,items_updated,items_deleted,items_failed,...`）
+Purpose: manually trigger a sync. Permission: Admin+. Response: 200 `SyncLog` (`id,status,started_at,items_total,items_created,items_updated,items_deleted,items_failed,...`)
 
 ```bash
 curl -X POST $BASE/api/v1/datasource/ds-1/sync -H "Authorization: Bearer $TOKEN"
 ```
 
-### POST /api/v1/datasource/:id/pause 与 POST /api/v1/datasource/:id/resume
+### POST /api/v1/datasource/:id/pause and POST /api/v1/datasource/:id/resume
 
-用途：暂停 / 恢复定时同步。权限：Admin+。
+Purpose: pause / resume scheduled sync. Permission: Admin+.
 
-响应：200 `{"status":"paused"}` / `{"status":"active"}`
+Response: 200 `{"status":"paused"}` / `{"status":"active"}`
 
 ```bash
 curl -X POST $BASE/api/v1/datasource/ds-1/pause -H "Authorization: Bearer $TOKEN"
@@ -453,9 +453,9 @@ curl -X POST $BASE/api/v1/datasource/ds-1/pause -H "Authorization: Bearer $TOKEN
 
 ### GET /api/v1/datasource/:id/logs
 
-用途：同步日志列表。权限：Viewer+。查询参数：`limit`（默认 10，上限 100）、`offset`（默认 0）。
+Purpose: list sync logs. Permission: Viewer+. Query parameters: `limit` (default 10, max 100), `offset` (default 0).
 
-响应：200 `[SyncLog]`
+Response: 200 `[SyncLog]`
 
 ```bash
 curl "$BASE/api/v1/datasource/ds-1/logs?limit=10" -H "Authorization: Bearer $TOKEN"
@@ -463,7 +463,7 @@ curl "$BASE/api/v1/datasource/ds-1/logs?limit=10" -H "Authorization: Bearer $TOK
 
 ### GET /api/v1/datasource/logs/:log_id
 
-用途：单条同步日志。权限：Viewer+。响应：200 `SyncLog`；404 `{"error":"sync log not found"}`
+Purpose: a single sync log entry. Permission: Viewer+. Response: 200 `SyncLog`; 404 `{"error":"sync log not found"}`
 
 ```bash
 curl $BASE/api/v1/datasource/logs/log-1 -H "Authorization: Bearer $TOKEN"

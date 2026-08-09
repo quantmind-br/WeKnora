@@ -1157,8 +1157,8 @@ func (s *DataSourceService) validateDataSourceConfig(ctx context.Context, ds *ty
 // If a knowledge item with the same external_id already exists, it is deleted first (update = delete + re-create).
 //
 // Routing logic:
-//   - Has Content bytes → CreateKnowledgeFromFile (走完整的文档解析 pipeline)
-//   - Has URL only      → CreateKnowledgeFromURL  (让 WeKnora 下载并解析)
+// - Has Content bytes → CreateKnowledgeFromFile (goes through the full document parsing pipeline)
+// - Has URL only      → CreateKnowledgeFromURL  (let WeKnora download and parse it)
 //
 // Returns (isUpdate, error) — isUpdate is true when an existing item was replaced.
 func (s *DataSourceService) ingestItem(ctx context.Context, ds *types.DataSource, item *types.FetchedItem, tagIDs []string) (bool, error) {

@@ -1426,9 +1426,9 @@ func (s *knowledgeService) getOrCreateTagInTarget(
 	}
 
 	// Create new tag in target KB
-	// "未分类" tag should have the lowest sort order to appear first
+	// The untagged tag should have the lowest sort order to appear first
 	sortOrder := srcTag.SortOrder
-	if srcTag.Name == types.UntaggedTagName {
+	if types.IsUntaggedTagName(srcTag.Name) {
 		sortOrder = -1
 	}
 	newTag := &types.KnowledgeTag{

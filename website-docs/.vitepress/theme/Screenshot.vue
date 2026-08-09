@@ -3,16 +3,17 @@ import { ref, computed } from 'vue'
 import { withBase } from 'vitepress'
 
 const props = defineProps<{
-  /** 相对站点根的图片路径，约定放在 public/screenshots/ 下 */
+  /** Image path relative to the site root, conventionally placed under public/screenshots/ */
   src: string
-  /** 图注：说明这张图展示的是什么 */
+  /** Caption: describes what this image shows */
   caption: string
-  /** 补充说明：截图应覆盖哪些界面元素，供补图的人参考 */
+  /** Additional notes: which UI elements the screenshot should cover, for reference when adding the image */
   hint?: string
 }>()
 
-// 图片可能尚未补充。默认先渲染占位框，只有确实加载成功才换成图片，
-// 这样缺图时不会先闪一个碎图标再降级。
+// The image may not have been added yet. Render a placeholder box by default, and only
+// switch to the image once it actually loads successfully, so a broken-image icon doesn't
+// flash before falling back when the image is missing.
 const loaded = ref(false)
 const resolved = computed(() => withBase(props.src))
 </script>
@@ -27,7 +28,7 @@ const resolved = computed(() => withBase(props.src))
       @load="loaded = true"
     />
     <div v-if="!loaded" class="wk-shot-placeholder">
-      <div class="wk-shot-placeholder-badge">截图待补充</div>
+      <div class="wk-shot-placeholder-badge">Screenshot pending</div>
       <div class="wk-shot-placeholder-caption">{{ caption }}</div>
       <p v-if="hint" class="wk-shot-placeholder-hint">{{ hint }}</p>
       <code class="wk-shot-placeholder-path">website-docs/public{{ src }}</code>

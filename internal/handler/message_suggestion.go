@@ -32,14 +32,14 @@ type SuggestionEventRequest struct {
 }
 
 // Ensure godoc
-// @Summary      确保生成回答后推荐问题
-// @Description  对已完成的助手消息异步生成或重新生成推荐问题；相同配置快照会复用持久化结果
-// @Tags         会话
+// @Summary      Ensure post-answer suggested questions are generated
+// @Description  Asynchronously generate or regenerate suggested questions for a completed assistant message; identical config snapshots reuse persisted results
+// @Tags         Sessions
 // @Accept       json
 // @Produce      json
-// @Param        session_id  path  string  true  "会话 ID"
-// @Param        message_id  path  string  true  "助手消息 ID"
-// @Param        request     body  EnsureMessageSuggestionsRequest  false  "生成选项"
+// @Param        session_id  path  string  true  "Session ID"
+// @Param        message_id  path  string  true  "Assistant message ID"
+// @Param        request     body  EnsureMessageSuggestionsRequest  false  "Generation options"
 // @Success      200  {object}  map[string]interface{}
 // @Success      202  {object}  map[string]interface{}
 // @Security     Bearer
@@ -71,11 +71,11 @@ func (h *MessageSuggestionHandler) Ensure(c *gin.Context) {
 }
 
 // Get godoc
-// @Summary      获取回答后推荐问题
-// @Tags         会话
+// @Summary      Get post-answer suggested questions
+// @Tags         Sessions
 // @Produce      json
-// @Param        session_id  path  string  true  "会话 ID"
-// @Param        message_id  path  string  true  "助手消息 ID"
+// @Param        session_id  path  string  true  "Session ID"
+// @Param        message_id  path  string  true  "Assistant message ID"
 // @Success      200  {object}  map[string]interface{}
 // @Security     Bearer
 // @Security     ApiKeyAuth
@@ -102,12 +102,12 @@ func messageSuggestionSessionID(c *gin.Context) string {
 }
 
 // RecordEvent godoc
-// @Summary      上报推荐问题事件
-// @Description  记录曝光、点击或关闭事件
-// @Tags         会话
+// @Summary      Report suggested question event
+// @Description  Record impression, click or close events
+// @Tags         Sessions
 // @Accept       json
-// @Param        session_id  path  string  true  "会话 ID"
-// @Param        request     body  SuggestionEventRequest  true  "事件"
+// @Param        session_id  path  string  true  "Session ID"
+// @Param        request     body  SuggestionEventRequest  true  "Events"
 // @Success      204
 // @Security     Bearer
 // @Security     ApiKeyAuth

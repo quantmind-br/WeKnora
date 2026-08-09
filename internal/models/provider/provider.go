@@ -9,7 +9,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-// ProviderName 模型服务商名称
+// ProviderName model service provider name
 type ProviderName string
 
 const (
@@ -17,45 +17,45 @@ const (
 	ProviderOpenAI ProviderName = "openai"
 	// Anthropic Claude
 	ProviderAnthropic ProviderName = "anthropic"
-	// 阿里云 DashScope
+	// Alibaba Cloud DashScope
 	ProviderAliyun ProviderName = "aliyun"
-	// 智谱AI (GLM 系列)
+	// Zhipu AI (GLM series)
 	ProviderZhipu ProviderName = "zhipu"
 	// OpenRouter
 	ProviderOpenRouter ProviderName = "openrouter"
 	// Requesty
 	ProviderRequesty ProviderName = "requesty"
-	// 硅基流动
+	// SiliconFlow
 	ProviderSiliconFlow ProviderName = "siliconflow"
 	// Jina AI (Embedding and Rerank)
 	ProviderJina ProviderName = "jina"
-	// Generic 兼容OpenAI (自定义部署)
+	// Generic OpenAI-compatible (custom deployment)
 	ProviderGeneric ProviderName = "generic"
 	// DeepSeek
 	ProviderDeepSeek ProviderName = "deepseek"
 	// Google Gemini
 	ProviderGemini ProviderName = "gemini"
-	// 火山引擎 Ark
+	// Volcengine Ark
 	ProviderVolcengine ProviderName = "volcengine"
-	// 腾讯混元
+	// Tencent Hunyuan
 	ProviderHunyuan ProviderName = "hunyuan"
 	// MiniMax
 	ProviderMiniMax ProviderName = "minimax"
-	// 小米 Mimo
+	// Xiaomi Mimo
 	ProviderMimo ProviderName = "mimo"
-	// GPUStack (私有化部署)
+	// GPUStack (self-hosted deployment)
 	ProviderGPUStack ProviderName = "gpustack"
-	// 月之暗面 Moonshot (Kimi)
+	// Moonshot AI (Kimi)
 	ProviderMoonshot ProviderName = "moonshot"
-	// 魔搭 ModelScope
+	// ModelScope
 	ProviderModelScope ProviderName = "modelscope"
-	// 百度千帆
+	// Baidu Qianfan
 	ProviderQianfan ProviderName = "qianfan"
-	// 七牛云
+	// Qiniu Cloud
 	ProviderQiniu ProviderName = "qiniu"
-	// 美团 LongCat AI
+	// Meituan LongCat AI
 	ProviderLongCat ProviderName = "longcat"
-	// 腾讯云 LKEAP (知识引擎原子能力)
+	// Tencent Cloud LKEAP (Knowledge Engine Atomic Capabilities)
 	ProviderLKEAP ProviderName = "lkeap"
 	// NVIDIA
 	ProviderNvidia ProviderName = "nvidia"
@@ -65,7 +65,7 @@ const (
 	ProviderAzureOpenAI ProviderName = "azure_openai"
 )
 
-// AllProviders 返回所有注册的提供者名称
+// AllProviders returns all registered provider names
 func AllProviders() []ProviderName {
 	return []ProviderName{
 		ProviderGeneric,
@@ -97,30 +97,30 @@ func AllProviders() []ProviderName {
 	}
 }
 
-// ProviderInfo 包含提供者的元数据
+// ProviderInfo contains metadata for a provider
 type ProviderInfo struct {
-	Name         ProviderName               // 提供者标识
-	DisplayName  string                     // 可读名称
-	Description  string                     // 提供者描述
-	DefaultURLs  map[types.ModelType]string // 按模型类型区分的默认 BaseURL
-	ModelTypes   []types.ModelType          // 支持的模型类型
-	RequiresAuth bool                       // 是否需要 API key
-	ExtraFields  []ExtraFieldConfig         // 额外配置字段
+	Name         ProviderName               // Provider identifier
+	DisplayName  string                     // Human-readable name
+	Description  string                     // Provider description
+	DefaultURLs  map[types.ModelType]string // Default BaseURL by model type
+	ModelTypes   []types.ModelType          // Supported model types
+	RequiresAuth bool                       // Whether an API key is required
+	ExtraFields  []ExtraFieldConfig         // Extra configuration fields
 }
 
-// GetDefaultURL 获取指定模型类型的默认 URL
+// GetDefaultURL gets the default URL for the specified model type
 func (p ProviderInfo) GetDefaultURL(modelType types.ModelType) string {
 	if url, ok := p.DefaultURLs[modelType]; ok {
 		return url
 	}
-	// 回退到 Chat URL
+	// Fall back to Chat URL
 	if url, ok := p.DefaultURLs[types.ModelTypeKnowledgeQA]; ok {
 		return url
 	}
 	return ""
 }
 
-// ExtraFieldConfig 定义提供者的额外配置字段
+// ExtraFieldConfig defines a provider's extra configuration fields
 type ExtraFieldConfig struct {
 	Key         string `json:"key"`
 	Label       string `json:"label"`
@@ -134,7 +134,7 @@ type ExtraFieldConfig struct {
 	} `json:"options,omitempty"`
 }
 
-// Config 表示模型提供者的配置
+// Config represents a model provider's configuration
 type Config struct {
 	Provider  ProviderName   `json:"provider"`
 	BaseURL   string         `json:"base_url"`
@@ -145,27 +145,27 @@ type Config struct {
 }
 
 type Provider interface {
-	// Info 返回服务商的元数据
+	// Info returns metadata for the service provider
 	Info() ProviderInfo
 
-	// ValidateConfig 验证服务商的配置
+	// ValidateConfig validates the service provider's configuration
 	ValidateConfig(config *Config) error
 }
 
-// registry 存储所有注册的提供者
+// registry stores all registered providers
 var (
 	registryMu sync.RWMutex
 	registry   = make(map[ProviderName]Provider)
 )
 
-// Register 添加一个提供者到全局注册表
+// Register adds a provider to the global registry
 func Register(p Provider) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	registry[p.Info().Name] = p
 }
 
-// Get 通过名称从注册表中获取提供者
+// Get retrieves a provider from the registry by name
 func Get(name ProviderName) (Provider, bool) {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -173,18 +173,18 @@ func Get(name ProviderName) (Provider, bool) {
 	return p, ok
 }
 
-// GetOrDefault 通过名称从注册表中获取提供者，如果未找到则返回默认提供者
+// GetOrDefault retrieves a provider from the registry by name, falling back to the default provider if not found
 func GetOrDefault(name ProviderName) Provider {
 	p, ok := Get(name)
 	if ok {
 		return p
 	}
-	// 如果未找到则返回默认提供者
+	// Falls back to the default provider if not found
 	p, _ = Get(ProviderGeneric)
 	return p
 }
 
-// List 返回所有注册的提供者（按 AllProviders 定义的顺序）
+// List returns all registered providers (in the order defined by AllProviders)
 func List() []ProviderInfo {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -198,7 +198,7 @@ func List() []ProviderInfo {
 	return result
 }
 
-// ListByModelType 返回所有支持指定模型类型的提供者（按 AllProviders 定义的顺序）
+// ListByModelType returns all registered providers that support the specified model type (in the order defined by AllProviders)
 func ListByModelType(modelType types.ModelType) []ProviderInfo {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -218,7 +218,7 @@ func ListByModelType(modelType types.ModelType) []ProviderInfo {
 	return result
 }
 
-// DetectProvider 通过 BaseURL 检测服务商
+// DetectProvider detects the provider via BaseURL
 func DetectProvider(baseURL string) ProviderName {
 	switch {
 	case containsAny(baseURL, "dashscope.aliyuncs.com"):

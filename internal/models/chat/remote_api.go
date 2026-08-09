@@ -16,10 +16,10 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// RemoteAPIChat 实现了基于 OpenAI 兼容 API 的聊天。
-// 它本身只负责通用的请求/响应/流式处理；所有 provider 特定行为都委托给
-// providerAdapter（见 provider.go），thinking 编码委托给 ThinkingStrategy
-// （见 thinking.go）。
+// RemoteAPIChat implements chat based on an OpenAI-compatible API.
+// It is only responsible for generic request/response/streaming handling; all provider-specific behavior is delegated to
+// providerAdapter (see provider.go), and thinking encoding is delegated to ThinkingStrategy
+// (see thinking.go).
 type RemoteAPIChat struct {
 	modelName string
 	client    *openai.Client
@@ -29,16 +29,16 @@ type RemoteAPIChat struct {
 	provider  provider.ProviderName
 	appID     string
 	appSecret string
-	// customHeaders 为用户在模型配置中指定的自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
+	// customHeaders are custom HTTP request headers specified by the user in the model configuration (similar to extra_headers in the OpenAI Python SDK).
 	customHeaders map[string]string
 
-	// adapter 承载所有 provider 特定行为（thinking / 参数特判 / endpoint / 鉴权 / 消息变换）。
+	// adapter carries all provider-specific behavior (thinking / parameter special-casing / endpoint / auth / message transformation).
 	adapter providerAdapter
-	// thinkingOverride 来自 extra_config.thinking_control，非 nil 时覆盖 adapter.Thinking()。
+	// thinkingOverride comes from extra_config.thinking_control; when non-nil, it overrides adapter.Thinking().
 	thinkingOverride ThinkingStrategy
 }
 
-// NewRemoteAPIChat 创建远程 API 聊天实例
+// NewRemoteAPIChat creates a remote API chat instance
 func NewRemoteAPIChat(chatConfig *ChatConfig) (*RemoteAPIChat, error) {
 	if chatConfig.BaseURL != "" {
 		if err := secutils.ValidateURLForSSRF(chatConfig.BaseURL); err != nil {
@@ -72,13 +72,13 @@ func NewRemoteAPIChat(chatConfig *ChatConfig) (*RemoteAPIChat, error) {
 		}
 	}
 
-	// 如果指定了 CustomHeaders，则给 SDK 使用的 HTTPClient 挂一层 RoundTripper，
-	// 在每个请求上自动注入这些 header（raw HTTP 路径会在发送前单独处理）。
+	// If CustomHeaders is specified, attach a RoundTripper layer to the HTTPClient used by the SDK,
+	// automatically injecting these headers on every request (the raw HTTP path handles this separately before sending).
 	if len(chatConfig.CustomHeaders) > 0 {
 		if httpClient, ok := config.HTTPClient.(*http.Client); ok {
 			config.HTTPClient = secutils.WrapHTTPClientWithHeaders(httpClient, chatConfig.CustomHeaders)
 		} else {
-			// SDK 默认未显式设置时 HTTPClient 为 nil，此时构造一个新的注入了 header 的 client。
+			// When the SDK doesn't explicitly set one, HTTPClient defaults to nil; in that case, construct a new client with the header injection attached.
 			config.HTTPClient = secutils.WrapHTTPClientWithHeaders(nil, chatConfig.CustomHeaders)
 		}
 	}
@@ -155,7 +155,7 @@ func (c *RemoteAPIChat) buildOutbound(
 	return body, endpoint, useRawHTTP, nil
 }
 
-// logRequest 记录请求日志
+// logRequest logs the request
 func (c *RemoteAPIChat) logRequest(ctx context.Context, req any, isStream bool) {
 	if jsonData, err := json.MarshalIndent(req, "", "  "); err == nil {
 		logger.Infof(ctx, "[LLM Request] model=%s, stream=%v, request:\n%s",
@@ -163,10 +163,10 @@ func (c *RemoteAPIChat) logRequest(ctx context.Context, req any, isStream bool) 
 	}
 }
 
-// Chat 进行非流式聊天
+// Chat performs a non-streaming chat
 func (c *RemoteAPIChat) Chat(ctx context.Context, messages []Message, opts *ChatOptions) (*types.ChatResponse, error) {
-	// 仅在调用方未设置 deadline 时附加一个兜底超时，防止 hung 请求永久阻塞 worker；
-	// 调用方若显式设置了更短或更长的 deadline，都会被原样尊重。
+	// Attach a fallback timeout only when the caller has not set a deadline, to prevent hung requests from permanently blocking the worker;
+	// If the caller explicitly sets a shorter or longer deadline, it is respected as-is.
 	timeoutCtx, cancel := withLLMTimeout(ctx, defaultChatTimeout)
 	defer cancel()
 
@@ -201,7 +201,7 @@ func (c *RemoteAPIChat) Chat(ctx context.Context, messages []Message, opts *Chat
 	return result, nil
 }
 
-// chatWithRawHTTP 使用原始 HTTP 请求进行聊天（供自定义请求使用）
+// chatWithRawHTTP performs chat using a raw HTTP request (for custom requests)
 func (c *RemoteAPIChat) chatWithRawHTTP(ctx context.Context, endpoint string, customReq any) (*types.ChatResponse, error) {
 	jsonData, err := json.Marshal(customReq)
 	if err != nil {
@@ -225,7 +225,7 @@ func (c *RemoteAPIChat) chatWithRawHTTP(ctx context.Context, endpoint string, cu
 	httpReq.Header.Set("Content-Type", "application/json")
 	c.adapter.Auth(httpReq, c.authCreds(), jsonData)
 
-	// 注入用户自定义 header（保留头会在工具内部自动跳过）
+	// Inject user-defined custom headers (reserved headers are automatically skipped internally by the tool)
 	secutils.ApplyCustomHeaders(httpReq, c.customHeaders)
 
 	logger.Infof(ctx, "[LLM Request] Remote HTTP, endpoint=%s, model=%s",
@@ -262,10 +262,10 @@ func (c *RemoteAPIChat) chatWithRawHTTP(ctx context.Context, endpoint string, cu
 	return result, nil
 }
 
-// ChatStream 进行流式聊天
+// ChatStream performs streaming chat
 func (c *RemoteAPIChat) ChatStream(ctx context.Context, messages []Message, opts *ChatOptions) (<-chan types.StreamResponse, error) {
-	// 仅在调用方未设置 deadline 时附加兜底超时；流式调用默认超时更长，
-	// 因为带思考/推理的模型可能数十秒甚至几分钟才产出首 token。
+	// Attach a fallback timeout only when the caller has not set a deadline; streaming calls default to a longer timeout,
+	// because models with thinking/reasoning may take tens of seconds or even minutes to produce the first token.
 	timeoutCtx, cancel := withLLMTimeout(ctx, defaultStreamTimeout)
 
 	body, endpoint, useRawHTTP, err := c.buildOutbound(messages, opts, true)
@@ -314,8 +314,8 @@ func (c *RemoteAPIChat) ChatStream(ctx context.Context, messages []Message, opts
 	return streamChan, nil
 }
 
-// wrapStreamCancel 在子 channel 关闭后执行 cancel，避免 timeout context 泄漏。
-// 当底层调用直接返回 error 时，立即调用 cancel 并将 error 透出。
+// wrapStreamCancel calls cancel after the child channel closes, to avoid leaking the timeout context.
+// When the underlying call directly returns an error, call cancel immediately and propagate the error.
 func wrapStreamCancel(in <-chan types.StreamResponse, err error, cancel context.CancelFunc) (<-chan types.StreamResponse, error) {
 	if err != nil {
 		cancel()
@@ -332,7 +332,7 @@ func wrapStreamCancel(in <-chan types.StreamResponse, err error, cancel context.
 	return out, nil
 }
 
-// chatStreamWithRawHTTP 使用原始 HTTP 请求进行流式聊天
+// chatStreamWithRawHTTP performs streaming chat using a raw HTTP request
 func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint string, customReq any) (<-chan types.StreamResponse, error) {
 	jsonData, err := json.Marshal(customReq)
 	if err != nil {
@@ -361,7 +361,7 @@ func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint stri
 	c.adapter.Auth(httpReq, c.authCreds(), jsonData)
 	httpReq.Header.Set("Accept", "text/event-stream")
 
-	// 注入用户自定义 header（保留头会在工具内部自动跳过）
+	// Inject user-defined custom headers (reserved headers are automatically skipped internally by the tool)
 	secutils.ApplyCustomHeaders(httpReq, c.customHeaders)
 
 	resp, err := rawHTTPClient.Do(httpReq)
@@ -391,27 +391,27 @@ func (c *RemoteAPIChat) chatStreamWithRawHTTP(ctx context.Context, endpoint stri
 	return streamChan, nil
 }
 
-// GetModelName 获取模型名称
+// GetModelName gets the model name
 func (c *RemoteAPIChat) GetModelName() string {
 	return c.modelName
 }
 
-// GetModelID 获取模型ID
+// GetModelID gets the model ID
 func (c *RemoteAPIChat) GetModelID() string {
 	return c.modelID
 }
 
-// GetProvider 获取 provider 名称
+// GetProvider gets the provider name
 func (c *RemoteAPIChat) GetProvider() provider.ProviderName {
 	return c.provider
 }
 
-// GetBaseURL 获取 baseURL
+// GetBaseURL gets the baseURL
 func (c *RemoteAPIChat) GetBaseURL() string {
 	return c.baseURL
 }
 
-// GetAPIKey 获取 apiKey
+// GetAPIKey gets the apiKey
 func (c *RemoteAPIChat) GetAPIKey() string {
 	return c.apiKey
 }

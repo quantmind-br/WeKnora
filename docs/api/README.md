@@ -1,138 +1,139 @@
-# WeKnora API 文档
+# WeKnora API Documentation
 
-## 目录
+## Table of Contents
 
-- [概述](#概述)
-- [最权威参考：Swagger UI](#最权威参考swagger-ui)
-- [基础信息](#基础信息)
-- [认证机制](#认证机制)
-- [错误处理](#错误处理)
-- [文件与图片引用（`resource://` 与直链）](#文件与图片引用resource-与直链)
-- [API 概览](#api-概览)
+- [Overview](#overview)
+- [Most Authoritative Reference: Swagger UI](#most-authoritative-reference-swagger-ui)
+- [Basic Information](#basic-information)
+- [Authentication](#authentication)
+- [Error Handling](#error-handling)
+- [File and Image References (`resource://` and Direct Links)](#file-and-image-references-resource-and-direct-links)
+- [API Overview](#api-overview)
 
-## 概述
+## Overview
 
-WeKnora 提供了一系列 RESTful API，用于创建和管理知识库、检索知识，以及进行基于知识的问答。本文档详细描述了这些 API 的使用方式。
+WeKnora provides a set of RESTful APIs for creating and managing knowledge bases, retrieving knowledge, and performing knowledge-based Q&A. This document describes in detail how to use these APIs.
 
-## 最权威参考：Swagger UI
+## Most Authoritative Reference: Swagger UI
 
-WeKnora 同时提供基于 OpenAPI 的 Swagger 文档。**启动服务后访问 `http://localhost:8080/swagger/index.html`**，可看到所有端点的完整参数、请求/响应 schema，并可直接在浏览器内试调——它随代码自动更新，是最准确的接口参考。
+WeKnora also provides OpenAPI-based Swagger documentation. **After starting the service, visit `http://localhost:8080/swagger/index.html`** to see the complete parameters and request/response schemas for all endpoints, and try them directly in the browser — it updates automatically with the code, making it the most accurate API reference.
 
-本目录下的 markdown 文档提供更易读的示例与场景说明，与 swagger 同步维护；当二者出现差异时，以 swagger 为准。
+The markdown documentation in this directory provides more readable examples and scenario explanations, and is maintained in sync with Swagger; when the two differ, Swagger takes precedence.
 
-> Swagger UI 仅在非 release 模式（`GIN_MODE != release`）下挂载；生产部署默认关闭。
+> The Swagger UI is only mounted in non-release mode (`GIN_MODE != release`); it is disabled by default in production deployments.
 
-## 基础信息
+## Basic Information
 
-- **基础 URL**: `/api/v1`
-- **响应格式**: JSON
-- **认证方式**: API Key
+- **Base URL**: `/api/v1`
+- **Response format**: JSON
+- **Authentication method**: API Key
 
-## 认证机制
+## Authentication
 
-所有 API 请求需要在 HTTP 请求头中包含 `X-API-Key` 进行身份认证：
+All API requests must include `X-API-Key` in the HTTP request header for authentication:
 
 ```
 X-API-Key: your_api_key
 ```
 
-为便于问题追踪和调试，建议每个请求的 HTTP 请求头中添加 `X-Request-ID`：
+To facilitate issue tracking and debugging, it is recommended to add `X-Request-ID` to the HTTP request header of each request:
 
 ```
 X-Request-ID: unique_request_id
 ```
 
-### 获取 API Key
+### Getting an API Key
 
-在 web 页面完成账户注册后，请前往账户信息页面获取您的 API Key。
+After completing account registration on the web page, please go to the account information page to get your API Key.
 
-请妥善保管您的 API Key，避免泄露。API Key 代表您的账户身份，拥有完整的 API 访问权限。
+Please keep your API Key safe and avoid leaking it. The API Key represents your account identity and has full API access privileges.
 
-## 错误处理
+## Error Handling
 
-所有 API 使用标准的 HTTP 状态码表示请求状态，并返回统一的错误响应格式：
+All APIs use standard HTTP status codes to indicate request status, and return a unified error response format:
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "错误代码",
-    "message": "错误信息",
-    "details": "错误详情"
+    "code": "error code",
+    "message": "error message",
+    "details": "error details"
   }
 }
 ```
 
-## 文件与图片引用（`resource://` 与直链）
+## File and Image References (`resource://` and Direct Links)
 
-响应里的图片、图表、附件默认以内部引用 `resource://<handle>` 返回，例如问答答案中的
-`![示意图](resource://xifDo7NTSL300Lp1goVutw)`。这类引用不能被浏览器直接加载，客户端需要再
-调用带鉴权的 `GET /files?file_path=<引用>` 代理去取字节流。
+Images, charts, and attachments in responses are returned by default as internal references in the form `resource://<handle>`, for example
+`![diagram](resource://xifDo7NTSL300Lp1goVutw)` in a Q&A answer. This type of reference cannot be loaded directly by a browser — the client
+needs to call the authenticated `GET /files?file_path=<reference>` proxy to fetch the byte stream.
 
-如果你在把 WeKnora 集成进自己的 App，可以让服务端直接返回**可加载的 http(s) 直链**，省掉这一次
-额外请求：
+If you are integrating WeKnora into your own app, you can have the server return **loadable http(s) direct links**
+directly, saving you this extra request:
 
-| 方式 | 用法 | 生效范围 |
+| Method | Usage | Scope |
 |------|------|----------|
-| 单次请求 | 在 URL 上加 `?resource_urls=public` | 仅该次请求 |
-| 整个部署 | 环境变量 `RESOURCE_URL_MODE=public` | 所有未显式传参的请求 |
+| Single request | Add `?resource_urls=public` to the URL | This request only |
+| Entire deployment | Environment variable `RESOURCE_URL_MODE=public` | All requests that don't explicitly pass the parameter |
 
-`resource_urls` 取值为 `handle`（默认，保持内部引用）或 `public`（返回直链）；传其它值返回
-`400`。单次请求的参数优先于环境变量，因此把部署默认设成 `public` 后，仍可用
-`?resource_urls=handle` 单独退回。
+`resource_urls` accepts the value `handle` (default, keeps the internal reference) or `public` (returns a direct link); any other value returns
+`400`. The per-request parameter takes precedence over the environment variable, so even after setting the deployment default to `public`, you can
+still fall back per-request with `?resource_urls=handle`.
 
-支持该参数的接口：
+Endpoints that support this parameter:
 
-- `POST /api/v1/knowledge-chat/{session_id}`（SSE）
-- `POST /api/v1/agent-chat/{session_id}`（SSE）
-- `GET /api/v1/sessions/continue-stream/{session_id}`（SSE）
+- `POST /api/v1/knowledge-chat/{session_id}` (SSE)
+- `POST /api/v1/agent-chat/{session_id}` (SSE)
+- `GET /api/v1/sessions/continue-stream/{session_id}` (SSE)
 - `GET /api/v1/messages/{session_id}/load`
 - `POST /api/v1/knowledge-search`
 
-改写覆盖答案正文、`knowledge_references`（含 `image_info`）、Agent 执行步骤与工具结果，以及消息
-上的图片附件。流式回答里跨两个 chunk 被截断的引用会先缓冲再改写，客户端拿到的始终是完整链接。
+The rewrite covers the answer body, `knowledge_references` (including `image_info`), Agent execution steps and tool results, as well as image
+attachments on messages. References that get split across two chunks in streaming responses are buffered before being rewritten, so the client
+always receives the complete link.
 
-### 注意事项
+### Notes
 
-- **需要外链能力。** 直链由存储后端预签名，或由 `APP_EXTERNAL_URL` + `/r/<token>` 提供。二者都不
-  可用时（例如 local 存储且未设 `APP_EXTERNAL_URL`），该引用**保持 `resource://` 原样**，客户端
-  仍可回退到 `/files` 代理。详见 `.env.example` 中的 `APP_EXTERNAL_URL` 说明。
-- **直链是限时匿名可读的**（WeKnora 签发的 grant 2 小时，MinIO 预签名 24 小时）。任何拿到链接的
-  人在过期前都能读取该文件，请勿写入日志或转发给不应看到该文件的一方。
-- **嵌入式（embed）渠道不支持该参数。** 其访客是匿名的，`/api/v1/embed/...` 下的接口会强制使用
-  `handle`（即使传了 `?resource_urls=public`、或部署默认是 `public`），图片仍走渠道维度的鉴权代理。
-- **限定知识库的 API Key 不能使用 `public`**，返回 `403`。这类 Key 本身也被拒绝访问 `/files`
-  代理，若能拿到匿名直链等于绕过同一道限制。改用 `handle` 即可正常调用。
-- **同一文件的直链会在有效期内复用**：重复请求不会反复签发凭证，也不会每次都拿到不同的 URL，客户端
-  和 CDN 的缓存因此可以命中。凭证被吊销或过期后链接立即失效。
+- **Requires outbound link capability.** Direct links are pre-signed by the storage backend, or provided via `APP_EXTERNAL_URL` + `/r/<token>`. When neither is
+  available (e.g., local storage without `APP_EXTERNAL_URL` set), the reference **remains as `resource://`**, and the client
+  can still fall back to the `/files` proxy. See the `APP_EXTERNAL_URL` description in `.env.example` for details.
+- **Direct links are time-limited and anonymously readable** (WeKnora-issued grants last 2 hours, MinIO pre-signed URLs last 24 hours). Anyone who
+  obtains the link can read the file before it expires — do not write it to logs or forward it to a party who shouldn't see that file.
+- **Embed channels do not support this parameter.** Their visitors are anonymous, so endpoints under `/api/v1/embed/...` always force
+  `handle` (even if `?resource_urls=public` is passed, or the deployment default is `public`), and images still go through the channel-scoped authenticated proxy.
+- **Knowledge-base-scoped API Keys cannot use `public`** — this returns `403`. Such keys are also denied access to the `/files`
+  proxy, so obtaining an anonymous direct link would bypass that same restriction. Use `handle` instead to call normally.
+- **Direct links for the same file are reused within their validity period**: repeated requests do not re-issue credentials repeatedly, nor do they
+  return a different URL each time, so client and CDN caches can hit. Once a credential is revoked or expires, the link becomes invalid immediately.
 
-## API 概览
+## API Overview
 
-WeKnora API 按功能分为以下几类：
+The WeKnora API is organized into the following categories by function:
 
-| 分类 | 描述 | 文档链接 |
+| Category | Description | Documentation Link |
 |------|------|----------|
-| 认证管理 | 用户注册、登录、令牌管理；OIDC 流程 | [auth.md](./auth.md) · [OIDC认证调用流程.md](../OIDC认证调用流程.md) |
-| 空间管理 | 创建和管理空间账户 | [tenant.md](./tenant.md) |
-| 知识库管理 | 创建、查询和管理知识库 | [knowledge-base.md](./knowledge-base.md) |
-| 知识管理 | 上传、检索和管理知识内容 | [knowledge.md](./knowledge.md) |
-| 模型管理 | 配置和管理各种AI模型 | [model.md](./model.md) |
-| 分块管理 | 管理知识的分块内容 | [chunk.md](./chunk.md) |
-| 标签管理 | 管理知识库的标签分类 | [tag.md](./tag.md) |
-| FAQ管理 | 管理FAQ问答对 | [faq.md](./faq.md) |
-| 智能体管理 | 创建和管理自定义智能体 | [agent.md](./agent.md) |
-| 会话管理 | 创建和管理对话会话 | [session.md](./session.md) |
-| 知识搜索 | 在知识库中搜索内容 | [knowledge-search.md](./knowledge-search.md) |
-| 聊天功能 | 基于知识库和 Agent 进行问答 | [chat.md](./chat.md) |
-| 消息管理 | 获取和管理对话消息 | [message.md](./message.md) |
-| 评估功能 | 评估模型性能 | [evaluation.md](./evaluation.md) |
-| 初始化管理 | 知识库模型配置与 Ollama 管理 | [initialization.md](./initialization.md) |
-| 系统管理 | 系统信息、解析引擎、存储引擎 | [system.md](./system.md) |
-| MCP 服务 | MCP 工具服务管理 | [mcp-service.md](./mcp-service.md) |
-| 组织管理 | 组织、成员、知识库/智能体共享 | [organization.md](./organization.md) |
-| Skills | 预装智能体技能 | [skill.md](./skill.md) |
-| 网络搜索 | 网络搜索服务商 | [web-search.md](./web-search.md) |
-| 向量存储 | 向量数据库连接管理 | [vector-store.md](./vector-store.md) |
-| 存储后端 | 对象/文件存储实例（多实例）管理 | [storage-backend.md](./storage-backend.md) |
-| IM 渠道 | 企业微信 / 飞书 / Slack 等 IM 平台对接，含渠道 CRUD 与回调 | [../IM集成开发文档.md](../IM集成开发文档.md) |
-| 数据源导入 | 飞书 / 企微 / Notion / Confluence 等外部数据源接入与同步 | [../数据源导入开发文档.md](../数据源导入开发文档.md) |
+| Authentication management | User registration, login, token management; OIDC flow | [auth.md](./auth.md) · [OIDC认证调用流程.md](../OIDC认证调用流程.md) |
+| Space management | Create and manage space accounts | [tenant.md](./tenant.md) |
+| Knowledge base management | Create, query, and manage knowledge bases | [knowledge-base.md](./knowledge-base.md) |
+| Knowledge management | Upload, retrieve, and manage knowledge content | [knowledge.md](./knowledge.md) |
+| Model management | Configure and manage various AI models | [model.md](./model.md) |
+| Chunk management | Manage chunked knowledge content | [chunk.md](./chunk.md) |
+| Tag management | Manage knowledge base tag categories | [tag.md](./tag.md) |
+| FAQ management | Manage FAQ Q&A pairs | [faq.md](./faq.md) |
+| Agent management | Create and manage custom agents | [agent.md](./agent.md) |
+| Session management | Create and manage conversation sessions | [session.md](./session.md) |
+| Knowledge search | Search content within knowledge bases | [knowledge-search.md](./knowledge-search.md) |
+| Chat functionality | Knowledge-base and Agent-based Q&A | [chat.md](./chat.md) |
+| Message management | Get and manage conversation messages | [message.md](./message.md) |
+| Evaluation | Evaluate model performance | [evaluation.md](./evaluation.md) |
+| Initialization management | Knowledge base model configuration and Ollama management | [initialization.md](./initialization.md) |
+| System management | System info, parsing engines, storage engines | [system.md](./system.md) |
+| MCP services | MCP tool service management | [mcp-service.md](./mcp-service.md) |
+| Organization management | Organization, members, knowledge base/agent sharing | [organization.md](./organization.md) |
+| Skills | Pre-installed agent skills | [skill.md](./skill.md) |
+| Web search | Web search providers | [web-search.md](./web-search.md) |
+| Vector store | Vector database connection management | [vector-store.md](./vector-store.md) |
+| Storage backend | Object/file storage instance (multi-instance) management | [storage-backend.md](./storage-backend.md) |
+| IM channels | Integration with WeCom / Feishu / Slack and other IM platforms, including channel CRUD and callbacks | [../IM集成开发文档.md](../IM集成开发文档.md) |
+| Data source import | Integration and sync of external data sources such as Feishu / WeCom / Notion / Confluence | [../数据源导入开发文档.md](../数据源导入开发文档.md) |

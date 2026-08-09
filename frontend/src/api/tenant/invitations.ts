@@ -40,7 +40,7 @@ export interface TenantInvitation {
   is_share_link?: boolean
   // accepted_count counts how many users have completed registration
   // through this invitation. Surfaced in the management UI for
-  // share-link rows ("已加入 N 人").
+  // share-link rows ("N people joined").
   accepted_count?: number
 }
 

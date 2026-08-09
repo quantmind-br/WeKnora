@@ -1,58 +1,58 @@
-# FAQ管理 API
+# FAQ Management API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-FAQ 接口分为两组：
+The FAQ interface is divided into two groups:
 
-- `/knowledge-bases/:id/faq/*`：知识库范围内的 FAQ 条目 CRUD、批量操作、搜索与导入导出。
-- `/faq/import/progress/:task_id`：**不属于知识库分组**，用于查询异步导入/dry-run 任务的进度，仅需任务 ID 即可调用。
+- `/knowledge-bases/:id/faq/*`: CRUD, batch operations, search, and import/export for FAQ entries within a knowledge base.
+- `/faq/import/progress/:task_id`: **Not part of the knowledge base group** — used to query the progress of asynchronous import/dry-run tasks; only the task ID is needed to call it.
 
-| 方法   | 路径                                                              | 描述                              |
-| ------ | ----------------------------------------------------------------- | --------------------------------- |
-| GET    | `/knowledge-bases/:id/faq/entries`                                | 获取 FAQ 条目列表                 |
-| GET    | `/knowledge-bases/:id/faq/entries/export`                         | 导出 FAQ 条目（CSV）              |
-| GET    | `/knowledge-bases/:id/faq/entries/:entry_id`                      | 获取单个 FAQ 条目（按 seq_id）     |
-| POST   | `/knowledge-bases/:id/faq/entries`                                | 批量 Upsert FAQ 条目（异步）       |
-| POST   | `/knowledge-bases/:id/faq/entry`                                  | 同步创建单个 FAQ 条目             |
-| PUT    | `/knowledge-bases/:id/faq/entries/:entry_id`                      | 更新单个 FAQ 条目                 |
-| POST   | `/knowledge-bases/:id/faq/entries/:entry_id/similar-questions`    | 为 FAQ 条目追加相似问             |
-| PUT    | `/knowledge-bases/:id/faq/entries/fields`                         | 批量更新字段（启用/推荐/标签）     |
-| PUT    | `/knowledge-bases/:id/faq/entries/tags`                           | 批量更新标签                      |
-| DELETE | `/knowledge-bases/:id/faq/entries`                                | 批量删除 FAQ 条目                 |
-| POST   | `/knowledge-bases/:id/faq/search`                                 | FAQ 混合搜索                      |
-| PUT    | `/knowledge-bases/:id/faq/import/last-result/display`             | 更新上次导入结果卡片显示状态       |
-| GET    | `/faq/import/progress/:task_id`                                   | 查询 FAQ 导入任务进度（公共）     |
+| Method | Path                                                              | Description                              |
+| ------ | ----------------------------------------------------------------- | ----------------------------------------- |
+| GET    | `/knowledge-bases/:id/faq/entries`                                | Get the list of FAQ entries               |
+| GET    | `/knowledge-bases/:id/faq/entries/export`                         | Export FAQ entries (CSV)                  |
+| GET    | `/knowledge-bases/:id/faq/entries/:entry_id`                      | Get a single FAQ entry (by seq_id)        |
+| POST   | `/knowledge-bases/:id/faq/entries`                                | Batch upsert FAQ entries (async)          |
+| POST   | `/knowledge-bases/:id/faq/entry`                                  | Synchronously create a single FAQ entry   |
+| PUT    | `/knowledge-bases/:id/faq/entries/:entry_id`                      | Update a single FAQ entry                 |
+| POST   | `/knowledge-bases/:id/faq/entries/:entry_id/similar-questions`    | Append similar questions to a FAQ entry   |
+| PUT    | `/knowledge-bases/:id/faq/entries/fields`                         | Batch update fields (enabled/recommended/tags) |
+| PUT    | `/knowledge-bases/:id/faq/entries/tags`                           | Batch update tags                         |
+| DELETE | `/knowledge-bases/:id/faq/entries`                                | Batch delete FAQ entries                  |
+| POST   | `/knowledge-bases/:id/faq/search`                                 | FAQ hybrid search                         |
+| PUT    | `/knowledge-bases/:id/faq/import/last-result/display`             | Update the display state of the last import result card |
+| GET    | `/faq/import/progress/:task_id`                                   | Query FAQ import task progress (public)   |
 
-> **路径参数说明**：`:entry_id` 始终是 FAQ 条目的 `seq_id`（整数），不是字符串形式的 ID。同理，批量接口中的 `by_id` / `by_tag` / `exclude_ids` / `ids` 字段均为 `seq_id` 列表（整数）。
+> **Path parameter note**: `:entry_id` is always the FAQ entry's `seq_id` (integer), not the string-form ID. Likewise, the `by_id` / `by_tag` / `exclude_ids` / `ids` fields in batch interfaces are all `seq_id` lists (integers).
 
-## GET `/knowledge-bases/:id/faq/entries` - 获取 FAQ 条目列表
+## GET `/knowledge-bases/:id/faq/entries` - Get the list of FAQ entries
 
-支持分页、按标签过滤、关键字搜索与排序。
+Supports pagination, filtering by tag, keyword search, and sorting.
 
-**查询参数**:
+**Query parameters**:
 
-| 参数         | 类型   | 必填 | 说明                                                                                          |
-| ------------ | ------ | ---- | --------------------------------------------------------------------------------------------- |
-| page         | int    | 否   | 页码，默认 1                                                                                  |
-| page_size    | int    | 否   | 每页数量，默认 20                                                                             |
-| tag_id       | int    | 否   | 按标签 `seq_id` 过滤                                                                          |
-| keyword      | string | 否   | 关键字搜索                                                                                    |
-| search_field | string | 否   | 搜索字段：`standard_question` / `similar_questions` / `answers`，留空则全字段搜索              |
-| sort_order   | string | 否   | 排序方式，`asc` 表示按更新时间正序，默认按更新时间倒序                                          |
+| Parameter    | Type   | Required | Description                                                                                     |
+| ------------ | ------ | -------- | ------------------------------------------------------------------------------------------------ |
+| page         | int    | No       | Page number, default 1                                                                           |
+| page_size    | int    | No       | Items per page, default 20                                                                       |
+| tag_id       | int    | No       | Filter by tag `seq_id`                                                                           |
+| keyword      | string | No       | Keyword search                                                                                   |
+| search_field | string | No       | Search field: `standard_question` / `similar_questions` / `answers`; if left blank, all fields are searched |
+| sort_order   | string | No       | Sort order; `asc` sorts by update time ascending, defaults to descending by update time           |
 
-**请求**:
+**Request**:
 
 ```curl
-# 全字段搜索
+# Search all fields
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries?page=1&page_size=10&keyword=密码' \
 --header 'X-API-Key: sk-xxxxx'
 
-# 仅搜索标准问
+# Search only the standard question
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries?keyword=密码&search_field=standard_question' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -86,11 +86,11 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }
 ```
 
-## GET `/knowledge-bases/:id/faq/entries/export` - 导出 FAQ 条目
+## GET `/knowledge-bases/:id/faq/entries/export` - Export FAQ entries
 
-将知识库下的所有 FAQ 条目导出为 CSV（UTF-8 带 BOM，Excel 兼容）。
+Exports all FAQ entries under a knowledge base as CSV (UTF-8 with BOM, Excel-compatible).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries/export' \
@@ -98,20 +98,20 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 --output faq_export.csv
 ```
 
-**响应**: `Content-Type: text/csv; charset=utf-8`，附带文件名 `faq_export.csv`。
+**Response**: `Content-Type: text/csv; charset=utf-8`, with the filename `faq_export.csv` attached.
 
-## GET `/knowledge-bases/:id/faq/entries/:entry_id` - 获取单个 FAQ 条目
+## GET `/knowledge-bases/:id/faq/entries/:entry_id` - Get a single FAQ entry
 
-根据 `seq_id`（整数）获取单个 FAQ 条目详情。
+Retrieves the details of a single FAQ entry by `seq_id` (integer).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries/1' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -138,38 +138,38 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }
 ```
 
-## POST `/knowledge-bases/:id/faq/entries` - 批量 Upsert FAQ 条目（异步）
+## POST `/knowledge-bases/:id/faq/entries` - Batch upsert FAQ entries (async)
 
-**异步**批量导入或更新 FAQ 条目。接口立即返回 `task_id`，调用方需通过 `GET /faq/import/progress/:task_id` 查询进度与结果。
+**Asynchronously** batch-imports or updates FAQ entries. The interface returns a `task_id` immediately; the caller must query progress and results via `GET /faq/import/progress/:task_id`.
 
-支持 `dry_run=true`：异步执行仅校验（格式 / 批内重复 / 与库内重复 / 内容安全），不实际写入。
+Supports `dry_run=true`: runs asynchronous validation only (format / in-batch duplicates / duplicates against existing entries / content safety) without actually writing data.
 
-**请求体（`types.FAQBatchUpsertPayload`）**:
+**Request body (`types.FAQBatchUpsertPayload`)**:
 
-| 字段         | 类型                       | 必填 | 说明                                                                                |
-| ------------ | -------------------------- | ---- | ----------------------------------------------------------------------------------- |
-| entries      | `[]FAQEntryPayload`        | 是   | FAQ 条目数组                                                                        |
-| mode         | string                     | 是   | `append` 或 `replace`（替换会清空已有条目）                                          |
-| knowledge_id | string                     | 否   | 关联的 FAQ Knowledge ID（不传则使用知识库默认 FAQ knowledge）                         |
-| task_id      | string                     | 否   | 任务 ID，不传则自动生成 UUID                                                        |
-| dry_run      | boolean                    | 否   | 仅验证不导入                                                                        |
+| Field        | Type                       | Required | Description                                                                       |
+| ------------ | -------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| entries      | `[]FAQEntryPayload`        | Yes      | Array of FAQ entries                                                              |
+| mode         | string                     | Yes      | `append` or `replace` (replace clears existing entries)                            |
+| knowledge_id | string                     | No       | Associated FAQ Knowledge ID (if omitted, the knowledge base's default FAQ knowledge is used) |
+| task_id      | string                     | No       | Task ID; a UUID is auto-generated if omitted                                       |
+| dry_run      | boolean                    | No       | Validate only, without importing                                                   |
 
-`FAQEntryPayload` 字段：
+`FAQEntryPayload` fields:
 
-| 字段                | 类型      | 必填 | 说明                                                          |
-| ------------------- | --------- | ---- | ------------------------------------------------------------- |
-| id                  | int64     | 否   | 指定 `seq_id`（数据迁移场景，需小于自增起始值 100000000）       |
-| standard_question   | string    | 是   | 标准问                                                        |
-| similar_questions   | string[]  | 否   | 相似问列表                                                    |
-| negative_questions  | string[]  | 否   | 反例问题列表                                                  |
-| answers             | string[]  | 否   | 答案列表                                                      |
-| answer_strategy     | string    | 否   | 答案返回策略：`all` 或 `random`                                |
-| tag_id              | int64     | 否   | 标签 `seq_id`                                                 |
-| tag_name            | string    | 否   | 标签名（用于按名匹配标签）                                    |
-| is_enabled          | boolean   | 否   | 是否启用                                                      |
-| is_recommended      | boolean   | 否   | 是否推荐                                                      |
+| Field               | Type      | Required | Description                                                             |
+| ------------------- | --------- | -------- | ------------------------------------------------------------------------ |
+| id                  | int64     | No       | Specifies the `seq_id` (for data migration scenarios; must be less than the auto-increment starting value of 100000000) |
+| standard_question   | string    | Yes      | Standard question                                                       |
+| similar_questions   | string[]  | No       | List of similar questions                                               |
+| negative_questions  | string[]  | No       | List of negative example questions                                      |
+| answers             | string[]  | No       | List of answers                                                         |
+| answer_strategy     | string    | No       | Answer return strategy: `all` or `random`                                |
+| tag_id              | int64     | No       | Tag `seq_id`                                                            |
+| tag_name            | string    | No       | Tag name (used to match a tag by name)                                  |
+| is_enabled          | boolean   | No       | Whether it's enabled                                                     |
+| is_recommended      | boolean   | No       | Whether it's recommended                                                 |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries' \
@@ -192,7 +192,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -201,15 +201,15 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }
 ```
 
-> 用 `GET /faq/import/progress/:task_id` 查询任务最终状态。
+> Use `GET /faq/import/progress/:task_id` to query the task's final status.
 
-## POST `/knowledge-bases/:id/faq/entry` - 同步创建单个 FAQ 条目
+## POST `/knowledge-bases/:id/faq/entry` - Synchronously create a single FAQ entry
 
-**同步**创建单条 FAQ 条目，会即时校验标准问/相似问与库内已有条目的重复。
+**Synchronously** creates a single FAQ entry, immediately validating the standard question/similar questions against existing entries for duplicates.
 
-**请求体**: 同上 `FAQEntryPayload`（`standard_question` 必填）。
+**Request body**: Same `FAQEntryPayload` as above (`standard_question` required).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entry' \
@@ -224,7 +224,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -251,7 +251,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }
 ```
 
-**错误响应**（标准问或相似问重复时）:
+**Error response** (when the standard question or a similar question is a duplicate):
 
 ```json
 {
@@ -263,11 +263,11 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }
 ```
 
-## PUT `/knowledge-bases/:id/faq/entries/:entry_id` - 更新单个 FAQ 条目
+## PUT `/knowledge-bases/:id/faq/entries/:entry_id` - Update a single FAQ entry
 
-按 `seq_id` 更新单条 FAQ 条目，请求体同 `FAQEntryPayload`。
+Updates a single FAQ entry by `seq_id`; the request body is the same as `FAQEntryPayload`.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries/1' \
@@ -281,19 +281,19 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }'
 ```
 
-**响应**: 返回更新后的 FAQ 条目，结构同创建接口。
+**Response**: Returns the updated FAQ entry, with the same structure as the create interface.
 
-## POST `/knowledge-bases/:id/faq/entries/:entry_id/similar-questions` - 追加相似问
+## POST `/knowledge-bases/:id/faq/entries/:entry_id/similar-questions` - Append similar questions
 
-向指定 FAQ 条目（`seq_id`）追加相似问。
+Appends similar questions to the specified FAQ entry (`seq_id`).
 
-**请求体**:
+**Request body**:
 
-| 字段              | 类型     | 必填 | 说明                  |
-| ----------------- | -------- | ---- | --------------------- |
-| similar_questions | string[] | 是   | 要追加的相似问数组    |
+| Field              | Type     | Required | Description                        |
+| ----------------- | -------- | -------- | ------------------------------------ |
+| similar_questions | string[] | Yes      | Array of similar questions to append |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries/1/similar-questions' \
@@ -304,34 +304,34 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 }'
 ```
 
-**响应**: 返回追加后的完整 FAQ 条目。
+**Response**: Returns the complete FAQ entry after the append.
 
-## PUT `/knowledge-bases/:id/faq/entries/fields` - 批量更新字段
+## PUT `/knowledge-bases/:id/faq/entries/fields` - Batch update fields
 
-**统一**的批量字段更新接口，支持同时更新 `is_enabled` / `is_recommended` / `tag_id`，并支持两种作用域：
+A **unified** batch field-update interface that supports updating `is_enabled` / `is_recommended` / `tag_id` simultaneously, and supports two scopes:
 
-- **按条目 ID** (`by_id`)：键为条目 `seq_id`，值为该条目要更新的字段。
-- **按标签 ID** (`by_tag`)：键为标签 `seq_id`，对该标签下的所有条目应用相同的字段更新；可配合 `exclude_ids` 排除部分条目。
+- **By entry ID** (`by_id`): the key is the entry's `seq_id`, the value is the fields to update for that entry.
+- **By tag ID** (`by_tag`): the key is the tag's `seq_id`, applying the same field update to all entries under that tag; can be combined with `exclude_ids` to exclude specific entries.
 
-`by_id` 和 `by_tag` 至少传一项；二者可同时使用。
+At least one of `by_id` or `by_tag` must be provided; both can be used together.
 
-**请求体（`types.FAQEntryFieldsBatchUpdate`）**:
+**Request body (`types.FAQEntryFieldsBatchUpdate`)**:
 
-| 字段        | 类型                              | 必填 | 说明                                       |
-| ----------- | --------------------------------- | ---- | ------------------------------------------ |
-| by_id       | `map[int64]FAQEntryFieldsUpdate`  | 否   | 按条目 `seq_id` 更新                       |
-| by_tag      | `map[int64]FAQEntryFieldsUpdate`  | 否   | 按标签 `seq_id` 对该标签下所有条目更新     |
-| exclude_ids | `int64[]`                         | 否   | 与 `by_tag` 配合使用，排除指定条目 `seq_id` |
+| Field       | Type                              | Required | Description                                     |
+| ----------- | ---------------------------------- | -------- | ------------------------------------------------- |
+| by_id       | `map[int64]FAQEntryFieldsUpdate`  | No       | Update by entry `seq_id`                          |
+| by_tag      | `map[int64]FAQEntryFieldsUpdate`  | No       | Update all entries under a tag by tag `seq_id`     |
+| exclude_ids | `int64[]`                         | No       | Used with `by_tag` to exclude specific entry `seq_id`s |
 
-`FAQEntryFieldsUpdate` 字段（全部可选，仅传入的字段会被更新）：
+`FAQEntryFieldsUpdate` fields (all optional; only the fields provided are updated):
 
-| 字段           | 类型    | 说明           |
-| -------------- | ------- | -------------- |
-| is_enabled     | boolean | 是否启用       |
-| is_recommended | boolean | 是否推荐       |
-| tag_id         | int64   | 标签 `seq_id`  |
+| Field          | Type    | Description        |
+| -------------- | ------- | -------------------- |
+| is_enabled     | boolean | Whether it's enabled |
+| is_recommended | boolean | Whether it's recommended |
+| tag_id         | int64   | Tag `seq_id`        |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries/fields' \
@@ -349,23 +349,23 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-## PUT `/knowledge-bases/:id/faq/entries/tags` - 批量更新标签
+## PUT `/knowledge-bases/:id/faq/entries/tags` - Batch update tags
 
-仅更新标签关联。键为条目 `seq_id`，值为目标标签 `seq_id`；值传 `null` 表示清除标签。
+Updates only the tag association. The key is the entry's `seq_id`; the value is the target tag's `seq_id`; a value of `null` clears the tag.
 
-**请求体**:
+**Request body**:
 
-| 字段    | 类型                  | 必填 | 说明                                         |
-| ------- | --------------------- | ---- | -------------------------------------------- |
-| updates | `map[int64]int64?`    | 是   | 键：条目 `seq_id`；值：标签 `seq_id` 或 `null` |
+| Field   | Type                  | Required | Description                                        |
+| ------- | ---------------------- | -------- | ---------------------------------------------------- |
+| updates | `map[int64]int64?`    | Yes      | Key: entry `seq_id`; Value: tag `seq_id` or `null`   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries/tags' \
@@ -380,21 +380,21 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-## DELETE `/knowledge-bases/:id/faq/entries` - 批量删除
+## DELETE `/knowledge-bases/:id/faq/entries` - Batch delete
 
-**请求体**:
+**Request body**:
 
-| 字段 | 类型      | 必填 | 说明                              |
-| ---- | --------- | ---- | --------------------------------- |
-| ids  | `int64[]` | 是   | 要删除的 FAQ 条目 `seq_id` 列表    |
+| Field | Type      | Required | Description                              |
+| ---- | --------- | -------- | ------------------------------------------ |
+| ids  | `int64[]` | Yes      | List of FAQ entry `seq_id`s to delete       |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries' \
@@ -405,28 +405,28 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/k
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-## POST `/knowledge-bases/:id/faq/search` - FAQ 混合搜索
+## POST `/knowledge-bases/:id/faq/search` - FAQ hybrid search
 
-向量 + 关键字混合检索，支持两级优先级标签召回。
+Vector + keyword hybrid retrieval, supporting two-tier priority tag recall.
 
-**请求体（`types.FAQSearchRequest`）**:
+**Request body (`types.FAQSearchRequest`)**:
 
-| 字段                    | 类型      | 必填 | 说明                                                                                |
-| ----------------------- | --------- | ---- | ----------------------------------------------------------------------------------- |
-| query_text              | string    | 是   | 搜索文本                                                                            |
-| vector_threshold        | float     | 否   | 向量相似度阈值（0–1）                                                               |
-| match_count             | int       | 否   | 返回数量，默认 10，最大 200                                                         |
-| first_priority_tag_ids  | `int64[]` | 否   | 第一优先级标签 `seq_id` 列表（最高优先召回范围）                                     |
-| second_priority_tag_ids | `int64[]` | 否   | 第二优先级标签 `seq_id` 列表                                                        |
-| only_recommended        | boolean   | 否   | 是否仅返回 `is_recommended=true` 的条目                                              |
+| Field                   | Type      | Required | Description                                                                       |
+| ----------------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
+| query_text              | string    | Yes      | Search text                                                                         |
+| vector_threshold        | float     | No       | Vector similarity threshold (0–1)                                                    |
+| match_count             | int       | No       | Number of results to return, default 10, max 200                                     |
+| first_priority_tag_ids  | `int64[]` | No       | List of first-priority tag `seq_id`s (highest-priority recall scope)                 |
+| second_priority_tag_ids | `int64[]` | No       | List of second-priority tag `seq_id`s                                                |
+| only_recommended        | boolean   | No       | Whether to return only entries with `is_recommended=true`                            |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/search' \
@@ -441,7 +441,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/se
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -471,17 +471,17 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/se
 }
 ```
 
-## PUT `/knowledge-bases/:id/faq/import/last-result/display` - 更新上次导入结果显示状态
+## PUT `/knowledge-bases/:id/faq/import/last-result/display` - Update last import result display state
 
-控制上次导入完成后，前端结果卡片的显示/隐藏。
+Controls the display/hide state of the frontend result card after the last import completes.
 
-**请求体**:
+**Request body**:
 
-| 字段           | 类型   | 必填 | 说明                  |
-| -------------- | ------ | ---- | --------------------- |
-| display_status | string | 是   | `open` 或 `close`     |
+| Field          | Type   | Required | Description             |
+| -------------- | ------ | -------- | ------------------------ |
+| display_status | string | Yes      | `open` or `close`        |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/import/last-result/display' \
@@ -492,30 +492,30 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-## GET `/faq/import/progress/:task_id` - 查询 FAQ 导入进度
+## GET `/faq/import/progress/:task_id` - Query FAQ import progress
 
-> **注意**：此接口**不在** `/knowledge-bases/:id/faq` 分组下，路径直接以 `/faq/import/progress/:task_id` 开头。任务 ID 由 `POST /knowledge-bases/:id/faq/entries` 返回。
+> **Note**: This interface is **not** under the `/knowledge-bases/:id/faq` group — the path starts directly with `/faq/import/progress/:task_id`. The task ID is returned by `POST /knowledge-bases/:id/faq/entries`.
 
-**路径参数**:
+**Path parameters**:
 
-| 参数    | 类型   | 说明           |
-| ------- | ------ | -------------- |
-| task_id | string | 导入任务的 ID  |
+| Parameter | Type   | Description        |
+| ------- | ------ | -------------------- |
+| task_id | string | The ID of the import task |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/faq/import/progress/task-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**（节选关键字段）:
+**Response** (excerpt of key fields):
 
 ```json
 {
@@ -555,8 +555,8 @@ curl --location 'http://localhost:8080/api/v1/faq/import/progress/task-00000001'
 }
 ```
 
-`status` 可能取值：`pending` / `processing` / `completed` / `failed`。
+Possible values for `status`: `pending` / `processing` / `completed` / `failed`.
 
-当失败条目过多时，`failed_entries` 可能不直接返回，而通过 `failed_entries_url` 提供 CSV 下载地址。
+When there are too many failed entries, `failed_entries` may not be returned directly, and instead a CSV download URL is provided via `failed_entries_url`.
 
-`dry_run=true` 模式下的任务同样通过此接口查询，`success_entries` 中的 `seq_id` 不会真正写入。
+Tasks in `dry_run=true` mode are also queried via this interface; the `seq_id` in `success_entries` will not actually be written.

@@ -1,27 +1,27 @@
-# 租户、用户与认证授权
+# Tenants, Users, and Authentication & Authorization
 
-在 WeKnora 里，一个人（**用户**）可以属于多个**空间**（后端叫租户 Tenant，界面上叫工作空间）。空间是隔离边界：知识库、模型、Agent、会话都归属某个空间，配额也按空间算。想让两个空间之间共享知识库或 Agent，就把它们放进同一个**组织**（共享空间）。
+In WeKnora, a person (**User**) can belong to multiple **spaces** (called Tenant on the backend, referred to as workspace in the UI). A space is an isolation boundary: knowledge bases, models, Agents, and sessions all belong to a given space, and quotas are calculated per space too. If you want to share a knowledge base or Agent between two spaces, put them into the same **organization** (shared space).
 
-日常最常问的三件事：
+The three things people ask about most often:
 
-| 想做什么 | 怎么做 |
+| What you want to do | How to do it |
 | --- | --- |
-| 拉同事进来一起用 | 空间设置 → 成员 → 邀请，并给对方一个角色（Owner / Admin / Contributor / Viewer） |
-| 把知识库共享给另一个团队 | 建组织 → 把两个空间都加进去 → 在知识库上「共享到组织」 |
-| 让程序调接口 | 空间设置 → API Key，按需勾选能力（检索 / 问答 / 入库 / 管理），必要时限定可访问的知识库 |
-| 管理整个部署（全局设置、任务队列、跨空间审计） | 需要**系统管理员**身份，与空间 Owner 是两回事，见[平台管理与系统管理员](20-platform-admin.md) |
-| 删除整个空间 | 空间设置里由 **Owner** 触发（`DELETE /tenants/:id`）；会连带清掉该空间的知识库、Agent、会话与成员关系，不可撤销 |
+| Bring a colleague in to use it together | Space settings → Members → Invite, and assign them a role (Owner / Admin / Contributor / Viewer) |
+| Share a knowledge base with another team | Create an organization → add both spaces to it → "Share to organization" on the knowledge base |
+| Let a program call the API | Space settings → API Key, check the capabilities you need (retrieve / chat / ingest / manage), and restrict which knowledge bases it can access if necessary |
+| Manage the entire deployment (global settings, task queue, cross-space audit) | Requires **system administrator** identity, which is different from space Owner — see [Platform Administration and System Administrators](20-platform-admin.md) |
+| Delete an entire space | Triggered by the **Owner** in space settings (`DELETE /tenants/:id`); this also wipes the space's knowledge bases, Agents, sessions, and member relationships, and cannot be undone |
 
 <Screenshot
   src="/screenshots/settings-members.png"
-  caption="空间成员管理：成员角色与邀请入口"
-  hint="展示成员列表、角色下拉与「邀请成员」按钮，最好含一条 pending 邀请。" />
+  caption="Space member management: member roles and invitation entry point"
+  hint="Show the member list, the role dropdown, and the 'Invite member' button — ideally with one pending invitation included." />
 
-四个角色能做什么，一句话版本：Viewer 只能看和问，Contributor 可以建库和传文档，Admin 管成员和空间设置，Owner 额外能删空间和转让。完整矩阵见下文 RBAC 章节。
+The one-sentence version of what the four roles can do: Viewer can only view and ask questions, Contributor can create knowledge bases and upload documents, Admin manages members and space settings, and Owner can additionally delete the space and transfer ownership. See the RBAC section below for the full matrix.
 
-技术上，认证支持密码登录、OIDC 单点登录与 API Key 三种主体；授权由空间内 RBAC 角色阶梯 + 资源所有权（ownership）+ API Key 能力（capability）三套正交机制共同实现，下面逐层展开。
+Technically, authentication supports three kinds of principals — password login, OIDC single sign-on, and API Keys — while authorization is implemented jointly by three orthogonal mechanisms: the in-space RBAC role ladder, resource ownership, and API Key capabilities. Each is expanded on layer by layer below.
 
-## 概念总览
+## Conceptual Overview
 
 ```mermaid
 graph TB
@@ -46,17 +46,17 @@ graph TB
     K["TenantAPIKey (机器主体, capabilities + KB allow-list)"] --> T2
 ```
 
-关键点：
+Key points:
 
-- 一个 User 可以通过 `tenant_members` 表同时属于多个 Tenant，每个成员关系有独立角色。
-- 组织成员关系是**租户级**的（Plan 3 迁移之后 `OrganizationTenantMember` 以 `tenant_id` 为单位，而非 user），共享也是"某个租户把 KB 共享给某个组织"。
-- API Key 是与 JWT 用户完全独立的机器主体，不复用租户角色阶梯。
+- One User can belong to multiple Tenants at the same time via the `tenant_members` table, with each membership relationship having its own independent role.
+- Organization membership is at the **tenant level** (after the Plan 3 migration, `OrganizationTenantMember` is keyed by `tenant_id` rather than by user), and sharing likewise means "a given tenant shares a KB with a given organization."
+- An API Key is a machine principal completely independent from JWT users, and does not reuse the tenant role ladder.
 
-## 1. 数据模型
+## 1. Data Model
 
-### 1.1 Tenant（租户 / 工作空间）
+### 1.1 Tenant (Tenant / Workspace)
 
-`internal/types/tenant.go`：
+`internal/types/tenant.go`:
 
 ```go
 type Tenant struct {
@@ -81,11 +81,11 @@ type Tenant struct {
 }
 ```
 
-租户是配额（`StorageQuota` / `StorageUsed`，默认 10GB）与各类租户级配置（检索引擎、Web 搜索、解析引擎、凭证、存储引擎、聊天历史等）的挂载点。
+The tenant is the anchor point for quotas (`StorageQuota` / `StorageUsed`, default 10GB) and for various tenant-level configurations (retrieval engine, web search, parser engine, credentials, storage engine, chat history, etc.).
 
-### 1.2 User（用户）
+### 1.2 User
 
-`internal/types/user.go`：
+`internal/types/user.go`:
 
 ```go
 type User struct {
@@ -107,14 +107,14 @@ type UserPreferences struct {
 }
 ```
 
-两个特殊标志：
+Two special flags:
 
-- `CanAccessAllTenants`：跨空间超级用户。**必须两个开关同时为真**才生效——用户行上的 `CanAccessAllTenants`，以及部署级的 `tenant.enable_cross_tenant_access` / `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS`（`middleware/access.go` 的 `IsCrossTenantSuperuser()` 先查配置再查用户；配置关掉时登录响应里这个字段也会被抹成 false）。生效后可绕过空间角色检查，访问 `/tenants/all`、`/tenants/search` 等跨空间端点。注意 `POST /tenants`（新建空间）**不属于**跨空间端点，任何已登录用户都能调（受自助创建策略与配额限制）。
-- `IsSystemAdmin`：平台级管理员（system admin），独立于任何租户角色，用于 `/system/admin/*` 控制面。它管的是整个部署而不是某个空间，怎么产生第一个、能做什么见[平台管理与系统管理员](20-platform-admin.md)。
+- `CanAccessAllTenants`: cross-space superuser. **Both switches must be true at the same time** for this to take effect — the `CanAccessAllTenants` flag on the user row, and the deployment-level `tenant.enable_cross_tenant_access` / `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS` (`middleware/access.go`'s `IsCrossTenantSuperuser()` checks the config first and then the user; when the config is turned off, this field is also forced to false in the login response). Once active, it can bypass space role checks and access cross-space endpoints such as `/tenants/all` and `/tenants/search`. Note that `POST /tenants` (creating a new space) is **not** a cross-space endpoint — any logged-in user can call it (subject to self-service creation policy and quota limits).
+- `IsSystemAdmin`: platform-level administrator (system admin), independent of any tenant role, used for the `/system/admin/*` control plane. It governs the entire deployment rather than a single space; for how the first one is created and what it can do, see [Platform Administration and System Administrators](20-platform-admin.md).
 
-### 1.3 TenantMember 与租户角色
+### 1.3 TenantMember and Tenant Roles
 
-`internal/types/tenant_member.go`：
+`internal/types/tenant_member.go`:
 
 ```go
 type TenantRole string
@@ -148,11 +148,11 @@ type TenantMember struct {
 }
 ```
 
-登录响应里返回 `Membership{TenantID, TenantName, Role}` 投影列表，前端据此渲染工作空间切换器。
+The login response returns a `Membership{TenantID, TenantName, Role}` projection list, which the frontend uses to render the workspace switcher.
 
-### 1.4 TenantAPIKey（API Key）
+### 1.4 TenantAPIKey
 
-`internal/types/tenant_api_key.go`：
+`internal/types/tenant_api_key.go`:
 
 ```go
 type TenantAPIKey struct {
@@ -169,12 +169,12 @@ type TenantAPIKey struct {
 }
 ```
 
-- **落库加密**：配置了 `SYSTEM_AES_KEY` 时，`BeforeSave` 钩子将 `api_key` 列以 AES-GCM 加密存储，`AfterFind` 自动解密；查表始终走不可逆的 `KeyHash`。
-- **校验流程**：请求携带 `X-API-Key` → 计算哈希 → 按 `KeyHash` 查表 → 检查 `RevokedAt` / `ExpiresAt` → 将 `TenantAPIKeyScope{KeyID, ScopeType, FullAccess, KnowledgeBaseIDs, Capabilities}` 注入 context，后续用 `types.TenantAPIKeyScopeFromContext` 读取。
+- **Encryption at rest**: when `SYSTEM_AES_KEY` is configured, the `BeforeSave` hook encrypts the `api_key` column with AES-GCM before storing it, and `AfterFind` automatically decrypts it; lookups always go through the irreversible `KeyHash`.
+- **Validation flow**: the request carries `X-API-Key` → the hash is computed → the table is looked up by `KeyHash` → `RevokedAt` / `ExpiresAt` are checked → `TenantAPIKeyScope{KeyID, ScopeType, FullAccess, KnowledgeBaseIDs, Capabilities}` is injected into the context, and subsequently read via `types.TenantAPIKeyScopeFromContext`.
 
-### 1.5 Organization（组织 / 共享空间）
+### 1.5 Organization (Organization / Shared Space)
 
-`internal/types/organization.go`：
+`internal/types/organization.go`:
 
 ```go
 type Organization struct {
@@ -204,11 +204,11 @@ const (
 )
 ```
 
-## 2. 注册与登录
+## 2. Registration and Login
 
-### 2.1 注册模式（invite-only）
+### 2.1 Registration Mode (invite-only)
 
-`internal/handler/auth.go` + `internal/config/config.go`：
+`internal/handler/auth.go` + `internal/config/config.go`:
 
 ```go
 type AuthConfig struct {
@@ -221,33 +221,33 @@ func (c *AuthConfig) IsInviteOnly() bool {
 }
 ```
 
-判定分两层，理解这一点才能解释「改了 env 没生效」：
+The determination happens in two layers, and understanding this is key to explaining "I changed the env var but nothing happened":
 
-**启动时**（`applyAuthAndTenantDefaults()`）合成 `cfg.Auth.RegistrationMode`：`DISABLE_REGISTRATION=true` 会直接把它改写成 `invite_only`，**盖过 YAML** 里的值。之所以让 env 盖 YAML，是为了让「接口拒绝注册」和「前端隐藏注册入口」（前端读 `/auth/config`）两道闸门一致，否则会出现按钮还在、点了报 403。
+**At startup** (`applyAuthAndTenantDefaults()`), `cfg.Auth.RegistrationMode` is synthesized: `DISABLE_REGISTRATION=true` rewrites it directly to `invite_only`, **overriding** whatever is in the YAML. The reason env overrides YAML here is to keep "the API rejects registration" and "the frontend hides the registration entry point" (the frontend reads `/auth/config`) as two gates that stay in sync — otherwise you'd get a button that's still there but returns a 403 when clicked.
 
-**每次请求时**（`resolveRegistrationMode()`）只比较两个来源：数据库 `system_settings` 的 `auth.registration_mode` 行 > 上面合成的 cfg 值 > 硬编码兜底 `self_serve`。`DISABLE_REGISTRATION` **不会**被逐请求重新读取。
+**On every request** (`resolveRegistrationMode()`) only two sources are compared: the `auth.registration_mode` row in the database's `system_settings` table takes priority over the cfg value synthesized above, which in turn takes priority over the hardcoded fallback `self_serve`. `DISABLE_REGISTRATION` is **not** re-read on every request.
 
-后果是：系统管理员在界面上把 `auth.registration_mode` 设成 `self_serve` 后，即使部署里仍写着 `DISABLE_REGISTRATION=true`，公开注册也是开着的。要彻底关掉，得把数据库里那一行重置（`DELETE /system/admin/settings/auth.registration_mode`）。
+The consequence is: once a system administrator sets `auth.registration_mode` to `self_serve` in the UI, public registration is on even if the deployment still has `DISABLE_REGISTRATION=true` written somewhere. To fully turn it off, you need to reset that row in the database (`DELETE /system/admin/settings/auth.registration_mode`).
 
-`invite_only` 模式下 `POST /auth/register` 返回 403，但它只挡住**密码自助注册**这一条路，以下两条不受影响：
+In `invite_only` mode, `POST /auth/register` returns 403, but that only blocks **self-service password registration** — the following two paths are unaffected:
 
-- **邀请注册端点** `POST /auth/register-by-invite`（设计如此，见 §2.3）；
-- **OIDC 首次登录**：`LoginWithOIDC()` 查不到邮箱时直接 `provisionOIDCUser()` 建号，全程不读注册模式。也就是说开了 OIDC 之后，`invite_only` 挡不住 IdP 里的任何人——要限制范围得在 IdP 侧做（应用可见性 / 用户组），或干脆关掉 OIDC。
+- The **invite registration endpoint** `POST /auth/register-by-invite` (this is by design, see §2.3);
+- **First-time OIDC login**: when `LoginWithOIDC()` can't find a matching email, it goes straight to `provisionOIDCUser()` to create an account, without ever reading the registration mode. In other words, once OIDC is enabled, `invite_only` doesn't block anyone in the IdP — to restrict scope you need to do it on the IdP side (application visibility / user groups), or just turn OIDC off entirely.
 
-### 2.2 密码注册 / 登录
+### 2.2 Password Registration / Login
 
-- `POST /auth/register`：`{username(2-50), email, password}`；按 `DefaultTenantMode` 决定是否自动创建个人租户（`TenantProvisioningCreatePersonal` / `TenantProvisioningTenantless`）。
-- `POST /auth/login`：`{email, password}`，返回 `LoginResponse{user, active_tenant, memberships[], token, refresh_token}`；激活租户按 `Preferences.LastActiveTenantID` 恢复。
-- 密码要求分三处，**强度并不一致**，集成时要按最严的来：
-  - **注册页（前端表单）**：8–32 字符，且至少含 1 个字母 + 1 个数字；
-  - **`POST /auth/register`（后端）**：只有 binding 的 `min=6`——`Register()` **不调用** `ValidatePasswordPolicy`，所以直接打接口能设出 6 位纯数字密码；
-  - **`ValidatePasswordPolicy`（8–32 + 字母 + 数字）**：只用于**修改密码**（`user.go` 的改密路径）与**系统管理员重置他人密码**（`handler/system.go`）。
+- `POST /auth/register`: `{username(2-50), email, password}`; whether a personal tenant is automatically created depends on `DefaultTenantMode` (`TenantProvisioningCreatePersonal` / `TenantProvisioningTenantless`).
+- `POST /auth/login`: `{email, password}`, returns `LoginResponse{user, active_tenant, memberships[], token, refresh_token}`; the active tenant is restored based on `Preferences.LastActiveTenantID`.
+- Password requirements are enforced in three different places, and the strength is **not consistent** across them — when integrating, go by the strictest one:
+  - **Registration page (frontend form)**: 8–32 characters, with at least 1 letter and 1 digit;
+  - **`POST /auth/register` (backend)**: only has the binding's `min=6` — `Register()` **does not call** `ValidatePasswordPolicy`, so calling the API directly lets you set a 6-digit all-numeric password;
+  - **`ValidatePasswordPolicy` (8–32 + letter + digit)**: only used for **password changes** (the password-change path in `user.go`) and for **system administrators resetting other users' passwords** (`handler/system.go`).
 
-  也就是说走界面注册受 8 位强校验，走 API 注册只受 6 位下限约束。
+  In other words, registering via the UI is subject to the strict 8-character validation, while registering via the API is only bound by the 6-character minimum.
 
-### 2.3 邀请注册（register-by-invite）
+### 2.3 Invite Registration (register-by-invite)
 
-`internal/handler/auth_register_by_invite.go`。租户 Owner 生成的**共享邀请链接**（share link，见 §7.2）持有 token，注册页凭 token 完成注册，即使系统处于 `invite_only` 模式：
+`internal/handler/auth_register_by_invite.go`. A **shared invitation link** (share link, see §7.2) generated by a tenant Owner carries a token; the registration page uses that token to complete registration, even while the system is in `invite_only` mode:
 
 ```go
 // POST /auth/register-by-invite
@@ -259,15 +259,15 @@ type registerByInviteRequest struct {
 }
 ```
 
-流程：校验 token（`LookupByToken`）→ 检查邮箱未注册（已注册返回 409）→ 以 `tenantless` 模式创建用户 → 将邀请租户设为用户首租户 → `AcceptByToken` 创建 `tenant_members` 行（状态 `active`，角色取邀请中指定的角色）。
+Flow: validate the token (`LookupByToken`) → check the email isn't already registered (returns 409 if it is) → create the user in `tenantless` mode → set the invited tenant as the user's primary tenant → `AcceptByToken` creates the `tenant_members` row (status `active`, role taken from the one specified in the invitation).
 
-配套端点 `POST /auth/invitations/lookup`（无需认证）返回邀请上下文 `{tenant_id, tenant_name, role, expires_at}` 供注册页展示；**故意使用 POST + body 而非 GET + path，避免 token 落入访问日志**；token 无效/被撤销返回 410。
+The companion endpoint `POST /auth/invitations/lookup` (no authentication required) returns the invitation context `{tenant_id, tenant_name, role, expires_at}` for display on the registration page; **it deliberately uses POST + body instead of GET + path, to avoid the token ending up in access logs**; an invalid/revoked token returns 410.
 
-## 3. JWT 机制
+## 3. JWT Mechanism
 
-实现于 `internal/application/service/user.go`，使用 `github.com/golang-jwt/jwt`（HMAC-SHA256）。
+Implemented in `internal/application/service/user.go`, using `github.com/golang-jwt/jwt` (HMAC-SHA256).
 
-### 3.1 密钥来源
+### 3.1 Secret Source
 
 ```go
 func getJwtSecret() string {
@@ -276,7 +276,7 @@ func getJwtSecret() string {
 }
 ```
 
-### 3.2 签发（Access + Refresh 双 token）
+### 3.2 Issuance (Access + Refresh Dual Tokens)
 
 ```go
 accessClaims := jwt.MapClaims{
@@ -294,58 +294,58 @@ refreshClaims := jwt.MapClaims{
 }
 ```
 
-| Token | 有效期 | Claims 要点 |
+| Token | Validity | Key Claims |
 | --- | --- | --- |
-| Access Token | 24 小时 | `user_id` / `email` / `tenant_id` / `type=access` |
-| Refresh Token | 7 天 | `user_id` / `type=refresh`（不含 tenant_id） |
+| Access Token | 24 hours | `user_id` / `email` / `tenant_id` / `type=access` |
+| Refresh Token | 7 days | `user_id` / `type=refresh` (does not include `tenant_id`) |
 
-两个 token 都会写入 `auth_tokens` 表，用于**服务端撤销**。
+Both tokens are written to the `auth_tokens` table, used for **server-side revocation**.
 
-### 3.3 校验与刷新
+### 3.3 Validation and Refresh
 
-`ValidateToken` 的检查链：
+The `ValidateToken` check chain:
 
-1. 签名算法必须是 HMAC 族（防算法混淆攻击）；
-2. `type=refresh` 的 token **不能**当 access token 用（`isRefreshTokenClaims`）；
-3. 查 `auth_tokens` 表检查 `IsRevoked`（登出 = 撤销记录）；
-4. 从 claims 提取 `user_id` 加载用户、`tenant_id` 作为激活租户。
+1. The signature algorithm must be from the HMAC family (guards against algorithm-confusion attacks);
+2. A token with `type=refresh` **cannot** be used as an access token (`isRefreshTokenClaims`);
+3. The `auth_tokens` table is checked for `IsRevoked` (logout = a revocation record);
+4. `user_id` is extracted from the claims to load the user, and `tenant_id` is used as the active tenant.
 
-**租户切换即换发 token**：`SwitchTenant` 校验目标租户的 active 成员资格（跨租户超级用户除外）后，签发携带新 `tenant_id` claim 的新 token 对，并尽力撤销旧 refresh token。
+**Switching tenants means reissuing tokens**: `SwitchTenant` validates the caller's active membership in the target tenant (except for cross-tenant superusers), then issues a new token pair carrying the new `tenant_id` claim, and makes a best effort to revoke the old refresh token.
 
-## 4. API Key 体系
+## 4. API Key System
 
-### 4.1 能力（Capabilities）清单
+### 4.1 Capabilities List
 
-`internal/types/tenant_api_key.go`。API Key **不复用租户角色**：一把 key 要么 `FullAccess`，要么携带显式能力集合；未声明策略的路由对 API Key 默认拒绝（default-deny）。
+`internal/types/tenant_api_key.go`. An API Key **does not reuse tenant roles**: a key either has `FullAccess`, or carries an explicit set of capabilities; routes with no declared policy deny API Keys by default (default-deny).
 
-| 能力 | 说明 |
+| Capability | Description |
 | --- | --- |
-| `retrieve` | 读取 / 搜索知识库数据（KB 列表、知识详情、hybrid-search 等） |
-| `chat` | 会话流：创建 session、knowledge-chat / agent-chat、加载与删除消息 |
-| `read_agents` | 列出与查看 Agent（不含创建修改） |
-| `ingest` | 写内容：上传文档、编辑 chunk / FAQ / 标签 / Wiki、批量删除与移动知识 |
-| `manage_kbs` | KB 生命周期：创建 / 复制 / 副本 / 更新 / 删除 / 初始化配置 |
-| `manage_agents` | Agent 增删改与复制 |
-| `message_history` | 搜索与查看租户级聊天历史（`POST /messages/search` 等，独立于 chat） |
-| `manage_models` | 管理模型定义与凭证 |
-| `manage_mcp_services` | 管理 MCP 服务与凭证 |
-| `manage_datasources` | 管理数据源连接器与同步任务 |
-| `manage_channels` | 管理 Embed / IM 渠道集成 |
-| `manage_vector_stores` | 管理向量库与解析器 |
-| `manage_storage_backends` | 管理对象存储后端 |
-| `manage_web_search` | 管理 Web 搜索配置 |
-| `run_evaluations` | 运行与查看评估任务 |
-| `manage_members` | 管理租户成员与邀请 |
-| `manage_spaces` | 管理组织 / 共享空间成员关系 |
-| `manage_tenant_settings` | 读写租户整合设置 |
-| `system_tenants_read` / `system_tenants_manage` | 平台级：租户管理（仅 platform key） |
-| `system_settings_read` / `system_settings_manage` | 平台级：系统设置 |
-| `system_runtime_read` / `system_runtime_manage` | 平台级：运行时队列 / 任务 |
-| `system_audit_read` | 平台级：审计日志 |
+| `retrieve` | Read/search knowledge base data (KB listing, knowledge details, hybrid-search, etc.) |
+| `chat` | Session flows: create session, knowledge-chat / agent-chat, load and delete messages |
+| `read_agents` | List and view Agents (excludes creation/modification) |
+| `ingest` | Write content: upload documents, edit chunks / FAQs / tags / Wiki pages, bulk delete and move knowledge |
+| `manage_kbs` | KB lifecycle: create / duplicate / copy / update / delete / initialize configuration |
+| `manage_agents` | Create, delete, modify, and copy Agents |
+| `message_history` | Search and view tenant-level chat history (`POST /messages/search` etc., independent from chat) |
+| `manage_models` | Manage model definitions and credentials |
+| `manage_mcp_services` | Manage MCP services and credentials |
+| `manage_datasources` | Manage data source connectors and sync jobs |
+| `manage_channels` | Manage Embed / IM channel integrations |
+| `manage_vector_stores` | Manage vector stores and parsers |
+| `manage_storage_backends` | Manage object storage backends |
+| `manage_web_search` | Manage web search configuration |
+| `run_evaluations` | Run and view evaluation jobs |
+| `manage_members` | Manage tenant members and invitations |
+| `manage_spaces` | Manage organization / shared-space membership |
+| `manage_tenant_settings` | Read/write tenant integration settings |
+| `system_tenants_read` / `system_tenants_manage` | Platform level: tenant management (platform key only) |
+| `system_settings_read` / `system_settings_manage` | Platform level: system settings |
+| `system_runtime_read` / `system_runtime_manage` | Platform level: runtime queue / tasks |
+| `system_audit_read` | Platform level: audit log |
 
-### 4.2 路由声明机制
+### 4.2 Route Declaration Mechanism
 
-`internal/router/rbac.go` 中每条 API-Key-可访问的路由都通过 `apiKeyGroup` / `apiKeyRoute` 显式登记一条 `APIKeyRoutePolicy`（`middleware.APIKeyRouteAuthorizer` 是唯一事实来源）：
+In `internal/router/rbac.go`, every route accessible via API Key is explicitly registered with an `APIKeyRoutePolicy` through `apiKeyGroup` / `apiKeyRoute` (`middleware.APIKeyRouteAuthorizer` is the single source of truth):
 
 ```go
 // 策略构造器
@@ -355,21 +355,21 @@ apiKeyPlatform(caps...)        // 仅 platform key + 指定能力
 apiKeyRetrieve(base) / apiKeyChat(base) / apiKeyIngest(base) / ...
 ```
 
-启动时 `assertAPIKeyPoliciesMatchRoutes` 校验每条声明的策略都对应真实注册的路由，配置漂移直接 panic。`router_api_key_capabilities_test.go` 佐证的典型映射：
+At startup, `assertAPIKeyPoliciesMatchRoutes` validates that every declared policy corresponds to an actually registered route, and panics on any configuration drift. Typical mappings evidenced by `router_api_key_capabilities_test.go`:
 
-| 路由 | 要求能力 |
+| Route | Required Capability |
 | --- | --- |
-| `POST /sessions`、`POST /knowledge-chat/:session_id`、`POST /agent-chat/:session_id`、`GET /messages/:session_id/load` | `chat` |
-| `GET /agents`、`GET /agents/:id`、`GET /agents/:id/suggested-questions` | `read_agents` |
-| `POST/PUT/DELETE /agents`、`POST /agents/:id/copy` | `manage_agents` |
-| `PUT/DELETE /knowledge-bases/:id`、`POST /initialization/initialize/:kbId` | `manage_kbs` |
-| `POST /messages/search`、`GET /messages/chat-history-stats` | `message_history`（不是 chat） |
+| `POST /sessions`, `POST /knowledge-chat/:session_id`, `POST /agent-chat/:session_id`, `GET /messages/:session_id/load` | `chat` |
+| `GET /agents`, `GET /agents/:id`, `GET /agents/:id/suggested-questions` | `read_agents` |
+| `POST/PUT/DELETE /agents`, `POST /agents/:id/copy` | `manage_agents` |
+| `PUT/DELETE /knowledge-bases/:id`, `POST /initialization/initialize/:kbId` | `manage_kbs` |
+| `POST /messages/search`, `GET /messages/chat-history-stats` | `message_history` (not `chat`) |
 | `GET /system/admin/settings` | platform key + `system_settings_read` |
 | `POST /system/admin/runtime/queues/:queue/tasks/:task_id/actions/:action` | platform key + `system_runtime_manage` |
 
 ### 4.3 KB Allow-list
 
-`KnowledgeBaseIDs` 非空时 key 只能触达清单内的 KB（`knowledge_api_key_scope_test.go` 佐证）：
+When `KnowledgeBaseIDs` is non-empty, the key can only reach the KBs on the list (evidenced by `knowledge_api_key_scope_test.go`):
 
 ```go
 // 越界单个 KB → 403
@@ -378,28 +378,28 @@ requireTenantAPIKeyKnowledgeBase(ctx, "kb-2") // scope 只含 kb-1 → forbidden
 requireTenantAPIKeyKnowledgeBases(ctx, "kb-1", "kb-2") // → forbidden
 ```
 
-其他硬限制：platform key 不能创建其他 platform key；API Key 主体不参与 ownership 判定（见 §6）。
+Other hard limits: a platform key cannot create other platform keys; the API Key principal does not participate in ownership determination (see §6).
 
-## 5. OIDC 单点登录
+## 5. OIDC Single Sign-On
 
-### 5.1 配置
+### 5.1 Configuration
 
-`internal/config/config.go` 的 `OIDCAuthConfig`：
+`OIDCAuthConfig` in `internal/config/config.go`:
 
-| 配置项 | 说明 |
+| Config item | Description |
 | --- | --- |
-| `enable` | 是否启用 OIDC |
-| `issuer_url` | Issuer 地址 |
-| `discovery_url` | OpenID Connect Discovery 地址（`.well-known/openid-configuration`） |
-| `provider_display_name` | 登录按钮展示名 |
-| `client_id` / `client_secret` | 客户端凭证（secret 序列化为 `json:"-"`，不下发前端） |
-| `authorization_endpoint` / `token_endpoint` / `user_info_endpoint` | 手动指定端点 |
-| `scopes` | 请求的 scope（如 `openid email profile`） |
-| `user_info_mapping.username` / `.email` | claims 字段映射（默认 `name` / `email`） |
+| `enable` | Whether OIDC is enabled |
+| `issuer_url` | Issuer address |
+| `discovery_url` | OpenID Connect Discovery address (`.well-known/openid-configuration`) |
+| `provider_display_name` | Display name for the login button |
+| `client_id` / `client_secret` | Client credentials (secret is serialized as `json:"-"`, not exposed to the frontend) |
+| `authorization_endpoint` / `token_endpoint` / `user_info_endpoint` | Manually specified endpoints |
+| `scopes` | Requested scopes (e.g. `openid email profile`) |
+| `user_info_mapping.username` / `.email` | Claims field mapping (defaults to `name` / `email`) |
 
-端点解析顺序：若 `authorization_endpoint` 与 `token_endpoint` 均已配置则直接使用；否则从 `discovery_url` 动态发现；两者都缺失则报错。
+Endpoint resolution order: if both `authorization_endpoint` and `token_endpoint` are configured, use them directly; otherwise, discover them dynamically from `discovery_url`; if both are missing, an error is raised.
 
-路由（`internal/router/router.go`）：
+Routes (`internal/router/router.go`):
 
 ```go
 r.GET("/auth/oidc/config",   handler.GetOIDCConfig)           // 前端探测是否启用
@@ -407,19 +407,19 @@ r.GET("/auth/oidc/url",      handler.GetOIDCAuthorizationURL) // 获取授权 UR
 r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)    // 授权码回调
 ```
 
-### 5.2 流程与安全设计
+### 5.2 Flow and Security Design
 
-`internal/application/service/user.go`：
+`internal/application/service/user.go`:
 
-- `GetOIDCAuthorizationURL`：生成 24 字节随机 `nonce`，用 `secutils.SignOIDCState` 把 `{nonce, redirect_uri}` **签名进 state**（防 CSRF / 重放 / 回调地址篡改）；nonce 通过 HttpOnly cookie 下发（响应 JSON 中 `json:"-"` 省略）。
-- `LoginWithOIDC`：授权码换 token → UserInfo 端点取用户信息（按 `user_info_mapping` 映射）→ **按 email 匹配本地用户**；未找到则 `provisionOIDCUser` 自动开户 → 签发与密码登录完全相同的本地 JWT 对。
+- `GetOIDCAuthorizationURL`: generates a 24-byte random `nonce`, and uses `secutils.SignOIDCState` to sign `{nonce, redirect_uri}` **into the state** (guarding against CSRF / replay / callback-address tampering); the nonce is delivered via an HttpOnly cookie (omitted from the JSON response via `json:"-"`).
+- `LoginWithOIDC`: exchanges the authorization code for a token → retrieves user info from the UserInfo endpoint (mapped according to `user_info_mapping`) → **matches a local user by email**; if none is found, `provisionOIDCUser` automatically creates an account → issues a local JWT pair identical in form to the password-login one.
 
-自动开户细节：
+Auto-provisioning details:
 
-- 租户模式取自 `auth.default_tenant_mode`（`create_personal` 自动建个人租户 / `tenantless` 等待邀请）；
-- 用户名候选：OIDC username → email 前缀 → `oidc-user`，冲突时追加 `-1..-20` 数字后缀，仍冲突则用 Unix 时间戳；
-- 生成 32 字符随机密码写入（用户不知晓，只能走 OIDC 登录）；
-- 响应带 `is_new_user` 供 SPA 做首登引导；`IsActive=false` 的账户拒绝登录。
+- The tenant mode is taken from `auth.default_tenant_mode` (`create_personal` automatically creates a personal tenant / `tenantless` waits for an invitation);
+- Username candidates: OIDC username → email prefix → `oidc-user`, appending a `-1..-20` numeric suffix on conflict, and falling back to a Unix timestamp if still conflicting;
+- A randomly generated 32-character password is written in (the user never knows it and can only log in via OIDC);
+- The response includes `is_new_user` for the SPA to drive first-login onboarding; accounts with `IsActive=false` are denied login.
 
 ```mermaid
 sequenceDiagram
@@ -443,75 +443,75 @@ sequenceDiagram
     W-->>B: LoginResponse {user, memberships, token, refresh_token, is_new_user}
 ```
 
-## 6. RBAC：角色、所有权与守卫矩阵
+## 6. RBAC: Roles, Ownership, and the Guard Matrix
 
-授权由三套正交机制组成，全部汇聚在 `internal/router/rbac.go` 的 `rbacGuards` 中：
+Authorization is composed of three orthogonal mechanisms, all converging in `rbacGuards` in `internal/router/rbac.go`:
 
-1. **角色守卫**（role-only）：`Viewer()` / `Contributor()` / `Admin()` / `Owner()` / `SystemAdmin()`，问"调用者在本租户的角色是什么"。
-2. **所有权守卫**（ownership-or-role）：`OwnedKBOrAdmin()` 等，问"调用者是否是**这个资源**的创建者，或至少 Admin+"。
-3. **KB 访问守卫**（KB-access）：`KBAccessRead()` / `KBAccessWrite()`，问"调用者的租户能否触达这个 KB"（自有 / 组织共享 / 经共享 Agent 可见）。
+1. **Role guards** (role-only): `Viewer()` / `Contributor()` / `Admin()` / `Owner()` / `SystemAdmin()`, asking "what is the caller's role in this tenant?"
+2. **Ownership guards** (ownership-or-role): `OwnedKBOrAdmin()` etc., asking "is the caller the creator of **this specific resource**, or at least Admin+?"
+3. **KB access guards** (KB-access): `KBAccessRead()` / `KBAccessWrite()`, asking "can the caller's tenant reach this KB?" (own it / organization-shared / visible via a shared Agent)
 
-### 6.1 角色能力矩阵
+### 6.1 Role Capability Matrix
 
-| 能力 | Owner (40) | Admin (30) | Contributor (20) | Viewer (10) |
+| Capability | Owner (40) | Admin (30) | Contributor (20) | Viewer (10) |
 | --- | --- | --- | --- | --- |
-| 删除租户 / 转移所有权 / 管理 API Key | ✓ | ✗ | ✗ | ✗ |
-| 添加 / 移除成员、改角色、发邀请 | ✓ | ✗（handler 限 Owner） | ✗ | ✗ |
-| 配置租户基础设施（模型 / 向量库 / IM / MCP / Web 搜索 / 存储后端 / 数据源） | ✓ | ✓ | ✗ | ✗ |
-| 清空知识库内容（`DELETE /knowledge-bases/:id/knowledge`） | ✓ | ✓ | ✗ | ✗ |
-| 修改 / 删除**他人**创建的 KB / Agent / 知识 / chunk / Wiki / 标签 | ✓ | ✓ | ✗ | ✗ |
-| 创建 KB / Agent；复制 Agent 给自己 | ✓ | ✓ | ✓ | ✗ |
-| 修改 / 删除**自己创建**的 KB 及其子资源 | ✓ | ✓ | ✓ | ✗ |
-| 创建/管理自己的会话、发起问答（`/sessions`、`/knowledge-chat`、`/agent-chat` 均为 Viewer+） | ✓ | ✓ | ✓ | ✓ |
-| 查看成员列表 / 邀请列表 / KB 列表 / 知识 / 检索 / 预览 | ✓ | ✓ | ✓ | ✓ |
+| Delete tenant / transfer ownership / manage API Keys | ✓ | ✗ | ✗ | ✗ |
+| Add/remove members, change roles, send invitations | ✓ | ✗ (handler restricted to Owner) | ✗ | ✗ |
+| Configure tenant infrastructure (models / vector stores / IM / MCP / web search / storage backends / data sources) | ✓ | ✓ | ✗ | ✗ |
+| Clear knowledge base contents (`DELETE /knowledge-bases/:id/knowledge`) | ✓ | ✓ | ✗ | ✗ |
+| Modify/delete KB / Agent / knowledge / chunk / Wiki / tags created by **others** | ✓ | ✓ | ✗ | ✗ |
+| Create KB / Agent; copy an Agent for oneself | ✓ | ✓ | ✓ | ✗ |
+| Modify/delete a KB **created by oneself** and its sub-resources | ✓ | ✓ | ✓ | ✗ |
+| Create/manage one's own sessions, start Q&A (`/sessions`, `/knowledge-chat`, `/agent-chat` are all Viewer+) | ✓ | ✓ | ✓ | ✓ |
+| View member list / invitation list / KB list / knowledge / retrieval / preview | ✓ | ✓ | ✓ | ✓ |
 
-`internal/router/rbac.go` 顶部的设计注释总结了产品语义：
+The design comment at the top of `internal/router/rbac.go` summarizes the product semantics:
 
-> - Owner / Admin：管理租户内一切；
-> - Contributor：管理自己创建的资源，他人资源等同只读；
-> - Viewer：全部只读；
-> - 创建新资源至少需要 Contributor；配置租户基础设施需要 Admin+。
+> - Owner / Admin: manage everything within the tenant;
+> - Contributor: manages resources they created themselves; other people's resources are effectively read-only to them;
+> - Viewer: everything is read-only;
+> - Creating a new resource requires at least Contributor; configuring tenant infrastructure requires Admin+.
 
-两处容易踩空的例外：**成员增删改角色与发邀请是 Owner 独有**，Admin 也不行（`routes_auth_tenant.go` 上挂的是 `g.Owner()`，成员列表才是 Viewer+）；**Viewer 并非「什么都不能建」**——会话属于自己的工作数据，Viewer 也能建会话、提问，只是建不了知识库和 Agent。
+Two exceptions that are easy to trip over: **adding/removing members, changing roles, and sending invitations are Owner-only**, not even Admin (`routes_auth_tenant.go` attaches `g.Owner()` there, while the member list itself is Viewer+); **Viewer isn't "can't create anything at all"** — a session belongs to one's own working data, so a Viewer can still create sessions and ask questions; they just can't create knowledge bases or Agents.
 
-### 6.2 守卫选择规则（Q1 / Q2）
+### 6.2 Guard Selection Rules (Q1 / Q2)
 
-`rbac.go` 明文规定了新增路由的守卫选择方法：
+`rbac.go` explicitly specifies the method for choosing a guard when adding a new route:
 
-- **Q1：资源有 creator 吗？** 有（KB、Agent、知识文档、Chunk、WikiPage、FAQ 条目、KB 标签）→ 变更路由用 `OwnedXxxOrAdmin`；没有（Model、VectorStore、IM 渠道、WebSearchProvider、DataSource、MCPService 等租户级基础设施）→ 用 `Admin()`；创建入口（资源尚不存在）→ `Contributor()`。
-- **Q2：副作用私有还是公开？** 私有（如 `POST /agents/:id/copy` 只给自己复制）→ `Contributor()` 足够；公开（共享 KB 到组织、禁用全租户 Agent、转移所有权）→ `OwnedXxxOrAdmin` 或 `Admin`。
+- **Q1: Does the resource have a creator?** Yes (KB, Agent, knowledge document, Chunk, WikiPage, FAQ entry, KB tag) → use `OwnedXxxOrAdmin` for mutation routes; No (Model, VectorStore, IM channel, WebSearchProvider, DataSource, MCPService, and other tenant-level infrastructure) → use `Admin()`; creation entry points (the resource doesn't exist yet) → `Contributor()`.
+- **Q2: Is the side effect private or public?** Private (e.g. `POST /agents/:id/copy` only copies for oneself) → `Contributor()` is sufficient; public (sharing a KB to an organization, disabling a tenant-wide Agent, transferring ownership) → `OwnedXxxOrAdmin` or `Admin`.
 
-### 6.3 所有权守卫清单
+### 6.3 Ownership Guard List
 
-| 守卫 | 解析路径 | 适用路由 |
+| Guard | Resolution path | Applicable routes |
 | --- | --- | --- |
-| `OwnedKBOrAdmin` | `:id` → KB.CreatorID | KB 更新 / 删除 / pin / 上传知识 / 标签 CRUD |
-| `OwnedKBOrAdminFromKbIDParam` | `:kbId` → KB.CreatorID | `/initialization/*` KB 配置路由 |
-| `OwnedAgentOrAdmin` | `:id` → Agent.CreatorID（内置 Agent creator 为空，仅 Admin+ 可改） | Agent 变更 |
-| `OwnedKnowledgeKBOrAdmin` | knowledge `:id` → 所属 KB.CreatorID | 知识更新 / 删除 / 重解析 / 图片编辑 |
-| `OwnedChunkKBOrAdmin` / `...FromChunkID` | `:knowledge_id` 或 chunk `:id` → KB.CreatorID | chunk 变更 |
-| `OwnedWikiKBOrAdmin` | `:kb_id` → KB.CreatorID | Wiki 页面 CRUD |
+| `OwnedKBOrAdmin` | `:id` → KB.CreatorID | KB update / delete / pin / knowledge upload / tag CRUD |
+| `OwnedKBOrAdminFromKbIDParam` | `:kbId` → KB.CreatorID | `/initialization/*` KB configuration routes |
+| `OwnedAgentOrAdmin` | `:id` → Agent.CreatorID (built-in Agents have an empty creator, so only Admin+ can modify them) | Agent mutations |
+| `OwnedKnowledgeKBOrAdmin` | knowledge `:id` → owning KB.CreatorID | Knowledge update / delete / re-parse / image editing |
+| `OwnedChunkKBOrAdmin` / `...FromChunkID` | `:knowledge_id` or chunk `:id` → KB.CreatorID | Chunk mutations |
+| `OwnedWikiKBOrAdmin` | `:kb_id` → KB.CreatorID | Wiki page CRUD |
 
-子资源必须继承父 KB 的门禁（注释明确点名曾修复过 FAQ/Tag、agent share、KB share 接错轴的 bug）。
+Sub-resources must inherit the gating of their parent KB (the comment explicitly calls out a bug it once fixed where FAQ/Tag, agent share, and KB share were wired to the wrong axis).
 
-### 6.4 中间件语义（`internal/middleware/rbac.go`）
+### 6.4 Middleware Semantics (`internal/middleware/rbac.go`)
 
-`RequireRole` / `RequireOwnershipOrRole` 的判定顺序：
+The decision order for `RequireRole` / `RequireOwnershipOrRole`:
 
-1. API Key 主体直接放行（其授权走 §4.2 的 APIKeyGate，且合成系统用户不可能匹配 `creator_id`）；
-2. 角色满足 → 放行；
-3. 跨租户超级用户（`IsCrossTenantSuperuser`）→ 放行；
-4. RBAC 未强制执行（`tenant.enable_rbac=false`，灰度模式）→ 仅记日志放行；
-5. ownership 守卫执行 creator 查询：资源不存在 → 放行让 handler 返回 404；查询失败 → 503；creator == 当前用户 → 放行；
-6. 否则 403 + 审计日志（`AuditActionAccessDenied = "rbac.access_denied"`）。
+1. An API Key principal is passed through directly (its authorization goes through the APIKeyGate described in §4.2, and a synthesized system user can never match `creator_id`);
+2. Role satisfied → pass through;
+3. Cross-tenant superuser (`IsCrossTenantSuperuser`) → pass through;
+4. RBAC not enforced (`tenant.enable_rbac=false`, gradual-rollout mode) → log only, pass through;
+5. The ownership guard runs a creator lookup: resource not found → pass through and let the handler return 404; lookup failed → 503; creator == current user → pass through;
+6. Otherwise, 403 + audit log (`AuditActionAccessDenied = "rbac.access_denied"`).
 
-强制执行开关 `TenantConfig.EnableRBAC`：`nil` 或 `true` = 强制（当前默认），`false` = 只记日志不拒绝（发布过渡用）；可用环境变量 `WEKNORA_TENANT_ENABLE_RBAC` 覆盖。
+The enforcement switch `TenantConfig.EnableRBAC`: `nil` or `true` = enforced (current default), `false` = log only, no denial (used during rollout transitions); can be overridden with the environment variable `WEKNORA_TENANT_ENABLE_RBAC`.
 
-`RequireSystemAdmin`：JWT 用户须 `IsSystemAdmin=true`；API Key 须为 platform key（tenant key 一律 403）。
+`RequireSystemAdmin`: the JWT user must have `IsSystemAdmin=true`; for API Keys, it must be a platform key (tenant keys always get 403).
 
-### 6.5 KB 访问守卫（跨租户共享通道）
+### 6.5 KB Access Guards (Cross-Tenant Sharing Channel)
 
-`middleware/kb_access.go`（由 `rbac.go` 的 `KBAccess*` 系列包装）统一了三条访问路径：
+`middleware/kb_access.go` (wrapped by the `KBAccess*` family in `rbac.go`) unifies three access paths:
 
 ```text
 1. 自有 KB                    → 等效 Admin 级完全访问
@@ -519,51 +519,51 @@ sequenceDiagram
 3. 经共享 Agent 可见          → 仅只读（只在 KBAccessRead 层激活）
 ```
 
-守卫成功后把 `(KB, 有效租户 ID, 权限)` 存入 context 并**改写请求的租户 ID 为有效租户**，下游 handler 无需感知 KB 是自有还是共享。变体 `KBAccessReadFromKnowledgeIDParam` / `...FromChunkIDParam` 支持从 knowledge / chunk ID 反查 KB。读路由最低 `OrgRoleViewer`，写路由最低 `OrgRoleEditor`。
+On success, the guard stores `(KB, effective tenant ID, permission)` in the context and **rewrites the request's tenant ID to the effective tenant**, so downstream handlers don't need to be aware of whether the KB is owned or shared. Variants `KBAccessReadFromKnowledgeIDParam` / `...FromChunkIDParam` support reverse-looking-up the KB from a knowledge / chunk ID. Read routes require at least `OrgRoleViewer`; write routes require at least `OrgRoleEditor`.
 
-## 7. 租户成员、邀请与邀请链接
+## 7. Tenant Members, Invitations, and Invitation Links
 
-### 7.1 成员管理与定向邀请
+### 7.1 Member Management and Targeted Invitations
 
-Handler：`internal/handler/tenant_member.go`、`tenant_invitation.go`。`/tenants/:id` 组统一挂 `PathTenantMatch()`（URL 租户必须等于 token 中的激活租户，超级用户除外）。
+Handlers: `internal/handler/tenant_member.go`, `tenant_invitation.go`. The `/tenants/:id` group all attaches `PathTenantMatch()` (the URL tenant must match the active tenant in the token, except for superusers).
 
-| 端点 | 最低角色 | 说明 |
+| Endpoint | Minimum role | Description |
 | --- | --- | --- |
-| `GET /tenants/:id/members` | Viewer | 分页列出 active 成员，`q` 按邮箱/用户名模糊过滤 |
-| `POST /tenants/:id/members` | Owner | 直接添加现有用户 `{email, role}` |
-| `PUT /tenants/:id/members/:user_id` | Owner | 修改角色 |
-| `DELETE /tenants/:id/members/:user_id` | Owner | 移除成员 |
-| `POST /tenants/:id/invitations` | Owner | 定向邀请现有用户 `{email, role, message}` |
-| `GET /tenants/:id/invitations` | Viewer | 列出邀请 |
-| `DELETE /tenants/:id/invitations/:inv_id` | Owner | 撤销邀请 |
-| `GET /me/invitations` | 本人 | 邀请收件箱 |
-| `POST /me/invitations/:inv_id/accept` / `.../decline` | 本人 | 接受 / 拒绝 |
+| `GET /tenants/:id/members` | Viewer | Paginated list of active members; `q` fuzzy-filters by email/username |
+| `POST /tenants/:id/members` | Owner | Directly add an existing user `{email, role}` |
+| `PUT /tenants/:id/members/:user_id` | Owner | Change role |
+| `DELETE /tenants/:id/members/:user_id` | Owner | Remove member |
+| `POST /tenants/:id/invitations` | Owner | Targeted invitation of an existing user `{email, role, message}` |
+| `GET /tenants/:id/invitations` | Viewer | List invitations |
+| `DELETE /tenants/:id/invitations/:inv_id` | Owner | Revoke an invitation |
+| `GET /me/invitations` | Self | Invitation inbox |
+| `POST /me/invitations/:inv_id/accept` / `.../decline` | Self | Accept / decline |
 
-`TenantInvitation` 状态机：`pending → accepted / declined / revoked / expired`（过期由惰性清扫转移并审计 `rbac.invitation_expired`）。成员与邀请全生命周期都有审计事件：`rbac.member_added` / `member_removed` / `member_role_changed` / `member_left` / `invitation_sent` / `invitation_accepted` / `invitation_declined` / `invitation_revoked`（`internal/types/audit_log.go`）。
+`TenantInvitation` state machine: `pending → accepted / declined / revoked / expired` (expiration is transitioned by a lazy sweep and audited as `rbac.invitation_expired`). Members and invitations have audit events across their whole lifecycle: `rbac.member_added` / `member_removed` / `member_role_changed` / `member_left` / `invitation_sent` / `invitation_accepted` / `invitation_declined` / `invitation_revoked` (`internal/types/audit_log.go`).
 
-### 7.2 共享邀请链接（invite link）
+### 7.2 Shared Invitation Links (invite link)
 
-`internal/handler/tenant_invite_link.go`。与定向邀请同表存储：`InviteeUserID` 为空即共享链接（多人可用，`AcceptedCount` 计数），非空即定向邀请。
+`internal/handler/tenant_invite_link.go`. Stored in the same table as targeted invitations: an empty `InviteeUserID` means it's a shared link (usable by multiple people, counted via `AcceptedCount`), while a non-empty one means a targeted invitation.
 
-- `POST /tenants/:id/invite-links`（Owner）：`{role, message}` → 返回 `invite_url`（`{FrontendBaseURL}/register?token=...`，`FrontendBaseURL` 取 YAML `frontend_base_url` → 环境变量 `FRONTEND_BASE_URL` → 相对路径兜底）；
-- `GET /tenants/:id/invite-links`（Viewer）列出；`DELETE /tenants/:id/invite-links/:inv_id`（Owner）撤销。
+- `POST /tenants/:id/invite-links` (Owner): `{role, message}` → returns `invite_url` (`{FrontendBaseURL}/register?token=...`, where `FrontendBaseURL` is taken from the YAML `frontend_base_url` → the environment variable `FRONTEND_BASE_URL` → falling back to a relative path);
+- `GET /tenants/:id/invite-links` (Viewer) lists them; `DELETE /tenants/:id/invite-links/:inv_id` (Owner) revokes.
 
-链接持续有效直到过期或撤销，配合 §2.3 的 `register-by-invite` 打通 invite-only 模式下的开户闭环。
+The link stays valid until it expires or is revoked, and combined with the `register-by-invite` endpoint from §2.3, it closes the account-creation loop under invite-only mode.
 
-## 8. 组织与共享空间
+## 8. Organizations and Shared Spaces
 
-### 8.1 组织生命周期
+### 8.1 Organization Lifecycle
 
-`internal/application/service/organization.go`：
+`internal/application/service/organization.go`:
 
-- 创建组织时生成唯一 `InviteCode`，有效期 `invite_code_validity_days ∈ {0(永久), 1, 7, 30}`，默认 7 天（`ValidInviteCodeValidityDays` 白名单，非法值报 `ErrInvalidValidityDays`）；
-- `GetOrganizationByInviteCode` 按邀请码入组（区分 `ErrInviteCodeNotFound` / `ErrInviteCodeExpired`）；`RequireApproval=true` 时产生待审批的 join request；
-- `Searchable=true` 的组织可被 `SearchSearchableOrganizations` 发现；
-- 邀请码与待审批数仅对"组织 admin 或 owner 租户"可见（`internal/handler/organization.go` 中 `isAdmin || isOwner` 判定）。
+- When an organization is created, a unique `InviteCode` is generated, with a validity period `invite_code_validity_days ∈ {0(forever), 1, 7, 30}`, defaulting to 7 days (checked against the `ValidInviteCodeValidityDays` allowlist, with invalid values raising `ErrInvalidValidityDays`);
+- `GetOrganizationByInviteCode` joins via an invite code (distinguishing `ErrInviteCodeNotFound` / `ErrInviteCodeExpired`); when `RequireApproval=true`, a pending join request is created;
+- Organizations with `Searchable=true` can be discovered via `SearchSearchableOrganizations`;
+- The invite code and the pending-approval count are only visible to "an org admin or owner tenant" (determined by the `isAdmin || isOwner` check in `internal/handler/organization.go`).
 
-### 8.2 邀请搜索：按空间（租户）而非按用户
+### 8.2 Invitation Search: By Space (Tenant), Not By User
 
-Plan 3 之后成员单位是租户，一个用户可能属于多个空间，按用户名/邮箱搜索会产生"管理员到底想邀请哪个空间"的歧义。因此 `GET /organizations/:id/search-tenants`（仅组织 admin 可调）**严格按空间名匹配**：
+After Plan 3, the unit of membership is the tenant, and a single user may belong to multiple spaces, so searching by username/email creates ambiguity about "which space the admin actually wants to invite." For this reason, `GET /organizations/:id/search-tenants` (callable only by org admins) **matches strictly by space name**:
 
 ```go
 // SearchTenantsForInvite：
@@ -573,13 +573,13 @@ Plan 3 之后成员单位是租户，一个用户可能属于多个空间，按�
 // 4. 插入序去重，丢弃解析不到名称的 defunct 租户，截断到 limit
 ```
 
-旧端点 `GET /organizations/:id/search-users` 保留为兼容 shim，直接委托给 `SearchTenantsForInvite`（响应已是新的 tenant-candidate 形状，标记 `@Deprecated`）。
+The old endpoint `GET /organizations/:id/search-users` is kept as a backward-compatible shim, delegating directly to `SearchTenantsForInvite` (the response is already in the new tenant-candidate shape, marked `@Deprecated`).
 
-`POST /organizations/:id/invite`（仅组织 admin）直接添加成员：优先走 `tenant_id`（可选 `representative_user_id`，若代表用户不属于目标租户则告警并丢弃该字段，不硬失败）；兼容旧 SDK 的 `user_id` 路径（反查该用户租户）。
+`POST /organizations/:id/invite` (org admins only) adds a member directly: it prefers the `tenant_id` path (with an optional `representative_user_id` — if the representative user doesn't belong to the target tenant, that field is dropped with a warning rather than failing hard); it also supports the legacy SDK's `user_id` path (reverse-looking-up that user's tenant) for compatibility.
 
-### 8.3 KB 共享模型与权限计算
+### 8.3 KB Sharing Model and Permission Calculation
 
-`internal/types/organization.go` + `internal/application/service/kbshare.go`：
+`internal/types/organization.go` + `internal/application/service/kbshare.go`:
 
 ```go
 type KnowledgeBaseShare struct {
@@ -593,15 +593,15 @@ type KnowledgeBaseShare struct {
 // AgentShare 结构同形，面向 Agent。
 ```
 
-**共享的前置条件**（`ShareKnowledgeBase`）：调用者租户必须**拥有**该 KB（`kb.TenantID == tenantID`），且在目标组织中角色为 **editor+**。重复共享转为更新权限。
+**Prerequisite for sharing** (`ShareKnowledgeBase`): the caller's tenant must **own** the KB (`kb.TenantID == tenantID`), and must hold at least **editor** role in the target organization. Sharing again just updates the permission.
 
-**管理共享的三条豁免路径**（`callerCanManageShare`，用于改权限 / 撤销共享）：
+**Three exemption paths for managing a share** (`callerCanManageShare`, used for changing permissions / revoking a share):
 
-1. 调用者就是原共享人（同 user id）；
-2. 调用者租户是来源租户且调用者是租户 Admin+（所有权是租户级的，原共享人离开后租户 Admin 仍可管理）；
-3. 调用者租户是目标组织的 admin（org admin 可在原共享人离开后修复共享）。
+1. The caller is the original sharer (same user ID);
+2. The caller's tenant is the source tenant and the caller is a tenant Admin+ (ownership is tenant-level, so if the original sharer leaves, the tenant's Admins can still manage the share);
+3. The caller's tenant is the admin of the target organization (an org admin can repair a share after the original sharer has left).
 
-**有效权限 = 多层交集（取最小）**：
+**Effective permission = intersection across multiple layers (take the minimum)**:
 
 ```go
 // 最终权限 = Min(共享记录的 Permission, 调用者租户在组织中的 OrgMemberRole)
@@ -615,7 +615,7 @@ func applyTenantRoleCap(p types.OrgMemberRole, callerTenantRole types.TenantRole
 }
 ```
 
-共享相关操作会写入 KB 活动流：`kb.share_added` / `kb.share_permission_changed` / `kb.share_removed`。
+Sharing-related operations are written to the KB activity feed: `kb.share_added` / `kb.share_permission_changed` / `kb.share_removed`.
 
 ```mermaid
 flowchart LR
@@ -635,37 +635,37 @@ flowchart LR
     UV --> EP
 ```
 
-## 9. 配置速查
+## 9. Configuration Quick Reference
 
-| 配置项 | 取值 | 默认 | 作用 |
+| Config item | Values | Default | Purpose |
 | --- | --- | --- | --- |
-| `auth.registration_mode` | `self_serve` / `invite_only` | `self_serve` | 公开注册开关（DB system_settings 可热改） |
-| `auth.default_tenant_mode` | `create_personal` / `tenantless` | `create_personal` | 新用户是否自动建个人租户 |
-| `tenant.enable_rbac` | `true` / `false` | `true` | RBAC 强制执行 / 仅日志模式 |
-| `JWT_SECRET`（环境变量） | 任意字符串 | 随机 32 字节 | JWT HMAC 密钥 |
-| `SYSTEM_AES_KEY`（环境变量） | AES 密钥 | 未设置 | API Key 明文落库加密 |
-| `oidc.*` | 见 §5.1 | 关闭 | OIDC 单点登录 |
-| `frontend_base_url` / `FRONTEND_BASE_URL` | URL | 相对路径 | 邀请链接注册页地址 |
-| `Tenant.StorageQuota` | 字节 | 10737418240（10GB） | 租户存储配额 |
+| `auth.registration_mode` | `self_serve` / `invite_only` | `self_serve` | Public registration switch (hot-changeable via DB system_settings) |
+| `auth.default_tenant_mode` | `create_personal` / `tenantless` | `create_personal` | Whether new users automatically get a personal tenant created |
+| `tenant.enable_rbac` | `true` / `false` | `true` | RBAC enforcement / log-only mode |
+| `JWT_SECRET` (environment variable) | Any string | Random 32 bytes | JWT HMAC secret |
+| `SYSTEM_AES_KEY` (environment variable) | AES key | Not set | Encryption of API Key plaintext at rest |
+| `oidc.*` | See §5.1 | Off | OIDC single sign-on |
+| `frontend_base_url` / `FRONTEND_BASE_URL` | URL | Relative path | Invitation link registration page address |
+| `Tenant.StorageQuota` | Bytes | 10737418240 (10GB) | Tenant storage quota |
 
-## 实现参考
+## Implementation Reference
 
-想读源码时按下表定位（路径相对仓库根目录）：
+To locate things when reading the source, use the table below (paths relative to the repository root):
 
-| 层 | 文件 |
+| Layer | File |
 | --- | --- |
-| 租户模型 | `internal/types/tenant.go` |
-| 用户模型 | `internal/types/user.go` |
-| 租户成员与角色 | `internal/types/tenant_member.go` |
-| 租户邀请 | `internal/types/tenant_invitation.go` |
-| API Key 模型与能力 | `internal/types/tenant_api_key.go` |
-| 组织 / 共享模型 | `internal/types/organization.go` |
-| 注册 / 登录 Handler | `internal/handler/auth.go` |
-| 邀请注册 Handler | `internal/handler/auth_register_by_invite.go` |
-| 成员 / 邀请 / 邀请链接 Handler | `internal/handler/tenant_member.go`、`tenant_invitation.go`、`tenant_invite_link.go` |
-| 组织 Handler | `internal/handler/organization.go` |
-| JWT / OIDC / 用户服务 | `internal/application/service/user.go` |
-| 组织 / KB 共享服务 | `internal/application/service/organization.go`、`kbshare.go` |
-| RBAC 中间件 | `internal/middleware/rbac.go` |
-| RBAC 路由守卫矩阵 | `internal/router/rbac.go` |
-| 认证配置 | `internal/config/config.go`（`AuthConfig` / `OIDCAuthConfig` / `TenantConfig`） |
+| Tenant model | `internal/types/tenant.go` |
+| User model | `internal/types/user.go` |
+| Tenant members and roles | `internal/types/tenant_member.go` |
+| Tenant invitations | `internal/types/tenant_invitation.go` |
+| API Key model and capabilities | `internal/types/tenant_api_key.go` |
+| Organization / sharing model | `internal/types/organization.go` |
+| Registration / login handler | `internal/handler/auth.go` |
+| Invite registration handler | `internal/handler/auth_register_by_invite.go` |
+| Member / invitation / invite link handlers | `internal/handler/tenant_member.go`, `tenant_invitation.go`, `tenant_invite_link.go` |
+| Organization handler | `internal/handler/organization.go` |
+| JWT / OIDC / user service | `internal/application/service/user.go` |
+| Organization / KB sharing service | `internal/application/service/organization.go`, `kbshare.go` |
+| RBAC middleware | `internal/middleware/rbac.go` |
+| RBAC route guard matrix | `internal/router/rbac.go` |
+| Auth config | `internal/config/config.go` (`AuthConfig` / `OIDCAuthConfig` / `TenantConfig`) |

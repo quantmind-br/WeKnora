@@ -16,7 +16,7 @@ import {
 
 const props = defineProps<{
   tour: ContextualGuideTourId
-  /** 为 true 且未完成过该情境引导时，在满足全局引导已结束后自动打开 */
+  /** When true and this scenario's guide hasn't been completed yet, auto-open it once the global guide has finished */
   when: boolean
 }>()
 
@@ -58,7 +58,7 @@ const scheduleOpen = () => {
     return
   }
 
-  // 等待全局新手引导结束后再展示情境引导，避免两层遮罩叠加
+  // Show contextual onboarding only after the global onboarding finishes, avoiding two overlapping overlays
   const poll = () => {
     if (!props.when || isContextualGuideDone(props.tour)) {
       clearTimers()

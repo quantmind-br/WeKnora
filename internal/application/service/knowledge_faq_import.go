@@ -29,16 +29,16 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	kbID string, payload *types.FAQBatchUpsertPayload,
 ) (string, error) {
 	if payload == nil || len(payload.Entries) == 0 {
-		return "", werrors.NewBadRequestError("FAQ 条目不能为空")
+		return "", werrors.NewBadRequestError("FAQ entries cannot be empty")
 	}
 	if payload.Mode == "" {
 		payload.Mode = types.FAQBatchModeAppend
 	}
 	if payload.Mode != types.FAQBatchModeAppend && payload.Mode != types.FAQBatchModeReplace {
-		return "", werrors.NewBadRequestError("模式仅支持 append 或 replace")
+		return "", werrors.NewBadRequestError("Mode only supports append or replace")
 	}
 
-	// 验证知识库是否存在且有效
+	// Verify that the knowledge base exists and is valid
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return "", err
@@ -46,7 +46,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
-	// 使用传入的TaskID，如果没传则生成增强的TaskID
+	// Use the passed-in TaskID, or generate an enhanced TaskID if none was passed
 	taskID := payload.TaskID
 	if taskID == "" {
 		taskID = secutils.GenerateTaskID("faq_import", tenantID, kbID)
@@ -54,37 +54,37 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 
 	var knowledgeID string
 
-	// 检查是否有正在进行的导入任务（通过Redis）
+	// Check whether an import task is already in progress (via Redis)
 	runningTaskID, err := s.getRunningFAQImportTaskID(ctx, kbID)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to check running import task: %v", err)
-		// 检查失败不影响导入，继续执行
+		// Check failure doesn't affect the import; continue execution
 	} else if runningTaskID != "" {
 		logger.Warnf(ctx, "Import task already running for KB %s: %s", kbID, runningTaskID)
-		return "", werrors.NewBadRequestError(fmt.Sprintf("该知识库已有导入任务正在进行中（任务ID: %s），请等待完成后再试", runningTaskID))
+		return "", werrors.NewBadRequestError(fmt.Sprintf("This knowledge base already has an import task in progress (task ID: %s); please wait for it to finish", runningTaskID))
 	}
 
-	// 确保 FAQ knowledge 存在
+	// Ensure the FAQ knowledge exists
 	faqKnowledge, err := s.ensureFAQKnowledge(ctx, tenantID, kb)
 	if err != nil {
 		return "", fmt.Errorf("failed to ensure FAQ knowledge: %w", err)
 	}
 	knowledgeID = faqKnowledge.ID
 
-	// 记录任务入队时间
+	// Record the task enqueue time
 	enqueuedAt := time.Now().Unix()
 	instanceID := uuid.NewString()
 	runningInfoSet := false
 	enqueueSucceeded := false
 
-	// 设置 KB 的运行中任务信息
+	// Set the KB's running-task info
 	if err := s.setRunningFAQImportInfo(ctx, kbID, &runningFAQImportInfo{
 		TaskID:     taskID,
 		EnqueuedAt: enqueuedAt,
 		InstanceID: instanceID,
 	}); err != nil {
 		logger.Errorf(ctx, "Failed to set running FAQ import task info: %v", err)
-		// 不影响任务执行，继续
+		// Doesn't affect task execution; continue
 	} else {
 		runningInfoSet = true
 	}
@@ -97,7 +97,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 		}
 	}()
 
-	// 初始化导入任务状态到Redis
+	// Initialize the import task status in Redis
 	progress := &types.FAQImportProgress{
 		TaskID:        taskID,
 		KBID:          kbID,
@@ -109,7 +109,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 		SuccessCount:  0,
 		FailedCount:   0,
 		FailedEntries: make([]types.FAQFailedEntry, 0),
-		Message:       "任务已创建，等待处理",
+		Message:       "Task created, waiting to process",
 		CreatedAt:     time.Now().Unix(),
 		UpdatedAt:     time.Now().Unix(),
 		DryRun:        payload.DryRun,
@@ -125,7 +125,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	// Enqueue FAQ import task to Asynq
 	logger.Info(ctx, "Enqueuing FAQ import task to Asynq")
 
-	// 构建任务 payload
+	// Build the task payload
 	taskPayload := types.FAQImportPayload{
 		TenantID:    tenantID,
 		TaskID:      taskID,
@@ -138,7 +138,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 		Initiator:   types.TaskInitiatorFromContext(ctx),
 	}
 
-	// 阈值：超过 200 条或序列化后超过 50KB 时使用对象存储
+	// Threshold: use object storage when there are more than 200 entries or the serialized size exceeds 50KB
 	const (
 		entryCountThreshold  = 200
 		payloadSizeThreshold = 50 * 1024 // 50KB
@@ -146,7 +146,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 
 	entryCount := len(payload.Entries)
 	if entryCount > entryCountThreshold {
-		// 数据量较大，上传到对象存储
+		// Data volume is large; upload to object storage
 		entriesData, err := json.Marshal(payload.Entries)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to marshal FAQ entries: %v", err)
@@ -155,7 +155,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 
 		logger.Infof(ctx, "FAQ entries size: %d bytes, uploading to object storage", len(entriesData))
 
-		// 上传到私有桶（主桶），任务处理完成后清理
+		// Upload to the private bucket (primary bucket); clean up after task processing completes
 		fileName := fmt.Sprintf("faq_import_entries_%s_%d.json", taskID, enqueuedAt)
 		entriesURL, err := s.fileSvc.SaveBytes(ctx, entriesData, tenantID, fileName, false)
 		if err != nil {
@@ -167,7 +167,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 		taskPayload.EntriesURL = entriesURL
 		taskPayload.EntryCount = entryCount
 	} else {
-		// 数据量较小，直接存储在 payload 中
+		// Data volume is small; store directly in the payload
 		taskPayload.Entries = payload.Entries
 	}
 
@@ -178,9 +178,9 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 		return "", fmt.Errorf("failed to marshal task payload: %w", err)
 	}
 
-	// 再次检查 payload 大小
+	// Check the payload size again
 	if len(payloadBytes) > payloadSizeThreshold && taskPayload.EntriesURL == "" {
-		// payload 太大但还没上传，现在上传
+		// Payload is too large but not yet uploaded; upload it now
 		entriesData, _ := json.Marshal(payload.Entries)
 		fileName := fmt.Sprintf("faq_import_entries_%s_%d.json", taskID, enqueuedAt)
 		entriesURL, err := s.fileSvc.SaveBytes(ctx, entriesData, tenantID, fileName, false)
@@ -201,10 +201,10 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 
 	maxRetry := 5
 	if payload.DryRun {
-		maxRetry = 3 // dry run 重试次数少一些
+		maxRetry = 3 // Fewer retries for dry runs
 	}
 
-	// 使用 taskID:instanceID 作为 asynq 的唯一任务标识
+	// Use taskID:instanceID as asynq's unique task identifier
 	asynqTaskID := fmt.Sprintf("%s:%s", taskID, instanceID)
 
 	task := asynq.NewTask(
@@ -235,22 +235,22 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	return taskID, nil
 }
 
-// generateFailedEntriesCSV 生成失败条目的 CSV 文件并上传
+// generateFailedEntriesCSV generates a CSV file of failed entries and uploads it
 func (s *knowledgeService) generateFailedEntriesCSV(ctx context.Context,
 	tenantID uint64, taskID string, failedEntries []types.FAQFailedEntry,
 ) (string, error) {
-	// 生成 CSV 内容
+	// Generate the CSV content
 	var buf strings.Builder
 
-	// 写入 BOM 以支持 Excel 正确识别 UTF-8
+	// Write the BOM to help Excel correctly detect UTF-8
 	buf.WriteString("\xEF\xBB\xBF")
 
-	// 写入表头
-	buf.WriteString("错误原因,分类(必填),问题(必填),相似问题(选填-多个用##分隔),反例问题(选填-多个用##分隔),机器人回答(必填-多个用##分隔),是否全部回复(选填-默认FALSE),是否停用(选填-默认FALSE)\n")
+	// Write the header row
+	buf.WriteString("Error Reason,Category(required),Question(required),Similar Questions(optional-separate multiple with ##),Negative Examples(optional-separate multiple with ##),Bot Answers(required-separate multiple with ##),Reply All(optional-default FALSE),Disabled(optional-default FALSE)\n")
 
-	// 写入数据行
+	// Write the data rows
 	for _, entry := range failedEntries {
-		// CSV 转义：如果内容包含逗号、引号或换行，需要用引号包裹并转义内部引号
+		// CSV escaping: if the content contains commas, quotes, or newlines, wrap it in quotes and escape internal quotes
 		reason := csvEscape(entry.Reason)
 		tagName := csvEscape(entry.TagName)
 		standardQ := csvEscape(entry.StandardQuestion)
@@ -279,14 +279,14 @@ func (s *knowledgeService) generateFailedEntriesCSV(ctx context.Context,
 			reason, tagName, standardQ, similarQs, negativeQs, answers, answerAll, isDisabled))
 	}
 
-	// 上传 CSV 文件到临时存储（会自动过期）
+	// Upload the CSV file to temporary storage (auto-expires)
 	fileName := fmt.Sprintf("faq_dryrun_failed_%s.csv", taskID)
 	filePath, err := s.fileSvc.SaveBytes(ctx, []byte(buf.String()), tenantID, fileName, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to save CSV file: %w", err)
 	}
 
-	// 获取下载 URL
+	// Get the download URL
 	fileURL, err := s.fileSvc.GetFileURL(ctx, filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to get file URL: %w", err)
@@ -296,33 +296,33 @@ func (s *knowledgeService) generateFailedEntriesCSV(ctx context.Context,
 	return fileURL, nil
 }
 
-// csvEscape 转义 CSV 字段
+// csvEscape escapes a CSV field
 func csvEscape(s string) string {
 	if strings.ContainsAny(s, ",\"\n\r") {
-		// 将内部引号替换为两个引号，并用引号包裹整个字段
+		// Replace internal quotes with two quotes and wrap the whole field in quotes
 		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
 	}
 	return s
 }
 
-// saveFAQImportResultToDatabase 保存FAQ导入结果统计到数据库
+// saveFAQImportResultToDatabase saves the FAQ import result statistics to the database
 func (s *knowledgeService) saveFAQImportResultToDatabase(ctx context.Context,
 	payload *types.FAQImportPayload, progress *types.FAQImportProgress, originalTotalEntries int,
 ) error {
-	// 获取FAQ知识库实例
+	// Get the FAQ knowledge base instance
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, payload.KnowledgeID)
 	if err != nil {
 		return fmt.Errorf("failed to get FAQ knowledge: %w", err)
 	}
 
-	// 计算跳过的条目数（总数 - 完全成功 - 部分失败 - 完全失败）
+	// Compute the skipped count (total - fully succeeded - partially failed - fully failed)
 	skippedCount := originalTotalEntries - progress.SuccessCount - progress.PartialFailedCount - progress.FailedCount
 	if skippedCount < 0 {
 		skippedCount = 0
 	}
 
-	// 创建导入结果统计
+	// Create the import result statistics
 	importResult := &types.FAQImportResult{
 		TotalEntries:       originalTotalEntries,
 		SuccessCount:       progress.SuccessCount,
@@ -334,21 +334,21 @@ func (s *knowledgeService) saveFAQImportResultToDatabase(ctx context.Context,
 		ImportMode:         payload.Mode,
 		ImportedAt:         time.Now(),
 		TaskID:             payload.TaskID,
-		ProcessingTime:     time.Now().Unix() - progress.CreatedAt, // 处理耗时（秒）
-		DisplayStatus:      "open",                                 // 新导入的结果默认显示
+		ProcessingTime:     time.Now().Unix() - progress.CreatedAt, // Processing duration (seconds)
+		DisplayStatus:      "open",                                 // Newly imported results are shown by default
 	}
 
-	// 如果有失败/部分失败条目 CSV 下载 URL，则写入结果（FailedEntries 包含完全失败与部分失败）
+	// If there's a failed/partially-failed entries CSV download URL, write it to the result (FailedEntries includes both fully failed and partially failed)
 	if progress.FailedEntriesURL != "" {
 		importResult.FailedEntriesURL = progress.FailedEntriesURL
 	}
 
-	// 设置导入结果到Knowledge的metadata中
+	// Set the import result into Knowledge's metadata
 	if err := knowledge.SetLastFAQImportResult(importResult); err != nil {
 		return fmt.Errorf("failed to set FAQ import result: %w", err)
 	}
 
-	// 更新数据库
+	// Update the database
 	if err := s.repo.UpdateKnowledge(ctx, knowledge); err != nil {
 		return fmt.Errorf("failed to update knowledge with import result: %w", err)
 	}
@@ -359,7 +359,7 @@ func (s *knowledgeService) saveFAQImportResultToDatabase(ctx context.Context,
 	return nil
 }
 
-// buildFAQFailedEntry 构建 FAQFailedEntry
+// buildFAQFailedEntry builds a FAQFailedEntry
 func buildFAQFailedEntry(idx int, reason string, entry *types.FAQEntryPayload) types.FAQFailedEntry {
 	answerAll := false
 	if entry.AnswerStrategy != nil && *entry.AnswerStrategy == types.AnswerStrategyAll {
@@ -394,18 +394,18 @@ func buildFAQPartialFailedEntry(idx int, entry *types.FAQEntryPayload,
 		isDisabled = true
 	}
 
-	// 构建失败原因描述：汇总信息 + 详细信息
+	// Build the failure reason description: summary + details
 	var summary []string
 	if len(removedSimilarQuestions) > 0 {
-		summary = append(summary, fmt.Sprintf("%d条相似问被移除", len(removedSimilarQuestions)))
+		summary = append(summary, fmt.Sprintf("%d similar questions removed", len(removedSimilarQuestions)))
 	}
 	if len(removedNegativeQuestions) > 0 {
-		summary = append(summary, fmt.Sprintf("%d条反例被移除", len(removedNegativeQuestions)))
+		summary = append(summary, fmt.Sprintf("%d negative examples removed", len(removedNegativeQuestions)))
 	}
 
-	// 完整的 reason：汇总 | 相似问详情 | 反例详情
+	// Full reason: summary | similar-question details | counter-example details
 	var reasonParts []string
-	reasonParts = append(reasonParts, "部分成功："+strings.Join(summary, "，"))
+	reasonParts = append(reasonParts, "Partially succeeded: "+strings.Join(summary, "，"))
 	if len(removedSimilarQuestions) > 0 {
 		reasonParts = append(reasonParts, strings.Join(removedSimilarQuestions, "; "))
 	}
@@ -429,16 +429,16 @@ func buildFAQPartialFailedEntry(idx int, entry *types.FAQEntryPayload,
 	}
 }
 
-// executeFAQDryRunValidation 执行 FAQ dry run 验证，返回通过验证的条目索引
+// executeFAQDryRunValidation runs FAQ dry-run validation, returning indices of entries that passed validation
 func (s *knowledgeService) executeFAQDryRunValidation(ctx context.Context,
 	payload *types.FAQImportPayload, progress *types.FAQImportProgress,
 ) []int {
 	entries := payload.Entries
 
-	// 用于记录已通过基本验证和重复检查的条目索引，后续进行安全检查
+	// Used to record indices of entries that passed basic validation and duplicate checks, for subsequent security checks
 	validEntryIndices := make([]int, 0, len(entries))
 
-	// 根据模式选择不同的验证逻辑
+	// Choose different validation logic based on the mode
 	if payload.Mode == types.FAQBatchModeAppend {
 		validEntryIndices = s.validateEntriesForAppendModeWithProgress(ctx, payload.TenantID, payload.KBID, entries, progress)
 	} else {
@@ -448,37 +448,37 @@ func (s *knowledgeService) executeFAQDryRunValidation(ctx context.Context,
 	return validEntryIndices
 }
 
-// validateEntriesForAppendModeWithProgress 验证 Append 模式下的条目（带进度更新）
-// 注意：验证阶段不更新 Processed，只有实际导入时才更新
-// validateEntriesForAppendModeWithProgress 验证 Append 模式下的条目（带进度更新）
-// 注意：验证阶段不更新 Processed，只有实际导入时才更新
+// validateEntriesForAppendModeWithProgress validates entries in Append mode (with progress updates)
+// Note: the validation phase does not update Processed; only the actual import does
+// validateEntriesForAppendModeWithProgress validates entries in Append mode (with progress updates)
+// Note: the validation phase does not update Processed; only the actual import does
 //
-// 分四阶段校验：
-// 阶段一（预校验）：
-//  1. 标准问 - 仅文件内部去重；如已有KB标准问则标记为合并候选
-//  2. 相似问 - 对比文件+知识库（合并候选排除自身已有问题） → 单条移除冲突相似问
-//  3. 反例   - 仅对比当前QA自身标准问+相似问 → 单条移除冲突反例
+// Validation is split into four phases:
+// Phase one (pre-validation):
+// 1. Standard questions - dedup within the file only; if a matching standard question already exists in the KB, mark as a merge candidate
+// 2. Similar questions - compare file + knowledge base (merge candidates exclude their own existing questions) → remove conflicting similar questions individually
+// 3. Counter-examples - compare only against the current QA's own standard question + similar questions → remove conflicting counter-examples individually
 //
-// 阶段二（后校验，仅合并候选）：
-//  4. 对合并后的完整数据重跑反例校验 → 冲突则整条回退到合并前状态
+// Phase two (post-validation, merge candidates only):
+// 4. Rerun counter-example validation on the fully merged data → on conflict, roll back the entire entry to its pre-merge state
 func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.Context,
 	tenantID uint64, kbID string, entries []types.FAQEntryPayload, progress *types.FAQImportProgress,
 ) []int {
 	totalEntries := len(entries)
 
-	// 查询知识库中已有的所有 FAQ chunks 的 metadata
+	// Query the metadata of all existing FAQ chunks in the knowledge base
 	existingChunks, err := s.chunkRepo.ListAllFAQChunksWithMetadataByKnowledgeBaseID(ctx, tenantID, kbID)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to list existing FAQ chunks for dry run: %v", err)
 	}
 
-	// 构建已存在的标准问 → chunk 映射（用于合并候选识别）
+	// Build a mapping of existing standard questions → chunk (used for merge candidate identification)
 	existingStdQToChunk := make(map[string]*types.Chunk)
-	// 构建已存在的所有问题 → 所属 chunkID 映射（用于相似问冲突检测）
+	// Build a mapping of all existing questions → owning chunkID (used for similar-question conflict detection)
 	existingQuestionToChunkID := make(map[string]string)
-	// 构建每个 chunk 拥有的问题集合（用于合并时排除自身）
+	// Build the set of questions owned by each chunk (used to exclude its own questions during merging)
 	existingChunkQuestions := make(map[string]map[string]bool)
-	// 构建 chunkID → 标准问 映射（用于冲突失败原因展示）
+	// Build a mapping of chunkID → standard question (used to display conflict failure reasons)
 	existingChunkIDToStdQ := make(map[string]string)
 
 	for _, chunk := range existingChunks {
@@ -502,11 +502,11 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		existingChunkIDToStdQ[chunk.ID] = meta.StandardQuestion
 	}
 
-	// 合并候选跟踪：entry index → 目标已有 chunk
+	// Merge candidate tracking: entry index → target existing chunk
 	mergeChunkMap := make(map[int]*types.Chunk)
 
-	// ==================== 第一次迭代：基本格式验证 + 文件内标准问去重 + 合并候选识别 ====================
-	batchStandardQuestions := make(map[string]int) // value 为首次出现的索引
+	// ==================== First iteration: basic format validation + intra-batch standard question deduplication + merge candidate identification ====================
+	batchStandardQuestions := make(map[string]int) // value is the index of first occurrence
 	validIndicesAfterStdQ := make([]int, 0, totalEntries)
 
 	for i, entry := range entries {
@@ -520,27 +520,27 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 
 		standardQ := strings.TrimSpace(entry.StandardQuestion)
 
-		// 文件内标准问去重
+		// Intra-batch standard question deduplication
 		if firstIdx, exists := batchStandardQuestions[standardQ]; exists {
 			progress.FailedCount++
-			fe := buildFAQFailedEntry(i, fmt.Sprintf("标准问冲突：与批次内第 %d 条标准问重复", firstIdx+1), &entry)
+			fe := buildFAQFailedEntry(i, fmt.Sprintf("Standard question conflict: duplicates standard question at row %d in the batch", firstIdx+1), &entry)
 			fe.FailureType = "pre_validation"
 			progress.FailedEntries = append(progress.FailedEntries, fe)
 			continue
 		}
 
-		// 判断是否为合并候选
+		// Determine whether it's a merge candidate
 		if chunk, exists := existingStdQToChunk[standardQ]; exists {
-			// 标准问在 KB 中已存在 → 标记为合并候选
+			// Standard question already exists in KB → mark as merge candidate
 			mergeChunkMap[i] = chunk
 			logger.Infof(ctx, "FAQ entry %d: standard question '%s' exists in KB, marking as merge candidate (chunk_id=%s)", i, standardQ, chunk.ID)
 		} else if conflictChunkID, hit := existingQuestionToChunkID[standardQ]; hit {
-			// 标准问未与任何已有标准问重复，但撞上了 KB 中其他条目的相似问
-			// → 前置校验失败，避免下游 calculateAppendOperations 静默丢弃导致统计失真
+			// Standard question doesn't duplicate any existing standard question, but collides with a similar question of another entry in the KB
+			// → Pre-validation failed, avoiding statistical distortion caused by downstream calculateAppendOperations silently dropping entries
 			conflictStdQ := existingChunkIDToStdQ[conflictChunkID]
 			progress.FailedCount++
 			fe := buildFAQFailedEntry(i,
-				fmt.Sprintf(`标准问冲突：与知识库中标准问"%s"的相似问"%s"重复`, conflictStdQ, standardQ),
+				fmt.Sprintf(`Standard question conflict: conflicts with similar question "%s" of existing standard question "%s"`, standardQ, conflictStdQ),
 				&entry)
 			fe.FailureType = "pre_validation"
 			progress.FailedEntries = append(progress.FailedEntries, fe)
@@ -554,7 +554,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		validIndicesAfterStdQ = append(validIndicesAfterStdQ, i)
 
 		if (i+1)%100 == 0 {
-			progress.Message = fmt.Sprintf("正在验证标准问 %d/%d...", i+1, totalEntries)
+			progress.Message = fmt.Sprintf("Validating standard questions %d/%d...", i+1, totalEntries)
 			progress.UpdatedAt = time.Now().Unix()
 			if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 				logger.Warnf(ctx, "Failed to update FAQ dry run progress: %v", err)
@@ -562,8 +562,8 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 	}
 
-	// ==================== 第二次迭代：相似问冲突检测 ====================
-	// 构建批次内所有标准问 + 相似问的集合
+	// ==================== Second iteration: similar question conflict detection ====================
+	// Build the set of all standard questions + similar questions within the batch
 	batchAllQuestions := make(map[string]int)
 	for _, i := range validIndicesAfterStdQ {
 		standardQ := strings.TrimSpace(entries[i].StandardQuestion)
@@ -585,7 +585,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		entry := &entries[i]
 		standardQ := strings.TrimSpace(entry.StandardQuestion)
 
-		// 合并候选：获取目标 chunk 自身的问题集合，用于排除
+		// Merge candidate: get the target chunk's own question set, used for exclusion
 		var ownChunkQuestions map[string]bool
 		if mergeChunk, isMerge := mergeChunkMap[i]; isMerge {
 			ownChunkQuestions = existingChunkQuestions[mergeChunk.ID]
@@ -598,24 +598,24 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 			if q == "" {
 				continue
 			}
-			// 相似问不能与自己的标准问相同
+			// A similar question cannot be identical to its own standard question
 			if q == standardQ {
-				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`「相似问冲突」："%s"与本条"标准问"冲突`, q))
+				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`Similar-question conflict: "%s" conflicts with this entry's standard question`, q))
 				continue
 			}
-			// 相似问校验：对比知识库已有标准问 + 相似问
+			// Similar question validation: compare against the KB's existing standard questions + similar questions
 			if _, exists := existingQuestionToChunkID[q]; exists {
-				// 合并候选：如果问题属于合并目标自身的 chunk，允许（去重合并时会处理）
+				// Merge candidate: if the question belongs to the merge target's own chunk, allow it (handled during dedup merge)
 				if ownChunkQuestions != nil && ownChunkQuestions[q] {
 					validSimilarQuestions = append(validSimilarQuestions, q)
 					continue
 				}
-				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`「相似问冲突」："%s"与知识库已有"标准问/相似问"冲突`, q))
+				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`Similar-question conflict: "%s" conflicts with an existing knowledge-base standard/similar question`, q))
 				continue
 			}
-			// 相似问校验：对比批次内标准问 + 相似问
+			// Similar question validation: compare against the batch's standard questions + similar questions
 			if firstIdx, exists := batchAllQuestions[q]; exists && firstIdx != i {
-				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`「相似问冲突」："%s"与第 %d 行"标准问/相似问"冲突`, q, firstIdx+1))
+				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`Similar-question conflict: "%s" conflicts with the standard/similar question at row %d`, q, firstIdx+1))
 				continue
 			}
 			validSimilarQuestions = append(validSimilarQuestions, q)
@@ -627,7 +627,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 
 		if (idx+1)%100 == 0 {
-			progress.Message = fmt.Sprintf("正在验证相似问 %d/%d...", idx+1, len(validIndicesAfterStdQ))
+			progress.Message = fmt.Sprintf("Validating similar questions %d/%d...", idx+1, len(validIndicesAfterStdQ))
 			progress.UpdatedAt = time.Now().Unix()
 			if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 				logger.Warnf(ctx, "Failed to update FAQ dry run progress: %v", err)
@@ -635,7 +635,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 	}
 
-	// ==================== 第三次迭代：反例冲突检测（预校验，仅检查新条目自身数据） ====================
+	// ==================== Third iteration: counter-example conflict detection (pre-validation, checks only the new entry's own data) ====================
 	for idx, i := range validIndicesAfterStdQ {
 		entry := &entries[i]
 		standardQ := strings.TrimSpace(entry.StandardQuestion)
@@ -654,7 +654,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 				continue
 			}
 			if currentQAQuestions[q] {
-				removedNegativeQuestions = append(removedNegativeQuestions, fmt.Sprintf(`「反例冲突」："%s"与本条"标准问/相似问"冲突`, q))
+				removedNegativeQuestions = append(removedNegativeQuestions, fmt.Sprintf(`Negative-example conflict: "%s" conflicts with this entry's standard/similar question`, q))
 				continue
 			}
 			validNegativeQuestions = append(validNegativeQuestions, q)
@@ -666,7 +666,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 
 		if (idx+1)%100 == 0 {
-			progress.Message = fmt.Sprintf("正在验证反例 %d/%d...", idx+1, len(validIndicesAfterStdQ))
+			progress.Message = fmt.Sprintf("Validating negative examples %d/%d...", idx+1, len(validIndicesAfterStdQ))
 			progress.UpdatedAt = time.Now().Unix()
 			if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 				logger.Warnf(ctx, "Failed to update FAQ dry run progress: %v", err)
@@ -674,8 +674,8 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 	}
 
-	// ==================== 第四次迭代：后校验（仅合并候选） ====================
-	// 对合并后的完整数据重跑反例校验，冲突则整条回退到合并前状态
+	// ==================== Fourth iteration: post-validation (merge candidates only) ====================
+	// Rerun counter-example validation on the full merged data; on conflict, roll back the whole entry to its pre-merge state
 	postValidationFailed := make(map[int]bool)
 	mergeCount := 0
 	for _, i := range validIndicesAfterStdQ {
@@ -692,18 +692,18 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 
 		entry := &entries[i]
 
-		// 计算合并后的完整数据
+		// Compute the full merged data
 		mergedSimilar := unionStrings(existingMeta.SimilarQuestions, entry.SimilarQuestions)
 		mergedNegative := unionStrings(existingMeta.NegativeQuestions, entry.NegativeQuestions)
 
-		// 构建合并后的冲突集合（标准问 + 所有合并后的相似问）
+		// Build the merged conflict set (standard question + all merged similar questions)
 		mergedPositiveSet := make(map[string]bool)
 		mergedPositiveSet[existingMeta.StandardQuestion] = true
 		for _, q := range mergedSimilar {
 			mergedPositiveSet[q] = true
 		}
 
-		// 检查每个合并后的反例是否与合并后的标准问 / 相似问冲突
+		// Check whether each merged counter-example conflicts with the merged standard question / similar questions
 		var conflictingNegatives []string
 		for _, q := range mergedNegative {
 			if mergedPositiveSet[q] {
@@ -712,11 +712,11 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 
 		if len(conflictingNegatives) > 0 {
-			// 后校验失败 → 整条回退到合并前状态
+			// Post-validation failed → roll back the whole entry to its pre-merge state
 			postValidationFailed[i] = true
 			delete(mergeChunkMap, i)
 			progress.FailedCount++
-			reason := fmt.Sprintf("后校验失败：合并后反例「%s」与相似问冲突", strings.Join(conflictingNegatives, "、"))
+			reason := fmt.Sprintf("Post-validation failed: merged negative example 「%s」 conflicts with a similar question", strings.Join(conflictingNegatives, "、"))
 			fe := buildFAQFailedEntry(i, reason, entry)
 			fe.FailureType = "post_validation"
 			progress.FailedEntries = append(progress.FailedEntries, fe)
@@ -726,7 +726,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 	}
 
-	// 从有效索引中移除后校验失败的条目
+	// Remove entries that failed post-validation from the valid indices
 	if len(postValidationFailed) > 0 {
 		filtered := make([]int, 0, len(validIndicesAfterStdQ))
 		for _, i := range validIndicesAfterStdQ {
@@ -737,7 +737,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		validIndicesAfterStdQ = filtered
 	}
 
-	// 将部分失败信息添加到 FailedEntries
+	// Add partial failure info to FailedEntries
 	for _, i := range validIndicesAfterStdQ {
 		removedSimilar := removedSimilarQuestionsMap[i]
 		removedNegative := removedNegativeQuestionsMap[i]
@@ -748,7 +748,7 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 		}
 	}
 
-	// 记录合并条目索引到 progress（用于执行阶段和重试）
+	// Record merged entry index in progress (for the execution phase and retries)
 	mergeIndices := make([]int, 0, mergeCount)
 	for _, i := range validIndicesAfterStdQ {
 		if _, isMerge := mergeChunkMap[i]; isMerge {
@@ -763,24 +763,24 @@ func (s *knowledgeService) validateEntriesForAppendModeWithProgress(ctx context.
 	return validIndicesAfterStdQ
 }
 
-// validateEntriesForReplaceModeWithProgress 验证 Replace 模式下的条目（带进度更新）
-// 注意：验证阶段不更新 Processed，只有实际导入时才更新
-// 分三次迭代校验，确保前面过滤掉的数据不会被后面考虑：
-// 1. 标准问 - 对比所有标准问 → 整条QA失败「标准问冲突」
-// 2. 相似问 - 对比所有标准问+相似问 → 单条问法失败「相似问冲突」（仅移除冲突的相似问）
-// 3. 反例 - 对比当前QA下所有标准问+相似问 → 单条问法失败「反例冲突」（仅移除冲突的反例）
+// validateEntriesForReplaceModeWithProgress validates entries in Replace mode (with progress updates)
+// Note: Processed is not updated during the validation phase, only during actual import
+// Validate in three iterations, ensuring data filtered out earlier is not considered later:
+// 1. Standard question - compare against all standard questions → whole QA entry fails "standard question conflict"
+// 2. Similar question - compare against all standard questions + similar questions → single question phrasing fails "similar question conflict" (only the conflicting similar question is removed)
+// 3. Counter-example - compare against all standard questions + similar questions under the current QA → single question phrasing fails "counter-example conflict" (only the conflicting counter-example is removed)
 func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context.Context,
 	entries []types.FAQEntryPayload, progress *types.FAQImportProgress,
 ) []int {
 	totalEntries := len(entries)
 
-	// ==================== 第一次迭代：基本格式验证 + 标准问冲突检测 ====================
-	// 标准问冲突会导致整条QA失败
-	batchStandardQuestions := make(map[string]int) // value 为首次出现的索引
+	// ==================== First iteration: basic format validation + standard question conflict detection ====================
+	// Standard question conflict causes the whole QA entry to fail
+	batchStandardQuestions := make(map[string]int) // value is the index of first occurrence
 	validIndicesAfterStdQ := make([]int, 0, totalEntries)
 
 	for i, entry := range entries {
-		// 验证条目基本格式
+		// Validate entry's basic format
 		if err := validateFAQEntryPayloadBasic(&entry); err != nil {
 			progress.FailedCount++
 			progress.FailedEntries = append(progress.FailedEntries, buildFAQFailedEntry(i, err.Error(), &entry))
@@ -789,20 +789,20 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 
 		standardQ := strings.TrimSpace(entry.StandardQuestion)
 
-		// 标准问校验：对比所有标准问 → 整条QA失败「标准问冲突」
+		// Standard question validation: compare against all standard questions → whole QA entry fails "standard question conflict"
 		if firstIdx, exists := batchStandardQuestions[standardQ]; exists {
 			progress.FailedCount++
-			progress.FailedEntries = append(progress.FailedEntries, buildFAQFailedEntry(i, fmt.Sprintf("标准问冲突：与批次内第 %d 条标准问重复", firstIdx+1), &entry))
+			progress.FailedEntries = append(progress.FailedEntries, buildFAQFailedEntry(i, fmt.Sprintf("Standard question conflict: duplicates standard question at row %d in the batch", firstIdx+1), &entry))
 			continue
 		}
 
-		// 记录标准问
+		// Record standard question
 		batchStandardQuestions[standardQ] = i
 		validIndicesAfterStdQ = append(validIndicesAfterStdQ, i)
 
-		// 定期更新进度消息
+		// Periodically update progress message
 		if (i+1)%100 == 0 {
-			progress.Message = fmt.Sprintf("正在验证标准问 %d/%d...", i+1, totalEntries)
+			progress.Message = fmt.Sprintf("Validating standard questions %d/%d...", i+1, totalEntries)
 			progress.UpdatedAt = time.Now().Unix()
 			if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 				logger.Warnf(ctx, "Failed to update FAQ dry run progress: %v", err)
@@ -810,17 +810,17 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 		}
 	}
 
-	// ==================== 第二次迭代：相似问冲突检测 ====================
-	// 只处理通过第一次校验的条目，相似问冲突只移除冲突的相似问
-	// 构建所有标准问+相似问的集合（只包含通过第一次校验的条目）
-	batchAllQuestions := make(map[string]int) // value 为首次出现的索引
+	// ==================== Second iteration: similar question conflict detection ====================
+	// Only process entries that passed the first validation; similar question conflicts only remove the conflicting similar question
+	// Build the set of all standard questions + similar questions (only including entries that passed the first validation)
+	batchAllQuestions := make(map[string]int) // value is the index of first occurrence
 	for _, i := range validIndicesAfterStdQ {
 		standardQ := strings.TrimSpace(entries[i].StandardQuestion)
 		batchAllQuestions[standardQ] = i
 		for _, q := range entries[i].SimilarQuestions {
 			q = strings.TrimSpace(q)
 			if q != "" {
-				// 只记录第一次出现的位置
+				// Only record the position of the first occurrence
 				if _, exists := batchAllQuestions[q]; !exists {
 					batchAllQuestions[q] = i
 				}
@@ -828,11 +828,11 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 		}
 	}
 
-	// 用于收集每个条目被移除的相似问和反例
-	removedSimilarQuestionsMap := make(map[int][]string)  // key 为条目索引
-	removedNegativeQuestionsMap := make(map[int][]string) // key 为条目索引
+	// Used to collect the similar questions and negative examples removed for each entry
+	removedSimilarQuestionsMap := make(map[int][]string)  // key is the entry index
+	removedNegativeQuestionsMap := make(map[int][]string) // key is the entry index
 
-	// 对每个通过第一次校验的条目，过滤冲突的相似问
+	// For each entry that passed the first validation, filter out conflicting similar questions
 	for idx, i := range validIndicesAfterStdQ {
 		entry := &entries[i]
 		standardQ := strings.TrimSpace(entry.StandardQuestion)
@@ -844,31 +844,31 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 			if q == "" {
 				continue
 			}
-			// 相似问校验：对比所有标准问+相似问 → 单条问法失败「相似问冲突」
-			// 如果该相似问与其他条目的标准问或相似问冲突（且不是自己的标准问），则移除
+			// Similar question validation: compare against all standard questions + similar questions → a single phrasing failure is a "similar question conflict"
+			// If this similar question conflicts with another entry's standard question or similar question (and is not its own standard question), remove it
 			if firstIdx, exists := batchAllQuestions[q]; exists && firstIdx != i {
 				logger.Infof(ctx, "FAQ entry %d: similar question '%s' conflicts with entry %d, removing", i, q, firstIdx+1)
-				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`「相似问冲突」："%s"与第 %d 行"标准问/相似问"冲突`, q, firstIdx+1))
+				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`Similar-question conflict: "%s" conflicts with the standard/similar question at row %d`, q, firstIdx+1))
 				continue
 			}
-			// 相似问不能与自己的标准问相同
+			// A similar question cannot be identical to its own standard question
 			if q == standardQ {
 				logger.Infof(ctx, "FAQ entry %d: similar question '%s' same as standard question, removing", i, q)
-				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`「相似问冲突」："%s"与本条"标准问"冲突`, q))
+				removedSimilarQuestions = append(removedSimilarQuestions, fmt.Sprintf(`Similar-question conflict: "%s" conflicts with this entry's standard question`, q))
 				continue
 			}
 			validSimilarQuestions = append(validSimilarQuestions, q)
 		}
 		entries[i].SimilarQuestions = validSimilarQuestions
 
-		// 记录被移除的相似问
+		// Record the removed similar questions
 		if len(removedSimilarQuestions) > 0 {
 			removedSimilarQuestionsMap[i] = removedSimilarQuestions
 		}
 
-		// 定期更新进度消息
+		// Periodically update the progress message
 		if (idx+1)%100 == 0 {
-			progress.Message = fmt.Sprintf("正在验证相似问 %d/%d...", idx+1, len(validIndicesAfterStdQ))
+			progress.Message = fmt.Sprintf("Validating similar questions %d/%d...", idx+1, len(validIndicesAfterStdQ))
 			progress.UpdatedAt = time.Now().Unix()
 			if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 				logger.Warnf(ctx, "Failed to update FAQ dry run progress: %v", err)
@@ -876,13 +876,13 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 		}
 	}
 
-	// ==================== 第三次迭代：反例冲突检测 ====================
-	// 只处理通过前两次校验的条目，反例冲突只移除冲突的反例
+	// ==================== Third iteration: negative example conflict detection ====================
+	// Only process entries that passed the first two validations; a negative example conflict only removes the conflicting negative example
 	for idx, i := range validIndicesAfterStdQ {
 		entry := &entries[i]
 		standardQ := strings.TrimSpace(entry.StandardQuestion)
 
-		// 构建当前QA的所有问题集合（标准问+通过校验的相似问）
+		// Build the set of all questions for the current QA (standard question + validated similar questions)
 		currentQAQuestions := make(map[string]bool)
 		currentQAQuestions[standardQ] = true
 		for _, q := range entry.SimilarQuestions {
@@ -896,24 +896,24 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 			if q == "" {
 				continue
 			}
-			// 反例校验：对比当前QA下所有标准问+相似问 → 单条问法失败「反例冲突」
+			// Negative example validation: compare against all standard questions + similar questions under the current QA → a single phrasing failure is a "negative example conflict"
 			if currentQAQuestions[q] {
 				logger.Infof(ctx, "FAQ entry %d: negative question '%s' conflicts with current QA's questions, removing", i, q)
-				removedNegativeQuestions = append(removedNegativeQuestions, fmt.Sprintf(`「反例冲突」："%s"与本条"标准问/相似问"冲突`, q))
+				removedNegativeQuestions = append(removedNegativeQuestions, fmt.Sprintf(`Negative-example conflict: "%s" conflicts with this entry's standard/similar question`, q))
 				continue
 			}
 			validNegativeQuestions = append(validNegativeQuestions, q)
 		}
 		entries[i].NegativeQuestions = validNegativeQuestions
 
-		// 记录被移除的反例
+		// Record the removed negative examples
 		if len(removedNegativeQuestions) > 0 {
 			removedNegativeQuestionsMap[i] = removedNegativeQuestions
 		}
 
-		// 定期更新进度消息
+		// Periodically update the progress message
 		if (idx+1)%100 == 0 {
-			progress.Message = fmt.Sprintf("正在验证反例 %d/%d...", idx+1, len(validIndicesAfterStdQ))
+			progress.Message = fmt.Sprintf("Validating negative examples %d/%d...", idx+1, len(validIndicesAfterStdQ))
 			progress.UpdatedAt = time.Now().Unix()
 			if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 				logger.Warnf(ctx, "Failed to update FAQ dry run progress: %v", err)
@@ -921,7 +921,7 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 		}
 	}
 
-	// 将部分失败信息添加到 FailedEntries
+	// Add partial failure information to FailedEntries
 	for _, i := range validIndicesAfterStdQ {
 		removedSimilar := removedSimilarQuestionsMap[i]
 		removedNegative := removedNegativeQuestionsMap[i]
@@ -935,7 +935,7 @@ func (s *knowledgeService) validateEntriesForReplaceModeWithProgress(ctx context
 	return validIndicesAfterStdQ
 }
 
-// unionStrings 合并两个字符串切片并去重（完全匹配）
+// unionStrings merges two string slices and deduplicates (exact match)
 func unionStrings(a, b []string) []string {
 	seen := make(map[string]bool, len(a)+len(b))
 	result := make([]string, 0, len(a)+len(b))
@@ -956,17 +956,17 @@ func unionStrings(a, b []string) []string {
 	return result
 }
 
-// validateFAQEntryPayloadBasic 验证 FAQ 条目的基本格式
+// validateFAQEntryPayloadBasic validates the basic format of an FAQ entry
 func validateFAQEntryPayloadBasic(entry *types.FAQEntryPayload) error {
 	if entry == nil {
-		return fmt.Errorf("条目不能为空")
+		return fmt.Errorf("Entries cannot be empty")
 	}
 	standardQ := strings.TrimSpace(entry.StandardQuestion)
 	if standardQ == "" {
-		return fmt.Errorf("标准问不能为空")
+		return fmt.Errorf("Standard question cannot be empty")
 	}
 	if len(entry.Answers) == 0 {
-		return fmt.Errorf("答案不能为空")
+		return fmt.Errorf("Answer cannot be empty")
 	}
 	hasValidAnswer := false
 	for _, a := range entry.Answers {
@@ -976,7 +976,7 @@ func validateFAQEntryPayloadBasic(entry *types.FAQEntryPayload) error {
 		}
 	}
 	if !hasValidAnswer {
-		return fmt.Errorf("答案不能全为空")
+		return fmt.Errorf("Answers cannot all be empty")
 	}
 	return nil
 }
@@ -989,14 +989,14 @@ type faqMergeOperation struct {
 	Detail        types.FAQMergeDetail
 }
 
-// calculateAppendOperations 计算 Append 模式下的操作（支持智能合并）。
-// 如果 entry 的标准问在 KB 中已存在，则视为合并操作（相似问 / 反例并集，
-// 答案 / 策略以新条目为准）；否则视为新建。无变化（hash 一致且操作位
-// 也未变）的合并目标会被 skip 掉，避免无效写库 / 重建索引。
+// calculateAppendOperations calculates the operations for Append mode (supports intelligent merging).
+// If the entry's standard question already exists in the KB, it is treated as a merge operation (union of similar questions / negative examples,
+// answer / strategy follows the new entry); otherwise it is treated as a new creation. Merge targets with no changes (hash matches and the operation bit
+// also unchanged) are skipped to avoid useless writes to the DB / index rebuilds.
 //
-// 内部 master 行为，对应开源版仅 "重复 = 失败" 的简化逻辑。FAQ 导入的
-// 常见使用方式是"导出修改后重新 append"，需要这种合并语义才能正确叠加
-// 新的相似问而不丢历史数据。
+// Internal master behavior, corresponding to the open-source version's simplified logic of just "duplicate = failure". FAQ import's
+// common usage pattern is "export, modify, then append again", which requires this merge semantics to correctly layer on
+// new similar questions without losing historical data.
 func (s *knowledgeService) calculateAppendOperations(ctx context.Context,
 	tenantID uint64, kbID string, entries []types.FAQEntryPayload,
 ) (newEntries []types.FAQEntryPayload, mergeOps []faqMergeOperation, skippedCount int, err error) {
@@ -1039,7 +1039,7 @@ func (s *knowledgeService) calculateAppendOperations(ctx context.Context,
 			continue
 		}
 
-		// 检查标准问是否在 KB 中作为标准问存在 → 合并候选
+		// Check whether the standard question exists in the KB as a standard question → merge candidate
 		existingChunk, isMergeCandidate := existingStdQToChunk[meta.StandardQuestion]
 		if isMergeCandidate {
 			existingMeta, mErr := existingChunk.FAQMetadata()
@@ -1110,9 +1110,9 @@ func (s *knowledgeService) calculateAppendOperations(ctx context.Context,
 			}
 		}
 
-		// 走到这里说明既不是合并候选，又跟现有 KB / 当前批次的标准问 / 相似问冲突。
-		// 正常情况下这些冲突应在 executeFAQDryRunValidation 阶段就被拦截，这里
-		// 仅作为防御性兜底；用 Warn 级别打点便于排查验证层漏检。
+		// Reaching here means it is neither a merge candidate nor conflicts with existing KB / current batch standard questions / similar questions.
+		// Under normal circumstances these conflicts should already be caught at the executeFAQDryRunValidation stage; this
+		// is only a defensive fallback; log at Warn level to help troubleshoot validation-layer misses.
 		if existingQuestions[meta.StandardQuestion] || batchQuestions[meta.StandardQuestion] {
 			skippedCount++
 			logger.Warnf(ctx,
@@ -1132,15 +1132,15 @@ func (s *knowledgeService) calculateAppendOperations(ctx context.Context,
 	return newEntries, mergeOps, skippedCount, nil
 }
 
-// calculateReplaceOperations 计算Replace模式下需要删除、创建、更新的条目
-// 同时过滤掉同批次内标准问或相似问重复的条目
+// calculateReplaceOperations calculates the entries to delete, create, and update in Replace mode
+// and also filters out entries with duplicate standard questions or similar questions within the same batch
 func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 	tenantID uint64, knowledgeID string, newEntries []types.FAQEntryPayload,
 ) ([]types.FAQEntryPayload, []*types.Chunk, int, error) {
-	// 获取 kbID 用于解析 tag
+	// Get kbID for resolving the tag
 	var kbID string
 	if len(newEntries) > 0 {
-		// 从 knowledgeID 获取 kbID
+		// Get kbID from knowledgeID
 		knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("failed to get knowledge: %w", err)
@@ -1150,7 +1150,7 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 		}
 	}
 
-	// 计算所有新条目的 content hash，并同时构建 hash 到 entry 的映射
+	// Calculate the content hash for all new entries, and build a hash-to-entry mapping at the same time
 	type entryWithHash struct {
 		entry types.FAQEntryPayload
 		hash  string
@@ -1158,7 +1158,7 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 	}
 	entriesWithHash := make([]entryWithHash, 0, len(newEntries))
 	newHashSet := make(map[string]bool)
-	// 用于批次内标准问和相似问去重
+	// Used for deduplicating standard questions and similar questions within the batch
 	batchQuestions := make(map[string]bool)
 	batchSkippedCount := 0
 
@@ -1170,14 +1170,14 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 			continue
 		}
 
-		// 检查标准问是否在同批次中重复
+		// Check whether the standard question is duplicated within the same batch
 		if batchQuestions[meta.StandardQuestion] {
 			batchSkippedCount++
 			logger.Infof(ctx, "Skipping FAQ entry with duplicate standard question in batch: %s", meta.StandardQuestion)
 			continue
 		}
 
-		// 检查相似问是否在同批次中重复
+		// Check whether the similar question is duplicated within the same batch
 		hasDuplicateSimilar := false
 		for _, q := range meta.SimilarQuestions {
 			if batchQuestions[q] {
@@ -1191,7 +1191,7 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 			continue
 		}
 
-		// 将当前条目的标准问和相似问加入批次集合
+		// Add the current entry's standard question and similar questions to the batch set
 		batchQuestions[meta.StandardQuestion] = true
 		for _, q := range meta.SimilarQuestions {
 			batchQuestions[q] = true
@@ -1204,13 +1204,13 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 		}
 	}
 
-	// 查询所有已存在的chunks
+	// Query all existing chunks
 	allExistingChunks, err := s.chunkRepo.ListAllFAQChunksByKnowledgeID(ctx, tenantID, knowledgeID)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("failed to list existing chunks: %w", err)
 	}
 
-	// 在内存中过滤出匹配新条目hash的chunks，并构建map
+	// Filter chunks matching the new entries' hash in memory, and build a map
 	existingHashMap := make(map[string]*types.Chunk)
 	for _, chunk := range allExistingChunks {
 		if chunk.ContentHash != "" && newHashSet[chunk.ContentHash] {
@@ -1218,20 +1218,20 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 		}
 	}
 
-	// 计算需要删除的chunks（数据库中有但新批次中没有的，或hash不匹配的）
+	// Compute the chunks that need to be deleted (present in the database but absent from the new batch, or with a mismatched hash)
 	chunksToDelete := make([]*types.Chunk, 0)
 	for _, chunk := range allExistingChunks {
 		if chunk.ContentHash == "" {
-			// 如果没有hash，需要删除（可能是旧数据）
+			// If there is no hash, it needs to be deleted (may be old data)
 			chunksToDelete = append(chunksToDelete, chunk)
 		} else if !newHashSet[chunk.ContentHash] {
-			// hash不在新条目中，需要删除
+			// Hash not present in the new entries, needs to be deleted
 			chunksToDelete = append(chunksToDelete, chunk)
 		}
 	}
 
-	// 批量预加载 tag 信息，避免循环内逐条查询数据库
-	// 收集所有需要查询的 tag_id 和 tag_name
+	// Batch preload tag info to avoid querying the database row by row in the loop
+	// Collect all tag_id and tag_name that need to be queried
 	tagSeqIDSet := make(map[int64]bool)
 	tagNameSet := make(map[string]bool)
 	for _, ewh := range entriesWithHash {
@@ -1244,7 +1244,7 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 		}
 	}
 
-	// 批量查询 tag by seq_id
+	// Batch query tag by seq_id
 	tagSeqIDToUUID := make(map[int64]string)
 	if len(tagSeqIDSet) > 0 {
 		seqIDs := make([]int64, 0, len(tagSeqIDSet))
@@ -1261,7 +1261,7 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 		}
 	}
 
-	// 批量查询 tag by name
+	// Batch query tag by name
 	tagNameToUUID := make(map[string]string)
 	if len(tagNameSet) > 0 && kbID != "" {
 		for name := range tagNameSet {
@@ -1274,13 +1274,13 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 	logger.Infof(ctx, "Preloaded %d tags by seq_id, %d tags by name for %d entries",
 		len(tagSeqIDToUUID), len(tagNameToUUID), len(entriesWithHash))
 
-	// resolveTagIDFromCache 从缓存中解析 tag ID，缓存未命中时回退到数据库查询
+	// resolveTagIDFromCache resolves the tag ID from the cache, falling back to a database query on a cache miss
 	resolveTagIDFromCache := func(entry *types.FAQEntryPayload) (string, error) {
 		if entry.TagID != 0 {
 			if uuid, ok := tagSeqIDToUUID[entry.TagID]; ok {
 				return uuid, nil
 			}
-			// 缓存未命中，回退到数据库查询（可能需要创建）
+			// Cache miss, fall back to a database query (may need to create)
 			return s.resolveTagID(ctx, kbID, entry)
 		}
 		tagName := entry.TagName
@@ -1290,23 +1290,23 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 		if uuid, ok := tagNameToUUID[tagName]; ok {
 			return uuid, nil
 		}
-		// 缓存未命中，回退到数据库查询（可能需要创建）
+		// Cache miss, fall back to a database query (may need to create)
 		return s.resolveTagID(ctx, kbID, entry)
 	}
 
-	// 计算需要创建的条目（利用已经计算好的hash，避免重复计算）
+	// Compute the entries that need to be created (reusing the already computed hash to avoid recomputation)
 	entriesToProcess := make([]types.FAQEntryPayload, 0, len(entriesWithHash))
 	skippedCount := batchSkippedCount
 
 	for idx, ewh := range entriesWithHash {
-		// 每处理 1000 条打印一次进度日志
+		// Print a progress log every 1000 entries processed
 		if idx > 0 && idx%1000 == 0 {
 			logger.Infof(ctx, "calculateReplaceOperations progress: %d/%d entries processed", idx, len(entriesWithHash))
 		}
 
 		existingChunk := existingHashMap[ewh.hash]
 		if existingChunk != nil {
-			// hash 匹配，检查 tag 是否变化
+			// Hash matches, check whether the tag has changed
 			newTagID, err := resolveTagIDFromCache(&ewh.entry)
 			if err != nil {
 				logger.Warnf(ctx, "Failed to resolve tag for entry, treating as new: %v", err)
@@ -1335,32 +1335,32 @@ func (s *knowledgeService) calculateReplaceOperations(ctx context.Context,
 				chunksToDelete = append(chunksToDelete, existingChunk)
 				entriesToProcess = append(entriesToProcess, ewh.entry)
 			} else {
-				// hash、tag、运营状态都相同，跳过
+				// Hash, tag, and operational status are all the same, skip
 				skippedCount++
 			}
 			continue
 		}
 
-		// hash 不匹配或不存在，需要创建
+		// Hash mismatched or missing, needs to be created
 		entriesToProcess = append(entriesToProcess, ewh.entry)
 	}
 
 	return entriesToProcess, chunksToDelete, skippedCount, nil
 }
 
-// executeFAQImport 执行实际的FAQ导入逻辑
+// executeFAQImport performs the actual FAQ import logic
 func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, kbID string,
 	payload *types.FAQBatchUpsertPayload, tenantID uint64, processedCount int,
 	progress *types.FAQImportProgress,
 ) (err error) {
-	// 保存知识库和embedding模型信息，用于清理索引
+	// Save the knowledge base and embedding model info, used for index cleanup
 	var kb *types.KnowledgeBase
 	var embeddingModel embedding.Embedder
 	totalEntries := len(payload.Entries) + processedCount
 
-	// Recovery机制：如果发生任何错误或panic，回滚所有已创建的chunks和索引数据
+	// Recovery mechanism: if any error or panic occurs, roll back all created chunks and index data
 	defer func() {
-		// 捕获panic
+		// Recover from panic
 		if r := recover(); r != nil {
 			buf := make([]byte, 8192)
 			n := runtime.Stack(buf, false)
@@ -1377,7 +1377,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 
 	kb.EnsureDefaults()
 
-	// 获取embedding模型，用于后续清理索引
+	// Get the embedding model, used for subsequent index cleanup
 	embeddingModel, err = s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)
 	if err != nil {
 		return fmt.Errorf("failed to get embedding model: %w", err)
@@ -1387,19 +1387,19 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 		return err
 	}
 
-	// 获取索引模式
+	// Get the index mode
 	indexMode := types.FAQIndexModeQuestionOnly
 	if kb.FAQConfig != nil && kb.FAQConfig.IndexMode != "" {
 		indexMode = kb.FAQConfig.IndexMode
 	}
 
-	// 增量更新逻辑：计算需要处理的条目
+	// Incremental update logic: compute the entries that need to be processed
 	var entriesToProcess []types.FAQEntryPayload
 	var chunksToDelete []*types.Chunk
 	var skippedCount int
 
 	if payload.Mode == types.FAQBatchModeReplace {
-		// Replace模式：计算需要删除、创建、更新的条目
+		// Replace mode: compute the entries to delete, create, and update
 		entriesToProcess, chunksToDelete, skippedCount, err = s.calculateReplaceOperations(
 			ctx,
 			tenantID,
@@ -1410,7 +1410,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			return fmt.Errorf("failed to calculate replace operations: %w", err)
 		}
 
-		// 删除需要删除的chunks（包括需要更新的旧chunks）
+		// Delete the chunks that need to be deleted (including old chunks that need to be updated)
 		if len(chunksToDelete) > 0 {
 			chunkIDsToDelete := make([]string, 0, len(chunksToDelete))
 			for _, chunk := range chunksToDelete {
@@ -1419,14 +1419,14 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			if err := s.chunkRepo.DeleteChunks(ctx, tenantID, chunkIDsToDelete); err != nil {
 				return fmt.Errorf("failed to delete chunks: %w", err)
 			}
-			// 删除索引
+			// Delete the index
 			if err := s.deleteFAQChunkVectors(ctx, kb, faqKnowledge, chunksToDelete); err != nil {
 				return fmt.Errorf("failed to delete chunk vectors: %w", err)
 			}
 			logger.Infof(ctx, "FAQ import task %s: deleted %d chunks (including updates)", taskID, len(chunksToDelete))
 		}
 	} else {
-		// Append 模式（智能合并）：标准问已存在的条目走 merge ops，其余作为新建。
+		// Append mode (smart merge): entries whose standard question already exists go through merge ops, the rest are treated as new
 		var mergeOps []faqMergeOperation
 		entriesToProcess, mergeOps, skippedCount, err = s.calculateAppendOperations(ctx, tenantID, kb.ID, payload.Entries)
 		if err != nil {
@@ -1455,13 +1455,13 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 		progress.MergedCount,
 	)
 
-	// 如果没有需要处理的条目，直接返回
+	// If there are no entries to process, return directly
 	if len(entriesToProcess) == 0 {
 		logger.Infof(ctx, "FAQ import task %s: no new entries to create", taskID)
 		return nil
 	}
 
-	// 分批处理需要创建的条目
+	// Process the entries to be created in batches
 	remainingEntries := len(entriesToProcess)
 	totalStartTime := time.Now()
 	actualProcessed := skippedCount + processedCount + progress.MergedCount
@@ -1485,7 +1485,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 		batch := entriesToProcess[i:end]
 		logger.Infof(ctx, "FAQ import task %s: processing batch %d-%d (%d entries)", taskID, i+1, end, len(batch))
 
-		// 构建chunks
+		// Build chunks
 		buildStartTime := time.Now()
 		chunks := make([]*types.Chunk, 0, len(batch))
 		chunkIds := make([]string, 0, len(batch))
@@ -1499,7 +1499,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 				return fmt.Errorf("failed to sanitize entry at index %d: %w", i+idx, err)
 			}
 
-			// 解析 TagID
+			// Parse TagID
 			tagID, err := s.resolveTagID(ctx, kbID, &entry)
 			if err != nil {
 				logger.ErrorWithFields(ctx, err, map[string]interface{}{
@@ -1513,7 +1513,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			if entry.IsEnabled != nil {
 				isEnabled = *entry.IsEnabled
 			}
-			// ChunkIndex计算：startChunkIndex + (i+idx) + initialProcessed
+			// ChunkIndex calculation: startChunkIndex + (i+idx) + initialProcessed
 			chunk := &types.Chunk{
 				ID:              uuid.New().String(),
 				TenantID:        tenantID,
@@ -1523,10 +1523,10 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 				// ChunkIndex:      0,
 				IsEnabled: isEnabled,
 				ChunkType: types.ChunkTypeFAQ,
-				TagID:     tagID,                        // 使用解析后的 TagID
+				TagID:     tagID,                        // Use the parsed TagID
 				Status:    int(types.ChunkStatusStored), // store but not indexed
 			}
-			// 如果指定了 ID（用于数据迁移），设置 SeqID
+			// If an ID was specified (for data migration), set SeqID
 			if entry.ID != nil && *entry.ID > 0 {
 				chunk.SeqID = *entry.ID
 			}
@@ -1539,7 +1539,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 		buildDuration := time.Since(buildStartTime)
 		logger.Debugf(ctx, "FAQ import task %s: batch %d-%d built %d chunks in %v, chunk IDs: %v",
 			taskID, i+1, end, len(chunks), buildDuration, chunkIds)
-		// 创建chunks
+		// Create chunks
 		createStartTime := time.Now()
 		if err := s.chunkService.CreateChunks(ctx, chunks); err != nil {
 			return fmt.Errorf("failed to create chunks: %w", err)
@@ -1555,9 +1555,9 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			createDuration,
 		)
 
-		// 索引chunks
+		// Index chunks
 		indexStartTime := time.Now()
-		// 注意：如果索引失败，defer中的recovery机制会自动回滚已创建的chunks和索引数据
+		// Note: if indexing fails, the recovery mechanism in defer will automatically roll back the created chunks and index data
 		if err := s.indexFAQChunks(ctx, kb, faqKnowledge, chunks, embeddingModel, true, false); err != nil {
 			return fmt.Errorf("failed to index chunks: %w", err)
 		}
@@ -1572,7 +1572,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			indexDuration,
 		)
 
-		// 更新chunks的Status为已索引
+		// Update the chunks' Status to indexed
 		chunksToUpdate := make([]*types.Chunk, 0, len(chunks))
 		for _, chunk := range chunks {
 			chunk.Status = int(types.ChunkStatusIndexed) // indexed
@@ -1582,15 +1582,15 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			return fmt.Errorf("failed to update chunks status: %w", err)
 		}
 
-		// 收集成功条目信息
+		// Collect successful entry info
 		for idx, chunk := range chunks {
-			entryIdx := i + idx + processedCount // 原始条目索引
+			entryIdx := i + idx + processedCount // Original entry index
 			meta, _ := chunk.FAQMetadata()
 			standardQ := ""
 			if meta != nil {
 				standardQ = meta.StandardQuestion
 			}
-			// 获取 tag info
+			// Get tag info
 			var tagID int64
 			tagName := ""
 			if chunk.TagID != "" {
@@ -1609,9 +1609,9 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 		}
 
 		actualProcessed += len(batch)
-		// 更新任务进度
+		// Update task progress
 		progress := int(float64(actualProcessed) / float64(totalEntries) * 100)
-		if err := s.updateFAQImportProgressStatus(ctx, taskID, "", 0, types.FAQImportStatusProcessing, progress, totalEntries, actualProcessed, fmt.Sprintf("正在处理第 %d/%d 条", actualProcessed, totalEntries), ""); err != nil {
+		if err := s.updateFAQImportProgressStatus(ctx, taskID, "", 0, types.FAQImportStatusProcessing, progress, totalEntries, actualProcessed, fmt.Sprintf("Processing entry %d/%d", actualProcessed, totalEntries), ""); err != nil {
 			logger.Errorf(ctx, "Failed to update task progress: %v", err)
 		}
 
@@ -1683,7 +1683,7 @@ func (s *knowledgeService) updateFAQImportProgressStatus(
 		existingProgress.Error = ""
 	}
 
-	// 任务完成或失败时，清除 running key
+	// Clear running key when task completes or fails
 	if status == types.FAQImportStatusCompleted || status == types.FAQImportStatusFailed {
 		if existingProgress.KBID != "" {
 			if clearErr := s.clearRunningFAQImportInfoIfMatches(ctx, existingProgress.KBID, taskID, instanceID, enqueuedAt); clearErr != nil {
@@ -1695,8 +1695,8 @@ func (s *knowledgeService) updateFAQImportProgressStatus(
 	return s.saveFAQImportProgress(ctx, existingProgress)
 }
 
-// cleanupFAQEntriesFileOnFinalFailure 在任务最终失败时清理对象存储中的 entries 文件
-// 只有当 retryCount >= maxRetry 时才执行清理，否则重试时还需要使用这个文件
+// cleanupFAQEntriesFileOnFinalFailure cleans up the entries file in object storage when the task finally fails
+// Only run cleanup when retryCount >= maxRetry; otherwise the file is still needed for retries
 func (s *knowledgeService) cleanupFAQEntriesFileOnFinalFailure(ctx context.Context, entriesURL string, retryCount, maxRetry int) {
 	if entriesURL == "" || retryCount < maxRetry {
 		return
@@ -1812,8 +1812,8 @@ func runningFAQImportInfoMatches(info *runningFAQImportInfo, taskID, instanceID 
 	return enqueuedAt == 0 || info.EnqueuedAt == 0 || info.EnqueuedAt == enqueuedAt
 }
 
-// incrementalIndexFAQEntry 增量更新FAQ条目的索引
-// 只对内容变化的部分进行embedding计算和索引更新，跳过未变化的部分
+// incrementalIndexFAQEntry incrementally updates the index for a FAQ entry
+// Only compute embeddings and update the index for changed content, skipping unchanged parts
 func (s *knowledgeService) incrementalIndexFAQEntry(
 	ctx context.Context,
 	kb *types.KnowledgeBase,
@@ -1840,8 +1840,8 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		indexMode = kb.FAQConfig.IndexMode
 	}
 
-	// 对新旧数据进行归一化处理，确保与 buildFAQIndexInfoList 的行为一致
-	// 旧数据归一化
+	// Normalize old and new data to ensure consistency with buildFAQIndexInfoList's behavior
+	// Normalize old data
 	oldStandardQuestion = types.NormalizeQuestion(oldStandardQuestion)
 	normalizedOldSimilarQuestions := make([]string, 0, len(oldSimilarQuestions))
 	for _, q := range oldSimilarQuestions {
@@ -1851,10 +1851,10 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 	}
 	oldSimilarQuestions = normalizedOldSimilarQuestions
 	oldAnswers = types.SanitizeStrings(oldAnswers)
-	// 新数据归一化
+	// Normalize new data
 	normalizedNewMeta := newMeta.Normalize()
 
-	// 构建索引内容
+	// Build index content
 	buildContent := func(question string, answers []string) string {
 		if indexMode == types.FAQIndexModeQuestionAnswer && len(answers) > 0 {
 			var builder strings.Builder
@@ -1868,15 +1868,15 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		return question
 	}
 
-	// 检查答案是否变化（仅在 QuestionAnswer 模式下才影响索引）
+	// Check whether the answer changed (only affects the index in QuestionAnswer mode)
 	answersChanged := indexMode == types.FAQIndexModeQuestionAnswer && !slices.Equal(oldAnswers, normalizedNewMeta.Answers)
 	logger.Debugf(ctx, "incrementalIndexFAQEntry: answersChanged=%v (indexMode=%s), oldAnswers=%d, newAnswers=%d",
 		answersChanged, indexMode, len(oldAnswers), len(normalizedNewMeta.Answers))
 
-	// 收集需要更新的索引项
+	// Collect index items that need updating
 	var indexInfoToUpdate []*types.IndexInfo
 
-	// 1. 检查标准问是否需要更新
+	// 1. Check whether the standard question needs updating
 	oldStdContent := buildContent(oldStandardQuestion, oldAnswers)
 	newStdContent := buildContent(normalizedNewMeta.StandardQuestion, normalizedNewMeta.Answers)
 	stdQuestionChanged := oldStdContent != newStdContent
@@ -1896,20 +1896,20 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		})
 	}
 
-	// 2. 基于内容哈希处理相似问的增删改
-	// 构建旧问题集合 (问题 -> 是否存在)
+	// 2. Handle additions/removals/updates of similar questions based on content hash
+	// Build the old question set (question -> exists)
 	oldQuestionsSet := make(map[string]struct{}, len(oldSimilarQuestions))
 	for _, q := range oldSimilarQuestions {
 		oldQuestionsSet[q] = struct{}{}
 	}
 
-	// 构建新问题集合
+	// Build the new question set
 	newQuestionsSet := make(map[string]struct{}, len(normalizedNewMeta.SimilarQuestions))
 	for _, q := range normalizedNewMeta.SimilarQuestions {
 		newQuestionsSet[q] = struct{}{}
 	}
 
-	// 找出需要删除的问题（在旧集合中但不在新集合中）
+	// Find questions to delete (in the old set but not in the new set)
 	var sourceIDsToDelete []string
 	var deletedQuestions []string
 	for oldQ := range oldQuestionsSet {
@@ -1920,13 +1920,13 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		}
 	}
 
-	// 找出需要新增或更新的问题
+	// Find questions to add or update
 	var addedQuestions, updatedQuestions []string
 	for newQ := range newQuestionsSet {
 		_, existedBefore := oldQuestionsSet[newQ]
-		// 需要更新的条件：
-		// 1. 新问题（之前不存在）
-		// 2. 答案变化（需要重新embedding）
+		// Update conditions:
+		// 1. New question (didn't exist before)
+		// 2. Answer changed (needs re-embedding)
 		if !existedBefore || answersChanged {
 			sourceID := fmt.Sprintf("%s-%s", chunk.ID, hashQuestion(newQ))
 			indexInfoToUpdate = append(indexInfoToUpdate, &types.IndexInfo{
@@ -1949,7 +1949,7 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		}
 	}
 
-	// 输出详细的变化日志
+	// Output detailed change logs
 	if len(deletedQuestions) > 0 {
 		logger.Debugf(ctx, "incrementalIndexFAQEntry: deleted similar questions: %v", deletedQuestions)
 	}
@@ -1960,7 +1960,7 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		logger.Debugf(ctx, "incrementalIndexFAQEntry: updated similar questions (answers changed): %v", updatedQuestions)
 	}
 
-	// 3. 删除不再存在的相似问索引
+	// 3. Delete similar-question indexes that no longer exist
 	if len(sourceIDsToDelete) > 0 {
 		logger.Debugf(ctx, "incrementalIndexFAQEntry: deleting %d obsolete sourceIDs: %v", len(sourceIDsToDelete), sourceIDsToDelete)
 		if delErr := retrieveEngine.DeleteBySourceIDList(ctx, sourceIDsToDelete, embeddingModel.GetDimensions(), types.KnowledgeTypeFAQ); delErr != nil {
@@ -1968,7 +1968,7 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		}
 	}
 
-	// 4. 批量索引需要更新的内容
+	// 4. Batch-index content that needs updating
 	newCount := len(normalizedNewMeta.SimilarQuestions)
 	if len(indexInfoToUpdate) > 0 {
 		logger.Debugf(ctx, "incrementalIndexFAQEntry: updating %d index entries (skipped %d unchanged)",
@@ -1980,7 +1980,7 @@ func (s *knowledgeService) incrementalIndexFAQEntry(
 		logger.Debugf(ctx, "incrementalIndexFAQEntry: all %d entries unchanged, skipping index update", 1+newCount)
 	}
 
-	// 5. 更新 knowledge 记录
+	// 5. Update the knowledge record
 	now := time.Now()
 	knowledge.UpdatedAt = now
 	knowledge.ProcessedAt = &now
@@ -2013,7 +2013,7 @@ func (s *knowledgeService) indexFAQChunks(ctx context.Context,
 		return err
 	}
 
-	// 构建索引信息
+	// Build index info
 	buildIndexInfoStartTime := time.Now()
 	indexInfo := make([]*types.IndexInfo, 0)
 	chunkIDs := make([]string, 0, len(chunks))
@@ -2045,7 +2045,7 @@ func (s *knowledgeService) indexFAQChunks(ctx context.Context,
 		}
 	}
 
-	// 删除旧向量
+	// Delete old vectors
 	var deleteDuration time.Duration
 	if needDelete {
 		deleteStartTime := time.Now()
@@ -2058,7 +2058,7 @@ func (s *knowledgeService) indexFAQChunks(ctx context.Context,
 		}
 	}
 
-	// 批量索引（这里可能是性能瓶颈）
+	// Batch index (this could be the performance bottleneck)
 	batchIndexStartTime := time.Now()
 	if err := retrieveEngine.BatchIndex(ctx, embeddingModel, indexInfo); err != nil {
 		return err
@@ -2231,7 +2231,7 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	ctx = logger.WithField(ctx, "faq_import", payload.TaskID)
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, payload.TenantID)
 
-	// 获取任务重试信息，用于判断是否是最后一次重试
+	// Get task retry info, used to determine whether this is the last retry
 	retryCount, _ := asynq.GetRetryCount(ctx)
 	maxRetry, _ := asynq.GetMaxRetry(ctx)
 	isLastRetry := retryCount >= maxRetry
@@ -2243,7 +2243,7 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	}
 	ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenantInfo)
 
-	// 如果 entries 存储在对象存储中，先下载
+	// If entries are stored in object storage, download first
 	if payload.EntriesURL != "" && len(payload.Entries) == 0 {
 		logger.Infof(ctx, "Downloading FAQ entries from object storage: %s", payload.EntriesURL)
 		reader, err := s.fileSvc.GetFile(ctx, payload.EntriesURL)
@@ -2272,12 +2272,12 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	logger.Infof(ctx, "Processing FAQ import task: task_id=%s, kb_id=%s, total_entries=%d, dry_run=%v, retry=%d/%d",
 		payload.TaskID, payload.KBID, len(payload.Entries), payload.DryRun, retryCount, maxRetry)
 
-	// 保存原始总数量
+	// Save the original total count
 	originalTotalEntries := len(payload.Entries)
 
-	// 初始化进度
-	// 检查是否已有验证结果（用于重试时跳过验证）
-	// 注意：必须在保存新 progress 之前查询，否则会被覆盖
+	// Initialize progress
+	// Check whether validation results already exist (used to skip validation on retry)
+	// Note: this must be queried before saving new progress, otherwise it will be overwritten
 	existingProgress, _ := s.GetFAQImportProgress(ctx, payload.TaskID)
 
 	progress := &types.FAQImportProgress{
@@ -2292,7 +2292,7 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 		FailedCount:    0,
 		FailedEntries:  make([]types.FAQFailedEntry, 0),
 		SuccessEntries: make([]types.FAQSuccessEntry, 0),
-		Message:        "正在验证条目...",
+		Message:        "Validating entries...",
 		CreatedAt:      time.Now().Unix(),
 		UpdatedAt:      time.Now().Unix(),
 		DryRun:         payload.DryRun,
@@ -2303,16 +2303,16 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 
 	var validEntryIndices []int
 	if existingProgress != nil && len(existingProgress.ValidEntryIndices) > 0 {
-		// 重试时直接使用之前的验证结果
+		// Reuse the previous validation results on retry
 		validEntryIndices = existingProgress.ValidEntryIndices
 		progress.FailedCount = existingProgress.FailedCount
 		progress.FailedEntries = existingProgress.FailedEntries
 		logger.Infof(ctx, "Reusing previous validation result: valid=%d, failed=%d",
 			len(validEntryIndices), progress.FailedCount)
 	} else {
-		// 第一步：执行验证（无论是 dry run 还是 import 模式都需要验证）
+		// Step 1: run validation (needed for both dry run and import mode)
 		validEntryIndices = s.executeFAQDryRunValidation(ctx, &payload, progress)
-		// 保存验证通过的索引，用于重试时跳过验证
+		// Save the validated index for reuse on retry
 		progress.ValidEntryIndices = validEntryIndices
 		if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 			logger.Warnf(ctx, "Failed to save validation result: %v", err)
@@ -2321,31 +2321,31 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 			originalTotalEntries, len(validEntryIndices), progress.FailedCount)
 	}
 
-	// Dry run 模式：验证完成后直接返回结果
+	// Dry run mode: return the result directly after validation completes
 	if payload.DryRun {
 		return s.finalizeFAQValidation(ctx, &payload, progress, originalTotalEntries)
 	}
 
-	// Import 模式：检查是否有有效条目需要导入
+	// Import mode: check whether there are valid entries to import
 	if len(validEntryIndices) == 0 {
-		// 没有有效条目，直接完成
+		// No valid entries, complete immediately
 		return s.finalizeFAQValidation(ctx, &payload, progress, originalTotalEntries)
 	}
 
-	// 提取有效的条目
+	// Extract valid entries
 	validEntries := make([]types.FAQEntryPayload, 0, len(validEntryIndices))
 	for _, idx := range validEntryIndices {
 		validEntries = append(validEntries, payload.Entries[idx])
 	}
 
-	// 更新进度消息
-	progress.Message = fmt.Sprintf("验证完成，开始导入 %d 条有效数据...", len(validEntries))
+	// Update progress message
+	progress.Message = fmt.Sprintf("Validation complete; importing %d valid entries...", len(validEntries))
 	progress.UpdatedAt = time.Now().Unix()
 	if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 		logger.Warnf(ctx, "Failed to update FAQ import progress: %v", err)
 	}
 
-	// 幂等性检查：获取knowledge记录（FAQ任务使用knowledge ID作为taskID）
+	// Idempotency check: fetch the knowledge record (FAQ tasks use the knowledge ID as taskID)
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
 	if err != nil {
 		logger.Errorf(ctx, "failed to get FAQ knowledge: %v", err)
@@ -2359,9 +2359,9 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, payload.KBID)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to get knowledge base: %v", err)
-		// 如果是最后一次重试，更新状态为失败
+		// If this is the last retry, update the status to failed
 		if isLastRetry {
-			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, 0, "获取知识库失败", err.Error()); updateErr != nil {
+			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, 0, "Failed to get knowledge base", err.Error()); updateErr != nil {
 				logger.Errorf(ctx, "Failed to update task status to failed: %v", updateErr)
 			}
 			s.recordFAQImportKBActivity(ctx, &payload, progress, originalTotalEntries, types.AuditActionFAQImportFailed, types.AuditOutcomeFailed)
@@ -2370,7 +2370,7 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 		return fmt.Errorf("failed to get knowledge base: %w", err)
 	}
 
-	// 检查任务状态 - 幂等性处理（复用之前获取的 existingProgress）
+	// Check task status - idempotency handling (reuse the previously fetched existingProgress)
 	var processedCount int
 	if existingProgress != nil {
 		if existingProgress.Status == types.FAQImportStatusCompleted {
@@ -2378,23 +2378,23 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 			if clearErr := s.clearRunningFAQImportInfoIfMatches(ctx, payload.KBID, payload.TaskID, payload.InstanceID, payload.EnqueuedAt); clearErr != nil {
 				logger.Warnf(ctx, "Failed to clear running FAQ import info for completed task: %v", clearErr)
 			}
-			return nil // 幂等：已完成的任务直接返回
+			return nil // Idempotent: already-completed tasks return immediately
 		}
-		// 获取已处理的数量（注意：这是相对于 validEntries 的索引）
-		processedCount = existingProgress.Processed - progress.FailedCount // 已处理数 - 验证失败数 = 已导入的有效条目数
+		// Get the processed count (note: this is an index relative to validEntries)
+		processedCount = existingProgress.Processed - progress.FailedCount // Processed count - Verification Failed count = number of valid entries already imported
 		if processedCount < 0 {
 			processedCount = 0
 		}
 		logger.Infof(ctx, "Resuming FAQ import from progress: %d/%d (valid entries)", processedCount, len(validEntries))
 	}
 
-	// 幂等性处理：清理可能已部分处理的chunks和索引数据
+	// Idempotency handling: clean up chunks and index data that may have been partially processed
 	chunksDeleted, err := s.chunkRepo.DeleteUnindexedChunks(ctx, payload.TenantID, payload.KnowledgeID)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to delete unindexed chunks: %v", err)
-		// 如果是最后一次重试，更新状态为失败
+		// If this is the last retry, update the status to failed
 		if isLastRetry {
-			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, 0, "清理未索引数据失败", err.Error()); updateErr != nil {
+			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, 0, "Failed to clean unindexed data", err.Error()); updateErr != nil {
 				logger.Errorf(ctx, "Failed to update task status to failed: %v", updateErr)
 			}
 			s.recordFAQImportKBActivity(ctx, &payload, progress, originalTotalEntries, types.AuditActionFAQImportFailed, types.AuditOutcomeFailed)
@@ -2405,7 +2405,7 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	if len(chunksDeleted) > 0 {
 		logger.Infof(ctx, "Deleted unindexed chunks: %d", len(chunksDeleted))
 
-		// 删除索引数据
+		// Delete index data
 		embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)
 		if err == nil {
 			retrieveEngine, err := retriever.CreateRetrieveEngineForKB(
@@ -2424,15 +2424,15 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 		}
 	}
 
-	// 如果已经处理了一部分有效条目，从该位置继续
+	// If some valid entries have already been processed, resume from that position
 	entriesToImport := validEntries
 	importMode := payload.Mode
 	if processedCount > 0 && processedCount < len(validEntries) {
 		entriesToImport = validEntries[processedCount:]
-		// 重试场景下，如果之前已经处理了一部分数据，需要切换到 Append 模式
-		// 因为 Replace 模式的删除操作在第一次运行时已经执行过了
-		// 如果继续使用 Replace 模式，calculateReplaceOperations 会将之前成功导入的数据标记为删除
-		// 导致数据丢失
+		// In retry scenarios, if some data was already processed previously, need to switch to Append mode
+		// Because the delete operation of Replace mode was already executed on the first run
+		// If Replace mode continues to be used, calculateReplaceOperations will mark previously successfully imported data for deletion
+		// Causing data loss
 		if payload.Mode == types.FAQBatchModeReplace {
 			importMode = types.FAQBatchModeAppend
 			logger.Infof(ctx, "Switching to Append mode for retry, original mode was Replace")
@@ -2440,18 +2440,18 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 		logger.Infof(ctx, "Continuing FAQ import from entry %d, remaining: %d entries", processedCount, len(entriesToImport))
 	}
 
-	// 构建FAQBatchUpsertPayload（使用验证通过的有效条目）
+	// Build FAQBatchUpsertPayload (using validated valid entries)
 	faqPayload := &types.FAQBatchUpsertPayload{
 		Entries: entriesToImport,
 		Mode:    importMode,
 	}
 
-	// 执行FAQ导入（传入已处理的偏移量，用于进度计算）
+	// Execute FAQ import (passing the processed offset, used for progress calculation)
 	if err := s.executeFAQImport(ctx, payload.TaskID, payload.KBID, faqPayload, payload.TenantID, progress.FailedCount+processedCount, progress); err != nil {
 		logger.Errorf(ctx, "FAQ import task failed: %s, error: %v", payload.TaskID, err)
-		// 如果是最后一次重试，更新状态为失败
+		// If this is the last retry, update the status to failed
 		if isLastRetry {
-			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, len(validEntries), "导入失败", err.Error()); updateErr != nil {
+			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, len(validEntries), "Import failed", err.Error()); updateErr != nil {
 				logger.Errorf(ctx, "Failed to update task status to failed: %v", updateErr)
 			}
 			s.recordFAQImportKBActivity(ctx, &payload, progress, originalTotalEntries, types.AuditActionFAQImportFailed, types.AuditOutcomeFailed)
@@ -2460,19 +2460,19 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 		return fmt.Errorf("FAQ import failed: %w", err)
 	}
 
-	// 任务成功完成
+	// Task completed successfully
 	logger.Infof(ctx, "FAQ import task completed: %s, imported: %d, failed: %d",
 		payload.TaskID, len(progress.SuccessEntries), progress.FailedCount)
 
-	// 最终完成处理（生成失败条目 CSV 等）
+	// Final completion handling (generate failed-entries CSV, etc.)
 	return s.finalizeFAQValidation(ctx, &payload, progress, originalTotalEntries)
 }
 
-// finalizeFAQValidation 完成 FAQ 验证/导入任务，生成失败条目 CSV（如果有）
+// finalizeFAQValidation completes the FAQ validation/import task, generating a failed-entries CSV (if any)
 func (s *knowledgeService) finalizeFAQValidation(ctx context.Context, payload *types.FAQImportPayload,
 	progress *types.FAQImportProgress, originalTotalEntries int,
 ) error {
-	// 清理对象存储中的 entries 文件（如果有）
+	// Clean up the entries file in object storage (if any)
 	if payload.EntriesURL != "" {
 		if err := s.fileSvc.DeleteFile(ctx, payload.EntriesURL); err != nil {
 			logger.Warnf(ctx, "Failed to delete FAQ entries file from object storage: %v", err)
@@ -2482,19 +2482,19 @@ func (s *knowledgeService) finalizeFAQValidation(ctx context.Context, payload *t
 	}
 	progress.UpdatedAt = time.Now().Unix()
 
-	// 如果有失败条目，生成 CSV 文件
+	// If there are failed entries, generate a CSV file
 	if len(progress.FailedEntries) > 0 {
 		csvURL, err := s.generateFailedEntriesCSV(ctx, payload.TenantID, payload.TaskID, progress.FailedEntries)
 		if err != nil {
 			logger.Warnf(ctx, "Failed to generate failed entries CSV: %v", err)
 		} else {
 			progress.FailedEntriesURL = csvURL
-			progress.FailedEntries = nil // 清空内联数据，使用 URL
-			progress.Message += " (失败记录已导出为CSV)"
+			progress.FailedEntries = nil // Clear inline data, use URL instead
+			progress.Message += " (failed records exported as CSV)"
 		}
 	}
 
-	// 必须在 saveFAQImportResultToDatabase 之前计算最终统计。
+	// Final statistics must be calculated before saveFAQImportResultToDatabase.
 	progress.Status = types.FAQImportStatusCompleted
 	progress.Progress = 100
 	progress.Processed = originalTotalEntries
@@ -2526,19 +2526,19 @@ func (s *knowledgeService) finalizeFAQValidation(ctx context.Context, payload *t
 	progress.SkippedCount = skippedCount
 
 	if payload.DryRun {
-		progress.Message = s.buildFAQImportResultMessage("验证完成", progress)
+		progress.Message = s.buildFAQImportResultMessage("Validation complete", progress)
 	} else {
-		progress.Message = s.buildFAQImportResultMessage("导入完成", progress)
+		progress.Message = s.buildFAQImportResultMessage("Import complete", progress)
 	}
 
-	// 如果不是 dry run 模式，保存导入结果统计到数据库
+	// If not in dry-run mode, save the import result statistics to the database
 	if !payload.DryRun {
 		if err := s.saveFAQImportResultToDatabase(ctx, payload, progress, originalTotalEntries); err != nil {
 			logger.Warnf(ctx, "Failed to save FAQ import result to database: %v", err)
 		}
 
-		// 只有 replace 模式才清理未使用的 Tag
-		// append 模式不应删除用户预先创建的空标签
+		// Only replace mode cleans up unused Tags
+		// Append mode should not delete empty tags pre-created by the user
 		if payload.Mode == types.FAQBatchModeReplace {
 			deletedTags, err := s.tagRepo.DeleteUnusedTags(ctx, payload.TenantID, payload.KBID)
 			if err != nil {
@@ -2549,13 +2549,13 @@ func (s *knowledgeService) finalizeFAQValidation(ctx context.Context, payload *t
 		}
 	}
 
-	// 使用 updateFAQImportProgressStatus 来确保正确清理 running key
-	// 但是需要先保存其他字段，因为 updateFAQImportProgressStatus 不会保存所有字段
+	// Use updateFAQImportProgressStatus to ensure the running key is cleaned up correctly
+	// But other fields must be saved first, because updateFAQImportProgressStatus does not save all fields
 	if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 		logger.Warnf(ctx, "Failed to save final FAQ import progress: %v", err)
 	}
 
-	// 然后调用状态更新来清理 running key
+	// Then call the status update to clean up the running key
 	if err := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusCompleted,
 		100, originalTotalEntries, originalTotalEntries, progress.Message, ""); err != nil {
 		logger.Warnf(ctx, "Failed to update final FAQ import status: %v", err)
@@ -2573,14 +2573,14 @@ func (s *knowledgeService) finalizeFAQValidation(ctx context.Context, payload *t
 	return nil
 }
 
-// executeFAQMergeOperations 批量执行 append-mode 合并操作：更新已有 chunk
-// 的 metadata / content / 索引。使用 ListChunksByID 批量加载 + SaveChunks 事
-// 务批量保存，减少 DB 往返。任一批次失败立即返回，由 executeFAQImport
-// 的 defer recovery 决定是否回滚整次导入。
+// executeFAQMergeOperations batch-executes append-mode merge operations: updates existing chunks'
+// metadata / content / index. Uses ListChunksByID batch loading + SaveChunks transactional
+// batch save to reduce DB round trips. If any batch fails, return immediately; whether to roll back
+// the entire import is decided by executeFAQImport's defer recovery.
 //
-// 必要时这里逐条 fan-out 索引（EFPutDocument），而不是合并 chunks 批量
-// 重建：因为索引底层是按 SourceID 覆盖写入，按合并后的最终内容直接 put
-// 即可。
+// Fan out index updates one by one here when needed (EFPutDocument), instead of merging chunks in bulk
+// rebuild: because the underlying index overwrites by SourceID, put directly using the final merged content
+// Done.
 func (s *knowledgeService) executeFAQMergeOperations(
 	ctx context.Context,
 	taskID string,
@@ -2605,8 +2605,8 @@ func (s *knowledgeService) executeFAQMergeOperations(
 		}
 		batch := mergeOps[batchStart:batchEnd]
 
-		// 1. 批量加载完整 chunk（calculateAppendOperations 中只加载了部分字段，
-		//    缺少 status/is_enabled/flags/seq_id 等，直接更新会将这些字段覆盖为零值）
+		// 1. Bulk-load the full chunk (calculateAppendOperations only loads a subset of fields,
+		// missing status/is_enabled/flags/seq_id, etc. — a direct update would overwrite these fields with zero values)
 		chunkIDs := make([]string, len(batch))
 		for i, op := range batch {
 			chunkIDs[i] = op.ExistingChunk.ID
@@ -2621,7 +2621,7 @@ func (s *knowledgeService) executeFAQMergeOperations(
 			chunkMap[c.ID] = c
 		}
 
-		// 2. 逐条应用合并数据
+		// 2. Apply merged data item by item
 		mergedChunks := make([]*types.Chunk, 0, len(batch))
 		for _, op := range batch {
 			fullChunk, ok := chunkMap[op.ExistingChunk.ID]
@@ -2639,7 +2639,7 @@ func (s *knowledgeService) executeFAQMergeOperations(
 			fullChunk.ContentHash = types.CalculateFAQContentHash(op.MergedMeta)
 			fullChunk.UpdatedAt = time.Now()
 
-			// 用新值覆盖运营状态
+			// Overwrite the operational status with the new value
 			if op.Entry.IsEnabled != nil {
 				fullChunk.IsEnabled = *op.Entry.IsEnabled
 			}
@@ -2654,18 +2654,18 @@ func (s *knowledgeService) executeFAQMergeOperations(
 			mergedChunks = append(mergedChunks, fullChunk)
 		}
 
-		// 3. 事务批量保存（GORM Save 全字段更新，确保 metadata/content_hash 持久化）
+		// 3. Batch-save in a transaction (GORM Save updates all fields, ensuring metadata/content_hash are persisted)
 		if err := s.chunkRepo.SaveChunks(ctx, mergedChunks); err != nil {
 			logger.Errorf(ctx, "FAQ import task %s: failed to batch save merged chunks: %v", taskID, err)
 			return mergedCount, fmt.Errorf("failed to batch save merged chunks: %w", err)
 		}
 
-		// 4. 重建索引（EFPutDocument 会自动覆盖相同 SourceID）
+		// 4. Rebuild the index (EFPutDocument automatically overwrites the same SourceID)
 		if err := s.indexFAQChunks(ctx, kb, faqKnowledge, mergedChunks, embeddingModel, false, false); err != nil {
 			return mergedCount, fmt.Errorf("failed to re-index merged chunks: %w", err)
 		}
 
-		// 5. 收集成功条目信息
+		// 5. Collect info on successful entries
 		for i, op := range batch {
 			chunk := mergedChunks[i]
 			meta := op.MergedMeta
@@ -2694,29 +2694,29 @@ func (s *knowledgeService) executeFAQMergeOperations(
 	return mergedCount, nil
 }
 
-// buildFAQImportResultMessage 构建 FAQ 导入 / 验证最终结果的人类可读消息。
-// 前端会把它直接展示在 toast / 任务列表里，所以保持简单清晰：
-//   - 默认形态："导入完成 / 上传 N 条 / 成功 X 条 [/ 失败 Y 条] [/ 部分失败 Z 条]"
-//   - 当 MergedCount > 0 时改用拆分形态："/ 新增 X 条 / 合并更新 Y 条"，
-//     让用户在 append 模式下看到合并了多少条历史 FAQ 而不是只看到总成功数。
+// buildFAQImportResultMessage builds a human-readable message for the final FAQ import/validation result.
+// The frontend displays it directly in the toast / task list, so keep it simple and clear:
+// - Default form: "Import complete / N uploaded / X succeeded [/ Y failed] [/ Z partially failed]"
+// - When MergedCount > 0, switch to the split form: "/ X added / Y merged and updated",
+// so users can see how many historical FAQs were merged in append mode, instead of just the total success count.
 //
-// 内部 master 原始实现；HEAD 版本之前没有，所有完成消息只有 "正在处理第 N/M 条"。
+// Original internal master implementation; not present before HEAD — all completion messages previously read "Processing item N/M".
 func (s *knowledgeService) buildFAQImportResultMessage(prefix string, progress *types.FAQImportProgress) string {
 	parts := []string{prefix}
-	parts = append(parts, fmt.Sprintf("上传 %d 条", progress.Total))
+	parts = append(parts, fmt.Sprintf("Uploaded %d entries", progress.Total))
 
 	if progress.MergedCount > 0 {
-		parts = append(parts, fmt.Sprintf("新增 %d 条", progress.AddedCount))
-		parts = append(parts, fmt.Sprintf("合并更新 %d 条", progress.MergedCount))
+		parts = append(parts, fmt.Sprintf("Added %d entries", progress.AddedCount))
+		parts = append(parts, fmt.Sprintf("Merged and updated %d entries", progress.MergedCount))
 	} else {
-		parts = append(parts, fmt.Sprintf("成功 %d 条", progress.SuccessCount))
+		parts = append(parts, fmt.Sprintf("Succeeded %d entries", progress.SuccessCount))
 	}
 
 	if progress.FailedCount > 0 {
-		parts = append(parts, fmt.Sprintf("失败 %d 条", progress.FailedCount))
+		parts = append(parts, fmt.Sprintf("Failed %d entries", progress.FailedCount))
 	}
 	if progress.PartialFailedCount > 0 {
-		parts = append(parts, fmt.Sprintf("部分失败 %d 条", progress.PartialFailedCount))
+		parts = append(parts, fmt.Sprintf("Partially failed %d entries", progress.PartialFailedCount))
 	}
 
 	return strings.Join(parts, " / ")
@@ -2804,21 +2804,21 @@ func (s *knowledgeService) GetFAQImportProgress(ctx context.Context, taskID stri
 
 // UpdateLastFAQImportResultDisplayStatus updates the display status of FAQ import result
 func (s *knowledgeService) UpdateLastFAQImportResultDisplayStatus(ctx context.Context, kbID string, displayStatus string) error {
-	// 验证displayStatus参数
+	// Validate the displayStatus parameter
 	if displayStatus != "open" && displayStatus != "close" {
 		return werrors.NewBadRequestError("invalid display status, must be 'open' or 'close'")
 	}
 
-	// 获取当前空间ID
+	// Get the current space ID
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
-	// 查找FAQ类型的knowledge
+	// Look up knowledge of type FAQ
 	knowledgeList, err := s.repo.ListKnowledgeByKnowledgeBaseID(ctx, tenantID, kbID)
 	if err != nil {
 		return fmt.Errorf("failed to list knowledge: %w", err)
 	}
 
-	// 查找FAQ类型的knowledge
+	// Look up knowledge of type FAQ
 	var faqKnowledge *types.Knowledge
 	for _, k := range knowledgeList {
 		if k.Type == types.KnowledgeTypeFAQ {
@@ -2831,7 +2831,7 @@ func (s *knowledgeService) UpdateLastFAQImportResultDisplayStatus(ctx context.Co
 		return werrors.NewNotFoundError("FAQ knowledge not found in this knowledge base")
 	}
 
-	// 解析当前的导入结果
+	// Parse the current import result
 	result, err := faqKnowledge.GetLastFAQImportResult()
 	if err != nil {
 		return fmt.Errorf("failed to parse FAQ import result: %w", err)
@@ -2841,15 +2841,15 @@ func (s *knowledgeService) UpdateLastFAQImportResultDisplayStatus(ctx context.Co
 		return werrors.NewNotFoundError("no FAQ import result found")
 	}
 
-	// 更新显示状态
+	// Update the display status
 	result.DisplayStatus = displayStatus
 
-	// 保存更新后的结果
+	// Save the updated result
 	if err := faqKnowledge.SetLastFAQImportResult(result); err != nil {
 		return fmt.Errorf("failed to set FAQ import result: %w", err)
 	}
 
-	// 更新数据库
+	// Update the database
 	if err := s.repo.UpdateKnowledge(ctx, faqKnowledge); err != nil {
 		return fmt.Errorf("failed to update knowledge: %w", err)
 	}

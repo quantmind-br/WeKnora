@@ -7,14 +7,14 @@
         <div class="upload-mask" v-show="ismask">
             <UploadMask></UploadMask>
         </div>
-        <!-- 全局设置模态框，供所有 platform 子路由使用 -->
+        <!-- Global settings modal, used by all platform sub-routes -->
         <Settings />
-        <!-- 全局命令面板 (⌘K)，随 platform 路由存活 -->
+        <!-- Global command palette (⌘K), persists across platform routes -->
         <GlobalCommandPalette />
-        <!-- 全局右上角"待处理邀请"铃铛。固定定位，z-index 低于抽屉，业务页面
-             右侧抽屉弹出时会自然覆盖；仅在有待处理邀请时渲染。 -->
+        <!-- Global top-right "pending invitations" bell. Fixed position, z-index below the drawer; business pages
+             are naturally covered when the right drawer opens; only rendered when there are pending invitations. -->
         <GlobalInvitationBell />
-        <!-- 带遮罩层的新手引导：首次进入自动开启，可从用户菜单顶部昵称旁帮助按钮重新打开 -->
+        <!-- Guided onboarding with overlay: auto-starts on first visit, can be reopened from the help button next to the nickname at the top of the user menu -->
         <NewUserGuide />
     </div>
 </template>
@@ -48,10 +48,10 @@ const reloadApp = () => {
 }
 provide('app:reload', reloadApp)
 
-// 仅在 Wails 桌面端运行时拦截 Cmd/Ctrl+R：
-// 桌面端没有浏览器地址栏，整页重载会白屏，所以用前端软刷新替代。
-// 浏览器（含 Web 版 / 非 Lite 部署）里不拦截，交给浏览器做真正的整页刷新，
-// 否则会出现左侧菜单、全局设置、Pinia store 等不随"刷新"一起重置的问题。
+// Only intercept Cmd/Ctrl+R when running in the Wails desktop client:
+// The desktop client has no browser address bar, so a full page reload would show a blank screen — use a frontend soft refresh instead.
+// Don't intercept in browsers (including the Web version / non-Lite deployments); let the browser do a real full-page refresh,
+// otherwise the left menu, global settings, Pinia store, etc. won't reset along with the "refresh".
 // @ts-ignore
 const isWailsDesktop = typeof window !== 'undefined' && !!(window as any).runtime?.EventsOn
 
@@ -63,10 +63,10 @@ const handleGlobalKeyDown = (e: KeyboardEvent) => {
     }
 }
 
-// 用于跟踪拖拽进入/离开的计数器，解决子元素触发 dragleave 的问题
+// Counter for tracking drag enter/leave, to work around child elements triggering dragleave
 let dragCounter = 0;
 
-// 获取当前知识库ID
+// Get the current knowledge base ID
 const getCurrentKbId = (): string | null => {
     return (route.params as any)?.kbId as string || null
 }
@@ -100,7 +100,7 @@ const collectDroppedFiles = async (event: DragEvent): Promise<File[]> => {
     return files.filter((file): file is File => file instanceof File);
 }
 
-// 检查知识库初始化状态
+// Check knowledge base initialization status
 const checkKnowledgeBaseInitialization = async (): Promise<boolean> => {
     const currentKbId = getCurrentKbId();
     
@@ -141,7 +141,7 @@ const isFileDrag = (event: DragEvent): boolean => {
     return Array.from(types).includes('Files')
 }
 
-// 全局拖拽事件处理
+// Global drag event handling
 const handleGlobalDragEnter = (event: DragEvent) => {
     if (!isFileDrag(event)) return;
     event.preventDefault();
@@ -199,7 +199,7 @@ const handleGlobalDrop = async (event: DragEvent) => {
     }));
 }
 
-// 组件挂载时添加全局事件监听器
+// Add global event listeners on component mount
 onMounted(() => {
     document.addEventListener('dragenter', handleGlobalDragEnter, true);
     document.addEventListener('dragover', handleGlobalDragOver, true);
@@ -212,14 +212,14 @@ onMounted(() => {
             reloadApp()
         })
     }
-    // 支持通过 URL 查询参数打开全局命令面板，例如旧路径
-    // /platform/knowledge-search?q=foo 重定向后携带 ?cmdk=foo
+    // Support opening the global command palette via a URL query parameter, e.g. the old path
+    // /platform/knowledge-search?q=foo carries ?cmdk=foo after redirect
     maybeOpenCmdkFromRoute()
-    // 后台预取对话输入栏资源，进入 creatChat / chat 时复用缓存
+    // Prefetch chat input bar resources in the background, reused from cache when entering creatChat / chat
     void useChatResourcesStore().prefetchChatInput()
 });
 
-// 监听路由变化，兼容 SPA 内部跳转时的 ?cmdk= 参数
+// Watch for route changes, to handle the ?cmdk= parameter on SPA-internal navigations
 watch(() => route.query.cmdk, () => {
     maybeOpenCmdkFromRoute()
 })
@@ -228,13 +228,13 @@ function maybeOpenCmdkFromRoute() {
     if (!('cmdk' in route.query)) return
     const q = String(route.query.cmdk ?? '')
     commandPaletteStore.openPalette(q)
-    // 清除 query，避免回退/刷新时反复触发
+    // Clear the query to avoid retriggering on back/refresh
     const newQuery = { ...route.query }
     delete (newQuery as any).cmdk
     router.replace({ path: route.path, query: newQuery, hash: route.hash })
 }
 
-// 组件卸载时移除全局事件监听器
+// Remove global event listeners on component unmount
 onUnmounted(() => {
     document.removeEventListener('dragenter', handleGlobalDragEnter, true);
     document.removeEventListener('dragover', handleGlobalDragOver, true);
@@ -259,11 +259,11 @@ onUnmounted(() => {
     height: 100%;
     min-width: 600px;
     min-height: 0;
-    /* 统一整页背景，让左侧菜单与右侧内容区视觉连贯 */
+    /* Unified full-page background, for visual continuity between the left menu and right content area */
     background: var(--td-bg-color-container);
 }
 
-/* 右侧路由区：占满剩余宽度与整列高度，并把 min-height:0 传给子页面以便内部 flex 滚动 */
+/* Right-side route area: fills the remaining width and full column height, and passes min-height:0 down to child pages for internal flex scrolling */
 .platform-route-outlet {
     flex: 1;
     min-width: 0;

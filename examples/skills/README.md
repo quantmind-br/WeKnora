@@ -1,37 +1,37 @@
-# Skills 示例
+# Skills Examples
 
-本目录包含 Agent Skills 功能的示例。
+This directory contains examples of the Agent Skills feature.
 
-## 目录结构
+## Directory Structure
 
 ```
 skills/
-├── README.md              # 本文件
-└── pdf-processing/        # PDF 处理技能示例
-    ├── SKILL.md           # 主文件（Level 2）
-    ├── FORMS.md           # 补充文档（Level 3）
-    └── scripts/           # 可执行脚本
+├── README.md              # This file
+└── pdf-processing/        # PDF processing skill example
+    ├── SKILL.md           # Main file (Level 2)
+    ├── FORMS.md           # Supplementary documentation (Level 3)
+    └── scripts/           # Executable scripts
         ├── analyze_form.py
         └── extract_text.py
 ```
 
-## 快速开始
+## Quick Start
 
-### 运行 Demo
+### Running the Demo
 
 ```bash
 go run ./cmd/skills-demo/main.go
 ```
 
-### 创建新 Skill
+### Creating a New Skill
 
-1. 在本目录创建新文件夹：
+1. Create a new folder in this directory:
 
 ```bash
 mkdir my-new-skill
 ```
 
-2. 创建 `SKILL.md`：
+2. Create `SKILL.md`:
 
 ```markdown
 ---
@@ -44,49 +44,49 @@ description: Description of what this skill does and when to use it.
 Instructions for the agent...
 ```
 
-3. 添加脚本（可选）：
+3. Add scripts (optional):
 
 ```bash
 mkdir my-new-skill/scripts
-# 添加你的脚本
+# Add your scripts
 ```
 
-## 详细文档
+## Detailed Documentation
 
-完整文档请参阅：[Agent Skills 文档](../../docs/agent-skills.md)
+For complete documentation, see: [Agent Skills Documentation](../../docs/agent-skills.md)
 
-## 示例：pdf-processing
+## Example: pdf-processing
 
-这是一个功能完整的示例技能，展示了：
+This is a fully functional example skill that demonstrates:
 
-- **SKILL.md**: 包含 YAML frontmatter 的主文件
-- **FORMS.md**: 补充参考文档
-- **scripts/**: 可在沙箱中执行的 Python 脚本
+- **SKILL.md**: Main file containing YAML frontmatter
+- **FORMS.md**: Supplementary reference documentation
+- **scripts/**: Python scripts that can be executed in a sandbox
 
-### 技能描述
+### Skill Description
 
 ```yaml
 name: pdf-processing
 description: Extract text and tables from PDF files, fill forms, merge documents.
 ```
 
-### 包含的脚本
+### Included Scripts
 
-| 脚本 | 功能 |
+| Script | Function |
 |------|------|
-| `analyze_form.py` | 分析 PDF 表单字段 |
-| `extract_text.py` | 从 PDF 提取文本 |
+| `analyze_form.py` | Analyze PDF form fields |
+| `extract_text.py` | Extract text from PDF |
 
-### 使用示例
+### Usage Example
 
-Agent 会根据用户请求自动调用：
+The Agent automatically invokes based on the user's request:
 
 ```
-用户: "分析一下这个 PDF 表单有哪些字段"
+User: "Analyze this PDF form and tell me what fields it has"
 
 Agent: 
-  1. 识别匹配 pdf-processing 技能
-  2. 调用 read_skill 加载技能内容
-  3. 调用 execute_skill_script 执行 analyze_form.py
-  4. 返回表单字段分析结果
+  1. Identifies a match for the pdf-processing skill
+  2. Calls read_skill to load the skill content
+  3. Calls execute_skill_script to run analyze_form.py
+  4. Returns the form field analysis results
 ```

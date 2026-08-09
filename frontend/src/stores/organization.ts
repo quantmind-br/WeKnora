@@ -62,11 +62,11 @@ export const useOrganizationStore = defineStore('organization', () => {
   const previewData = ref<OrganizationPreview | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
-  /** 各空间内知识库/智能体数量（由 GET /organizations 的 resource_counts 填充，供列表侧栏使用） */
+  /** Knowledge base/agent counts per space (populated from resource_counts in GET /organizations, used by the list sidebar) */
   const resourceCounts = ref<ResourceCountsByOrg | null>(null)
-  /** 用于去重：同一时刻只允许一次 GET /organizations 请求 */
+  /** Used for deduplication: only one GET /organizations request is allowed at a time */
   let organizationsLoadedAt = 0
-  /** 共享资源缓存 TTL，与 chatResources 对齐 */
+  /** Shared resource cache TTL, aligned with chatResources */
   const SHARED_RESOURCE_TTL_MS = 60_000
   const SEARCHABLE_ORGANIZATION_TTL_MS = 5 * 60_000
   let sharedKbLoadedAt = 0
@@ -88,7 +88,7 @@ export const useOrganizationStore = defineStore('organization', () => {
     organizations.value.filter(org => !org.is_owner)
   )
 
-  /** 当前用户作为管理员/创建者可见的待审批加入申请总数（用于侧栏提醒） */
+  /** Total number of pending join requests visible to the current user as admin/creator (used for sidebar notifications) */
   const totalPendingJoinRequestCount = computed(() =>
     organizations.value.reduce((sum, org) => sum + (org.pending_join_request_count ?? 0), 0)
   )
@@ -97,7 +97,7 @@ export const useOrganizationStore = defineStore('organization', () => {
 
   /**
    * Fetch all organizations the user belongs to.
-   * 去重 + 短期缓存，列表页与侧栏等多处共用。
+   * Dedup + short-term cache, shared across the list page, sidebar, and other places.
    */
   const organizationsRequest = createVersionedRequestCoordinator(
     async () => {
@@ -198,8 +198,8 @@ export const useOrganizationStore = defineStore('organization', () => {
       const response = await createOrganization({ name, description, avatar })
       if (response.success && response.data) {
         upsertOrganization(response.data)
-        // 创建成功后重置缓存时间戳，确保后续 fetchOrganizations() 不会被 TTL 缓存跳过，
-        // 从而刷新 resource_counts 等创建接口不返回的聚合字段。
+        // Reset the cache timestamp after successful creation, ensuring subsequent fetchOrganizations() calls aren't skipped due to TTL caching,
+        // thereby refreshing aggregate fields like resource_counts that the create endpoint doesn't return.
         organizationsLoadedAt = 0
         void fetchOrganizations({ force: true })
         return response.data
@@ -451,7 +451,7 @@ export const useOrganizationStore = defineStore('organization', () => {
 
   /**
    * Fetch shared knowledge bases.
-   * 去重 + 短期缓存，避免对话页等多处并发重复请求。
+   * Dedup + short-term cache, avoiding repeated concurrent requests from the chat page and elsewhere.
    */
   const sharedKnowledgeBasesRequest = createVersionedRequestCoordinator(
     async () => {
@@ -488,7 +488,7 @@ export const useOrganizationStore = defineStore('organization', () => {
 
   /**
    * Fetch shared agents (shared to me through organizations).
-   * 去重 + 短期缓存。
+   * Dedup + short-term cache.
    */
   const sharedAgentsRequest = createVersionedRequestCoordinator(
     listSharedAgents,

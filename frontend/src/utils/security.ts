@@ -1,5 +1,5 @@
 /**
- * 安全工具类 - 防止 XSS 攻击
+ * Security utility class - prevents XSS attacks
  */
 
 import DOMPurify from 'dompurify';
@@ -49,29 +49,29 @@ function sanitizeWithSecurityHooks(
   }
 }
 
-// 配置 DOMPurify 的安全策略
+// Configure DOMPurify's security policy
 const DOMPurifyConfig = {
-  // 允许的标签
+  // Allowed tags
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'em', 'u', 's', 'del', 'ins',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
     'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
     'div', 'span', 'figure', 'figcaption', 'details', 'summary', 'think', 'button',
-    // Mermaid SVG 支持的标签
+    // Tags supported by Mermaid SVG
     'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon',
     'polyline', 'text', 'tspan', 'defs', 'marker', 'filter', 'use',
     'clippath', 'lineargradient', 'radialgradient', 'stop', 'pattern',
     'image', 'foreignobject', 'desc', 'title', 'switch', 'symbol', 'mask',
-    // KaTeX MathML 支持的标签
+    // Tags supported by KaTeX MathML
     'math', 'annotation', 'semantics', 'mo', 'mi', 'mn', 'msup', 'mrow', 'mfrac', 'msqrt', 'mroot', 'mstyle'
   ],
-  // 允许的属性
+  // Allowed attributes
   ALLOWED_ATTR: [
     'href', 'title', 'alt', 'src', 'class', 'id', 'style', 'data-protected-src', 'data-img-loading',
     'target', 'rel', 'width', 'height', 'open',
     'type', 'aria-label', 'disabled', 'role', 'tabindex',
-    // Mermaid SVG 支持的属性
+    // Attributes supported by Mermaid SVG
     'd', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
     'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit', 'stroke-opacity',
     'fill-opacity', 'opacity', 'transform', 'viewbox', 'preserveaspectratio',
@@ -85,7 +85,7 @@ const DOMPurifyConfig = {
     'filterunits', 'primitiveunits', 'xmlns', 'xmlns:xlink', 'xlink:href',
     'version', 'baseprofile', 'enable-background', 'overflow', 'visibility',
     'display', 'pointer-events', 'cursor', 'data-emit', 'direction',
-    // KaTeX MathML 支持的属性
+    // Attributes supported by KaTeX MathML
     'mathvariant', 'encoding', 'aria-hidden'
   ],
   USE_PROFILES: { html: true, svg: true, mathMl: true },
@@ -93,9 +93,9 @@ const DOMPurifyConfig = {
 };
 
 /**
- * 安全地清理 HTML 内容
- * @param html 需要清理的 HTML 字符串
- * @returns 清理后的安全 HTML 字符串
+ * Safely sanitize HTML content
+ * @param html The HTML string to sanitize
+ * @returns The sanitized, safe HTML string
  */
 export function sanitizeHTML(html: string): string {
   if (!html || typeof html !== 'string') {
@@ -111,7 +111,7 @@ export function sanitizeHTML(html: string): string {
     );
   } catch (error) {
     console.error('HTML sanitization failed:', error);
-    // 如果清理失败，返回转义的纯文本
+    // If sanitization fails, return escaped plain text
     return escapeHTML(html);
   }
 }
@@ -230,9 +230,9 @@ function normalizeProtectedImageElement(img: HTMLImageElement): string | null {
 }
 
 /**
- * 转义 HTML 特殊字符
- * @param text 需要转义的文本
- * @returns 转义后的文本
+ * Escape special HTML characters
+ * @param text The text to escape
+ * escaped text
  */
 export function escapeHTML(text: string): string {
   if (!text || typeof text !== 'string') {
@@ -254,9 +254,9 @@ export function escapeHTML(text: string): string {
 }
 
 /**
- * 验证 URL 是否安全
- * @param url 需要验证的 URL
- * @returns 是否为安全 URL
+ * Validate whether the URL is safe
+ * @param url URL to validate
+ * @returns whether it is a safe URL
  */
 export function isValidURL(url: string): boolean {
   if (!url || typeof url !== 'string') {
@@ -267,12 +267,12 @@ export function isValidURL(url: string): boolean {
     return false;
   }
 
-  // 允许以 / 开头的站内相对路径（如本地存储 /files/images/xxx.jpg）
+  // Allow relative in-site paths starting with / (e.g. local storage /files/images/xxx.jpg)
   if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
     return true;
   }
 
-  // 允许 provider:// 形式，由前端后续鉴权拉取并替换为 blob URL
+  // Allow provider:// form, to be authenticated and replaced with a blob URL by the frontend later
   if (isProviderFileURL(trimmed)) {
     return true;
   }
@@ -286,16 +286,16 @@ export function isValidURL(url: string): boolean {
 }
 
 /**
- * 安全地处理 Markdown 内容
- * @param markdown Markdown 文本
- * @returns 安全的 HTML 字符串
+ * Safely process Markdown content
+ * @param markdown Markdown text
+ * @returns safe HTML string
  */
 export function safeMarkdownToHTML(markdown: string): string {
   if (!markdown || typeof markdown !== 'string') {
     return '';
   }
   
-  // 首先转义可能的 HTML 标签
+  // First escape possible HTML tags
   const escapedMarkdown = markdown
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
@@ -306,19 +306,19 @@ export function safeMarkdownToHTML(markdown: string): string {
 }
 
 /**
- * 清理用户输入
- * @param input 用户输入
- * @returns 清理后的安全输入
+ * Sanitize user input
+ * @param input user input
+ * @returns sanitized safe input
  */
 export function sanitizeUserInput(input: string): string {
   if (!input || typeof input !== 'string') {
     return '';
   }
   
-  // 移除控制字符
+  // Remove control characters
   let cleaned = input.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
   
-  // 限制长度
+  // Limit length
   if (cleaned.length > 10000) {
     cleaned = cleaned.substring(0, 10000);
   }
@@ -327,9 +327,9 @@ export function sanitizeUserInput(input: string): string {
 }
 
 /**
- * 验证图片 URL 是否安全
- * @param url 图片 URL
- * @returns 是否为安全的图片 URL
+ * Validate whether the image URL is safe
+ * @param url image URL
+ * @returns whether it is a safe image URL
  */
 export function isValidImageURL(url: string): boolean {
   if (!isValidURL(url)) {
@@ -340,11 +340,11 @@ export function isValidImageURL(url: string): boolean {
 }
 
 /**
- * 创建安全的图片元素
- * @param src 图片源
- * @param alt 替代文本
- * @param title 标题
- * @returns 安全的图片 HTML
+ * Create a safe image element
+ * @param src image source
+ * @param alt alt text
+ * @param title title
+ * @returns safe image HTML
  */
 export function createSafeImage(src: string, alt: string = '', title: string = ''): string {
   if (!isValidImageURL(src)) {
@@ -411,12 +411,12 @@ const protectedFileInflight = protectedFileCacheState.inflight;
 const PROTECTED_FILE_RETRY_COOLDOWN_MS = 5000;
 
 /**
- * 将 Markdown 里通过 /files 代理的图片，改为用带鉴权 Header 的 fetch 拉取后再显示。
- * 用于避免在 URL 中暴露 token。
+ * Replace images proxied through /files in Markdown with ones fetched via an authenticated-header fetch before displaying.
+ * Used to avoid exposing the token in the URL.
  */
 /**
- * 清除失败重试冷却记录。在流式结束等场景调用，让此前因文件尚未生成而 404
- * 的图片可以立即重新尝试加载，而无需等待冷却窗口结束。
+ * Clear failed-retry cooldown records. Called on scenarios like stream end, so images that got a 404 because the file wasn't generated yet
+ * can retry loading immediately, without waiting for the cooldown window to end.
  */
 export function clearProtectedFileFailureCache(): void {
   protectedFileFailureCache.clear();
@@ -460,12 +460,12 @@ function applyHydratedProtectedImage(root: ParentNode, sourceURL: string, blobUR
 }
 
 /**
- * 将内容里的受保护图片（resource:// 等）通过对应的文件代理带鉴权拉取，
- * 再以 blob URL 替换显示。
+ * Fetch protected images (resource:// etc.) in the content through the corresponding authenticated file proxy,
+ * then replace them for display with a blob URL.
  *
- * 走哪条代理由 {@link resolveProtectedFileAccess} 决定：应用入口注册的默认
- * 上下文（如嵌入应用的 Embed 平面）优先，组件只在同一鉴权平面内用
- * `access` 细化作用域（如知识库）。
+ * Which proxy to use is decided by {@link resolveProtectedFileAccess}: the default context registered at the app entry
+ * (e.g. the embedded app's Embed plane) takes priority, and components only use
+ * `access` to narrow the scope (e.g. knowledge base) within the same auth plane.
  */
 export async function hydrateProtectedFileImages(
   root: ParentNode | null | undefined,

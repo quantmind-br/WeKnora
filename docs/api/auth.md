@@ -1,50 +1,50 @@
-# 认证管理 API
+# Authentication Management API
 
-[返回目录](./README.md)
+[Back to table of contents](./README.md)
 
-OIDC 完整调用流程见 [../OIDC认证调用流程.md](../OIDC认证调用流程.md)。本文档作为端点参考。
+For the full OIDC call flow, see [../OIDC认证调用流程.md](../OIDC认证调用流程.md). This document serves as the endpoint reference.
 
-## 说明
+## Description
 
-WeKnora 的 `/auth/*` 端点本身**不需要 X-API-Key**，但部分端点需要在 `Authorization: Bearer <token>` 头中携带由 `/auth/login` 或 `/auth/oidc/callback` 返回的 JWT：
+WeKnora's `/auth/*` endpoints themselves **do not require an X-API-Key**, but some endpoints require the JWT returned by `/auth/login` or `/auth/oidc/callback` to be included in the `Authorization: Bearer <token>` header:
 
-| 端点 | 鉴权方式 |
+| Endpoint | Authentication method |
 | --- | --- |
-| `/auth/register` `/auth/login` | 无 |
-| `/auth/oidc/config` `/auth/oidc/url` `/auth/oidc/callback` | 无 |
-| `/auth/refresh` | refresh_token（请求体携带） |
+| `/auth/register` `/auth/login` | None |
+| `/auth/oidc/config` `/auth/oidc/url` `/auth/oidc/callback` | None |
+| `/auth/refresh` | refresh_token (carried in the request body) |
 | `/auth/validate` `/auth/me` `/auth/logout` `/auth/change-password` | Bearer JWT |
 
-注册接口可通过环境变量 `DISABLE_REGISTRATION=true` 关闭。
+The registration endpoint can be disabled via the environment variable `DISABLE_REGISTRATION=true`.
 
-## 端点一览
+## Endpoint Overview
 
-| 方法 | 路径                       | 描述                                       |
+| Method | Path                       | Description                                       |
 | ---- | -------------------------- | ------------------------------------------ |
-| POST | `/auth/register`           | 用户注册                                   |
-| POST | `/auth/login`              | 用户登录                                   |
-| GET  | `/auth/oidc/config`        | 获取 OIDC 配置元数据                       |
-| GET  | `/auth/oidc/url`           | 获取 OIDC 授权链接                         |
-| GET  | `/auth/oidc/callback`      | OIDC 授权回调（由 IdP 重定向触发）         |
-| POST | `/auth/refresh`            | 用 refresh_token 换新的 access_token       |
-| GET  | `/auth/validate`           | 验证 JWT 有效性                            |
-| POST | `/auth/logout`             | 退出登录                                   |
-| GET  | `/auth/me`                 | 获取当前用户信息                           |
-| POST | `/auth/change-password`    | 修改密码                                   |
+| POST | `/auth/register`           | User registration                                   |
+| POST | `/auth/login`              | User login                                   |
+| GET  | `/auth/oidc/config`        | Get OIDC configuration metadata                       |
+| GET  | `/auth/oidc/url`           | Get OIDC authorization link                         |
+| GET  | `/auth/oidc/callback`      | OIDC authorization callback (triggered by IdP redirect)         |
+| POST | `/auth/refresh`            | Exchange refresh_token for a new access_token       |
+| GET  | `/auth/validate`           | Validate JWT validity                            |
+| POST | `/auth/logout`             | Log out                                   |
+| GET  | `/auth/me`                 | Get current user info                           |
+| POST | `/auth/change-password`    | Change password                                   |
 
 ---
 
-## POST `/auth/register` - 用户注册
+## POST `/auth/register` - User Registration
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段     | 类型   | 必填 | 校验                       | 说明      |
+| Field    | Type   | Required | Validation                       | Description      |
 | -------- | ------ | ---- | -------------------------- | --------- |
-| username | string | 是   | 长度 2-50                   | 用户名    |
-| email    | string | 是   | 邮箱格式                   | 邮箱      |
-| password | string | 是   | 最少 6 位                   | 密码      |
+| username | string | Yes   | Length 2-50                   | Username    |
+| email    | string | Yes   | Valid email format                   | Email      |
+| password | string | Yes   | Minimum 6 characters                   | Password      |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/register' \
@@ -56,7 +56,7 @@ curl --location 'http://localhost:8080/api/v1/auth/register' \
 }'
 ```
 
-**响应**（201 Created）:
+**Response** (201 Created):
 
 ```json
 {
@@ -79,20 +79,20 @@ curl --location 'http://localhost:8080/api/v1/auth/register' \
 }
 ```
 
-**错误**: 注册被禁用 → 403；参数校验失败 → 400。
+**Errors**: Registration disabled → 403; parameter validation failed → 400.
 
 ---
 
-## POST `/auth/login` - 用户登录
+## POST `/auth/login` - User Login
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段     | 类型   | 必填 | 说明          |
+| Field    | Type   | Required | Description          |
 | -------- | ------ | ---- | ------------- |
-| email    | string | 是   | 注册邮箱      |
-| password | string | 是   | 密码          |
+| email    | string | Yes   | Registered email      |
+| password | string | Yes   | Password          |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/login' \
@@ -103,7 +103,7 @@ curl --location 'http://localhost:8080/api/v1/auth/login' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -116,21 +116,21 @@ curl --location 'http://localhost:8080/api/v1/auth/login' \
 }
 ```
 
-**错误**: 邮箱或密码错误 → 401；账号被禁用 → 403。
+**Errors**: Incorrect email or password → 401; account disabled → 403.
 
 ---
 
-## GET `/auth/oidc/config` - 获取 OIDC 配置元数据
+## GET `/auth/oidc/config` - Get OIDC Configuration Metadata
 
-返回 OIDC 是否启用以及 Provider 显示名，前端登录页据此决定是否展示 OIDC 登录按钮。
+Returns whether OIDC is enabled and the Provider's display name; the frontend login page uses this to decide whether to show the OIDC login button.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/oidc/config'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -142,23 +142,23 @@ curl --location 'http://localhost:8080/api/v1/auth/oidc/config'
 
 ---
 
-## GET `/auth/oidc/url` - 获取 OIDC 授权链接
+## GET `/auth/oidc/url` - Get OIDC Authorization Link
 
-返回前端应跳转的 OIDC IdP 授权页 URL 与状态码。
+Returns the OIDC IdP authorization page URL the frontend should redirect to, along with the state code.
 
-**查询参数**:
+**Query parameters**:
 
-| 字段       | 类型   | 必填 | 说明                                                    |
+| Field      | Type   | Required | Description                                                    |
 | ---------- | ------ | ---- | ------------------------------------------------------- |
-| redirect   | string | 否   | 登录成功后前端期望落地的路径（如 `/dashboard`），透传到 state |
+| redirect   | string | No   | The path the frontend expects to land on after a successful login (e.g. `/dashboard`), passed through in the state | 
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/oidc/url?redirect=%2Fdashboard'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -171,35 +171,35 @@ curl --location 'http://localhost:8080/api/v1/auth/oidc/url?redirect=%2Fdashboar
 
 ---
 
-## GET `/auth/oidc/callback` - OIDC 授权回调
+## GET `/auth/oidc/callback` - OIDC Authorization Callback
 
-由 IdP 在用户授权后重定向到此端点。一般不需要客户端代码直接调用——它的作用是把登录结果通过浏览器 hash 传回前端首页。
+The IdP redirects to this endpoint after the user authorizes. Client code generally does not need to call this directly — its purpose is to pass the login result back to the frontend homepage via the browser URL hash.
 
-**查询参数**:
+**Query parameters**:
 
-| 字段              | 类型   | 必填 | 说明                          |
+| Field              | Type   | Required | Description                          |
 | ----------------- | ------ | ---- | ----------------------------- |
-| code              | string | 是   | IdP 颁发的 authorization code |
-| state             | string | 是   | 与 `/auth/oidc/url` 返回值一致 |
-| error             | string | 否   | IdP 返回的错误标识            |
-| error_description | string | 否   | IdP 返回的错误详情            |
+| code              | string | Yes   | Authorization code issued by the IdP |
+| state             | string | Yes   | Must match the value returned by `/auth/oidc/url` |
+| error             | string | No   | Error identifier returned by the IdP            |
+| error_description | string | No   | Error details returned by the IdP            |
 
-**响应**：始终返回 `302 Found`，跳转到 `/`，并把结果编码进 URL hash：
+**Response**: Always returns `302 Found`, redirecting to `/`, with the result encoded into the URL hash:
 
-- 成功：`/#oidc_result=<base64url(JSON payload)>`，其中 payload 包含 `success` / `user` / `tenant` / `token` / `refresh_token` / `is_new_user`，与登录响应一致。
-- 失败：`/#oidc_error=<reason>[&oidc_error_description=<message>]`，常见 reason 包括 `invalid_state`、`missing_code`、`login_failed`、`payload_encode_failed`。
+- Success: `/#oidc_result=<base64url(JSON payload)>`, where the payload contains `success` / `user` / `tenant` / `token` / `refresh_token` / `is_new_user`, consistent with the login response.
+- Failure: `/#oidc_error=<reason>[&oidc_error_description=<message>]`, common reasons include `invalid_state`, `missing_code`, `login_failed`, `payload_encode_failed`.
 
 ---
 
-## POST `/auth/refresh` - 刷新令牌
+## POST `/auth/refresh` - Refresh Token
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段          | 类型   | 必填 | 说明              |
+| Field         | Type   | Required | Description              |
 | ------------- | ------ | ---- | ----------------- |
-| refreshToken  | string | 是   | 登录时颁发的 refresh_token |
+| refreshToken  | string | Yes   | The refresh_token issued at login |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/refresh' \
@@ -209,7 +209,7 @@ curl --location 'http://localhost:8080/api/v1/auth/refresh' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -220,20 +220,20 @@ curl --location 'http://localhost:8080/api/v1/auth/refresh' \
 }
 ```
 
-**错误**: refresh_token 无效或过期 → 401。
+**Errors**: refresh_token invalid or expired → 401.
 
 ---
 
-## GET `/auth/validate` - 验证 JWT
+## GET `/auth/validate` - Validate JWT
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/validate' \
 --header 'Authorization: Bearer eyJhbGciOi...'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -244,33 +244,33 @@ curl --location 'http://localhost:8080/api/v1/auth/validate' \
 }
 ```
 
-无效 token 返回 401。
+An invalid token returns 401.
 
 ---
 
-## POST `/auth/logout` - 退出登录
+## POST `/auth/logout` - Log Out
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/auth/logout' \
 --header 'Authorization: Bearer eyJhbGciOi...'
 ```
 
-**响应**: `{ "success": true, "message": "Logged out successfully" }`
+**Response**: `{ "success": true, "message": "Logged out successfully" }`
 
 ---
 
-## GET `/auth/me` - 获取当前用户信息
+## GET `/auth/me` - Get Current User Info
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/me' \
 --header 'Authorization: Bearer eyJhbGciOi...'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -291,18 +291,18 @@ curl --location 'http://localhost:8080/api/v1/auth/me' \
 
 ---
 
-## POST `/auth/change-password` - 修改密码
+## POST `/auth/change-password` - Change Password
 
-修改当前用户的登录密码。新密码须满足 **8–32 位**且**同时包含字母与数字**；不能与当前密码相同。成功后**所有会话被撤销**，需使用新密码重新登录。
+Changes the current user's login password. The new password must be **8–32 characters** and **contain both letters and digits**; it cannot be the same as the current password. On success, **all sessions are revoked**, and the user must log in again with the new password.
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段          | 类型   | 必填 | 校验    | 说明      |
+| Field         | Type   | Required | Validation    | Description      |
 | ------------- | ------ | ---- | ------- | --------- |
-| old_password  | string | 是   |          | 当前密码  |
-| new_password  | string | 是   | 8–32 位，须含字母与数字，且不同于旧密码 | 新密码    |
+| old_password  | string | Yes   |          | Current password  |
+| new_password  | string | Yes   | 8–32 characters, must contain letters and digits, and must differ from the old password | New password    |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/auth/change-password' \
@@ -314,12 +314,12 @@ curl --location 'http://localhost:8080/api/v1/auth/change-password' \
 }'
 ```
 
-**响应**: `{ "success": true, "message": "Password changed successfully" }`
+**Response**: `{ "success": true, "message": "Password changed successfully" }`
 
-**错误**（400）:
+**Errors** (400):
 
-| `error.details`       | 含义                         |
+| `error.details`       | Meaning                         |
 | --------------------- | ---------------------------- |
-| `invalid_old_password` | 当前密码不正确               |
-| `password_policy`      | 新密码不满足长度/复杂度要求  |
-| `same_password`        | 新密码与当前密码相同         |
+| `invalid_old_password` | Current password is incorrect               |
+| `password_policy`      | New password does not meet length/complexity requirements  |
+| `same_password`        | New password is the same as the current password         |

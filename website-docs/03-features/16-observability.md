@@ -1,54 +1,54 @@
-# 可观测性与审计
+# Observability and Auditing
 
-线上跑起来之后，你会关心三类问题：某次回答为什么慢、为什么答错；谁在什么时候改了什么；后台任务有没有堆积。WeKnora 分别提供了追踪、审计日志和队列面板来回答它们。
+Once you're running in production, you'll care about three kinds of questions: why a given response was slow, or why it was wrong; who changed what and when; and whether background tasks are piling up. WeKnora provides tracing, audit logs, and a queue dashboard to answer them, respectively.
 
-| 想知道什么 | 去哪看 |
+| What you want to know | Where to look |
 | --- | --- |
-| 某次问答检索了什么、调了几次模型、花了多少 token | 接入 Langfuse 后在 Langfuse 里看完整调用链 |
-| 谁改了知识库 / 成员 / 系统设置 | 知识库设置的「活动」，以及「设置 → 审计日志」 |
-| 后台解析、摘要、Wiki 任务是否堆积或失败 | 「设置 → 运行时队列」 |
-| 服务是否存活 | `GET /health` |
-| 一次请求在各服务的日志里怎么串起来 | 按响应头里的 `X-Request-ID` 检索日志 |
+| What a given Q&A retrieved, how many model calls it made, and how many tokens it used | Once Langfuse is integrated, view the full call chain in Langfuse |
+| Who changed a knowledge base / members / system settings | The knowledge base settings "Activity" tab, and "Settings → Audit Log" |
+| Whether background parsing, summarization, or wiki tasks are piling up or failing | "Settings → Runtime Queue" |
+| Whether the service is alive | `GET /health` |
+| How a single request threads through logs across services | Search logs by the `X-Request-ID` response header |
 
 <Screenshot
   src="/screenshots/queue-dashboard.png"
-  caption="运行时任务队列：各队列的积压、失败与重试情况"
-  hint="展示队列面板，含队列名、待处理/进行中/失败数量与死信任务操作入口。" />
+  caption="Runtime task queue: backlog, failures, and retries per queue"
+  hint="Shows the queue dashboard, including queue names, pending/in-progress/failed counts, and dead-letter task action entry points." />
 
 <Screenshot
   src="/screenshots/observability-langfuse.png"
-  caption="Langfuse 追踪：一次问答的完整调用链"
-  hint="展示 Langfuse 中一条 trace 的展开视图，含检索、重排、生成各 span 与 token 用量。" />
+  caption="Langfuse trace: the full call chain of a single Q&A"
+  hint="Shows the expanded view of a trace in Langfuse, including retrieval, reranking, and generation spans along with token usage." />
 
-下面按日志、追踪、审计、限流、健康检查逐项展开。
+Below we go through logging, tracing, auditing, rate limiting, and health checks in turn.
 
-## 1. 可观测性数据流总览
+## 1. Observability Data Flow Overview
 
 ```mermaid
 flowchart TB
-    subgraph HTTP["HTTP 请求路径 (Gin)"]
-        RID["middleware.RequestID<br/>(X-Request-ID 生成/透传)"]
-        RLOG["middleware.Logger<br/>(请求/响应体脱敏采集)"]
-        LFMW["langfuse.GinMiddleware<br/>(白名单路径开 Trace)"]
-        RBAC["middleware RBAC<br/>(拒绝时 LogDenied)"]
-        H["业务 Handler"]
+    subgraph HTTP["HTTP request path (Gin)"]
+        RID["middleware.RequestID<br/>(X-Request-ID generation/passthrough)"]
+        RLOG["middleware.Logger<br/>(request/response body collection with redaction)"]
+        LFMW["langfuse.GinMiddleware<br/>(opens a Trace for whitelisted paths)"]
+        RBAC["middleware RBAC<br/>(LogDenied on rejection)"]
+        H["business Handler"]
         RID --> RLOG --> LFMW --> RBAC --> H
     end
 
-    subgraph ASYNC["异步任务路径 (asynq worker)"]
-        INJ["InjectTracing<br/>(traceparent 写入 payload)"]
-        AMW["langfuse.AsynqMiddleware<br/>(续接 trace + SPAN)"]
-        WH["任务 Handler"]
+    subgraph ASYNC["Async task path (asynq worker)"]
+        INJ["InjectTracing<br/>(writes traceparent into payload)"]
+        AMW["langfuse.AsynqMiddleware<br/>(resumes trace + SPAN)"]
+        WH["task Handler"]
         INJ --> AMW --> WH
     end
-    H -->|"Enqueue(payload 内嵌 TracingContext)"| INJ
+    H -->|"Enqueue(payload embeds TracingContext)"| INJ
 
-    subgraph SINKS["数据汇聚"]
-        STDOUT["stdout + LOG_PATH 文件<br/>(lumberjack 轮转: 50MB x 3, 28 天, gzip)"]
-        LLMDBG["llm_debug/ 按 request_id 分文件<br/>(LLM_DEBUG_LOG, 7 天清理)"]
-        LFB["Langfuse / LiteFuse 后端<br/>POST /api/public/otel/v1/traces<br/>(OTLP HTTP + Basic Auth)"]
-        ADB["audit_logs 表 (append-only)"]
-        DLDB["task_dead_letters 表"]
+    subgraph SINKS["Data sinks"]
+        STDOUT["stdout + LOG_PATH file<br/>(lumberjack rotation: 50MB x 3, 28 days, gzip)"]
+        LLMDBG["llm_debug/ files split by request_id<br/>(LLM_DEBUG_LOG, cleaned up after 7 days)"]
+        LFB["Langfuse / LiteFuse backend<br/>POST /api/public/otel/v1/traces<br/>(OTLP HTTP + Basic Auth)"]
+        ADB["audit_logs table (append-only)"]
+        DLDB["task_dead_letters table"]
     end
 
     RLOG --> STDOUT
@@ -56,20 +56,20 @@ flowchart TB
     WH --> STDOUT
     H -.->|"LLMDebugLog"| LLMDBG
     WH -.->|"LLMDebugLog"| LLMDBG
-    LFMW -->|"BatchSpanProcessor 批量导出"| LFB
+    LFMW -->|"batch export via BatchSpanProcessor"| LFB
     AMW --> LFB
-    GEN["模型 langfuse_wrapper<br/>(chat / embedding / rerank / vlm / asr)"] --> LFB
+    GEN["model langfuse_wrapper<br/>(chat / embedding / rerank / vlm / asr)"] --> LFB
     H --> GEN
     WH --> GEN
-    RBAC -->|"rbac.access_denied (1 分钟去重)"| ADB
+    RBAC -->|"rbac.access_denied (1-minute dedup)"| ADB
     H -->|"AuditLogService.Log"| ADB
-    WH -->|"重试耗尽"| DLDB
+    WH -->|"retries exhausted"| DLDB
 
-    subgraph READERS["查询面"]
+    subgraph READERS["Query surfaces"]
         API1["GET /tenants/:id/audit-log"]
         API2["GET /knowledge-bases/:id/activity"]
         API3["GET /system/admin/audit-log"]
-        RET["AuditLogRetentionRunner<br/>(每日清扫, 默认保留 90 天)"]
+        RET["AuditLogRetentionRunner<br/>(daily sweep, defaults to 90-day retention)"]
     end
     ADB --> API1
     ADB --> API2
@@ -77,21 +77,21 @@ flowchart TB
     RET -->|"DeleteOlderThan"| ADB
 ```
 
-## 2. 日志系统（`internal/logger`）
+## 2. Logging System (`internal/logger`)
 
-### 2.1 格式与级别
+### 2.1 Format and Levels
 
-- 底层为**私有** logrus 实例（`appLogger`，避免外部依赖改写全局 logrus 导致日志丢失），自定义 `CustomFormatter`。
-- 默认单行格式：`LEVEL[时间戳] [request_id 字段...] caller | message`，caller 为 `文件:行[函数名]`（`addCaller`）。
-- 可通过 `LOG_FORMAT` 环境变量提供模板，占位符：`%d`=时间、`%level`=级别、`%thread`=goroutine ID（仅模板引用时才取，避免每条日志跑 `runtime.Stack`）、`%logger`=caller、`%traceId`=request_id、`%msg`=消息+结构化字段。单趟 `strings.NewReplacer` 替换避免二次替换问题。
-- 级别由 `LOG_LEVEL` 控制（`debug`/`info`/`warn`/`error`/`fatal`，未设置或非法时**默认 debug**）。
-- 颜色：stdout 是终端时启用 ANSI 颜色；非终端（Docker 采集）禁用；写文件时 `ansiStripWriter` 剥离 ANSI 序列保持纯文本。
-- 结构化字段 API：`logger.WithField(ctx, k, v)` / `WithFields` 把带字段的 entry 存进 context（`types.LoggerContextKey`），后续 `logger.Infof(ctx, ...)` 自动携带；`WarnWithFields` 专用于审计相关事件（跨租户探测、不变量破坏），便于日志聚合器按 tenant/资源索引。
-- `CloneContext` 在派生后台 goroutine 时复制关键 context 键（tenant/user/request_id/角色/语言等），并同时保留 Langfuse `*Trace` 句柄与**活跃的 OTel span**，防止子 span 变成孤儿 trace。
+- The underlying implementation is a **private** logrus instance (`appLogger`, which avoids external dependencies mutating the global logrus instance and causing log loss), with a custom `CustomFormatter`.
+- Default single-line format: `LEVEL[timestamp] [request_id fields...] caller | message`, where caller is `file:line[function name]` (`addCaller`).
+- A template can be supplied via the `LOG_FORMAT` environment variable, with placeholders: `%d`=timestamp, `%level`=level, `%thread`=goroutine ID (only fetched when the template actually references it, to avoid running `runtime.Stack` on every log line), `%logger`=caller, `%traceId`=request_id, `%msg`=message+structured fields. A single-pass `strings.NewReplacer` avoids double-substitution issues.
+- Level is controlled by `LOG_LEVEL` (`debug`/`info`/`warn`/`error`/`fatal`; **defaults to debug** when unset or invalid).
+- Color: ANSI color is enabled when stdout is a terminal; disabled for non-terminal output (Docker log collection); when writing to a file, `ansiStripWriter` strips ANSI sequences to keep the output plain text.
+- Structured field API: `logger.WithField(ctx, k, v)` / `WithFields` store an entry with fields attached into the context (`types.LoggerContextKey`), and subsequent calls to `logger.Infof(ctx, ...)` automatically carry them; `WarnWithFields` is dedicated to audit-related events (cross-tenant probing, invariant violations), making it easier for log aggregators to index by tenant/resource.
+- `CloneContext` copies the key context values (tenant/user/request_id/role/language, etc.) when spawning a background goroutine, while also preserving both the Langfuse `*Trace` handle and the **active OTel span**, preventing child spans from becoming orphaned traces.
 
-### 2.2 输出与轮转
+### 2.2 Output and Rotation
 
-`ConfigureFromEnv()`（init 时执行，`main` 加载 `.env` 后可重调）：始终写 stdout；`LOG_PATH` 非空（或 macOS `.app` 打包运行时自动落到 `~/Library/Logs/<App>/<App>.log`）时通过 lumberjack 附加落盘：
+`ConfigureFromEnv()` (runs at init time, and can be re-invoked after `main` loads `.env`): always writes to stdout; when `LOG_PATH` is non-empty (or automatically, when running as a macOS `.app` bundle, falls back to `~/Library/Logs/<App>/<App>.log`), it additionally writes to disk via lumberjack:
 
 ```go
 // internal/logger/logger.go openLogFile()
@@ -104,137 +104,137 @@ return &lumberjack.Logger{
 }, nil
 ```
 
-### 2.3 LLM 调试日志（`internal/logger/llm_logger.go`）
+### 2.3 LLM Debug Logging (`internal/logger/llm_logger.go`)
 
-`LLM_DEBUG_LOG=true|1|<目录>` 开启后，每次模型调用（Chat / Chat Stream / Embedding / Rerank / VLM）都会把**完整**的输入消息、工具调用、输出与错误写到 `llm_debug/` 目录，**同一 request_id 的所有调用追加到同一个文件**（`<request_id>.log`），便于还原一次会话内的全部模型交互。目录中超过 7 天的文件在启动时后台清理（`cleanupOldDebugFiles`）。
+When `LLM_DEBUG_LOG=true|1|<directory>` is enabled, every model call (Chat / Chat Stream / Embedding / Rerank / VLM) writes its **complete** input messages, tool calls, output, and errors to the `llm_debug/` directory, with **all calls sharing the same request_id appended to the same file** (`<request_id>.log`), making it easy to reconstruct all model interactions within a single session. Files older than 7 days in the directory are cleaned up in the background at startup (`cleanupOldDebugFiles`).
 
-### 2.4 请求日志中间件（`internal/middleware/logger.go`）
+### 2.4 Request Logging Middleware (`internal/middleware/logger.go`)
 
-- `RequestID()`：读取或生成 `X-Request-ID`，写回响应头，并把 request_id 与带字段的 logger 一起放入 gin context 与 `http.Request` context —— 全链路日志（含 asynq worker 侧透传的 session 标签）都能按 request_id 关联。
-- `Logger()`：记录 method、path（query 经 `sanitizeQuery` 抹掉 `token`/`code`/`state` 等 OAuth 敏感参数）、status_code、latency、client_ip、size，以及最多 10KB 的请求/响应体。请求/响应体经 `sensitiveFieldRegex` 脱敏（password/token/api_key/secret/private_key 等字段值替换为 `"***"`，兼容 snake_case/camelCase）；SSE 响应体记为 `[SSE流式响应，已跳过]`；`/assets/` 与 wiki stats 轮询路径直接跳过。
-- 信任代理：`r.SetTrustedProxies(...)`（`WEKNORA_TRUSTED_PROXIES`）防止伪造 `X-Forwarded-For` 绕过基于 `ClientIP` 的限流。
+- `RequestID()`: reads or generates `X-Request-ID`, writes it back into the response header, and places the request_id together with a field-tagged logger into both the gin context and the `http.Request` context — enabling full-chain log correlation by request_id (including passthrough tagged via the asynq worker's session labels).
+- `Logger()`: records method, path (with query parameters scrubbed of OAuth-sensitive params like `token`/`code`/`state` via `sanitizeQuery`), status_code, latency, client_ip, size, and up to 10KB of request/response body. Request/response bodies are redacted via `sensitiveFieldRegex` (values of fields like password/token/api_key/secret/private_key are replaced with `"***"`, compatible with both snake_case and camelCase); SSE response bodies are recorded as `[SSE streaming response, skipped]`; `/assets/` and wiki stats polling paths are skipped entirely.
+- Trusted proxies: `r.SetTrustedProxies(...)` (`WEKNORA_TRUSTED_PROXIES`) prevents forged `X-Forwarded-For` headers from bypassing `ClientIP`-based rate limiting.
 
-## 3. Langfuse 追踪（`internal/tracing/langfuse`）
+## 3. Langfuse Tracing (`internal/tracing/langfuse`)
 
-WeKnora 的分布式追踪不是通用 OTel 接入，而是**基于 OpenTelemetry Go SDK 实现的 Langfuse v3+ / LiteFuse 客户端**：span 携带 Langfuse 语义约定属性（`langfuse.observation.*`，镜像 langfuse-python v4 的 `_client/attributes.py`），经 OTLP/HTTP 导出到 `POST <host>/api/public/otel/v1/traces`。完全 opt-in：未启用时所有入口都是零成本 no-op。
+WeKnora's distributed tracing is not a generic OTel integration, but rather a **Langfuse v3+ / LiteFuse client built on the OpenTelemetry Go SDK**: spans carry Langfuse semantic-convention attributes (`langfuse.observation.*`, mirroring the langfuse-python v4 `_client/attributes.py`), and are exported via OTLP/HTTP to `POST <host>/api/public/otel/v1/traces`. It's entirely opt-in: when not enabled, all entry points are zero-cost no-ops.
 
-### 3.1 配置（环境变量，`config.go`）
+### 3.1 Configuration (Environment Variables, `config.go`)
 
-| 环境变量 | 默认值 | 说明 |
+| Environment Variable | Default | Description |
 | --- | --- | --- |
-| `LANGFUSE_ENABLED` | 有公私钥时自动启用 | 总开关（与 Python SDK 约定一致） |
-| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse/LiteFuse 基址（可自建） |
-| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | Basic Auth 项目凭证 |
-| `LANGFUSE_RELEASE` / `LANGFUSE_ENVIRONMENT` | — | 附加到每条 trace 用于 UI 过滤 |
-| `LANGFUSE_FLUSH_AT` | 15 | 批量导出批大小（BatchSpanProcessor `MaxExportBatchSize`） |
-| `LANGFUSE_FLUSH_INTERVAL` | 3s | 批量导出最大间隔（`BatchTimeout`） |
-| `LANGFUSE_QUEUE_SIZE` | 2048 | 内存缓冲上限（端点不可达时防止无界增长） |
-| `LANGFUSE_REQUEST_TIMEOUT` | 10s | 单次 ingestion HTTP 超时 |
-| `LANGFUSE_SAMPLE_RATE` | 1.0 | `ParentBased(TraceIDRatioBased)` 采样率，0..1 |
-| `LANGFUSE_DEBUG` | false | 批量发送错误的详细日志 |
+| `LANGFUSE_ENABLED` | Auto-enabled when public/secret keys are present | Master switch (consistent with the Python SDK's convention) |
+| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse/LiteFuse base URL (can be self-hosted) |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | Basic Auth project credentials |
+| `LANGFUSE_RELEASE` / `LANGFUSE_ENVIRONMENT` | — | Attached to every trace for filtering in the UI |
+| `LANGFUSE_FLUSH_AT` | 15 | Batch export batch size (`BatchSpanProcessor`'s `MaxExportBatchSize`) |
+| `LANGFUSE_FLUSH_INTERVAL` | 3s | Maximum interval for batch export (`BatchTimeout`) |
+| `LANGFUSE_QUEUE_SIZE` | 2048 | In-memory buffer cap (prevents unbounded growth when the endpoint is unreachable) |
+| `LANGFUSE_REQUEST_TIMEOUT` | 10s | HTTP timeout for a single ingestion request |
+| `LANGFUSE_SAMPLE_RATE` | 1.0 | Sampling rate for `ParentBased(TraceIDRatioBased)`, 0..1 |
+| `LANGFUSE_DEBUG` | false | Verbose logging for batch-send errors |
 
-### 3.2 导出器（`exporter.go`）
+### 3.2 Exporter (`exporter.go`)
 
-OTLP/HTTP exporter，`Authorization: Basic base64(public:secret)`；`x-langfuse-ingestion-version: 4` 是 Langfuse v3/LiteFuse OTel 直写路径的必需门槛头（缺失会返回 400），`x-langfuse-sdk-name/version` 为兼容标记。`Manager`（`manager.go`）持有独立的 `TracerProvider`（`service.name=weknora` resource），刻意**不**调用 `otel.SetTextMapPropagator` 等全局 OTel 变更，避免影响进程内其他 OTel 埋点；W3C `TraceContext` propagator 为包级私有值。
+An OTLP/HTTP exporter with `Authorization: Basic base64(public:secret)`; the `x-langfuse-ingestion-version: 4` header is required for the OTel direct-write path of Langfuse v3/LiteFuse (its absence returns a 400), and `x-langfuse-sdk-name/version` are compatibility markers. `Manager` (`manager.go`) holds its own independent `TracerProvider` (with a `service.name=weknora` resource), and deliberately **does not** call `otel.SetTextMapPropagator` or any other global OTel mutation, so as not to affect other OTel instrumentation elsewhere in the process; the W3C `TraceContext` propagator is a package-private value.
 
-### 3.3 观测模型与埋点点位
+### 3.3 Observation Model and Instrumentation Points
 
-三种句柄（`tracer.go`）：`Trace`（根，一次请求）、`Span`（非 LLM 的逻辑工作单元）、`Generation`（一次模型调用，含 `TokenUsage` token 统计与流式 time-to-first-token `MarkCompletionStart`）。父子关系通过 OTel span context 自动建立；无 trace 时自动开 auto-trace 防止孤儿 span。
+There are three handle types (`tracer.go`): `Trace` (the root, one per request), `Span` (a non-LLM logical unit of work), and `Generation` (a single model call, including `TokenUsage` token statistics and streaming time-to-first-token via `MarkCompletionStart`). Parent-child relationships are established automatically via the OTel span context; when there's no active trace, an auto-trace is opened automatically to prevent orphaned spans.
 
-主要埋点：
+Main instrumentation points:
 
-| 点位 | 源码 | 产出 |
+| Point | Source | Output |
 | --- | --- | --- |
-| HTTP 入口 | `middleware.go` `GinMiddleware` | 对 `shouldTrace` 白名单路径（knowledge-chat / agent-chat / knowledge-search / 各类 ingestion POST/PUT / FAQ 导入 / wiki auto-fix / evaluation / initialization 检测等）开根 Trace，名称为 `METHOD /path`，metadata 含 http.method/path/query/request_id，输出为 status 与 response.size；提取上游 W3C `traceparent` 头继承外部调用方 trace id |
-| asynq worker | `asynq.go` `AsynqMiddleware` | 从 payload 恢复 traceparent 续接 HTTP trace，否则新开 `asynq.<task_type>` trace；包一层 SPAN，metadata 含 task_id/queue/retry/max_retry/payload_bytes；payload 只预览前 1KB |
-| 入队侧注入 | `asynq.go` `InjectTracing` + `internal/types/tracing.go` `TracingContext` | 把 traceparent、user/session 标签以 `lf_*` JSON 字段嵌入任务 payload，跨进程传递 |
-| 模型调用 | `internal/models/{chat,embedding,rerank,vlm,asr}/langfuse_wrapper.go` | 每次调用一个 Generation（模型名、输入、参数、输出、token usage、错误） |
-| 检索/重排摘要 | `retrieval_obs.go` | `SummarizeRetrieveOutput` / `SummarizeSearchResults` 等把召回结果压缩成 top-25 预览（rank/chunk_id/score/160 字符 preview），避免全文进 trace |
-| Agent 执行 | `internal/agent/engine.go`、`act.go` | agent.execute 等 SPAN，经 `logger.CloneContext` 保持与 HTTP 根 trace 同树 |
+| HTTP entry point | `middleware.go` `GinMiddleware` | Opens a root Trace for `shouldTrace`-whitelisted paths (knowledge-chat / agent-chat / knowledge-search / various ingestion POST/PUT endpoints / FAQ import / wiki auto-fix / evaluation / initialization detection, etc.), named `METHOD /path`, with metadata containing http.method/path/query/request_id, and output containing status and response.size; extracts the upstream W3C `traceparent` header to inherit the caller's trace id |
+| asynq worker | `asynq.go` `AsynqMiddleware` | Restores the traceparent from the payload to resume the HTTP trace, or otherwise opens a new `asynq.<task_type>` trace; wraps it in a SPAN with metadata containing task_id/queue/retry/max_retry/payload_bytes; the payload preview is limited to the first 1KB |
+| Enqueue-side injection | `asynq.go` `InjectTracing` + `internal/types/tracing.go` `TracingContext` | Embeds the traceparent and user/session labels as `lf_*` JSON fields into the task payload, carrying them across process boundaries |
+| Model calls | `internal/models/{chat,embedding,rerank,vlm,asr}/langfuse_wrapper.go` | One Generation per call (model name, input, parameters, output, token usage, errors) |
+| Retrieval/rerank summaries | `retrieval_obs.go` | `SummarizeRetrieveOutput` / `SummarizeSearchResults` and similar functions compress retrieval results into a top-25 preview (rank/chunk_id/score/160-character preview), avoiding dumping full text into the trace |
+| Agent execution | `internal/agent/engine.go`, `act.go` | SPANs such as agent.execute, kept in the same tree as the HTTP root trace via `logger.CloneContext` |
 
-上报内容（span 属性，`events.go`）：`langfuse.observation.type/input/output/metadata/model.name/model.parameters/usage_details/completion_start_time`、`langfuse.trace.name/input/output/metadata/tags`、`user.id`（显式 user 或 `tenant:<id>`）、`session.id`、`langfuse.environment/release`。
+Reported content (span attributes, `events.go`): `langfuse.observation.type/input/output/metadata/model.name/model.parameters/usage_details/completion_start_time`, `langfuse.trace.name/input/output/metadata/tags`, `user.id` (explicit user or `tenant:<id>`), `session.id`, `langfuse.environment/release`.
 
 ```mermaid
 flowchart LR
     A["GinMiddleware<br/>Trace: POST /api/v1/agent-chat"] --> B["Span: agent.execute"]
-    B --> C["Generation: chat (LLM 规划/回答)"]
-    B --> D["Generation: embedding (检索)"]
+    B --> C["Generation: chat (LLM planning/response)"]
+    B --> D["Generation: embedding (retrieval)"]
     B --> E["Generation: rerank"]
     A --> F["InjectTracing -> asynq payload"]
     F --> G["AsynqMiddleware<br/>Span: asynq.document:process"]
     G --> H["Generation: embedding / vlm / chat"]
 ```
 
-## 4. 审计日志
+## 4. Audit Logs
 
-### 4.1 数据模型（`internal/types/audit_log.go`）
+### 4.1 Data Model (`internal/types/audit_log.go`)
 
-`audit_logs` 表 **append-only**（无 UpdatedAt、无软删除），单调 id 同时作为主键与游标：
+The `audit_logs` table is **append-only** (no UpdatedAt, no soft delete), with a monotonic id serving as both primary key and cursor:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 | --- | --- | --- |
-| `id` | uint64 自增 | 主键 + 分页游标（`WHERE id < after_id ORDER BY id DESC`） |
-| `tenant_id` | uint64 | 空间；`0` = 系统级（system-scope）事件 |
-| `actor_user_id` / `actor_role` | varchar | 操作者与其当时角色（系统触发时为空） |
-| `action` | varchar(64) | 点分命名 `<area>.<event>`（见 4.2） |
-| `scope_type` / `scope_id` | varchar | 资源作用域（如 `knowledge_base` + kbID，驱动 KB 活动页） |
-| `target_type` / `target_id` / `target_user_id` | varchar | 具体目标资源 / 用户 |
-| `request_path` / `request_method` | varchar | 路由模板（非原始 URL，防游标爆表；原始 URL 存 Details.raw_path） |
-| `outcome` | varchar(16) | `success` / `accepted`（异步已受理未终态）/ `denied` / `failed` / `partial` / `canceled` |
-| `details` | jsonb | 动作特定负载；密钥值**绝不**入库（如 vector_store 只记变更字段名） |
-| `created_at` | timestamp | 保留策略清扫依据 |
+| `id` | uint64 auto-increment | Primary key + pagination cursor (`WHERE id < after_id ORDER BY id DESC`) |
+| `tenant_id` | uint64 | Space; `0` = system-scope event |
+| `actor_user_id` / `actor_role` | varchar | The actor and their role at the time (empty for system-triggered events) |
+| `action` | varchar(64) | Dot-separated name `<area>.<event>` (see 4.2) |
+| `scope_type` / `scope_id` | varchar | Resource scope (e.g. `knowledge_base` + kbID, which drives the KB activity page) |
+| `target_type` / `target_id` / `target_user_id` | varchar | The specific target resource / user |
+| `request_path` / `request_method` | varchar | Route template (not the raw URL, to prevent cursor bloat; the raw URL is stored in Details.raw_path) |
+| `outcome` | varchar(16) | `success` / `accepted` (accepted asynchronously, not yet in a terminal state) / `denied` / `failed` / `partial` / `canceled` |
+| `details` | jsonb | Action-specific payload; secret values are **never** stored (e.g. vector_store only records the names of changed fields) |
+| `created_at` | timestamp | Basis for retention-policy sweeps |
 
-### 4.2 审计动作清单
+### 4.2 List of Audit Actions
 
-| 分组 | 动作 |
+| Group | Actions |
 | --- | --- |
-| RBAC / 成员 | `rbac.member_added`、`rbac.member_removed`、`rbac.member_role_changed`、`rbac.member_left`、`rbac.access_denied`、`rbac.invitation_sent`、`rbac.invitation_accepted`、`rbac.invitation_declined`、`rbac.invitation_revoked`、`rbac.invitation_expired` |
-| 向量库 | `vector_store.created`、`vector_store.updated`、`vector_store.deleted` |
-| OpenSearch 派生资源 | `opensearch.index_created`、`opensearch.index_deleted`、`opensearch.reindex_executed` |
-| 系统管理（tenant_id=0） | `system.setting_changed`、`system.admin_promoted`、`system.admin_revoked`、`system.user_password_reset`、`system.api_key_created`、`system.api_key_revoked` |
-| 运行时队列操作（tenant_id=0） | `system.queue_task_retried`、`system.queue_task_deleted`、`system.queue_task_run_now`、`system.queue_task_cancelled`、`system.queue_archived_purged` |
-| 知识库 | `kb.created`、`kb.updated`、`kb.deleted`、`kb.duplicated`、`kb.clone_started`、`kb.clone_completed`、`kb.clone_failed`、`kb.share_added`、`kb.share_permission_changed`、`kb.share_removed` |
-| 知识 | `knowledge.created`、`knowledge.updated`、`knowledge.deleted`、`knowledge.batch_deleted`、`knowledge.reparse_started`、`knowledge.parse_canceled`、`knowledge.move_started`、`knowledge.move_completed`、`knowledge.move_failed` |
-| 标签 / 数据源 | `tag.created`、`tag.updated`、`tag.deleted`、`datasource.created`、`datasource.updated`、`datasource.deleted`、`datasource.sync_started`、`datasource.sync_completed`、`datasource.sync_failed`、`datasource.paused`、`datasource.resumed` |
-| Wiki / FAQ | `wiki.content_changed`、`faq.import_started`、`faq.import_completed`、`faq.import_failed` |
+| RBAC / members | `rbac.member_added`, `rbac.member_removed`, `rbac.member_role_changed`, `rbac.member_left`, `rbac.access_denied`, `rbac.invitation_sent`, `rbac.invitation_accepted`, `rbac.invitation_declined`, `rbac.invitation_revoked`, `rbac.invitation_expired` |
+| Vector store | `vector_store.created`, `vector_store.updated`, `vector_store.deleted` |
+| OpenSearch-derived resources | `opensearch.index_created`, `opensearch.index_deleted`, `opensearch.reindex_executed` |
+| System administration (tenant_id=0) | `system.setting_changed`, `system.admin_promoted`, `system.admin_revoked`, `system.user_password_reset`, `system.api_key_created`, `system.api_key_revoked` |
+| Runtime queue operations (tenant_id=0) | `system.queue_task_retried`, `system.queue_task_deleted`, `system.queue_task_run_now`, `system.queue_task_cancelled`, `system.queue_archived_purged` |
+| Knowledge base | `kb.created`, `kb.updated`, `kb.deleted`, `kb.duplicated`, `kb.clone_started`, `kb.clone_completed`, `kb.clone_failed`, `kb.share_added`, `kb.share_permission_changed`, `kb.share_removed` |
+| Knowledge | `knowledge.created`, `knowledge.updated`, `knowledge.deleted`, `knowledge.batch_deleted`, `knowledge.reparse_started`, `knowledge.parse_canceled`, `knowledge.move_started`, `knowledge.move_completed`, `knowledge.move_failed` |
+| Tags / data sources | `tag.created`, `tag.updated`, `tag.deleted`, `datasource.created`, `datasource.updated`, `datasource.deleted`, `datasource.sync_started`, `datasource.sync_completed`, `datasource.sync_failed`, `datasource.paused`, `datasource.resumed` |
+| Wiki / FAQ | `wiki.content_changed`, `faq.import_started`, `faq.import_completed`, `faq.import_failed` |
 
-### 4.3 写入路径（service + middleware）
+### 4.3 Write Path (Service + Middleware)
 
-- `auditLogService.Log`（`internal/application/service/audit_log.go`）是规范写入口：默认 `outcome=success`、填充 `CreatedAt`；**写失败只记 ERROR 日志不向上传播** —— 审计失败绝不能中断业务操作。
-- `LogDenied` 记录 RBAC 中间件拒绝：以 `(tenant_id, actor, action=rbac.access_denied, route 模板)` 为键做 **1 分钟滑动窗口去重**（`denyDedupWindow`，`repo.CountSinceForDedup`），防止探测客户端灌满表（100 RPS 打同一端点每分钟只产生 1 行）；用路由模板而非原始 URL 作为 dedup 键，防止遍历 UUID 绕过窗口。stderr 侧的 `[rbac] role insufficient` 日志不受去重影响，每次拒绝都打。
-- `middleware/audit_provider.go` 的 `AuditServiceProvider` 把 service 注入 gin context（键 `weknora.audit_service`），RBAC 中间件经 `AuditServiceFromContext` 取用，nil 安全（Lite 模式可不配审计）。
+- `auditLogService.Log` (`internal/application/service/audit_log.go`) is the canonical write entry point: defaults `outcome=success`, populates `CreatedAt`; **write failures are only logged as ERROR and never propagated upward** — an audit failure must never interrupt a business operation.
+- `LogDenied` records RBAC middleware rejections: it dedups using a **1-minute sliding window** keyed by `(tenant_id, actor, action=rbac.access_denied, route template)` (`denyDedupWindow`, `repo.CountSinceForDedup`), preventing a probing client from flooding the table (100 RPS hitting the same endpoint only produces 1 row per minute); the route template rather than the raw URL is used as the dedup key, to prevent traversing UUIDs to bypass the window. The stderr-side `[rbac] role insufficient` log is unaffected by dedup and is written on every rejection.
+- `middleware/audit_provider.go`'s `AuditServiceProvider` injects the service into the gin context (key `weknora.audit_service`); the RBAC middleware retrieves it via `AuditServiceFromContext`, which is nil-safe (Lite mode can run without audit configured).
 
-### 4.4 查询 API（`internal/handler/audit_log.go`）
+### 4.4 Query API (`internal/handler/audit_log.go`)
 
-| 路由 | 权限 | 说明 |
+| Route | Permission | Description |
 | --- | --- | --- |
-| `GET /api/v1/tenants/:id/audit-log` | PathTenantMatch + Admin | 空间审计流；只返回 `scope_type=''` 的空间级行（`UnscopedOnly`） |
-| `GET /api/v1/knowledge-bases/:id/activity` | KB 创建者或空间 Admin，且必须是 owner 空间（组织共享消费方不可读） | `scope_type=knowledge_base` + `scope_id=kbID` 的 KB 活动投影 |
-| `GET /api/v1/system/admin/audit-log` | SystemAdmin（+ 平台 API Key `system.audit_read`） | `tenant_id=0` 的平台级事件（settings / promote / queue 操作等） |
+| `GET /api/v1/tenants/:id/audit-log` | PathTenantMatch + Admin | Space-level audit stream; only returns rows with `scope_type=''` (`UnscopedOnly`) |
+| `GET /api/v1/knowledge-bases/:id/activity` | KB creator or space Admin, and must be in the owning space (organization-shared consumers cannot read it) | KB activity projection filtered by `scope_type=knowledge_base` + `scope_id=kbID` |
+| `GET /api/v1/system/admin/audit-log` | SystemAdmin (+ platform API Key with `system.audit_read`) | Platform-level events with `tenant_id=0` (settings / promote / queue operations, etc.) |
 
-统一查询参数：`after_id`（游标，返回 id 更小的行）、`limit`（1–100，默认 50，硬上限 `auditLogListLimitMax=100`）、`action` / `outcome` / `actor` 精确过滤。响应含 `next_cursor`（页内最小 id，0 表示到底）。
+Common query parameters: `after_id` (cursor, returns rows with a smaller id), `limit` (1–100, default 50, hard cap `auditLogListLimitMax=100`), and exact filters on `action` / `outcome` / `actor`. The response includes `next_cursor` (the smallest id on the page; 0 means the end has been reached).
 
-### 4.5 保留策略（`internal/application/service/audit_log_retention.go`）
+### 4.5 Retention Policy (`internal/application/service/audit_log_retention.go`)
 
-- 配置：`audit.retention_days`（YAML）/ `WEKNORA_AUDIT_RETENTION_DAYS`（env 覆盖）；省略 `audit:` 段时默认 **90 天**；显式 0 表示禁用清扫（合规场景库外归档），负值在 config 校验时报错。
-- `AuditLogRetentionRunner`：裸 `time.Ticker` 后台 goroutine（无 cron / asynq 依赖），启动延迟 10 分钟（避开迁移与启动流量），之后**每 24h** 执行一次 `Purge` → `DeleteOlderThan(now - retention_days)`（单条带索引 DELETE，30s 超时）。删除数量记 INFO，失败记 WARN（下轮再试）。由 `internal/container/container.go` 装配并注册 `ResourceCleaner` 优雅停止（`Stop` 幂等，未 Start 直接返回）。
+- Configuration: `audit.retention_days` (YAML) / `WEKNORA_AUDIT_RETENTION_DAYS` (env override); defaults to **90 days** when the `audit:` section is omitted; an explicit 0 disables sweeping (for compliance scenarios with out-of-band archival), and a negative value triggers a config validation error.
+- `AuditLogRetentionRunner`: a bare `time.Ticker`-based background goroutine (no cron / asynq dependency), with a 10-minute startup delay (to avoid migration and startup traffic), after which it runs `Purge` → `DeleteOlderThan(now - retention_days)` **every 24h** (a single indexed DELETE with a 30s timeout). Deletion counts are logged at INFO, failures at WARN (retried on the next cycle). It's wired up by `internal/container/container.go` and registered as a `ResourceCleaner` for graceful shutdown (`Stop` is idempotent, and returns immediately if never Started).
 
-## 5. 限流（`internal/ratelimit` 与中间件）
+## 5. Rate Limiting (`internal/ratelimit` and Middleware)
 
-### 5.1 通用滑动窗口限流器（`internal/ratelimit/limiter.go`）
+### 5.1 General-Purpose Sliding-Window Limiter (`internal/ratelimit/limiter.go`)
 
-- Redis 优先：Lua 脚本原子完成"剔除过期 ZSET 成员 → `ZCARD` 计数 → 未超限则 `ZADD` + `PEXPIRE`"，多实例共享预算；member 为 `<instanceID>:<ms>` 保证唯一。
-- Redis 不可用（错误或 Lite 无 Redis）时**自动降级**为进程内 `localLimiter`（`sync.Map` + 每 key 时间戳数组），`StartCleanup` 周期驱逐空 key。
-- `max` 按每次 `Allow` 调用传入，同一 limiter 可对不同 key 用不同预算（如各 embed 渠道各自配额）。
-- 使用方：Web embed 公开接口（每分钟 + 每 24h 两个 limiter，按 channel+ClientIP，`internal/middleware/embed_auth.go`）、IM 服务（`internal/im/service.go`）。
+- Redis-first: a Lua script atomically performs "evict expired ZSET members → `ZCARD` count → `ZADD` + `PEXPIRE` if under the limit," sharing budget across multiple instances; members are keyed as `<instanceID>:<ms>` to guarantee uniqueness.
+- When Redis is unavailable (error, or Lite mode without Redis), it **automatically falls back** to an in-process `localLimiter` (a `sync.Map` plus a per-key timestamp array), with `StartCleanup` periodically evicting empty keys.
+- `max` is passed in on each `Allow` call, so the same limiter can apply different budgets to different keys (e.g. separate quotas per embed channel).
+- Consumers: the Web embed public interface (two limiters — per-minute and per-24h — keyed by channel+ClientIP, in `internal/middleware/embed_auth.go`) and the IM service (`internal/im/service.go`).
 
-### 5.2 公开认证端点 IP 限流（`internal/middleware/auth_public_ratelimit.go`）
+### 5.2 Public Authentication Endpoint IP Rate Limiting (`internal/middleware/auth_public_ratelimit.go`)
 
-`PublicAuthRateLimit()` 保护未认证的邀请链接端点（`/auth/invitations/lookup`、`/auth/register-by-invite`）：进程内滑动窗口，每 IP **30 次/分钟**（跨两个端点共享桶），超限返回 429（`ErrTooManyRequests`）。纯本地实现（低流量端点），注释中明确水平扩展时应换用 `internal/ratelimit` 的 Redis 版。
+`PublicAuthRateLimit()` protects unauthenticated invitation-link endpoints (`/auth/invitations/lookup`, `/auth/register-by-invite`): an in-process sliding window allowing **30 requests/minute per IP** (a shared bucket across both endpoints), returning 429 (`ErrTooManyRequests`) when exceeded. This is a purely local implementation (suited to low-traffic endpoints); the code comments note that a Redis-backed version from `internal/ratelimit` should be used instead if horizontal scaling is needed.
 
-## 6. 健康检查
+## 6. Health Checks
 
-`internal/router/router.go` 注册无需认证的健康探针（`internal/middleware/auth.go` 的公开路径白名单包含 `/health`）：
+`internal/router/router.go` registers an unauthenticated health probe (the public path whitelist in `internal/middleware/auth.go` includes `/health`):
 
 ```go
 // internal/router/router.go
@@ -243,43 +243,43 @@ r.GET("/health", func(c *gin.Context) {
 })
 ```
 
-这是纯存活探针（liveness，不检查 DB/Redis 依赖），适合作为容器 / LB 健康检查目标。`langfuse.shouldTrace` 与请求日志采样也都排除了它，避免探针噪声。进程 uptime 由 `internal/runtime/server.go` 的 `MarkServerStarted`/`ServerUptime` 提供给运维面板。
+This is a pure liveness probe (it does not check DB/Redis dependencies), suitable as a target for container / LB health checks. Both `langfuse.shouldTrace` and request-log sampling exclude it as well, to avoid probe noise. Process uptime is exposed to the ops dashboard via `MarkServerStarted`/`ServerUptime` in `internal/runtime/server.go`.
 
-## 7. 模型引用统计（`internal/application/repository/model_usage.go`）
+## 7. Model Usage-by-Reference Statistics (`internal/application/repository/model_usage.go`)
 
-该文件提供的是**模型引用（usage-by-reference）查询**，即回答"哪些资源正在使用某个模型"，用于删除模型前的依赖保护，而非 token 用量计费：
+This file provides **usage-by-reference** queries — answering "which resources are currently using a given model" — used to protect against deleting a model that's still in use, rather than token-usage billing:
 
-- `scopeKnowledgeBasesByModelID`：匹配 `knowledge_bases` 中任一模型绑定字段 —— `embedding_model_id`、`summary_model_id`、`image_processing_config.model_id`、`vlm_config.model_id`、`asr_config.model_id`、`wiki_config.synthesis_model_id`（Postgres 用 `->>` JSON 操作符，SQLite 用 `json_extract`，双方言等价）。
-- `scopeCustomAgentsByModelID`：匹配 `custom_agents.config` 中的 `model_id`、`rerank_model_id`、`vlm_model_id`、`asr_model_id`、`query_understand_model_id`、`question_suggestions.follow_ups.model_id`。
-- 消费方：`knowledgebase.go` / `custom_agent.go` 仓储的 `CountByModelID`，被 `internal/application/service/model.go` 的删除守卫调用（KB 或 Agent 引用计数 > 0 时阻止删除模型）。
+- `scopeKnowledgeBasesByModelID`: matches against any of the model-binding fields in `knowledge_bases` — `embedding_model_id`, `summary_model_id`, `image_processing_config.model_id`, `vlm_config.model_id`, `asr_config.model_id`, `wiki_config.synthesis_model_id` (using the `->>` JSON operator on Postgres and `json_extract` on SQLite, equivalent across both dialects).
+- `scopeCustomAgentsByModelID`: matches against `model_id`, `rerank_model_id`, `vlm_model_id`, `asr_model_id`, `query_understand_model_id`, and `question_suggestions.follow_ups.model_id` within `custom_agents.config`.
+- Consumers: `CountByModelID` in the `knowledgebase.go` / `custom_agent.go` repositories, called by the deletion guard in `internal/application/service/model.go` (a model deletion is blocked if its KB or Agent reference count is > 0).
 
-token 级别的模型用量则由 Langfuse Generation 的 `usage_details`（`TokenUsage`：input/output/total/cache_*）上报，在 Langfuse UI 中按模型 / 用户（`tenant:<id>`）/ 会话聚合查看。
+Token-level model usage, on the other hand, is reported via the `usage_details` field of a Langfuse Generation (`TokenUsage`: input/output/total/cache_*), and can be aggregated by model / user (`tenant:<id>`) / session in the Langfuse UI.
 
-## 8. 运维速查
+## 8. Operations Quick Reference
 
-| 想知道… | 去哪里 |
+| What you want to know… | Where to look |
 | --- | --- |
-| 某次请求全链路发生了什么 | 用响应头 `X-Request-ID` grep 应用日志；开启 `LLM_DEBUG_LOG` 后看 `llm_debug/<request_id>.log` |
-| 一次聊天/解析的 LLM 调用树与 token 消耗 | Langfuse UI（trace 名 `POST /api/v1/agent-chat` 或 `asynq.document:process`） |
-| 谁在什么时候改了什么 | 空间审计 `/tenants/:id/audit-log`；KB 活动 `/knowledge-bases/:id/activity`；平台审计 `/system/admin/audit-log` |
-| 为什么某文档一直失败 | `task_dead_letters` 表（scope=knowledge/knowledge_base）+ 运行时面板 archived 任务的 `last_error` |
-| 服务是否存活 | `GET /health`（200 `{"status":"ok"}`） |
-| 配置是否按预期加载 | 启动日志 `[startup-env]` 横幅（`internal/runtime/startup.go`，敏感值只显示长度） |
+| What happened across the full chain for a given request | grep the application logs by the `X-Request-ID` response header; with `LLM_DEBUG_LOG` enabled, check `llm_debug/<request_id>.log` |
+| The LLM call tree and token consumption for a chat/parse operation | Langfuse UI (trace names `POST /api/v1/agent-chat` or `asynq.document:process`) |
+| Who changed what and when | Space audit log at `/tenants/:id/audit-log`; KB activity at `/knowledge-bases/:id/activity`; platform audit log at `/system/admin/audit-log` |
+| Why a given document keeps failing | The `task_dead_letters` table (scope=knowledge/knowledge_base) + the `last_error` field of archived tasks in the runtime dashboard |
+| Whether the service is alive | `GET /health` (200 `{"status":"ok"}`) |
+| Whether configuration loaded as expected | The `[startup-env]` banner in the startup logs (`internal/runtime/startup.go`; sensitive values only show their length) |
 
-## 实现参考
+## Implementation Reference
 
-想读源码时按下表定位（路径相对仓库根目录）：
+To navigate the source code, use the table below (paths relative to the repository root):
 
-| 能力 | 源码路径 |
+| Capability | Source Path |
 | --- | --- |
-| 应用日志 | `internal/logger/logger.go` |
-| LLM 调用调试日志 | `internal/logger/llm_logger.go` |
-| 请求日志 / RequestID 中间件 | `internal/middleware/logger.go` |
-| Langfuse 追踪（OTel SDK） | `internal/tracing/langfuse/`（`config.go`、`manager.go`、`exporter.go`、`tracer.go`、`middleware.go`、`asynq.go`、`events.go`、`retrieval_obs.go`、`context.go`） |
-| 跨进程 trace 载体 | `internal/types/tracing.go` |
-| 审计日志 handler / service / repo | `internal/handler/audit_log.go`、`internal/application/service/audit_log.go`、`internal/application/repository/audit_log.go` |
-| 审计保留策略 | `internal/application/service/audit_log_retention.go`、`internal/config/config.go`（`applyAuditDefaults`） |
-| 审计动作 / 模型 | `internal/types/audit_log.go` |
-| 限流 | `internal/ratelimit/limiter.go`、`internal/middleware/auth_public_ratelimit.go` |
-| 健康检查 | `internal/router/router.go`（`GET /health`） |
-| 模型引用统计 | `internal/application/repository/model_usage.go` |
+| Application logging | `internal/logger/logger.go` |
+| LLM call debug logging | `internal/logger/llm_logger.go` |
+| Request logging / RequestID middleware | `internal/middleware/logger.go` |
+| Langfuse tracing (OTel SDK) | `internal/tracing/langfuse/` (`config.go`, `manager.go`, `exporter.go`, `tracer.go`, `middleware.go`, `asynq.go`, `events.go`, `retrieval_obs.go`, `context.go`) |
+| Cross-process trace carrier | `internal/types/tracing.go` |
+| Audit log handler / service / repo | `internal/handler/audit_log.go`, `internal/application/service/audit_log.go`, `internal/application/repository/audit_log.go` |
+| Audit retention policy | `internal/application/service/audit_log_retention.go`, `internal/config/config.go` (`applyAuditDefaults`) |
+| Audit actions / model | `internal/types/audit_log.go` |
+| Rate limiting | `internal/ratelimit/limiter.go`, `internal/middleware/auth_public_ratelimit.go` |
+| Health check | `internal/router/router.go` (`GET /health`) |
+| Model usage-by-reference statistics | `internal/application/repository/model_usage.go` |

@@ -1,90 +1,90 @@
-# Embed 安全模式
+# Embed Security Mode
 
-> **一句话**：长期密钥（发布 Token `em_…`）只放在**你自己的服务器**；访客浏览器里只有 30 分钟有效的短时令牌（`ems_…`）。
+> **In one sentence**: the long-lived key (publish token `em_…`) stays only on **your own server**; the visitor's browser only ever holds a short-lived token (`ems_…`) valid for 30 minutes.
 
-## 为什么要用？
+## Why use it?
 
-| 方式 | 发布 Token 在哪 | 风险 |
+| Approach | Where the publish token lives | Risk |
 |------|-----------------|------|
-| iframe / 普通 Widget | 写在页面 HTML 或 URL hash 里 | 任何人「查看源代码」就能复制，等于公开密钥 |
-| **安全模式 Widget** | 仅环境变量 / 密钥管理，在服务端 | 浏览器拿不到长期密钥；还可先校验访客是否登录 |
+| iframe / regular Widget | Embedded in the page HTML or URL hash | Anyone can copy it via "View Source" — effectively a public key |
+| **Security Mode Widget** | Only in environment variables / secret management, server-side | The browser never gets the long-lived key; you can also verify the visitor is logged in first |
 
-生产环境对外嵌入，**应优先用安全模式**。
+For production embeds facing the public, **Security Mode should be the default choice**.
 
-## 两种 Token
+## Two Kinds of Tokens
 
-| 名称 | 格式 | 谁持有 | 用途 |
+| Name | Format | Held by | Purpose |
 |------|------|--------|------|
-| 发布 Token | `em_…` | 仅你的服务端 | 向 WeKnora 换取短时令牌；在管理端「渠道密钥」查看 |
-| 会话 Token | `ems_…` | 访客浏览器（iframe 内） | 调聊天、上传等 embed API；约 30 分钟过期，Widget 会自动刷新 |
+| Publish Token | `em_…` | Your server only | Exchanged with WeKnora for a short-lived token; visible in the admin panel under "Channel Keys" |
+| Session Token | `ems_…` | Visitor's browser (inside the iframe) | Used to call chat, upload, and other embed APIs; expires in about 30 minutes, and the Widget refreshes it automatically |
 
-## 工作流程
+## Workflow
 
 ```
-访客浏览器                 你的后端（shop 的服务器）              WeKnora
+Visitor's browser            Your backend (shop's server)           WeKnora
      │                              │                              │
-     │ 1. 加载 Widget               │                              │
+     │ 1. Loads Widget              │                              │
      │    data-token-endpoint       │                              │
-     │    （不含 em_）               │                              │
+     │    (does not contain em_)    │                              │
      │─────────────────────────────►│                              │
-     │                              │ 2. 校验访客已登录（可选）       │
+     │                              │ 2. Verify visitor is logged in (optional) │
      │                              │ 3. POST .../embed/:id/exchange │
      │                              │    Authorization: Embed em_…  │
      │                              │─────────────────────────────►│
      │                              │◄──── session_token (ems_…) ───│
      │◄── 4. { token, expiresIn } ──│                              │
-     │ 5. iframe 用 ems_ 聊天        │                              │
+     │ 5. iframe chats using ems_   │                              │
 ```
 
-对应管理端「嵌入渠道 → 安全模式」里的两段代码：
+This maps to the two code snippets under Admin Panel → "Embed Channels → Security Mode":
 
-1. **页面脚本**：`data-token-endpoint="https://你的域名/weknora/embed-token"`（没有 `data-token`）
-2. **服务端接口**：用发布 Token 调 exchange，把 `ems_…` 返回给前端
+1. **Page script**: `data-token-endpoint="https://your-domain/weknora/embed-token"` (no `data-token`)
+2. **Server-side endpoint**: uses the publish token to call exchange and returns `ems_…` to the frontend
 
-## 集成步骤
+## Integration Steps
 
-### 第 1 步：在 WeKnora 创建渠道
+### Step 1: Create a Channel in WeKnora
 
-- 记下 **渠道 ID** 和 **发布 Token**（`em_…`）
-- 配置域名白名单（见下）
-- 配置分钟 / 日限流
+- Note down the **Channel ID** and **Publish Token** (`em_…`)
+- Configure the domain allowlist (see below)
+- Configure per-minute / per-day rate limits
 
-### 第 2 步：部署取令牌接口
+### Step 2: Deploy the Token-Exchange Endpoint
 
-在你的业务后端新增一个 HTTP 接口（路径自定），要求：
+Add a new HTTP endpoint (any path you like) to your own backend, with these requirements:
 
-**入参**：浏览器 GET 请求（Widget 会 `fetch` 这个地址）
+**Input**: a browser GET request (the Widget will `fetch` this address)
 
-**你必须做**：
+**You must**:
 
-- 校验调用方是合法访客（Session Cookie、JWT 等），未登录返回 `401`
-- 用发布 Token 调 WeKnora exchange
-- 成功时返回 JSON：`{ "token": "<ems_…>", "expiresIn": 1800 }`
+- Verify the caller is a legitimate visitor (session cookie, JWT, etc.); return `401` if not logged in
+- Call the WeKnora exchange endpoint using the publish token
+- On success, return JSON: `{ "token": "<ems_…>", "expiresIn": 1800 }`
 
-**调 exchange 的约定**：
+**Contract for calling exchange**:
 
 ```http
 POST https://<weknora-host>/api/v1/embed/<channel_id>/exchange
-Authorization: Embed <发布 Token em_…>
-Origin: https://<你的业务站点>    ← 须与渠道白名单一致，否则 403
+Authorization: Embed <publish token em_…>
+Origin: https://<your-business-site>    ← must match the channel allowlist, otherwise 403
 ```
 
-> 服务端 `fetch` 默认不带 `Origin`，需要**手动设置**与白名单匹配的 `Origin` 头。
+> Server-side `fetch` does not send an `Origin` header by default — you need to **set it manually** to match the allowlist.
 
-### 第 3 步：粘贴安全模式 Widget 代码
+### Step 3: Paste the Security Mode Widget Code
 
-把 `data-token-endpoint` 改成上一步的真实 URL。完整示例在管理端「安全模式」Tab 可复制。
+Change `data-token-endpoint` to the real URL from the previous step. A complete example can be copied from the "Security Mode" tab in the admin panel.
 
-## 服务端示例
+## Server-Side Examples
 
-以下 `<WEKNORA_HOST>`、`<CHANNEL_ID>` 替换为实际值；发布 Token 放环境变量 `WEKNORA_PUBLISH_TOKEN`，**不要**写进前端。
+Replace `<WEKNORA_HOST>` and `<CHANNEL_ID>` below with actual values; put the publish token in the environment variable `WEKNORA_PUBLISH_TOKEN` — **do not** put it in the frontend.
 
-### Node.js（Express）
+### Node.js (Express)
 
 ```javascript
 const WEKNORA_BASE = 'https://<WEKNORA_HOST>';
 const CHANNEL_ID = '<CHANNEL_ID>';
-const ALLOWED_ORIGIN = 'https://shop.example.com'; // 与渠道白名单一致
+const ALLOWED_ORIGIN = 'https://shop.example.com'; // must match the channel allowlist
 
 app.get('/weknora/embed-token', async (req, res) => {
   const hasSession = Boolean(req.cookies?.session_id);
@@ -108,7 +108,7 @@ app.get('/weknora/embed-token', async (req, res) => {
 });
 ```
 
-### Go（net/http）
+### Go (net/http)
 
 ```go
 func embedTokenHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func embedTokenHandler(w http.ResponseWriter, r *http.Request) {
 	req, _ := http.NewRequest(http.MethodPost,
 		"https://<WEKNORA_HOST>/api/v1/embed/<CHANNEL_ID>/exchange", nil)
 	req.Header.Set("Authorization", "Embed "+os.Getenv("WEKNORA_PUBLISH_TOKEN"))
-	req.Header.Set("Origin", "https://shop.example.com") // 与渠道白名单一致
+	req.Header.Set("Origin", "https://shop.example.com") // must match the channel allowlist
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode >= 300 {
 		http.Error(w, `{"error":"mint failed"}`, http.StatusBadGateway)
@@ -143,40 +143,40 @@ func embedTokenHandler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-管理端「安全模式 → 服务端示例」Tab 会按当前渠道 ID 生成带真实 URL 的片段。
+The "Security Mode → Server-Side Example" tab in the admin panel generates a snippet with the real URL for your current channel ID.
 
-## 域名白名单怎么填？
+## How Do I Fill In the Domain Allowlist?
 
-| 要放行的请求来源 | 白名单示例 |
+| Request origin to allow | Allowlist example |
 |------------------|------------|
-| 聊天 iframe 所在源站（embed 页面） | `https://app.example.com` 或 `https://embed.example.com` |
-| 你的取令牌后端（exchange 时带的 Origin） | `https://shop.example.com` |
+| The origin the chat iframe is served from (the embed page) | `https://app.example.com` or `https://embed.example.com` |
+| Your token-exchange backend (the `Origin` sent during exchange) | `https://shop.example.com` |
 
-若 embed 使用[独立子域](./embed-subdomain.md)，**两条都要加**（embed 源站 + 业务后端源站）。
+If the embed uses a [dedicated subdomain](./embed-subdomain.md), **add both** (the embed origin and your business backend's origin).
 
-开发环境可临时使用 `*`；**生产环境禁止 `*`**。
+You can temporarily use `*` in development; **`*` is forbidden in production**.
 
-## 上线检查
+## Go-Live Checklist
 
-- [ ] 发布 Token 仅通过环境变量 / 密钥服务注入，未提交到 Git、未打进前端静态包
-- [ ] 取令牌接口校验访客身份
-- [ ] 全链路 HTTPS
-- [ ] 白名单已包含 embed 源站与 exchange 使用的 Origin
-- [ ] 已配置限流；敏感智能体不要用普通模式把 Token 暴露在网页里
-- [ ] 轮换发布 Token 后，同步更新服务端环境变量
+- [ ] The publish token is injected only via environment variables / a secret manager — never committed to Git, never bundled into the frontend
+- [ ] The token-exchange endpoint verifies visitor identity
+- [ ] The entire chain runs over HTTPS
+- [ ] The allowlist includes both the embed origin and the origin used during exchange
+- [ ] Rate limiting is configured; for sensitive agents, don't use regular mode, which exposes the token on the web page
+- [ ] After rotating the publish token, the server-side environment variable is updated accordingly
 
-## 常见问题
+## FAQ
 
-| 现象 | 原因与处理 |
+| Symptom | Cause and fix |
 |------|------------|
-| exchange 返回 **401** / `publish token required` | 发布 Token 错误、已轮换，或误用了 `ems_` 会话 Token |
-| exchange 或聊天 API 返回 **403** `origin not allowed` | 白名单未包含当前请求的 `Origin`；服务端 exchange 记得手动加 `Origin` 头 |
-| iframe 一直「等待 Token」 | `token-endpoint` 未返回 `{ token, expiresIn }`，或 CORS 未允许 Widget 所在源站访问你的接口 |
-| 取令牌接口 **502** `mint failed` | WeKnora 不可达、渠道已停用，或 exchange 响应格式不对 |
-| 访客随便就能聊 | 取令牌接口未做登录校验——在 exchange 前加 Session / JWT 检查 |
+| exchange returns **401** / `publish token required` | The publish token is wrong, has been rotated, or you mistakenly used the `ems_` session token instead |
+| exchange or the chat API returns **403** `origin not allowed` | The allowlist doesn't include the current request's `Origin`; remember to manually set the `Origin` header during server-side exchange |
+| The iframe stays stuck "waiting for token" | The `token-endpoint` isn't returning `{ token, expiresIn }`, or CORS isn't allowing the Widget's origin to access your endpoint |
+| The token-exchange endpoint returns **502** `mint failed` | WeKnora is unreachable, the channel has been disabled, or the exchange response format is wrong |
+| Visitors can chat without any restriction | The token-exchange endpoint isn't performing login verification — add a session/JWT check before exchange |
 
-## 相关
+## Related
 
-- 可选：embed 独立子域 → [embed-subdomain.md](./embed-subdomain.md)
-- Widget SDK 注释：`frontend/public/weknora-widget.js`
-- 代码生成：`frontend/src/api/embed/index.ts`
+- Optional: dedicated embed subdomain → [embed-subdomain.md](./embed-subdomain.md)
+- Widget SDK comments: `frontend/public/weknora-widget.js`
+- Code generation: `frontend/src/api/embed/index.ts`

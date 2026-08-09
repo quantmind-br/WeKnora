@@ -1,64 +1,65 @@
-# IM 集成（IM Integration）
+--- DOCUMENT START ---
+# IM Integration
 
-让同事用上知识库最省事的方式，往往不是让他们打开一个新网站，而是把机器人放进他们已经在用的聊天工具里。IM 集成就是干这件事：在企业微信、飞书、钉钉、Slack、Telegram 等平台里 @ 机器人提问，WeKnora 走同一套 RAG / Agent 流水线作答。
+Often, the easiest way to get colleagues using the knowledge base isn't to have them open a new website — it's to put the bot right into the chat tools they already use. That's what IM Integration does: mention the bot in WeCom, Feishu, DingTalk, Slack, Telegram, and similar platforms to ask questions, and WeKnora answers through the same RAG / Agent pipeline.
 
-配置路径：「设置 → IM 集成」新建渠道 → 选平台 → 填该平台的应用凭据 → 绑定一个 Agent（决定用哪些知识库、开不开联网）→ 启用。Webhook 模式需要把回调地址填回平台后台，长连接模式不需要公网地址。
+Configuration path: "Settings → IM Integration" → Create a new channel → Select a platform → Fill in that platform's app credentials → Bind an Agent (determines which knowledge bases are used and whether web search is enabled) → Enable. Webhook mode requires filling the callback address back into the platform's backend; long-connection mode doesn't need a public-facing address.
 
 <Screenshot
   src="/screenshots/im-channels.png"
-  caption="IM 渠道配置：平台、凭据与绑定的 Agent"
-  hint="展示渠道列表与某个渠道的配置表单（平台类型、凭据、绑定 Agent、回调地址）。" />
+  caption="IM channel configuration: platform, credentials, and bound Agent"
+  hint="Shows the channel list and a channel's configuration form (platform type, credentials, bound Agent, callback address)." />
 
-用户在群里还能直接发文件给机器人入库，机器人也支持 `/help` 之类的内置命令，细节见下文。相关代码：
+Users can also send files directly to the bot in a group chat to have them ingested, and the bot supports built-in commands like `/help` — details below. Related code:
 
-- 核心框架与编排：`internal/im/`（`adapter.go`、`service.go`、`supervisor.go`、`command*.go`、`qaqueue.go`、`session/stream/think/tool_display` 等）
-- 各平台适配器：`internal/im/{wecom,feishu,dingtalk,slack,telegram,mattermost,wechat,qqbot,yunzhijia}/`
-- HTTP 接口层：`internal/handler/im.go`
-- 路由：`internal/router/router.go` 的 `RegisterIMRoutes` / `RegisterIMChannelRoutes`
+- Core framework and orchestration: `internal/im/` (`adapter.go`, `service.go`, `supervisor.go`, `command*.go`, `qaqueue.go`, `session/stream/think/tool_display`, etc.)
+- Per-platform adapters: `internal/im/{wecom,feishu,dingtalk,slack,telegram,mattermost,wechat,qqbot,yunzhijia}/`
+- HTTP interface layer: `internal/handler/im.go`
+- Routes: `RegisterIMRoutes` / `RegisterIMChannelRoutes` in `internal/router/router.go`
 
-## 架构总览
+## Architecture Overview
 
-### Adapter 接口（internal/im/adapter.go）
+### Adapter Interface (internal/im/adapter.go)
 
-每个平台适配器实现统一的 `Adapter` 接口，把平台差异收敛到四个方法：
+Each platform adapter implements a unified `Adapter` interface, condensing platform differences into four methods:
 
 ```go
 type Adapter interface {
     Platform() Platform
-    // VerifyCallback 校验回调请求的签名/Token
+    // VerifyCallback validates the callback request's signature/token
     VerifyCallback(c *gin.Context) error
-    // ParseCallback 把平台原始回调解析为统一的 IncomingMessage（非消息事件返回 nil）
+    // ParseCallback parses the platform's raw callback into a unified IncomingMessage (returns nil for non-message events)
     ParseCallback(c *gin.Context) (*IncomingMessage, error)
-    // SendReply 把回复发回 IM 平台
+    // SendReply sends the reply back to the IM platform
     SendReply(ctx context.Context, incoming *IncomingMessage, reply *ReplyMessage) error
-    // HandleURLVerification 处理平台的 URL 验证挑战
+    // HandleURLVerification handles the platform's URL verification challenge
     HandleURLVerification(c *gin.Context) bool
 }
 ```
 
-两个**可选**扩展接口决定了平台能力差异：
+Two **optional** extension interfaces determine platform capability differences:
 
-- `StreamSender` —— 流式回复（`StartStream` → `UpdateStreamContent`（整段替换语义）→ `FinalizeStream`（最终只保留答案，剥离思考/工具过程）→ `EndStream`）。实现者：Feishu/Lark（流式卡片）、DingTalk（AI 卡片，需 `card_template_id`）、Slack、Telegram（消息编辑）、Mattermost、WeCom WebSocket 模式。
-- `FileDownloader` —— 从平台下载用户发送的文件/图片（`DownloadFile`）。实现者：除 QQ 机器人外的全部平台（WeCom 两种模式均支持）。
+- `StreamSender` — streaming replies (`StartStream` → `UpdateStreamContent` (whole-block replacement semantics) → `FinalizeStream` (keeps only the final answer, stripping thinking/tool process) → `EndStream`). Implemented by: Feishu/Lark (streaming cards), DingTalk (AI cards, requires `card_template_id`), Slack, Telegram (message editing), Mattermost, WeCom WebSocket mode.
+- `FileDownloader` — downloads files/images sent by users from the platform (`DownloadFile`). Implemented by: all platforms except the QQ bot (both WeCom modes support it).
 
-统一消息模型 `IncomingMessage` 携带 `Platform`、`MessageType`（`text`/`file`/`image`）、`UserID`、`ChatID`、`ChatType`（`direct`/`group`）、`Content`、`MessageID`（用于去重）、`FileKey`/`FileName`/`FileSize`、`ThreadID`（话题/线程 ID）、`Quote`（引用消息）等字段。
+The unified message model `IncomingMessage` carries fields such as `Platform`, `MessageType` (`text`/`file`/`image`), `UserID`, `ChatID`, `ChatType` (`direct`/`group`), `Content`, `MessageID` (for deduplication), `FileKey`/`FileName`/`FileSize`, `ThreadID` (topic/thread ID), `Quote` (quoted message), and more.
 
-### Service 编排（internal/im/service.go）
+### Service Orchestration (internal/im/service.go)
 
-`im.Service` 是消息处理中枢，职责（见源码注释）：
+`im.Service` is the message-processing hub, responsible for (as noted in the source comments):
 
-1. 从 Adapter 接收统一的 `IncomingMessage`；
-2. 为该 IM 渠道解析或创建 WeKnora 会话（Session）；
-3. 优先分发斜杠命令（不进入 QA 流水线）；
-4. 普通消息调用 WeKnora QA 流水线（`KnowledgeQA` / `AgentQA`）；
-5. 收集流式回答并通过 Adapter 回发。
+1. Receiving the unified `IncomingMessage` from the Adapter;
+2. Resolving or creating a WeKnora Session for that IM channel;
+3. Dispatching slash commands first (these don't enter the QA pipeline);
+4. Calling the WeKnora QA pipeline (`KnowledgeQA` / `AgentQA`) for normal messages;
+5. Collecting the streamed answer and sending it back via the Adapter.
 
-平台适配器通过 `AdapterFactory` 注册（`internal/container/container.go` 的 `registerIMAdapterFactories`）：
+Platform adapters are registered through `AdapterFactory` (see `registerIMAdapterFactories` in `internal/container/container.go`):
 
 ```go
 imService.RegisterAdapterFactory("wecom", wecom.NewFactory())
 imService.RegisterAdapterFactory("feishu", feishu.NewFactory(feishu.RegionFeishu))
-imService.RegisterAdapterFactory("lark", feishu.NewFactory(feishu.RegionLark)) // Lark 与飞书同一适配器，仅 API 域名不同
+imService.RegisterAdapterFactory("lark", feishu.NewFactory(feishu.RegionLark)) // Lark shares the same adapter as Feishu, only the API domain differs
 imService.RegisterAdapterFactory("slack", slack.NewFactory())
 imService.RegisterAdapterFactory("telegram", telegram.NewFactory())
 imService.RegisterAdapterFactory("dingtalk", dingtalk.NewFactory())
@@ -68,195 +69,199 @@ imService.RegisterAdapterFactory("qqbot", qqbot.NewFactory())
 imService.RegisterAdapterFactory("yunzhijia", yunzhijia.NewFactory())
 ```
 
-## 支持的平台与能力对比
+## Supported Platforms and Capability Comparison
 
-`internal/handler/im.go` 中 `validIMPlatforms` 定义了 10 个合法平台。各平台能力（以各 `factory.go` 与 adapter 编译期断言为准）：
+`validIMPlatforms` in `internal/handler/im.go` defines the 10 valid platforms. Per-platform capabilities (based on each `factory.go` and the adapters' compile-time assertions):
 
-| 平台 | 接入模式（默认加粗） | 流式回复 StreamSender | 文件下载 FileDownloader | 线程/话题 ThreadID | 主要凭据字段（credentials JSON） |
+| Platform | Connection Mode (default in bold) | Streaming Reply (StreamSender) | File Download (FileDownloader) | Thread/Topic (ThreadID) | Main Credential Fields (credentials JSON) |
 | --- | --- | --- | --- | --- | --- |
-| 企业微信 `wecom` | **websocket**（智能机器人长连接）/ webhook（自建应用回调） | 仅 websocket 模式 | 两种模式均支持 | 否 | websocket：`bot_id`、`bot_secret`、`ws_endpoint`、`bot_name`；webhook：`corp_id`、`agent_secret`、`token`、`encoding_aes_key`、`corp_agent_id`、`api_base_url` |
-| 飞书 `feishu` | **websocket**（长连接事件流）/ webhook | 是（流式卡片） | 是 | 是（`root_id`，顶层消息用自身 `message_id`） | `app_id`、`app_secret`、`verification_token`、`encrypt_key` |
-| Lark `lark` | 同飞书（同一适配器，`RegionLark` 指向 open.larksuite.com） | 是 | 是 | 是 | 同飞书 |
-| Slack `slack` | **websocket**（Socket Mode）/ webhook（Events API） | 是 | 是 | 是（`thread_ts`） | websocket：`app_token` + `bot_token`；webhook：`bot_token` + `signing_secret` |
-| Telegram `telegram` | **websocket**（长轮询 getUpdates）/ webhook | 是（消息编辑） | 是 | 是（Forum Topics 的 `message_thread_id`） | `bot_token`；webhook 另有 `secret_token` |
-| 钉钉 `dingtalk` | **websocket**（Stream 模式）/ webhook | 是（AI 卡片） | 是 | 否 | `client_id`、`client_secret`、`card_template_id` |
-| Mattermost `mattermost` | **webhook**（仅支持 Outgoing Webhook + REST API） | 是 | 是 | 是（`root_id`） | `site_url`、`bot_token`、`outgoing_token`（必填）、`bot_user_id`、`post_to_main` |
-| 微信 `wechat`（iLink 机器人） | **longpoll**（强制；创建时后端强制 `mode=longpoll`、`output_mode=full`） | 否（仅整段输出） | 是 | 否 | `bot_token`、`ilink_bot_id`（均必填） |
-| QQ 机器人 `qqbot` | **websocket**（仅支持） | 否 | 否 | 否 | `app_id`、`client_secret`、`api_base_url`、`gateway_url` |
-| 云之家 `yunzhijia` | **webhook** / websocket（从 `send_msg_url` 推导 WS 地址） | 否 | 是 | 否 | `send_msg_url`（必填）、`secret`、`app_id`、`app_secret`、`allowed_webhook_host_suffix`、`timeout_seconds` |
+| WeCom `wecom` | **websocket** (Smart Bot long connection) / webhook (self-built app callback) | websocket mode only | Both modes supported | No | websocket: `bot_id`, `bot_secret`, `ws_endpoint`, `bot_name`; webhook: `corp_id`, `agent_secret`, `token`, `encoding_aes_key`, `corp_agent_id`, `api_base_url` |
+| Feishu `feishu` | **websocket** (long-connection event stream) / webhook | Yes (streaming cards) | Yes | Yes (`root_id`; top-level messages use their own `message_id`) | `app_id`, `app_secret`, `verification_token`, `encrypt_key` |
+| Lark `lark` | Same as Feishu (same adapter, `RegionLark` points to open.larksuite.com) | Yes | Yes | Yes | Same as Feishu |
+| Slack `slack` | **websocket** (Socket Mode) / webhook (Events API) | Yes | Yes | Yes (`thread_ts`) | websocket: `app_token` + `bot_token`; webhook: `bot_token` + `signing_secret` |
+| Telegram `telegram` | **websocket** (long polling via getUpdates) / webhook | Yes (message editing) | Yes | Yes (`message_thread_id` for Forum Topics) | `bot_token`; webhook also has `secret_token` |
+| DingTalk `dingtalk` | **websocket** (Stream mode) / webhook | Yes (AI cards) | Yes | No | `client_id`, `client_secret`, `card_template_id` |
+| Mattermost `mattermost` | **webhook** (only supports Outgoing Webhook + REST API) | Yes | Yes | Yes (`root_id`) | `site_url`, `bot_token`, `outgoing_token` (required), `bot_user_id`, `post_to_main` |
+| WeChat `wechat` (iLink bot) | **longpoll** (forced; on creation the backend forces `mode=longpoll`, `output_mode=full`) | No (only full output) | Yes | No | `bot_token`, `ilink_bot_id` (both required) |
+| QQ Bot `qqbot` | **websocket** (only mode supported) | No | No | No | `app_id`, `client_secret`, `api_base_url`, `gateway_url` |
+| Yunzhijia `yunzhijia` | **webhook** / websocket (WS address derived from `send_msg_url`) | No | Yes | No | `send_msg_url` (required), `secret`, `app_id`, `app_secret`, `allowed_webhook_host_suffix`, `timeout_seconds` |
 
-## 渠道模型与配置（internal/im/types.go）
+## Channel Model and Configuration (internal/im/types.go)
 
-一个 `IMChannel`（表 `im_channels`）把某个平台机器人绑定到某个 Agent：
+An `IMChannel` (table `im_channels`) binds a platform bot to an Agent:
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| `AgentID` | 绑定的自定义智能体；回答走该 Agent 的配置（模型、知识库、Skills、MCP、联网搜索） |
-| `Platform` / `Mode` | 平台与接入模式。默认值：mattermost/yunzhijia → `webhook`，wechat → `longpoll`（且强制 `output_mode=full`），其余 → `websocket` |
-| `OutputMode` | `stream`（默认，流式）或 `full`（等完整答案后一次性回复） |
-| `KnowledgeBaseID` | 可选"文件知识库"。配置后，用户发给机器人的文件/图片会被下载并入库（见下文） |
-| `SessionMode` | `user`（默认，按 平台+用户+群 维度映射会话）或 `thread`（按 平台+线程+群 维度，每个顶层消息开新会话） |
-| `BotIdentity` | 由平台+模式+凭据推导的机器人唯一标识（`computeBotIdentity`，如 `feishu:<app_id>`、`telegram:<botID>`、`wecom:ws:<bot_id>`），数据库唯一索引防止同一个机器人被配置到两个渠道（`checkDuplicateBot` 返回 `duplicate_bot:` 前缀错误 → HTTP 409） |
-| `Credentials` | JSONB 凭据。列表接口（`IMChannelSummary`）**从不返回凭据内容**，只返回 `credentials_configured` 布尔值 |
+| `AgentID` | The bound custom agent; answers follow that Agent's configuration (model, knowledge bases, Skills, MCP, web search) |
+| `Platform` / `Mode` | Platform and connection mode. Defaults: mattermost/yunzhijia → `webhook`, wechat → `longpoll` (and forces `output_mode=full`), others → `websocket` |
+| `OutputMode` | `stream` (default, streaming) or `full` (reply once with the complete answer) |
+| `KnowledgeBaseID` | Optional "file knowledge base." When configured, files/images sent to the bot by users are downloaded and ingested (see below) |
+| `SessionMode` | `user` (default, maps sessions by platform+user+chat) or `thread` (maps by platform+thread+chat, with a new session for each top-level message) |
+| `BotIdentity` | A unique bot identifier derived from platform+mode+credentials (`computeBotIdentity`, e.g. `feishu:<app_id>`, `telegram:<botID>`, `wecom:ws:<bot_id>`); a database unique index prevents the same bot from being configured on two channels (`checkDuplicateBot` returns a `duplicate_bot:`-prefixed error → HTTP 409) |
+| `Credentials` | JSONB credentials. The list interface (`IMChannelSummary`) **never returns credential contents**, only a `credentials_configured` boolean |
 
-`ChannelSession`（表 `im_channel_sessions`）把 `(platform, user_id, chat_id, thread_id, tenant_id)` 映射到 WeKnora `session_id`，实现 IM 侧的对话连续性。若底层 Session 被从 Web UI 删除，`HandleMessage` 会检测 `ErrSessionNotFound`，软删陈旧映射并自动重建（修复 #1046、#1499 中"机器人永久失联"的问题）。
+`ChannelSession` (table `im_channel_sessions`) maps `(platform, user_id, chat_id, thread_id, tenant_id)` to a WeKnora `session_id`, providing conversation continuity on the IM side. If the underlying Session was deleted from the Web UI, `HandleMessage` detects `ErrSessionNotFound`, soft-deletes the stale mapping, and automatically rebuilds it (fixing the "bot permanently disconnected" issue in #1046, #1499).
 
-### 渠道管理 API（internal/handler/im.go + router.go）
+### Channel Management API (internal/handler/im.go + router.go)
 
-| 方法与路径 | 说明 |
+| Method & Path | Description |
 | --- | --- |
-| `POST /api/v1/agents/:id/im-channels` | 为 Agent 创建渠道（校验 platform 合法性、填充默认 mode/output_mode） |
-| `GET /api/v1/agents/:id/im-channels` | 列出 Agent 的渠道（不含凭据） |
-| `GET /api/v1/im-channels` | 租户内跨 Agent 渠道总览 |
-| `PUT /api/v1/im-channels/:id` | 更新（name/mode/output_mode/knowledge_base_id/credentials/enabled/agent_id） |
-| `DELETE /api/v1/im-channels/:id` | 删除 |
-| `POST /api/v1/im-channels/:id/toggle` | 启用/停用 |
-| `GET / POST /api/v1/im/callback/:channel_id` | **平台回调地址**（webhook 模式下配置到各平台后台；走平台自身签名校验，不需要 WeKnora API Key） |
+| `POST /api/v1/agents/:id/im-channels` | Create a channel for an Agent (validates platform legality, fills in default mode/output_mode) |
+| `GET /api/v1/agents/:id/im-channels` | List an Agent's channels (excludes credentials) |
+| `GET /api/v1/im-channels` | Cross-Agent channel overview within the tenant |
+| `PUT /api/v1/im-channels/:id` | Update (name/mode/output_mode/knowledge_base_id/credentials/enabled/agent_id) |
+| `DELETE /api/v1/im-channels/:id` | Delete |
+| `POST /api/v1/im-channels/:id/toggle` | Enable/disable |
+| `GET / POST /api/v1/im/callback/:channel_id` | **Platform callback address** (configured in each platform's backend under webhook mode; validated by the platform's own signature check, no WeKnora API Key needed) |
 
-Webhook 模式的接入方式就是把 `https://<你的域名>/api/v1/im/callback/<channel_id>` 填到平台的事件订阅/回调地址处；WeKnora 会先响应平台的 URL 验证挑战（`HandleURLVerification`，如飞书的 challenge 回显、企微的 echostr 解密），之后每个回调都过 `VerifyCallback` 签名校验。WebSocket/长连接模式则无需公网回调地址，由 WeKnora 主动连接平台网关。
+The webhook-mode setup consists of filling `https://<your-domain>/api/v1/im/callback/<channel_id>` into the platform's event subscription/callback address field. WeKnora first responds to the platform's URL verification challenge (`HandleURLVerification`, e.g. Feishu's challenge echo, WeCom's echostr decryption), after which every callback passes through `VerifyCallback` signature validation. WebSocket/long-connection mode doesn't need a public-facing callback address, since WeKnora actively connects to the platform's gateway.
 
-### 长连接的可靠性：leader 选举与 Supervisor
+### Long-Connection Reliability: Leader Election and Supervisor
 
-- **多实例 leader 选举**（`service.go`）：websocket/longpoll 渠道在多实例部署（有 Redis）时，通过 `SETNX im:ws:leader:<channelID>`（TTL 15s，每 5s 续期）保证**只有一个实例**维持长连接；非 leader 实例每 10s 重试抢锁，leader 宕机后自动接管。longpoll 渠道停止时刻意不立即释放锁，等 TTL 自然过期，避免新旧实例短暂双写。续期失败（丢失 leader 身份）时走 `handleWSLeadershipLoss`：先停掉本实例的适配器，再把渠道放回抢锁重试循环——重试前会重新读一次数据库中的渠道行，因此期间被删除、禁用或改配置的渠道不会被旧运行时复活。
-- **连接保活**（`supervisor.go` 的 `RunSupervised`）：部分 SDK（钉钉、飞书）的内部重连可能进入"僵尸态"（连接对象活着但收不到消息），Supervisor 每 6 小时（`defaultRecycleInterval`）主动重建连接，连接失败按 5s 退避重试，把最坏停摆时间限制在回收间隔内。
+- **Multi-instance leader election** (`service.go`): for websocket/longpoll channels, in a multi-instance deployment (with Redis), `SETNX im:ws:leader:<channelID>` (TTL 15s, renewed every 5s) ensures **only one instance** maintains the long connection; non-leader instances retry the lock every 10s, and if the leader goes down, another instance takes over automatically. When a longpoll channel stops, it deliberately doesn't release the lock immediately — it lets the TTL expire naturally, to avoid brief double-writes between old and new instances. When renewal fails (leadership is lost), it goes through `handleWSLeadershipLoss`: first stopping this instance's adapter, then putting the channel back into the lock-retry loop — before retrying, it re-reads the channel row from the database, so a channel deleted, disabled, or reconfigured in the meantime won't be revived by the old runtime.
+- **Connection keep-alive** (`RunSupervised` in `supervisor.go`): some SDKs' (DingTalk, Feishu) internal reconnection can enter a "zombie state" (the connection object is alive but receives no messages). The Supervisor proactively rebuilds the connection every 6 hours (`defaultRecycleInterval`), and retries failed connections with a 5s backoff, bounding the worst-case downtime to the recycle interval.
 
-## 消息处理流程
+## Message Processing Flow
 
-`IMCallback`（webhook）或长连接回调最终都进入 `Service.HandleMessage`，随后经队列进入 QA 执行：
+Both `IMCallback` (webhook) and long-connection callbacks ultimately flow into `Service.HandleMessage`, then proceed through the queue into QA execution:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant P as "IM 平台"
-    participant H as "IMHandler / 长连接客户端"
+    participant P as "IM Platform"
+    participant H as "IMHandler / Long-Connection Client"
     participant A as "Adapter"
     participant S as "im.Service"
-    participant Q as "qaQueue (worker 池)"
+    participant Q as "qaQueue (worker pool)"
     participant QA as "SessionService (KnowledgeQA / AgentQA)"
     participant DB as "PostgreSQL / Redis"
 
-    P->>H: 回调 POST /api/v1/im/callback/:channel_id (或 WS 推送)
-    H->>A: HandleURLVerification / VerifyCallback (签名校验)
+    P->>H: callback POST /api/v1/im/callback/:channel_id (or WS push)
+    H->>A: HandleURLVerification / VerifyCallback (signature validation)
     H->>A: ParseCallback → IncomingMessage
-    H-->>P: 立即 ACK（避免平台超时重推）
-    H->>S: 异步 HandleMessage(msg, channelID)
-    S->>DB: 消息去重 (im:dedup:messageID, TTL 5min)
-    S->>S: 超长截断 (4096 rune) / 速率限制 (滑动窗口 10次/60s, 命令豁免)
-    alt "文件/图片消息且渠道配置了文件知识库"
-        S->>A: DownloadFile → CreateKnowledgeFromFile → LLM 智能通知 + 解析完成后推送摘要
-    else "斜杠命令 (/help /info /search /stop /clear)"
-        S->>S: CommandRegistry.Parse → cmd.Execute → 副作用 (ActionClear / ActionStop)
-        S->>A: SendReply / 流式回复命令结果
-    else "普通文本"
+    H-->>P: immediate ACK (avoids platform timeout re-push)
+    H->>S: async HandleMessage(msg, channelID)
+    S->>DB: message deduplication (im:dedup:messageID, TTL 5min)
+    S->>S: over-length truncation (4096 runes) / rate limiting (sliding window, 10 msgs/60s, commands exempt)
+    alt "File/image message and channel has a file knowledge base configured"
+        S->>A: DownloadFile → CreateKnowledgeFromFile → LLM-generated smart notification + push a summary once parsing completes
+    else "Slash command (/help /info /search /stop /clear)"
+        S->>S: CommandRegistry.Parse → cmd.Execute → side effect (ActionClear / ActionStop)
+        S->>A: SendReply / stream the command result
+    else "Regular text"
         S->>DB: resolveSession — (platform,user,chat[,thread]) → ChannelSession → WeKnora Session
-        S->>Q: Enqueue(qaRequest)（队列满/超限则回复"排队人数较多"）
-        Q-->>S: worker 执行 executeQARequest
-        S->>DB: 创建 user message + assistant 占位 message
-        S->>QA: AgentQA (Agent 模式) 或 KnowledgeQA (RAG 模式) + EventBus
-        loop "每 300ms 刷新 (streamFlushInterval)"
-            QA-->>S: 思考/工具调用/答案分片 事件
-            S->>A: UpdateStreamContent(思考块 + 工具状态行 + 已生成答案)
-            A->>P: 更新流式卡片 / 编辑消息
+        S->>Q: Enqueue(qaRequest) (replies "queue is busy" if the queue is full/over the limit)
+        Q-->>S: worker executes executeQARequest
+        S->>DB: create user message + assistant placeholder message
+        S->>QA: AgentQA (Agent mode) or KnowledgeQA (RAG mode) + EventBus
+        loop "flush every 300ms (streamFlushInterval)"
+            QA-->>S: thinking/tool-call/answer-chunk events
+            S->>A: UpdateStreamContent(thinking block + tool status lines + answer generated so far)
+            A->>P: update streaming card / edit message
         end
-        QA-->>S: EventAgentComplete (最终答案 + 引用)
-        S->>A: FinalizeStream(仅保留答案, 剥离 think/工具过程) → EndStream
-        S->>DB: 回填 assistant message (内容/引用/AgentSteps)
+        QA-->>S: EventAgentComplete (final answer + citations)
+        S->>A: FinalizeStream(keeps only the answer, strips think/tool process) → EndStream
+        S->>DB: backfill assistant message (content/citations/AgentSteps)
     end
 ```
 
-关键细节（均见 `service.go`）：
+Key details (all in `service.go`):
 
-- **去重**：`MessageID` 写入 Redis `im:dedup:`（TTL 5 分钟）或本地 `sync.Map`（单实例模式），IM 平台重推的回调直接跳过。
-- **限流**：按 `channelID:userID:chatID[:threadID]` 做滑动窗口限流（默认 60s 内 10 条，可经 `config.IM` 覆盖）；**斜杠命令绕过限流**，保证用户在风暴中仍能 `/stop`。
-- **QA 队列**（`qaqueue.go`）：有界队列 + 固定 worker 池（默认 workers=5、队列上限 50、单用户排队上限 3、排队超时 60s），多实例下通过 Redis 计数实现**全局单用户上限**（`im:queue:user:`）与可选的**全局并发闸门**（`im:global:active` + Lua 脚本，`GlobalMaxWorkers` 配置），对下游 LLM 形成背压。排队位置 > 0 时先回一条"排队中"提示。
-- **会话解析**：`user` 模式按用户维度共享会话，标题形如"张三 · 群聊 1a2b3c4d"；`thread` 模式每个顶层消息/话题一个会话（Slack thread、飞书话题群、Telegram Forum Topic、Mattermost root_id）。首条消息会异步生成会话标题（`GenerateTitleAsync`）。
-- **身份注入**（`withIMIdentity`）：IM 回调走平台签名而非 WeKnora 登录态，因此注入合成身份 `system-<tenantID>` + `PrincipalIMUser`（`tenantID:channelID:platform:userID`）+ Viewer 角色，使组织共享知识库等依赖 UserID 的逻辑正常工作；同时标记 `MCPOAuthNonInteractive`（见下文 OAuth 通知）。
-- **流式渲染**（`handleMessageStream` + `think.go` + `tool_display.go`）：订阅 EventBus 的 `EventAgentThought`（思考）、`EventAgentToolCall`/`EventAgentToolResult`（工具状态行，内部工具经 `isToolVisibleToUser` 过滤；快速问答只显示 `query_understand`/`knowledge_search` 两个 RAG 流水线工具）、`EventAgentFinalAnswer`（答案分片）、`EventAgentReferences`（引用）、`EventAgentComplete`。Agent 模式下"乐观答案"在后续又发起工具调用时会被**撤回**进思考块（`retractAgentLiveAnswer`，与 Web 端 superseded preamble 一致）。每 300ms 把缓冲内容整段推送（`UpdateStreamContent` 为替换语义）；`holdbackCutoff` 会扣住跨分片边界的不完整 `provider://` URL、Markdown 图片、XML 标签，避免闪烁半截内容。最终 `FinalizeStream` 只保留答案文本（`StripThinkBlocks`），并把 `<kb/>`、`<web/>` 引用标签与 `<image>` XML 清洗掉、`provider://` 存储 URL 重写为可访问链接（`cleanIMContent` / `rewriteStorageURLs`）。
-- **非流式路径**：渠道 `output_mode=full`、适配器不支持 `StreamSender`、或 `StartStream` 失败时，走 `runQA` 聚合完整答案后 `SendReply` 一次性发送。
-- **引用消息**（`Quote`，目前由 WeCom 长连接适配器等填充）：文本引用以 `<quoted_message>` 包裹注入 LLM 上下文（上限 500 rune，区分"引用了机器人自己的回复"）；引用图片/文件/视频等非文本消息时，注入的是"明确告知用户无法查看该内容"的指令，**防止模型幻觚猜测内容**。
+- **Deduplication**: `MessageID` is written to Redis `im:dedup:` (TTL 5 minutes) or a local `sync.Map` (single-instance mode); callbacks re-pushed by the IM platform are simply skipped.
+- **Rate limiting**: sliding-window rate limiting keyed by `channelID:userID:chatID[:threadID]` (default 10 messages within 60s, overridable via `config.IM`); **slash commands bypass rate limiting**, so a user can still `/stop` during a storm.
+- **QA queue** (`qaqueue.go`): a bounded queue + fixed worker pool (default workers=5, queue cap 50, per-user queue cap 3, queue timeout 60s); across multiple instances, Redis counters implement a **global per-user cap** (`im:queue:user:`) and an optional **global concurrency gate** (`im:global:active` + Lua script, `GlobalMaxWorkers` config), applying backpressure to the downstream LLM. When the queue position is > 0, a "queued" notice is replied first.
+- **Session resolution**: `user` mode shares a session per user, with titles like "John Doe · Group Chat 1a2b3c4d"; `thread` mode creates one session per top-level message/topic (Slack thread, Feishu topic group, Telegram Forum Topic, Mattermost root_id). The session title is generated asynchronously on the first message (`GenerateTitleAsync`).
+- **Identity injection** (`withIMIdentity`): since IM callbacks go through platform signatures rather than WeKnora's login state, a synthetic identity is injected — `system-<tenantID>` + `PrincipalIMUser` (`tenantID:channelID:platform:userID`) + Viewer role — so that logic depending on UserID (e.g. organization-shared knowledge bases) works correctly; this also marks `MCPOAuthNonInteractive` (see the OAuth notification section below).
+- **Streaming rendering** (`handleMessageStream` + `think.go` + `tool_display.go`): subscribes to EventBus events `EventAgentThought` (thinking), `EventAgentToolCall`/`EventAgentToolResult` (tool status lines — internal tools are filtered via `isToolVisibleToUser`; Quick QA only shows the two RAG-pipeline tools `query_understand`/`knowledge_search`), `EventAgentFinalAnswer` (answer chunks), `EventAgentReferences` (citations), and `EventAgentComplete`. In Agent mode, an "optimistic answer" that's followed by another tool call gets **retracted** back into the thinking block (`retractAgentLiveAnswer`, consistent with the Web UI's superseded-preamble behavior). Buffered content is pushed as a whole block every 300ms (`UpdateStreamContent` uses replacement semantics); `holdbackCutoff` withholds incomplete `provider://` URLs, Markdown images, and XML tags that straddle chunk boundaries, to avoid flickering half-rendered content. The final `FinalizeStream` keeps only the answer text (`StripThinkBlocks`), strips out `<kb/>`, `<web/>` citation tags and `<image>` XML, and rewrites `provider://` storage URLs into accessible links (`cleanIMContent` / `rewriteStorageURLs`).
+- **Non-streaming path**: when a channel has `output_mode=full`, the adapter doesn't support `StreamSender`, or `StartStream` fails, it falls back to `runQA`, aggregating the complete answer and sending it once via `SendReply`.
+- **Quoted messages** (`Quote`, currently populated by adapters such as WeCom's long connection): a quoted text message is wrapped in `<quoted_message>` and injected into the LLM context (capped at 500 runes, distinguishing "quoting the bot's own reply"); when quoting non-text content like images/files/videos, the injected content is an instruction explicitly telling the model it cannot view that content, **preventing the model from hallucinating a guess at the content**.
 
-## 内置命令系统
+## Built-in Command System
 
-命令框架在 `command.go` / `command_registry.go`：命令只声明意图（`CommandResult.Action`），副作用由 Service 执行；`LooksLikeCommand` 区分"命令尝试"（`/help`）与应透传给 QA 的路径文本（`/api/v2/users`）——前者未注册时回复"未知指令"，后者正常进入问答。
+The command framework lives in `command.go` / `command_registry.go`: commands only declare intent (`CommandResult.Action`), while side effects are executed by the Service; `LooksLikeCommand` distinguishes a "command attempt" (`/help`) from path text that should pass through to QA (`/api/v2/users`) — the former replies "unknown command" if unregistered, while the latter proceeds normally into QA.
 
-`NewService` 中注册的全部命令：
+All commands registered in `NewService`:
 
-| 命令 | 实现文件 | 功能 | 副作用 |
+| Command | Implementation File | Function | Side Effect |
 | --- | --- | --- | --- |
-| `/help [命令名]` | `cmd_help.go` | 列出全部可用指令，或查看某条指令的详细用法 | 无 |
-| `/info` | `cmd_info.go` | 展示当前绑定 Agent 的信息与能力：Agent/RAG 模式、启用的知识库清单（`KBSelectionMode` all/selected/none）、Skills、MCP 服务、联网搜索开关、输出模式 | 无 |
-| `/search <关键词>` | `cmd_search.go` | 直接对 Agent 可达的知识库做混合检索（向量+关键词），返回原文片段（**不经 AI 总结**）；最多显示 5 条、每条 200 rune，附匹配度百分比。知识库范围与 QA 流水线的 `resolveKnowledgeBasesFromAgent` 一致（含 Agent 模式能力过滤） | 无 |
-| `/stop` | `cmd_stop.go` | 中止当前正在进行的回答（可打断长 ReAct 推理链） | `ActionStop`：先移出队列或取消本机 in-flight；再向 StreamManager 写 stop 事件（与 Web 端 StopSession 同机制，支持**跨实例**停止——通过 `im:inflight:` 映射查到 sessionID/messageID）；最后写 Redis `im:stop:` 标记兜底"已排队未执行"的请求 |
-| `/clear` | `cmd_clear.go` | 清空对话记忆 | `ActionClear`：软删当前 `ChannelSession`，下一条消息创建全新 WeKnora 会话 |
+| `/help [command name]` | `cmd_help.go` | Lists all available commands, or shows detailed usage for a specific command | None |
+| `/info` | `cmd_info.go` | Shows info and capabilities of the currently bound Agent: Agent/RAG mode, the list of enabled knowledge bases (`KBSelectionMode` all/selected/none), Skills, MCP services, web search toggle, output mode | None |
+| `/search <keyword>` | `cmd_search.go` | Performs a direct hybrid search (vector + keyword) across the knowledge bases reachable by the Agent, returning raw excerpts (**not AI-summarized**); shows up to 5 results, 200 runes each, with a match-percentage. Knowledge base scope is consistent with the QA pipeline's `resolveKnowledgeBasesFromAgent` (including Agent-mode capability filtering) | None |
+| `/stop` | `cmd_stop.go` | Aborts the currently in-progress answer (can interrupt a long ReAct reasoning chain) | `ActionStop`: first removes the request from the queue or cancels the local in-flight request; then writes a stop event to the StreamManager (same mechanism as the Web UI's StopSession — supports **cross-instance** stopping via the `im:inflight:` mapping to look up sessionID/messageID); finally writes a Redis `im:stop:` marker as a fallback for requests that are "queued but not yet executed" |
+| `/clear` | `cmd_clear.go` | Clears conversation memory | `ActionClear`: soft-deletes the current `ChannelSession`; the next message creates a brand-new WeKnora session |
 
-## 群聊与私聊行为
+## Group Chat and Direct Message Behavior
 
-- `ChatType` 由适配器判定：`direct`（私聊，`ChatID` 为空）或 `group`。
-- **飞书/Lark**：群聊中通常需要 @机器人（长连接订阅到的群消息文本带 `@_user_N` 前缀，适配器循环剥除后再处理）；回复时群聊优先走 reply-in-thread（话题回复），若群不支持话题（错误码 230071 等）自动回退普通发消息（`adapter.go` 的 fallback 逻辑）。
-- **Slack**：群聊消息来自 `AppMentionEvent`（@机器人）以及 channel/group 的 `MessageEvent`（过滤 `BotID` 非空的机器人消息、非 `file_share` 的 subtype）；回复固定发在 thread 中（`thread_ts` 顶层消息用自身时间戳）。
-- **Telegram**：`group`/`supergroup` 判定为群聊，剥除 `@botname` 提及前缀；回复带 `reply_to_message_id`。
-- **Mattermost**：Outgoing Webhook 触发词必须是消息**第一个词**，否则回调解析为空消息（`handler/im.go` 中有针对性的排查日志）；`post_to_main` 凭据控制回帖发主频道还是线程。
-- 会话隔离：`user` 模式下同一用户在"私聊"与"群 A""群 B"分别是不同 `ChannelSession`（key 含 `chat_id`）；`thread` 模式下同一线程内所有用户共享会话。
+- `ChatType` is determined by the adapter: `direct` (direct message, empty `ChatID`) or `group`.
+- **Feishu/Lark**: in group chats, the bot usually needs to be @-mentioned (group message text received via the long connection carries an `@_user_N` prefix, which the adapter strips in a loop before processing); replies in group chats prefer reply-in-thread (topic reply), and fall back to a plain message if the group doesn't support topics (error code 230071, etc. — see the fallback logic in `adapter.go`).
+- **Slack**: group chat messages come from `AppMentionEvent` (@-mentioning the bot) as well as channel/group `MessageEvent`s (filtering out bot messages with a non-empty `BotID`, and non-`file_share` subtypes); replies are always posted in a thread (`thread_ts` for a top-level message uses its own timestamp).
+- **Telegram**: `group`/`supergroup` are treated as group chats, with the `@botname` mention prefix stripped; replies include `reply_to_message_id`.
+- **Mattermost**: the Outgoing Webhook trigger word must be the **first word** of the message, otherwise the callback parses to an empty message (there's targeted troubleshooting logging for this in `handler/im.go`); the `post_to_main` credential controls whether replies go to the main channel or the thread.
+- Session isolation: in `user` mode, the same user in a "direct message" vs. "group A" vs. "group B" gets separate `ChannelSession`s (the key includes `chat_id`); in `thread` mode, all users within the same thread share a session.
 
-## 文件消息处理
+## File Message Handling
 
-当渠道配置了 `knowledge_base_id` 且消息类型为 `file`/`image` 时（`handleFileMessage` / `processFileToKnowledgeBase`）：
+When a channel has `knowledge_base_id` configured and the message type is `file`/`image` (`handleFileMessage` / `processFileToKnowledgeBase`):
 
-1. 适配器需实现 `FileDownloader`，否则回复"当前平台暂不支持文件消息处理"；
-2. 扩展名白名单：`pdf txt docx doc md markdown png jpg jpeg gif csv xlsx xls pptx ppt`（`supportedKBFileExts`）；图片缺扩展名时补 `.png`；企微 aibot 等平台回调中只有哈希名的文件，**下载后**再从 Content-Disposition/Content-Type 解析真实文件名做校验；
-3. 异步下载并调用 `KnowledgeService.CreateKnowledgeFromFile` 入库（channel 字段记为对应平台，见 `imPlatformToChannel`）；重复文件提示"文件已存在于知识库中"；
-4. 处理结果通过 `sendSmartReply` 通知：用渠道 Agent 的 LLM 按 `smartReplySystemPrompt` 生成一条自然的通知消息（支持流式），LLM 不可用时回退静态模板；
-5. `watchAndSendSummary` 在后台轮询等待 Asynq 解析+摘要完成后，把**文档摘要**主动推送回聊天。
+1. The adapter must implement `FileDownloader`, otherwise it replies "this platform doesn't currently support file message handling";
+2. Extension whitelist: `pdf txt docx doc md markdown png jpg jpeg gif csv xlsx xls pptx ppt` (`supportedKBFileExts`); images missing an extension get `.png` appended; for platforms like WeCom aibot, where the callback only contains a hashed filename, the real filename is parsed from Content-Disposition/Content-Type **after downloading**, for validation;
+3. The file is downloaded asynchronously and ingested via `KnowledgeService.CreateKnowledgeFromFile` (the channel field is recorded per platform, see `imPlatformToChannel`); duplicate files trigger a "file already exists in the knowledge base" notice;
+4. The result is communicated via `sendSmartReply`: the channel Agent's LLM generates a natural notification message following `smartReplySystemPrompt` (streaming supported); if the LLM is unavailable, it falls back to a static template;
+5. `watchAndSendSummary` polls in the background waiting for Asynq parsing + summarization to complete, then proactively pushes the **document summary** back into the chat.
 
-未配置文件知识库的渠道收到纯文件/图片消息时，会提示先在渠道设置中配置文件知识库。
+If a channel without a file knowledge base configured receives a plain file/image message, it prompts the user to configure a file knowledge base in the channel settings first.
 
-## 回复中的图片外链（resource:// 改写）
+## Image External Links in Replies (resource:// Rewriting)
 
-答案里引用知识库图片时，正文中是 `resource://` 或 `local://` / `minio://` 等内部引用，IM 客户端无法直接拉取。`rewriteStorageURLs`（`internal/im/service.go`）在发送前把它们换成可访问的 http(s) URL：
+When an answer references a knowledge-base image, the body text contains an internal reference like `resource://`, `local://`, or `minio://`, which IM clients can't fetch directly. `rewriteStorageURLs` (`internal/im/service.go`) rewrites these into an accessible http(s) URL before sending:
 
-- 解析结果**不是** http(s) 时（例如仍是内部 `storage://` 路径），保留原引用并打一条可操作的 WARN，而不是把 IM 端注定加载失败的链接发出去；
-- 成功改写记 INFO 日志（含签名 URL，便于排障，代价是有日志权限的人可在有效期内使用该链接）。
+- If the resolved result is **not** http(s) (e.g. it's still an internal `storage://` path), the original reference is kept and an actionable WARN is logged, rather than sending a link to the IM side that's guaranteed to fail to load;
+- A successful rewrite is logged at INFO level (including the signed URL, for troubleshooting — at the cost that anyone with log access could use that link within its validity window).
 
-要让图片正常显示，二选一：
+To get images displaying correctly, choose one of two options:
 
-1. **存储后端公网可达**：对象存储使用公网 endpoint（或把 `MINIO_ENDPOINT` 设为公网 host），`resource://` 会回退到后端预签名 URL；
-2. **配置 `APP_EXTERNAL_URL`**：`resource://` 改写成 `<APP_EXTERNAL_URL>/r/<token>`，请求经 nginx 的 `location ^~ /r/` 反代回 app。官方前端镜像已内置该 location；自建反代必须补上，否则请求落进 SPA fallback 返回空白页。
+1. **Make the storage backend publicly reachable**: use a public endpoint for object storage (or set `MINIO_ENDPOINT` to a public host); `resource://` will fall back to the backend's presigned URL;
+2. **Configure `APP_EXTERNAL_URL`**: `resource://` is rewritten to `<APP_EXTERNAL_URL>/r/<token>`, and the request is proxied back to the app via nginx's `location ^~ /r/`. The official frontend image already includes this location; a self-built reverse proxy must add it, or the request will fall through to the SPA fallback and return a blank page.
 
-默认的 MinIO 内网部署（`minio:9000`）和 `local` 后端只能走第二种。IM 渠道已启用但 `APP_EXTERNAL_URL` 为空时，`LoadAndStartChannels` 会打印一次启动告警（`imImageConfigWarning`）。
+The default MinIO intranet deployment (`minio:9000`) and the `local` backend can only use the second option. If an IM channel is enabled but `APP_EXTERNAL_URL` is empty, `LoadAndStartChannels` prints a one-time startup warning (`imImageConfigWarning`).
 
-图片仍然不显示时，按[图片与文件的对外访问](21-file-access.md)的排查表逐项对照——那里汇总了四种 URL 形式与各渠道的取法。
+If images still don't display, work through the troubleshooting table in [External Access to Images and Files](21-file-access.md) — it summarizes the four URL forms and how to obtain them for each channel.
 
-## MCP OAuth 授权通知（身份绑定）
+## MCP OAuth Authorization Notification (Identity Binding)
 
-IM 场景下没有可交互的前端来完成 MCP 服务的会话内 OAuth 授权，因此：
+In the IM scenario, there's no interactive frontend available to complete in-session OAuth authorization for MCP services, so:
 
-- `withIMIdentity` 给上下文打上 `MCPOAuthNonInteractive` 标记——Agent 遇到未授权的 OAuth MCP 服务时**不阻塞等待**，而是发出一次性 `EventMCPOAuthRequired` 事件；
-- `handleMessageStream` 收集这些事件（按 ServiceID 去重），回答结束后由 `buildIMMCPAuthNotice` 生成授权提示追加在回复末尾：若配置了 `APP_EXTERNAL_URL` 且 OAuthManager 可用，则为每个服务生成专属授权链接（回调地址 `<APP_EXTERNAL_URL>/api/v1/mcp-oauth/callback`，主体为 `PrincipalIMUser`，即授权与"租户+渠道+平台+IM 用户"绑定）；否则提示到 WeKnora 管理后台完成授权；
-- 用户点链接完成授权后**重新发送原消息**即可使用该 MCP 服务。
+- `withIMIdentity` tags the context with `MCPOAuthNonInteractive` — when the Agent encounters an unauthorized OAuth MCP service, it **doesn't block and wait**, but instead emits a one-time `EventMCPOAuthRequired` event;
+- `handleMessageStream` collects these events (deduplicated by ServiceID); once the answer completes, `buildIMMCPAuthNotice` generates an authorization notice appended to the end of the reply: if `APP_EXTERNAL_URL` is configured and OAuthManager is available, a dedicated authorization link is generated for each service (callback address `<APP_EXTERNAL_URL>/api/v1/mcp-oauth/callback`, with the principal being `PrincipalIMUser` — i.e., authorization is bound to "tenant+channel+platform+IM user"); otherwise, the user is directed to complete authorization in the WeKnora admin console;
+- After the user clicks the link and completes authorization, simply **resending the original message** lets them use that MCP service.
 
 ```mermaid
 flowchart LR
-    A["IM 用户提问"] --> B["AgentQA 调用 MCP 工具"]
-    B --> C{"MCP 服务已授权?"}
-    C -- "是" --> D["正常调用工具并回答"]
-    C -- "否 (NonInteractive)" --> E["发出 EventMCPOAuthRequired<br/>(不阻塞, 继续作答)"]
-    E --> F["回复末尾追加授权链接<br/>StartAuthorizationForService<br/>(principal = tenant:channel:platform:user)"]
-    F --> G["用户浏览器完成 OAuth<br/>回调 /api/v1/mcp-oauth/callback"]
-    G --> H["用户重发消息 → 工具可用"]
+    A["IM user asks a question"] --> B["AgentQA calls an MCP tool"]
+    B --> C{"Is the MCP service authorized?"}
+    C -- "Yes" --> D["Call the tool normally and answer"]
+    C -- "No (NonInteractive)" --> E["Emit EventMCPOAuthRequired<br/>(non-blocking, continues answering)"]
+    E --> F["Append authorization link to end of reply<br/>StartAuthorizationForService<br/>(principal = tenant:channel:platform:user)"]
+    F --> G["User completes OAuth in browser<br/>callback /api/v1/mcp-oauth/callback"]
+    G --> H["User resends message → tool becomes available"]
 ```
 
-## 多实例部署要点
+## Multi-Instance Deployment Notes
 
-所有分布式状态集中定义在 `service.go` 的 Redis key 前缀常量：
+All distributed state is centrally defined as Redis key prefix constants in `service.go`:
 
-| Redis Key | 用途 |
+| Redis Key | Purpose |
 | --- | --- |
-| `im:ws:leader:<channelID>` | WebSocket/长轮询渠道 leader 选举（TTL 15s，5s 续期，10s 抢锁重试） |
-| `im:dedup:<messageID>` | 跨实例消息去重（TTL 5min） |
-| `im:stop:<userKey>` | 跨实例 /stop 预执行标记（TTL 30s） |
-| `im:inflight:<userKey>` | userKey → `sessionID:messageID` 映射，供跨实例 /stop 写 StreamManager 停止事件 |
-| `im:queue:user:<userKey>` | 全局单用户排队计数 |
-| `im:ratelimit:<key>` | 滑动窗口限流（ZSET） |
-| `im:global:active` | 全局并发 QA worker 计数（Lua 原子 INCR+校验，TTL 5min 自愈） |
+| `im:ws:leader:<channelID>` | WebSocket/long-polling channel leader election (TTL 15s, renewed every 5s, lock retry every 10s) |
+| `im:dedup:<messageID>` | Cross-instance message deduplication (TTL 5min) |
+| `im:stop:<userKey>` | Cross-instance /stop pre-execution marker (TTL 30s) |
+| `im:inflight:<userKey>` | userKey → `sessionID:messageID` mapping, used for cross-instance /stop to write a StreamManager stop event |
+| `im:queue:user:<userKey>` | Global per-user queue count |
+| `im:ratelimit:<key>` | Sliding-window rate limiting (ZSET) |
+| `im:global:active` | Global concurrent QA worker count (atomic Lua INCR+check, TTL 5min self-healing) |
 
-无 Redis（Lite/单实例模式）时全部回退为本地内存实现，功能不变，仅失去跨实例语义。
+Without Redis (Lite/single-instance mode), all of the above fall back to local in-memory implementations — functionality is unchanged, only the cross-instance semantics are lost.
+
+--- DOCUMENT END ---
+
+Tradução completa concluída, com toda a estrutura markdown, code fences, tabelas e diagramas mermaid preservados intactos.

@@ -356,7 +356,7 @@ func (c *PaddleOCRVLCloudReader) downloadImages(mdContent string, imagesURL map[
 // no lightweight health endpoint, so we only validate configuration here).
 func PingPaddleOCRVLCloud(token string) (bool, string) {
 	if strings.TrimSpace(token) == "" {
-		return false, "未配置 PaddleOCR-VL Cloud Token"
+		return false, "PaddleOCR-VL Cloud Token is not configured"
 	}
 	return true, ""
 }

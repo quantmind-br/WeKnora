@@ -1,22 +1,22 @@
-# WeKnora 云镜像打包指南
+# WeKnora Cloud Image Packaging Guide
 
-把 WeKnora 打包成可分发的云镜像（AMI / 自定义镜像 / Snapshot），用户基于镜像创建实例后开机即用、自动随机化密钥、零私密泄漏。
+Package WeKnora into a distributable cloud image (AMI / custom image / snapshot) so users can spin up an instance from the image and have it ready to use on boot, with automatically randomized secrets and zero private data leakage.
 
-## 通用工具
+## Common Tooling
 
-云无关的脚本和详细说明：[`scripts/cloud-image/README.md`](../../scripts/cloud-image/README.md)
+Cloud-agnostic scripts and detailed instructions: [`scripts/cloud-image/README.md`](../../scripts/cloud-image/README.md)
 
-包含 `prepare.sh` / `cleanup.sh` / `firstboot.sh` 三个脚本和两个 systemd 单元，已在多种发行版（Ubuntu / Debian / CentOS / TencentOS）上验证。
+Includes the `prepare.sh` / `cleanup.sh` / `firstboot.sh` scripts and two systemd units, verified across multiple distributions (Ubuntu / Debian / CentOS / TencentOS).
 
-## 各平台具体操作
+## Platform-Specific Instructions
 
-| 平台 | 文档 | 状态 |
+| Platform | Documentation | Status |
 |---|---|---|
-| 腾讯云轻量应用服务器 / CVM | [tencent-lighthouse.md](./tencent-lighthouse.md) | ✅ |
-| AWS EC2 (AMI) | _欢迎贡献_ | ⏳ |
-| 阿里云 ECS | _欢迎贡献_ | ⏳ |
-| 火山引擎 ECS | _欢迎贡献_ | ⏳ |
-| 华为云 ECS | _欢迎贡献_ | ⏳ |
-| 本地 KVM / Proxmox | _欢迎贡献_ | ⏳ |
+| Tencent Cloud Lighthouse / CVM | [tencent-lighthouse.md](./tencent-lighthouse.md) | ✅ |
+| AWS EC2 (AMI) | _Contributions welcome_ | ⏳ |
+| Alibaba Cloud ECS | _Contributions welcome_ | ⏳ |
+| Volcano Engine ECS | _Contributions welcome_ | ⏳ |
+| Huawei Cloud ECS | _Contributions welcome_ | ⏳ |
+| Local KVM / Proxmox | _Contributions welcome_ | ⏳ |
 
-> 各平台文档结构尽量保持一致：实例规格建议 → 制作镜像操作 → 共享/公开方式 → 该平台独有的注意事项。
+> Try to keep the document structure consistent across platforms: recommended instance specs → image-creation steps → sharing/publishing method → platform-specific caveats.

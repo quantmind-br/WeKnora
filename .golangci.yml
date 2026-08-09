@@ -5,7 +5,7 @@ linters-settings:
     tab-width: 4
 linters:
   enable:
-    - lll           # 控制行宽
+    - lll           # line length control
     - govet
     - revive
 formatters:

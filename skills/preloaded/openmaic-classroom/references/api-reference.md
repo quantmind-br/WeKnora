@@ -1,14 +1,14 @@
 # OpenMAIC API Reference
 
-OpenMAIC 服务 API 接口规范。所有 API 基础路径为 `{base_url}/api`，默认 `http://localhost:3000/api`。
+Specification for the OpenMAIC service API. All API endpoints share the base path `{base_url}/api`, defaulting to `http://localhost:3000/api`.
 
-## 认证机制
+## Authentication
 
-- 如果 OpenMAIC 未设置 `ACCESS_CODE` 环境变量：所有接口开放
-- 如果设置了 `ACCESS_CODE`：需先通过 `/api/access-code/verify` 获取 cookie
-- `/api/health` 始终无需认证
+- If OpenMAIC does not set the `ACCESS_CODE` environment variable: all endpoints are open
+- If `ACCESS_CODE` is set: obtain a cookie first via `/api/access-code/verify`
+- `/api/health` never requires authentication
 
-### 获取认证 Cookie
+### Obtaining the Authentication Cookie
 
 ```
 POST {base_url}/api/access-code/verify
@@ -17,31 +17,31 @@ Content-Type: application/json
 { "code": "<ACCESS_CODE>" }
 ```
 
-成功返回 `{ "success": true, "valid": true }` 并设置 `openmaic_access` cookie（7 天有效）。
+On success it returns `{ "success": true, "valid": true }` and sets the `openmaic_access` cookie (valid for 7 days).
 
-## 标准响应格式
+## Standard Response Format
 
-**成功**:
+**Success**:
 ```json
 { "success": true, ...additionalFields }
 ```
 
-**错误**:
+**Error**:
 ```json
 { "success": false, "errorCode": "<Code>", "error": "<message>", "details?": "<detail>" }
 ```
 
 ---
 
-## 核心端点
+## Core Endpoints
 
-### 1. 健康检查
+### 1. Health Check
 
 ```
 GET {base_url}/api/health
 ```
 
-响应：
+Response:
 ```json
 {
   "success": true,
@@ -56,24 +56,24 @@ GET {base_url}/api/health
 }
 ```
 
-> `capabilities` 用于功能检测，只在返回此字段时才启用对应的可选功能。
+> `capabilities` is used for feature detection; only enable the corresponding optional feature when this field is present.
 
 ---
 
-### 2. 生成课程（异步任务）
+### 2. Generate Course (async job)
 
-#### 2a. 创建生成任务
+#### 2a. Create a Generation Job
 
 ```
 POST {base_url}/api/generate-classroom
 Content-Type: application/json
 ```
 
-请求体：
+Request body:
 ```json
 {
-  "requirement": "教学主题描述",
-  "pdfContent": { "text": "PDF文本内容", "images": [] },
+  "requirement": "teaching topic description",
+  "pdfContent": { "text": "PDF text content", "images": [] },
   "enableWebSearch": false,
   "enableImageGeneration": false,
   "enableVideoGeneration": false,
@@ -82,7 +82,7 @@ Content-Type: application/json
 }
 ```
 
-成功响应 (202):
+Success response (202):
 ```json
 {
   "success": true,
@@ -95,17 +95,17 @@ Content-Type: application/json
 }
 ```
 
-错误：
-- `400`: `requirement` 字段缺失
-- `500`: 内部错误
+Errors:
+- `400`: the `requirement` field is missing
+- `500`: internal error
 
-#### 2b. 轮询任务状态
+#### 2b. Poll the Job Status
 
 ```
 GET {pollUrl}
 ```
 
-响应：
+Response:
 ```json
 {
   "success": true,
@@ -124,7 +124,7 @@ GET {pollUrl}
 }
 ```
 
-最终成功响应：
+Final success response:
 ```json
 {
   "success": true,
@@ -138,37 +138,37 @@ GET {pollUrl}
 }
 ```
 
-最终失败响应：
+Final failure response:
 ```json
 {
   "success": true,
   "status": "failed",
-  "error": "具体错误信息",
+  "error": "specific error message",
   "done": true
 }
 ```
 
 ---
 
-### 3. 解析 PDF
+### 3. Parse PDF
 
 ```
 POST {base_url}/api/parse-pdf
 Content-Type: multipart/form-data
 ```
 
-表单字段：
-- `pdf`（文件，必填）: PDF 文件
-- `providerId`（可选）: PDF 提供商，默认 `"unpdf"`
-- `apiKey`（可选）: 提供商 API Key
-- `baseUrl`（可选）: 提供商基础 URL
+Form fields:
+- `pdf` (file, required): the PDF file
+- `providerId` (optional): PDF provider; defaults to `"unpdf"`
+- `apiKey` (optional): the provider API key
+- `baseUrl` (optional): the provider base URL
 
-响应：
+Response:
 ```json
 {
   "success": true,
   "data": {
-    "text": "提取的文本内容",
+    "text": "extracted text content",
     "images": [],
     "metadata": {
       "pageCount": 10,
@@ -181,15 +181,15 @@ Content-Type: multipart/form-data
 
 ---
 
-### 4. 课程存储
+### 4. Course Storage
 
-#### 4a. 获取课程
+#### 4a. Fetch a Course
 
 ```
 GET {base_url}/api/classroom?id=<classroomId>
 ```
 
-#### 4b. 持久化课程
+#### 4b. Persist a Course
 
 ```
 POST {base_url}/api/classroom
@@ -200,18 +200,18 @@ Content-Type: application/json
 
 ---
 
-### 5. Web 搜索
+### 5. Web Search
 
 ```
 POST {base_url}/api/web-search
 Content-Type: application/json
 
-{ "query": "搜索关键词", "pdfText": "PDF上下文", "apiKey": "Tavily Key" }
+{ "query": "search keywords", "pdfText": "PDF context", "apiKey": "Tavily Key" }
 ```
 
 ---
 
-### 6. 验证 LLM 连接
+### 6. Verify the LLM Connection
 
 ```
 POST {base_url}/api/verify-model
@@ -222,34 +222,34 @@ Content-Type: application/json
 
 ---
 
-## 生成管线（逐步调用）
+## Generation Pipeline (step-by-step calls)
 
-如果需要更细粒度的控制，可以使用以下逐步生成端点代替 `/api/generate-classroom`：
+For finer-grained control, use the following step-by-step generation endpoints instead of `/api/generate-classroom`:
 
-### A. 生成场景大纲（SSE 流）
+### A. Generate the Scenario Outline (SSE stream)
 
 ```
 POST {base_url}/api/generate/scene-outlines-stream
 ```
 
-请求体：
+Request body:
 ```json
 {
-  "requirements": { "requirement": "主题", "userNickname": "用户昵称" },
-  "pdfText": "PDF文本",
+  "requirements": { "requirement": "topic", "userNickname": "user nickname" },
+  "pdfText": "PDF text",
   "pdfImages": [],
-  "researchContext": "网络搜索结果",
+  "researchContext": "web search results",
   "agents": []
 }
 ```
 
 Headers:
-- `x-image-generation-enabled`: `"true"` 或 `"false"`
-- `x-video-generation-enabled`: `"true"` 或 `"false"`
+- `x-image-generation-enabled`: `"true"` or `"false"`
+- `x-video-generation-enabled`: `"true"` or `"false"`
 
-SSE 事件类型：`languageDirective`、`outline`、`done`、`error`、`retry`
+SSE event types: `languageDirective`, `outline`, `done`, `error`, `retry`
 
-### B. 生成场景内容
+### B. Generate the Scenario Content
 
 ```
 POST {base_url}/api/generate/scene-content
@@ -261,11 +261,11 @@ Content-Type: application/json
   "stageId": "stage-1",
   "pdfImages": [],
   "agents": [],
-  "languageDirective": "使用简体中文"
+  "languageDirective": "Use Simplified Chinese"
 }
 ```
 
-### C. 生成场景动作
+### C. Generate the Scenario Actions
 
 ```
 POST {base_url}/api/generate/scene-actions
@@ -277,20 +277,20 @@ Content-Type: application/json
   "content": {...},
   "stageId": "stage-1",
   "agents": [],
-  "languageDirective": "使用简体中文"
+  "languageDirective": "Use Simplified Chinese"
 }
 ```
 
-### D. 生成 Agent 画像
+### D. Generate the Agent Persona
 
 ```
 POST {base_url}/api/generate/agent-profiles
 Content-Type: application/json
 
 {
-  "stageInfo": { "name": "入门阶段", "description": "..." },
+  "stageInfo": { "name": "beginner stage", "description": "..." },
   "sceneOutlines": [{ "title": "...", "description": "..." }],
-  "languageDirective": "使用简体中文",
+  "languageDirective": "Use Simplified Chinese",
   "availableAvatars": [],
   "avatarDescriptions": []
 }

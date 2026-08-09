@@ -1431,13 +1431,13 @@ type chunkRange struct {
 	end   int
 }
 
-// getEnrichedPassage 合并Content和ImageInfo的文本内容
+// getEnrichedPassage merges the text content of Content and ImageInfo
 func (t *KnowledgeSearchTool) getEnrichedPassage(ctx context.Context, result *types.SearchResult) string {
 	if result.ImageInfo == "" {
 		return result.Content
 	}
 
-	// 解析ImageInfo
+	// Parse ImageInfo
 	var imageInfos []types.ImageInfo
 	err := json.Unmarshal([]byte(result.ImageInfo), &imageInfos)
 	if err != nil {
@@ -1449,7 +1449,7 @@ func (t *KnowledgeSearchTool) getEnrichedPassage(ctx context.Context, result *ty
 		return result.Content
 	}
 
-	// 提取所有图片的描述和OCR文本
+	// Extract descriptions and OCR text for all images
 	var imageTexts []string
 	for _, img := range imageInfos {
 		if img.Caption != "" {
@@ -1464,7 +1464,7 @@ func (t *KnowledgeSearchTool) getEnrichedPassage(ctx context.Context, result *ty
 		return result.Content
 	}
 
-	// 组合内容和图片信息
+	// Combine content and image info
 	combinedText := result.Content
 	if combinedText != "" {
 		combinedText += "\n\n"

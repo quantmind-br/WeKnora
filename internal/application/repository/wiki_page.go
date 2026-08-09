@@ -1146,7 +1146,7 @@ func escapeLikePattern(s string) string {
 //	content  hit → rank 1 (body mention — often surfaces unrelated pages whose
 //	                       prose merely mentions the query as trivia)
 //
-// Without this ranking, a user searching for "王新" on a 4万-page wiki will
+// Without this ranking, a user searching for "王新" on a 40k-page wiki will
 // see pages like "华为" or "Index" ahead of the actual 王新 page just
 // because they mention 王新 in their body and were updated more recently.
 // updated_at stays as the tiebreaker so same-rank ties stay deterministic.

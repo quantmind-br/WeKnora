@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Concept Graph Material → OpenMAIC Requirement 转换器
+Concept Graph Material → OpenMAIC Requirement converter
 
-将 WeKnora wiki 知识图谱中的 concept 页面及其关联 entity 转换为
-结构化的 OpenMAIC 课程生成需求描述。两阶段转换：
+Converts concept pages and their linked entities from the WeKnora wiki
+knowledge graph into a structured OpenMAIC course generation requirement
+description. Two-stage conversion:
   1. Concept Graph Material → Pedagogical Design JSON
   2. Pedagogical Design JSON → requirement string
 
-此脚本仅做数据转换，不涉及网络调用。
+This script only transforms data and makes no network calls.
 
-用法:
+Usage:
   echo '{"concept": {...}, "entities": [...]}' | python scripts/concept-to-requirement.py
   python scripts/concept-to-requirement.py --file input.json
 """
@@ -156,9 +157,9 @@ def build_pedagogical_design(data: dict[str, Any]) -> dict[str, Any]:
     """Stage 1: Concept Graph Material → Pedagogical Design JSON."""
     concept = data["concept"]
     entities = data.get("entities", [])
-    language = data.get("language", "zh-CN")
+    language = data.get("language", "en-US")
     depth = data.get("depth", "intermediate")
-    audience = data.get("audience", "相关领域的学习者")
+    audience = data.get("audience", "learners in the relevant field")
 
     concept_title = concept.get("title", "")
     concept_summary = concept.get("summary", "")
@@ -195,66 +196,83 @@ def build_pedagogical_design(data: dict[str, Any]) -> dict[str, Any]:
         "Application Scenarios": [],
         "Prerequisites": [],
     }
-    for score, entity in top_entities:
+    for _, entity in top_entities:
         role = _classify_entity(entity, concept_title)
-        classified[role].append({
-            "slug": entity.get("slug", ""),
-            "title": entity.get("title", ""),
-            "summary": entity.get("summary", ""),
-            "link_type": entity.get("link_type", ""),
-            "relevance_score": score,
-        })
+        classified[role].append(entity)
 
-    # Build learning objectives from concept summary
+    # Build learning objectives from summary
     learning_objectives: list[str] = []
     if concept_summary:
-        sentences = re.split(r"[。！？.!?]", concept_summary)
-        learning_objectives = [f"理解{s.strip()}" for s in sentences if s.strip()][:3]
+        sentences = re.split(r"[。！？.!?\n]+", concept_summary)
+        sentences = [s.strip() for s in sentences if s.strip()]
+        if language == "zh-CN":
+            learning_objectives = [f"理解{s.strip()}" for s in sentences if s.strip()][:3]
+        else:
+            learning_objectives = [f"Understand: {s.strip()}" for s in sentences if s.strip()][:3]
     if not learning_objectives:
-        learning_objectives = [f"掌握 {concept_title} 的核心概念"]
+        if language == "zh-CN":
+            learning_objectives = [f"掌握 {concept_title} 的核心概念"]
+        else:
+            learning_objectives = [f"Master the core concepts of {concept_title}"]
 
-    # Build practice tasks from entity examples
+    # Build practice tasks from entities
     practice_tasks: list[str] = []
-    for ent in classified.get("Examples", []):
-        practice_tasks.append(f"通过 {ent['title']} 实践 {concept_title} 的应用")
-    for ent in classified.get("Application Scenarios", []):
-        practice_tasks.append(f"分析 {ent['title']} 在 {concept_title} 中的作用")
-    if not practice_tasks and top_entities:
-        _, first_ent = top_entities[0]
-        practice_tasks.append(f"结合 {first_ent.get('title', '相关实体')} 理解 {concept_title} 的实际应用")
-
-    # Build prerequisites from entity prerequisites
-    prerequisites: list[str] = []
-    for ent in classified.get("Prerequisites", []):
-        prerequisites.append(ent["title"])
+    for ent in top_entities[:3]:
+        e = ent[1] if isinstance(ent, tuple) else ent
+        if language == "zh-CN":
+            practice_tasks.append(f"通过 {e['title']} 实践 {concept_title} 的应用")
+            practice_tasks.append(f"分析 {e['title']} 在 {concept_title} 中的作用")
+        else:
+            practice_tasks.append(f"Practice applying {concept_title} using {e['title']}")
+            practice_tasks.append(f"Analyze the role of {e['title']} within {concept_title}")
+    if not practice_tasks:
+        if language == "zh-CN":
+            practice_tasks.append(f"结合 {concept_title} 的示例，设计一个实践场景")
+        else:
+            practice_tasks.append(f"Design a practice scenario around {concept_title}")
 
     # Build assessment prompts
     assessment_prompts: list[str] = []
-    if concept_summary:
-        assessment_prompts.append(f"请解释 {concept_title} 的核心定义")
-    if key_points:
-        assessment_prompts.append(f"请描述 {concept_title} 的工作机制")
-    if classified.get("Examples"):
-        assessment_prompts.append(f"请举例说明 {concept_title} 的实际应用")
+    if language == "zh-CN":
+        assessment_prompts = [
+            f"请解释 {concept_title} 的核心定义",
+            f"请描述 {concept_title} 的工作机制",
+            f"请举例说明 {concept_title} 的实际应用",
+        ]
+    else:
+        assessment_prompts = [
+            f"Explain the core definition of {concept_title}",
+            f"Describe how {concept_title} works",
+            f"Give a real-world example of {concept_title}",
+        ]
 
-    # Build warnings from misconceptions
+    # Misconception checks from content
     warnings: list[str] = []
     for m in misconceptions:
-        warnings.append(f"常见误区：{m}")
+        if language == "zh-CN":
+            warnings.append(f"常见误区：{m}")
+        else:
+            warnings.append(f"Common misconception: {m}")
+    if not warnings:
+        if language == "zh-CN":
+            warnings.append(f"澄清关于 {concept_title} 的常见误解")
+        else:
+            warnings.append(f"Clarify common misunderstandings about {concept_title}")
 
     return {
-        "concept_slug": concept_slug,
         "title": concept_title,
-        "teaching_anchor": concept_summary or concept_title,
+        "summary": concept_summary,
+        "teaching_anchor": concept_summary[:200] if concept_summary else concept_title,
         "learning_objectives": learning_objectives,
-        "key_points": key_points,
+        "key_points": key_points or ([concept_title] if concept_title else []),
         "examples": examples_from_content,
         "practice_tasks": practice_tasks,
-        "prerequisites": prerequisites,
-        "misconception_checks": misconceptions,
         "assessment_prompts": assessment_prompts,
-        "warnings": warnings,
+        "misconception_checks": warnings,
         "classified_entities": classified,
+        "audience": audience,
+        "depth": depth,
+        "language": language,
     }
 
 
@@ -262,32 +280,40 @@ def build_requirement(design: dict[str, Any], data: dict[str, Any]) -> str:
     """Stage 2: Pedagogical Design JSON → requirement string."""
     concept = data["concept"]
     depth = data.get("depth", "intermediate")
-    audience = data.get("audience", "相关领域的学习者")
-    language = data.get("language", "zh-CN")
+    audience = data.get("audience", "learners in the relevant field")
+    language = data.get("language", "en-US")
 
-    depth_map = {"beginner": "入门", "intermediate": "中级", "advanced": "高级"}
-    depth_cn = depth_map.get(depth, "中级")
+    depth_map_en = {"beginner": "beginner", "intermediate": "intermediate", "advanced": "advanced"}
+    depth_map_cn = {"beginner": "入门", "intermediate": "中级", "advanced": "高级"}
 
     parts: list[str] = []
 
     # Header
-    parts.append(f"基于知识图谱概念「{design['title']}」，为{audience}创建一个{depth_cn}微课堂（micro-classroom）。")
+    if language == "zh-CN":
+        depth_label = depth_map_cn.get(depth, "中级")
+        parts.append(f"基于知识图谱概念「{design['title']}」，为{audience}创建一个{depth_label}微课堂（micro-classroom）。")
+    else:
+        depth_label = depth_map_en.get(depth, "intermediate")
+        parts.append(f"Based on the knowledge graph concept \"{design['title']}\", create a {depth_label} micro-classroom for {audience}.")
     parts.append("")
 
     # Teaching anchor
-    parts.append(f"教学锚点：{design['teaching_anchor']}")
+    if language == "zh-CN":
+        parts.append(f"教学锚点：{design['teaching_anchor']}")
+    else:
+        parts.append(f"Teaching anchor: {design['teaching_anchor']}")
     parts.append("")
 
     # Learning objectives
     if design["learning_objectives"]:
-        parts.append("学习目标：")
+        parts.append("学习目标：" if language == "zh-CN" else "Learning objectives:")
         for obj in design["learning_objectives"]:
             parts.append(f"  - {obj}")
         parts.append("")
 
     # Key points
     if design["key_points"]:
-        parts.append("核心知识点：")
+        parts.append("核心知识点：" if language == "zh-CN" else "Core knowledge points:")
         for kp in design["key_points"]:
             parts.append(f"  - {kp}")
         parts.append("")
@@ -295,41 +321,50 @@ def build_requirement(design: dict[str, Any], data: dict[str, Any]) -> str:
     # Classified entities as practice context
     classified = design.get("classified_entities", {})
     entity_sections = []
+    role_labels_en = {
+        "Examples": "Examples",
+        "Tools": "Tools",
+        "Application Scenarios": "Application scenarios",
+        "Prerequisites": "Prerequisites",
+    }
+    role_labels_cn = {
+        "Examples": "案例",
+        "Tools": "工具",
+        "Application Scenarios": "应用场景",
+        "Prerequisites": "前置知识",
+    }
     for role in ("Examples", "Tools", "Application Scenarios", "Prerequisites"):
         ents = classified.get(role, [])
         if ents:
-            role_cn = {
-                "Examples": "案例",
-                "Tools": "工具",
-                "Application Scenarios": "应用场景",
-                "Prerequisites": "前置知识",
-            }[role]
-            ent_descs = [f"{e['title']}" + (f"：{e['summary'][:80]}" if e.get("summary") else "") for e in ents]
-            entity_sections.append(f"{role_cn}：{'；'.join(ent_descs)}")
+            label = role_labels_cn[role] if language == "zh-CN" else role_labels_en[role]
+            sep = "：" if language == "zh-CN" else ": "
+            joiner = "；" if language == "zh-CN" else "; "
+            ent_descs = [f"{e['title']}" + (f"{sep}{e['summary'][:80]}" if e.get("summary") else "") for e in ents]
+            entity_sections.append(f"{label}{sep}{joiner.join(ent_descs)}")
 
     if entity_sections:
-        parts.append("关联实体（实践环节）：")
+        parts.append("关联实体（实践环节）：" if language == "zh-CN" else "Linked entities (practice segment):")
         for section in entity_sections:
             parts.append(f"  - {section}")
         parts.append("")
 
     # Practice tasks
     if design["practice_tasks"]:
-        parts.append("实践任务：")
+        parts.append("实践任务：" if language == "zh-CN" else "Practice tasks:")
         for task in design["practice_tasks"]:
             parts.append(f"  - {task}")
         parts.append("")
 
     # Misconception checks
     if design["misconception_checks"]:
-        parts.append("常见误区检查：")
+        parts.append("常见误区检查：" if language == "zh-CN" else "Common misconception checks:")
         for mc in design["misconception_checks"]:
             parts.append(f"  - {mc}")
         parts.append("")
 
     # Assessment
     if design["assessment_prompts"]:
-        parts.append("评估提示：")
+        parts.append("评估提示：" if language == "zh-CN" else "Assessment prompts:")
         for ap in design["assessment_prompts"]:
             parts.append(f"  - {ap}")
         parts.append("")
@@ -337,12 +372,17 @@ def build_requirement(design: dict[str, Any], data: dict[str, Any]) -> str:
     # Language directive
     if language == "zh-CN":
         parts.append("请使用中文生成课程内容。")
+    else:
+        parts.append("Please generate the course content in English.")
 
     # Concept content fallback
     concept_content = concept.get("content", "")
     if concept_content and len(concept_content) > 200:
         parts.append("")
-        parts.append(f"参考内容（前500字）：{concept_content[:500]}")
+        if language == "zh-CN":
+            parts.append(f"参考内容（前500字）：{concept_content[:500]}")
+        else:
+            parts.append(f"Reference content (first 500 characters): {concept_content[:500]}")
 
     return "\n".join(parts)
 
@@ -369,20 +409,19 @@ def process(input_data: dict[str, Any]) -> dict[str, Any]:
         "requirement": requirement,
         "pedagogical_design": design,
         "metadata": {
-            "concept_slug": concept.get("slug", ""),
-            "entity_count": len(entities),
+            "source_concept": concept.get("slug", ""),
+            "linked_entity_count": len(entities),
+            "language": input_data.get("language", "en-US"),
             "depth": input_data.get("depth", "intermediate"),
-            "language": input_data.get("language", "zh-CN"),
         },
     }
 
 
 def main() -> None:
-    """Entry point: read from stdin or file, output JSON."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Concept Graph → OpenMAIC Requirement 转换器")
-    parser.add_argument("--file", "-f", help="输入 JSON 文件路径")
+    parser = argparse.ArgumentParser(description="Concept Graph → OpenMAIC Requirement converter")
+    parser.add_argument("--file", "-f", help="input JSON file path")
     args = parser.parse_args()
 
     if args.file:
@@ -392,8 +431,8 @@ def main() -> None:
         input_text = sys.stdin.read()
         if not input_text.strip():
             print(
-                "错误: 未提供输入数据。用法:\n"
-                '  echo \'{"concept": {...}, "entities": [...]}\' | python concept-to-requirement.py\n'
+                "Error: no input data provided. Usage:\n"
+                "  echo '{\"concept\": {...}}' | python concept-to-requirement.py\n"
                 "  python concept-to-requirement.py --file input.json",
                 file=sys.stderr,
             )
@@ -401,7 +440,7 @@ def main() -> None:
         try:
             input_data = json.loads(input_text)
         except json.JSONDecodeError as e:
-            print(f"错误: 输入 JSON 解析失败: {e}", file=sys.stderr)
+            print(f"Error: failed to parse input JSON: {e}", file=sys.stderr)
             sys.exit(1)
 
     result = process(input_data)

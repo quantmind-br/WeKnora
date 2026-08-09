@@ -178,7 +178,7 @@ watch(headerTitle, (title) => {
   flex-direction: column;
   background: var(--td-bg-color-container, #fff);
   overflow: hidden;
-  /* 子组件（含 AgentStreamDisplay）内凡用 --td-brand-color 的 loading / 强调色均跟随渠道主题 */
+  /* Any loading/accent color using --td-brand-color in child components (including AgentStreamDisplay) follows the channel theme */
   --td-brand-color: var(--embed-primary, var(--td-brand-color));
   --td-brand-color-hover: var(--embed-primary, var(--td-brand-color-hover));
   --td-brand-color-active: var(--embed-primary, var(--td-brand-color-active));

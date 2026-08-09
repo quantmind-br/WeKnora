@@ -299,7 +299,7 @@ function backendMeta(backend: StorageBackend): string {
 const canEdit = (backend: StorageBackend) => authStore.hasRole('admin') && backend.source !== 'env'
 const canDelete = (backend: StorageBackend) => authStore.hasRole('admin') && backend.source !== 'env' && !backend.legacy_alias
 const canSetDefault = (backend: StorageBackend) => backend.id !== defaultID.value && authStore.hasRole('admin')
-// 测试连接对所有可见用户开放，因此每张卡至少有一个动作。
+// Test connection is available to all visible users, so every card has at least one action.
 const hasActions = (_backend: StorageBackend) => true
 
 function getBackendOptions(backend: StorageBackend) {
@@ -607,7 +607,7 @@ onMounted(load)
   opacity: 1;
 }
 
-// ---- 抽屉头部图标 ----
+// ---- Drawer header icon ----
 .header-icon__img {
   width: 24px;
   height: 24px;
@@ -636,7 +636,7 @@ onMounted(load)
   letter-spacing: 0.02em;
 }
 
-// ---- 抽屉表单 ----
+// ---- Drawer form ----
 .form-item {
   margin-bottom: 0;
 }
@@ -682,7 +682,7 @@ onMounted(load)
   gap: 8px;
 }
 
-// ---- MinIO 部署模式 pill segmented ----
+// ---- MinIO deployment mode pill segmented ----
 .source-options {
   display: inline-flex;
   align-items: center;

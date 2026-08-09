@@ -1,6 +1,6 @@
 <template>
   <div class="user-menu" :class="{ 'user-menu--collapsed': uiStore.sidebarCollapsed }" ref="menuRef">
-    <!-- 用户按钮 -->
+    <!-- User button -->
     <div class="user-button" data-guide="user-menu" @click="toggleMenu">
       <div class="user-avatar">
         <img v-if="userAvatar" :src="userAvatar" :alt="$t('common.avatar')" />
@@ -8,7 +8,7 @@
       </div>
       <template v-if="!uiStore.sidebarCollapsed">
         <div class="user-info">
-          <!-- 多空间 / superuser：首行空间名，次行 username · 角色。单空间：昵称 + 邮箱。 -->
+          <!-- Multi-space / superuser: space name on the first line, username · role on the second. Single space: nickname + email. -->
           <template v-if="showTenantIdentityLine">
             <div class="user-tenant-name" :title="activeTenantName">{{ activeTenantName }}</div>
             <div class="user-tenant-meta">
@@ -28,10 +28,10 @@
       </template>
     </div>
 
-    <!-- 下拉菜单 -->
+    <!-- Dropdown menu -->
     <Transition name="dropdown">
       <div v-if="menuVisible" class="user-dropdown" @click.stop>
-        <!-- 弹出菜单：账号（头像+昵称）／当前空间（名称+权限）；底部侧栏样式不改。 -->
+        <!-- Popover menu: account (avatar + nickname) / current space (name + permissions); bottom sidebar style unchanged. -->
         <div v-if="userName" class="dropdown-user-header is-clickable" role="button" tabindex="0"
           @click="handleQuickNav('userprofile')" @keydown.enter.prevent="handleQuickNav('userprofile')"
           @keydown.space.prevent="handleQuickNav('userprofile')">
@@ -73,7 +73,7 @@
             :title="$t('tenant.switcher.menuLabel')" />
         </div>
         <div class="menu-divider"></div>
-        <!-- 账号与空间是头像菜单的核心上下文；基础设施类配置统一收进「全部设置」。 -->
+        <!-- Account and space are the core context of the avatar menu; infrastructure-type settings are all consolidated under "All Settings". -->
         <div class="menu-item" @click="handleQuickNav('general')">
           <t-icon name="user" class="menu-icon" />
           <span>{{ $t('general.personalSettings') }}</span>
@@ -82,8 +82,8 @@
           <t-icon name="user-circle" class="menu-icon" />
           <span>{{ $t('settings.workspaceSettings') }}</span>
         </div>
-        <!-- “管理”类快捷入口只对真正具备写权限的人展示。只读名册和模型列表
-             仍可从「全部设置」进入，避免 viewer 看到名不副实的管理入口。 -->
+        <!-- "Manage"-type shortcuts are only shown to users who actually have write permission. The read-only roster and model list
+             are still accessible from "All Settings", avoiding showing viewers a management entry they can't actually use. -->
         <div v-if="canManageMembers" class="menu-item" @click="handleQuickNav('members')">
           <t-icon name="usergroup" class="menu-icon" />
           <span>{{ $t('tenantMember.title') }}</span>
@@ -153,19 +153,19 @@
             :class="{ 'is-current': isCurrentTenant(m.tenant_id) }" @click="switchToTenant(m)">
             <div class="tenant-submenu-item-avatar" :class="{ 'is-current': isCurrentTenant(m.tenant_id) }">
               {{ tenantInitial(m) }}
-              <!-- Home 标识：home tenant 行的 avatar 右下角加一个小 home
-                   icon。比起在 meta 行单独立一个「我的」pill，这里更省地、
-                   也保持各行徽标列对齐。 -->
+              <!-- Home marker: add a small home icon to the bottom-right corner of the avatar on the home tenant row. Compared to a separate "mine"
+                   pill on the meta line, this is more space-efficient,
+                   and keeps the badge column aligned across rows. -->
               <span v-if="isHomeTenant(m.tenant_id)" class="tenant-submenu-item-home-dot"
                 :title="$t('tenant.switcher.homeTooltip')">
                 <t-icon name="home" size="9px" />
               </span>
             </div>
-            <!-- 两行布局：第一行是 tenant 名（拿满剩余宽度，避免被徽标截断
-                 — 之前 home + 当前 两个徽标在同一行时，长 tenant 名直接
-                 被压成省略号）；第二行 role（带角色图标） + 「当前」徽标。
-                 home 徽标已挪到 tenant 名首字母 avatar 角落，不再在 meta
-                 行额外占位，避免徽标列宽不齐。 -->
+            <!-- Two-line layout: the first line is the tenant name (takes up all remaining width, so it isn't truncated by badges
+                 — previously, when the home and current badges were on the same line, long tenant names
+                 got squeezed into an ellipsis); the second line is the role (with role icon) + "current" badge.
+                 The home badge has moved to the corner of the tenant name's initial-letter avatar, no longer taking extra space on the meta
+                 line, avoiding misaligned badge column widths. -->
             <div class="tenant-submenu-item-info">
               <span class="tenant-submenu-item-name">{{ tenantDisplayName(m) }}</span>
               <div class="tenant-submenu-item-meta">
@@ -183,7 +183,7 @@
             {{ $t('tenant.switcher.empty') }}
           </div>
         </div>
-        <!-- 自助创建入口与 /auth/me 返回的后端能力保持一致。 -->
+        <!-- Self-service creation entry point stays consistent with the backend capabilities returned by /auth/me. -->
         <div v-if="authStore.canCreateTenant" class="tenant-submenu-create" @click="openCreateTenantDialog">
           <t-icon name="add" class="tenant-submenu-create-icon" />
           <span class="tenant-submenu-create-label">{{ $t('tenant.create.action') }}</span>
@@ -191,7 +191,7 @@
       </div>
     </Teleport>
 
-    <!-- 创建工作区弹窗 -->
+    <!-- Create workspace dialog -->
     <CreateTenantDialog v-model:visible="createTenantDialogVisible" @created="onTenantCreated" />
   </div>
 </template>
@@ -224,9 +224,9 @@ const authStore = useAuthStore()
 const { formatRole, roleIcon } = useRoleLabel()
 const { homeTenantId, isHomeTenantActive, isHomeTenant } = useHomeTenant()
 
-// 顶部用户卡片展示的空间名 / 当前角色：跟着 tenant 切换器实时变。
-// activeTenantName 优先用切换器选中的名字（含 fallback 到 home tenant 名字），
-// 单空间用户也能正常显示自己的 home tenant 名。
+// Space name / current role shown in the top user card: updates live with the tenant switcher.
+// activeTenantName prefers the name selected in the switcher (including fallback to the home tenant name),
+// so single-space users can also see their own home tenant name correctly.
 const activeTenantName = computed(() => {
   return (
     authStore.selectedTenantName ||
@@ -237,17 +237,17 @@ const activeTenantName = computed(() => {
 const currentRoleLabel = computed(() => formatRole(authStore.currentTenantRole))
 const currentRoleIcon = computed(() => roleIcon(authStore.currentTenantRole))
 
-// 单空间用户（memberships <= 1 且非 superuser）= 永远 home + owner，第三
-// 行就是 user-email 信息的重复，没必要占视觉空间；只对多空间 / superuser
-// 渲染。Lite 模式下没有 RBAC 概念，统一隐藏。
+// Single-space users (memberships <= 1 and not superuser) = always home + owner, so the third
+// line would just repeat the user-email info, which isn't worth the visual space; only render for multi-space / superuser
+// users. Lite mode has no RBAC concept, so it's always hidden.
 const showTenantIdentityLine = computed(() => {
   if (authStore.isLiteMode) return false
   if (authStore.canAccessAllTenants) return true
   return (authStore.memberships ?? []).length > 1
 })
 
-// 快捷入口使用“管理能力”而不是页面最低可见角色：成员名册和模型列表允许
-// viewer 浏览，但头像菜单里的“管理”入口只服务实际能执行管理操作的角色。
+// Quick-access entries use "management capability" rather than the page's minimum visible role: the member roster and model list allow
+// viewer browsing, but the "Manage" entry in the avatar menu only serves roles that can actually perform management actions.
 const canManageMembers = computed(() =>
   authStore.canAccessAllTenants || authStore.hasRole(SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE.members),
 )
@@ -264,7 +264,7 @@ const tenantSubmenuOpen = ref(false)
 const tenantSubmenuStyle = ref<Record<string, string>>({})
 let tenantSubmenuHideTimer: ReturnType<typeof setTimeout> | null = null
 
-// 用户信息
+// User info
 const userInfo = ref({
   username: t('common.defaultUser'),
   email: 'user@example.com',
@@ -275,24 +275,24 @@ const userName = computed(() => userInfo.value.username)
 const userEmail = computed(() => userInfo.value.email)
 const userAvatar = computed(() => userInfo.value.avatar)
 
-// 用户名首字母（用于无头像时显示）
+// First letter of the username (shown when there's no avatar)
 const userInitial = computed(() => {
   return userName.value.charAt(0).toUpperCase()
 })
 
-// 切换菜单显示
+// Show switch menu
 const toggleMenu = () => {
   menuVisible.value = !menuVisible.value
 }
 
-// 快捷导航到设置的特定部分
+// Quick navigation to a specific settings section
 const handleQuickNav = (section: string) => {
   menuVisible.value = false
   uiStore.openSettings()
   router.push({ path: '/platform/settings', query: { section } })
 }
 
-// 打开设置
+// Open settings
 const handleSettings = () => {
   menuVisible.value = false
   uiStore.openSettings()
@@ -316,10 +316,10 @@ const closeAll = () => {
 }
 
 // ---------- Create new tenant ----------
-// 普通用户在空间子菜单底部点 "+ 创建新工作区" → 弹 CreateTenantDialog →
-// 后端写一行 owner 的 tenant_members → 直接切到新空间。复用 switchToTenant
-// 同款的 setSelectedTenant + navigateAfterTenantSwitch 链路，避免 token
-// 依然指向旧空间带来的 SSE / store 不一致。
+// When a regular user clicks "+ Create new workspace" at the bottom of the space submenu → opens CreateTenantDialog →
+// the backend writes one owner tenant_members row → switch straight to the new space. Reuses the same
+// setSelectedTenant + navigateAfterTenantSwitch chain as switchToTenant, avoiding token
+// still pointing at the old space and causing SSE / store inconsistency.
 const createTenantDialogVisible = ref(false)
 
 const openCreateTenantDialog = () => {
@@ -389,17 +389,17 @@ const switchToTenant = (m: Membership) => {
     closeAll()
     return
   }
-  // 始终把激活空间写进 selectedTenantId，让 request.ts 永远附 X-Tenant-ID。
-  // 历史实现里「切回 home 就清 override」会让请求落回 JWT 编码的空间，
-  // 而 JWT 在 last_active != home 的会话里恰好是 peer 空间（见
-  // userService.resolveLoginTenantID），结果切回 home 反而原地不动。
-  // 服务端持久化偏好仍然按 home/peer 区分：home 时清空 last_active，
-  // 让下次干净重登能正确回到 home。
+  // Always write the active space into selectedTenantId, so request.ts always attaches X-Tenant-ID.
+  // In the old implementation, "clear override when switching back to home" made requests fall back to the space encoded in the JWT,
+  // but the JWT, in sessions where last_active != home, happens to be the peer space (see
+  // userService.resolveLoginTenantID), so switching back to home actually didn't move at all.
+  // Server-side persisted preference still distinguishes home/peer: for home it clears last_active,
+  // so the next clean re-login correctly lands on home.
   const home = homeTenantId.value
   const switchingToHome = home !== null && home === m.tenant_id
   authStore.setSelectedTenant(m.tenant_id, tenantDisplayName(m))
   closeAll()
-  // Toast 在 reload 后由 App.vue 弹出（直接在这里弹会被 hard reload 干掉）。
+  // The toast is shown by App.vue after reload (showing it here directly would get wiped by the hard reload).
   stashTenantSwitchToast({
     name: tenantDisplayName(m),
     role: formatRole(m.role) || undefined,
@@ -498,34 +498,34 @@ const openDocs = () => {
   window.open('https://github.com/Tencent/WeKnora/tree/main/docs', '_blank')
 }
 
-// 打开 GitHub
+// Open GitHub
 const openGithub = () => {
   menuVisible.value = false
   window.open('https://github.com/Tencent/WeKnora', '_blank')
 }
 
-// 注销
+// Log out
 const handleLogout = async () => {
   menuVisible.value = false
 
   try {
-    // 调用后端API注销
+    // Call the backend API to log out
     await logoutApi()
   } catch (error) {
-    // 即使API调用失败，也继续执行本地清理
-    console.error('注销API调用失败:', error)
+    // Continue with local cleanup even if the API call fails
+    console.error('Logout API call failed:', error)
   }
 
-  // 清理所有状态和本地存储
+  // Clear all state and local storage
   authStore.logout()
 
   MessagePlugin.success(t('auth.logout'))
 
-  // 跳转到登录页
+  // Redirect to the login page
   router.push('/login')
 }
 
-// 加载用户信息
+// Load user info
 const loadUserInfo = async () => {
   try {
     const response = await getCurrentUser()
@@ -536,16 +536,16 @@ const loadUserInfo = async () => {
         email: user.email || 'user@example.com',
         avatar: user.avatar || ''
       }
-      // 同时更新 authStore 中的用户信息，确保包含 can_access_all_tenants /
-      // is_system_admin 等所有字段。MUST 走 userInfoFromApi 工厂——历史
-      // 上这里手写字段白名单，每加一个 user 字段都要在 5 个 setUser 调用
-      // 点同步，is_system_admin 就因为漏了这一处导致进入 platform 后
-      // user.value 的字段被 mount 时的 loadUserInfo 静默覆盖回 undefined
-      // （同时污染 localStorage），系统管理入口在 hover 工作空间触发
-      // refreshFromAuthMe 后才出现。新增字段请只改 userInfoFromApi。
+      // Also update the user info in authStore, ensuring it includes can_access_all_tenants /
+      // is_system_admin and all other fields. MUST go through the userInfoFromApi factory — historically
+      // hand-writing a field whitelist here meant every new user field had to be synced across 5 setUser calls;
+      // missing one spot caused is_system_admin to be silently reset to undefined when user.value's fields
+      // were overwritten by loadUserInfo on mount after entering platform
+      // (also polluting localStorage) — the system admin entry, triggered by hovering the workspace,
+      // only appeared after refreshFromAuthMe. For new fields, only modify userInfoFromApi.
       authStore.setUser(userInfoFromApi(user))
-      // 如果返回了空间信息，也更新空间信息；tenantless 用户（/auth/me
-      // 无 tenant）必须显式清空，否则会残留上一账号/上一会话的空间快照。
+      // If space info is returned, also update the space info; tenantless users (/auth/me
+      // must be explicitly cleared, otherwise it will leave behind the workspace snapshot from the previous account/previous session.
       if (response.data.tenant) {
         authStore.setTenant({
           id: String(response.data.tenant.id),
@@ -571,7 +571,7 @@ const loadUserInfo = async () => {
   }
 }
 
-// 点击外部关闭菜单
+// Click outside to close the menu
 const handleClickOutside = (e: MouseEvent) => {
   const target = e.target as Node
   if (menuRef.value && menuRef.value.contains(target)) return
@@ -608,7 +608,7 @@ onUnmounted(() => {
       left: calc(100% + 8px);
       bottom: 0;
       right: auto;
-      /* 与展开侧栏时下拉可视宽度对齐（aside 宽 260px） */
+      /* Align with the dropdown visible width when the sidebar is expanded (aside width 260px) */
       min-width: 260px;
     }
   }
@@ -740,7 +740,7 @@ onUnmounted(() => {
 .user-dropdown {
   position: absolute;
   bottom: 100%;
-  /* 相对 .user-menu：左右由 left/right 拉宽；右缘用正值内缩，避免与侧栏内容区右边界完全重合 */
+  /* Relative to .user-menu: widened left/right by left/right; right edge inset with a positive value to avoid fully overlapping the sidebar content's right boundary */
   left: -4px;
   right: -5px;
   margin-bottom: 6px;
@@ -752,8 +752,8 @@ onUnmounted(() => {
   z-index: 1000;
 }
 
-// 下拉顶部 — 账号区：24px 头像中心与下方 16px 菜单图标中心同竖线；
-// margin-left −4px、gap 6px 保持昵称起点与菜单文案对齐（12 + 24 + 6 − 4 = 38）
+// Top of dropdown — account section: the 24px avatar center aligns vertically with the 16px menu icon center below;
+// margin-left −4px, gap 6px keep the nickname start aligned with the menu text (12 + 24 + 6 − 4 = 38)
 .dropdown-user-header {
   display: flex;
   align-items: center;
@@ -859,7 +859,7 @@ onUnmounted(() => {
   }
 }
 
-// 下拉 — 当前工作区：与下方 .menu-item 同款对齐（左 16px 图标槽 + 文案列 + 右侧操作图标）
+// Dropdown — current workspace: same alignment as .menu-item below (16px icon slot on the left + text column + action icon on the right)
 .dropdown-tenant-panel {
   display: flex;
   align-items: center;
@@ -959,7 +959,7 @@ onUnmounted(() => {
     }
   }
 
-  // 包含右弹子菜单的菜单项
+  // Menu item containing the right-side submenu
   &--submenu {
     position: relative;
 
@@ -1061,13 +1061,13 @@ onUnmounted(() => {
   margin: 3px 0;
 }
 
-// 紧跟账号/空间区块后的分隔线：略收紧与上方的留白
+// Divider right after the account/space block: slightly tighten the spacing above it
 .dropdown-user-header+.menu-divider,
 .dropdown-tenant-panel+.menu-divider {
   margin-top: 1px;
 }
 
-// 下拉动画
+// Dropdown animation
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1179,8 +1179,8 @@ onUnmounted(() => {
     text-overflow: ellipsis;
   }
 
-  // 第二行：role + 徽标，以 inline 形式排在一起。徽标缩到次级位置，
-  // 让第一行的 tenant 名拿满宽度（之前长名字会被徽标挤成省略号）。
+  // Second row: role + badge, laid out inline together. The badge is shrunk to a secondary position,
+  // letting the first row's tenant name take up the full width (previously long names were squeezed into an ellipsis by the badge).
   .tenant-submenu-item-meta {
     display: flex;
     align-items: center;
@@ -1198,7 +1198,7 @@ onUnmounted(() => {
 
     .tenant-submenu-item-role-icon {
       flex-shrink: 0;
-      // 颜色继承 role 文字色，避免抢走视觉
+      // Color inherits the role text color, avoiding drawing visual attention
       color: inherit;
     }
   }
@@ -1214,9 +1214,9 @@ onUnmounted(() => {
     color: var(--td-text-color-secondary);
   }
 
-  // Home 标识改为叠在 avatar 右下角的小 dot，不在 meta 行额外占位，让
-  // 各行徽标列宽对齐；用户切到非 home tenant 时这个小 icon 仍能一眼指
-  // 出「我的主空间在哪一行」。
+  // The Home indicator is changed to a small dot overlaid on the bottom-right of the avatar, taking no extra space in the meta row, so
+  // the badge column stays aligned across rows; when the user switches to a non-home tenant, this small icon still shows at a glance
+  // which row is "my home space."
   .tenant-submenu-item-avatar {
     position: relative;
   }

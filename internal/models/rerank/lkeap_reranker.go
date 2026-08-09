@@ -17,23 +17,23 @@ const (
 	LKEAPMaxDocumentsPerRequest = 60
 	// LKEAPMaxRequestCharacters is the maximum combined length of Query and Docs accepted by RunRerank.
 	LKEAPMaxRequestCharacters = 2000
-	// LKEAPRerankEndpoint 腾讯云知识引擎原子能力 Rerank API 域名
+	// LKEAPRerankEndpoint Tencent Cloud LKE atomic capability Rerank API domain
 	LKEAPRerankEndpoint = "lkeap.tencentcloudapi.com"
-	// LKEAPDefaultRegion RunRerank 支持的地域，默认广州
+	// LKEAPDefaultRegion region supported by RunRerank, default is Guangzhou
 	LKEAPDefaultRegion = "ap-guangzhou"
-	// LKEAPDefaultRerankModel 默认 rerank 模型名
+	// LKEAPDefaultRerankModel default rerank model name
 	LKEAPDefaultRerankModel = "lke-reranker-base"
 )
 
-// LKEAPReranker 使用腾讯云知识引擎原子能力 RunRerank 接口进行重排序。
-// 鉴权使用腾讯云 API 密钥：APIKey 为 SecretId，AppSecret 为 SecretKey。
+// LKEAPReranker performs reranking using Tencent Cloud LKE atomic capability's RunRerank API.
+// Authentication uses Tencent Cloud API keys: APIKey serves as SecretId, AppSecret serves as SecretKey.
 type LKEAPReranker struct {
 	modelName string
 	modelID   string
 	client    *lkeap.Client
 }
 
-// NewLKEAPReranker 创建 LKEAP rerank 客户端。
+// NewLKEAPReranker creates an LKEAP rerank client.
 func NewLKEAPReranker(config *RerankerConfig) (*LKEAPReranker, error) {
 	secretID := strings.TrimSpace(config.APIKey)
 	secretKey := strings.TrimSpace(config.AppSecret)
@@ -72,7 +72,7 @@ func NewLKEAPReranker(config *RerankerConfig) (*LKEAPReranker, error) {
 	}, nil
 }
 
-// Rerank 调用 RunRerank 对文档按与 query 的相关性打分。
+// Rerank calls RunRerank to score documents by relevance to the query.
 func (r *LKEAPReranker) Rerank(ctx context.Context, query string, documents []string) ([]RankResult, error) {
 	if len(documents) == 0 {
 		return []RankResult{}, nil

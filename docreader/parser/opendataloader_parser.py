@@ -52,7 +52,7 @@ def _override_bool(overrides: Optional[Mapping[str, Any]], key: str, default: bo
 
 def _java_available() -> Tuple[bool, str]:
     if not shutil.which("java"):
-        return False, "需要 Java 11+（JRE），请安装并在 PATH 中配置 java"
+        return False, "Java 11+ (JRE) is required; install it and configure java in PATH"
     return True, ""
 
 
@@ -60,7 +60,7 @@ def _package_available() -> Tuple[bool, str]:
     try:
         import opendataloader_pdf  # noqa: F401
     except ImportError as e:
-        return False, f"opendataloader-pdf 未安装: {e}"
+        return False, f"opendataloader-pdf is not installed: {e}"
     return True, ""
 
 
@@ -82,16 +82,16 @@ def _ping_hybrid(
             with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
                 if 200 <= resp.status < 300:
                     return True, ""
-                last_err = f"hybrid 健康检查 HTTP {resp.status}: {health_url}"
+                last_err = f"hybrid health check HTTP {resp.status}: {health_url}"
         except urllib.error.URLError as e:
-            last_err = f"无法连接 OpenDataLoader hybrid 服务 ({health_url}): {e}"
+            last_err = f"Unable to connect to the OpenDataLoader hybrid service ({health_url}): {e}"
         except Exception as e:
-            last_err = f"hybrid 健康检查失败: {e}"
+            last_err = f"hybrid health check failed: {e}"
         if attempt + 1 < retries:
             time.sleep(retry_delay_sec)
     hint = (
-        "；若刚执行 make dev-start --odl-hybrid，请等待镜像构建/服务就绪"
-        "（docker logs WeKnora-odl-hybrid）"
+        "; if you just ran make dev-start --odl-hybrid, wait for the image build/service to be ready"
+        " (docker logs WeKnora-odl-hybrid)"
     )
     return False, last_err + hint
 
@@ -140,7 +140,7 @@ def _find_markdown_file(output_dir: str, pdf_stem: str) -> str:
                 path = os.path.join(root, name)
                 candidates.append(path)
     if not candidates:
-        raise FileNotFoundError(f"OpenDataLoader 未在 {output_dir} 生成 markdown 文件")
+        raise FileNotFoundError(f"OpenDataLoader did not generate a markdown file in {output_dir}")
     for path in candidates:
         base = os.path.splitext(os.path.basename(path))[0]
         if base == pdf_stem or base.startswith(pdf_stem):

@@ -7,26 +7,26 @@ import (
 )
 
 const (
-	// ZhipuChatBaseURL 智谱 AI Chat 的默认 BaseURL
+	// ZhipuChatBaseURL default BaseURL for Zhipu AI Chat
 	ZhipuChatBaseURL = "https://open.bigmodel.cn/api/paas/v4"
-	// ZhipuEmbeddingBaseURL 智谱 AI Embedding 的默认 BaseURL
+	// ZhipuEmbeddingBaseURL default BaseURL for Zhipu AI Embedding
 	ZhipuEmbeddingBaseURL = "https://open.bigmodel.cn/api/paas/v4"
-	// ZhipuRerankBaseURL 智谱 AI Rerank 的默认 BaseURL
+	// ZhipuRerankBaseURL default BaseURL for Zhipu AI Rerank
 	ZhipuRerankBaseURL = "https://open.bigmodel.cn/api/paas/v4/rerank"
 )
 
-// ZhipuProvider 实现智谱 AI 的 Provider 接口
+// ZhipuProvider implements the Zhipu AI Provider interface
 type ZhipuProvider struct{}
 
 func init() {
 	Register(&ZhipuProvider{})
 }
 
-// Info 返回智谱 AI provider 的元数据
+// Info returns metadata for the Zhipu AI provider
 func (p *ZhipuProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderZhipu,
-		DisplayName: "智谱 BigModel",
+		DisplayName: "Zhipu BigModel",
 		Description: "glm-4.7, embedding-3, rerank, etc.",
 		DefaultURLs: map[types.ModelType]string{
 			types.ModelTypeKnowledgeQA: ZhipuChatBaseURL,
@@ -44,7 +44,7 @@ func (p *ZhipuProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证智谱 AI provider 配置
+// ValidateConfig validates the Zhipu AI provider configuration
 func (p *ZhipuProvider) ValidateConfig(config *Config) error {
 	if config.APIKey == "" {
 		return fmt.Errorf("API key is required for Zhipu AI")

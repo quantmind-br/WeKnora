@@ -1,41 +1,41 @@
 # MCP Service API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-MCP（Model Context Protocol）服务管理接口，提供 MCP 服务的 CRUD、连通性测试、工具/资源发现，以及工具人工审批策略配置。
+MCP (Model Context Protocol) service management interface, providing CRUD operations for MCP services, connectivity testing, tool/resource discovery, and manual approval policy configuration for tools.
 
-| 方法   | 路径                                              | 描述                                          |
+| Method | Path                                              | Description                                          |
 | ------ | ------------------------------------------------- | --------------------------------------------- |
-| POST   | `/mcp-services`                                   | 创建 MCP 服务                                 |
-| GET    | `/mcp-services`                                   | 获取当前空间的 MCP 服务列表                   |
-| GET    | `/mcp-services/:id`                               | 获取 MCP 服务详情                             |
-| PUT    | `/mcp-services/:id`                               | 更新 MCP 服务（部分字段更新）                 |
-| DELETE | `/mcp-services/:id`                               | 删除 MCP 服务                                 |
-| POST   | `/mcp-services/:id/test`                          | 测试 MCP 服务连通性                           |
-| GET    | `/mcp-services/:id/tools`                         | 获取 MCP 服务工具列表                         |
-| GET    | `/mcp-services/:id/resources`                     | 获取 MCP 服务资源列表                         |
-| GET    | `/mcp-services/:id/tool-approvals`                | 列出该服务下各工具的人工审批策略 |
-| PUT    | `/mcp-services/:id/tool-approvals/:tool_name`     | 设置/更新某工具的人工审批策略  |
-| POST   | `/agent/tool-approvals/:pending_id`               | 处理 Agent 工具调用待审批请求  |
+| POST   | `/mcp-services`                                   | Create an MCP service                                 |
+| GET    | `/mcp-services`                                   | Get the list of MCP services in the current space                   |
+| GET    | `/mcp-services/:id`                               | Get MCP service details                             |
+| PUT    | `/mcp-services/:id`                               | Update an MCP service (partial field update)                 |
+| DELETE | `/mcp-services/:id`                               | Delete an MCP service                                 |
+| POST   | `/mcp-services/:id/test`                          | Test MCP service connectivity                           |
+| GET    | `/mcp-services/:id/tools`                         | Get the MCP service's tool list                         |
+| GET    | `/mcp-services/:id/resources`                     | Get the MCP service's resource list                         |
+| GET    | `/mcp-services/:id/tool-approvals`                | List the manual approval policy for each tool under this service |
+| PUT    | `/mcp-services/:id/tool-approvals/:tool_name`     | Set/update the manual approval policy for a tool  |
+| POST   | `/agent/tool-approvals/:pending_id`               | Handle a pending Agent tool call approval request  |
 
-## POST `/mcp-services` - 创建 MCP 服务
+## POST `/mcp-services` - Create an MCP Service
 
-**请求参数**:
+**Request parameters**:
 
-| 字段             | 类型    | 必填 | 说明                                                                                          |
-| ---------------- | ------- | ---- | --------------------------------------------------------------------------------------------- |
-| name             | string  | 是   | 服务名称                                                                                      |
-| description      | string  | 否   | 服务描述                                                                                      |
-| transport_type   | string  | 是   | 传输类型，可选：`sse`、`http-streamable`、`stdio`                                              |
-| url              | string  | 条件 | 服务地址；当 `transport_type` 为 `sse` / `http-streamable` 时必填（受 SSRF 安全校验约束）        |
-| headers          | object  | 否   | 自定义请求头                                                                                  |
-| auth_config      | object  | 否   | 认证配置，支持 `api_key`、`token`                                                              |
-| advanced_config  | object  | 否   | 高级配置，支持 `timeout`、`retry_count`、`retry_delay`                                          |
-| stdio_config     | object  | 条件 | stdio 传输配置，包含 `command`、`args`；当 `transport_type` 为 `stdio` 时必填                  |
-| env_vars         | object  | 否   | 环境变量（stdio 场景常用）                                                                    |
-| enabled          | boolean | 否   | 是否启用                                                                                      |
+| Field             | Type    | Required | Description                                                                                          |
+| ---------------- | ------- | ---- | ----------------------------------------------------------------------------------------------- |
+| name             | string  | Yes   | Service name                                                                                      |
+| description      | string  | No   | Service description                                                                                      |
+| transport_type   | string  | Yes   | Transport type, options: `sse`, `http-streamable`, `stdio`                                              |
+| url              | string  | Conditional | Service address; required when `transport_type` is `sse` / `http-streamable` (subject to SSRF security validation)        |
+| headers          | object  | No   | Custom request headers                                                                                  |
+| auth_config      | object  | No   | Authentication configuration, supports `api_key`, `token`                                                              |
+| advanced_config  | object  | No   | Advanced configuration, supports `timeout`, `retry_count`, `retry_delay`                                          |
+| stdio_config     | object  | Conditional | stdio transport configuration, including `command`, `args`; required when `transport_type` is `stdio`                  |
+| env_vars         | object  | No   | Environment variables (commonly used in stdio scenarios)                                                                    |
+| enabled          | boolean | No   | Whether it's enabled                                                                                      |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services' \
@@ -60,7 +60,7 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -91,7 +91,7 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 }
 ```
 
-**创建 stdio 类型的 MCP 服务示例**:
+**Example: creating a stdio-type MCP service**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services' \
@@ -111,11 +111,11 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 }'
 ```
 
-## GET `/mcp-services` - 获取 MCP 服务列表
+## GET `/mcp-services` - Get the MCP Service List
 
-返回当前空间已配置的所有 MCP 服务。
+Returns all MCP services configured in the current space.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services' \
@@ -123,7 +123,7 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -175,17 +175,17 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 }
 ```
 
-## GET `/mcp-services/:id` - 获取 MCP 服务详情
+## GET `/mcp-services/:id` - Get MCP Service Details
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明           |
+| Field | Type   | Description           |
 | ---- | ------ | -------------- |
-| id   | string | MCP 服务 ID    |
+| id   | string | MCP service ID    |
 
-> 注：内置（`is_builtin: true`）服务在响应中会隐藏敏感凭证字段。
+> Note: for built-in (`is_builtin: true`) services, sensitive credential fields are hidden in the response.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001' \
@@ -193,7 +193,7 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -222,11 +222,11 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001' \
 }
 ```
 
-## PUT `/mcp-services/:id` - 更新 MCP 服务
+## PUT `/mcp-services/:id` - Update an MCP Service
 
-支持部分字段更新，可传入下列任意子集：`name`、`description`、`enabled`、`transport_type`、`url`、`stdio_config`、`env_vars`、`headers`、`auth_config`、`advanced_config`。其中 `url` 若提供，会再次执行 SSRF 安全校验。
+Supports partial field updates; any subset of the following can be passed: `name`, `description`, `enabled`, `transport_type`, `url`, `stdio_config`, `env_vars`, `headers`, `auth_config`, `advanced_config`. If `url` is provided, SSRF security validation is performed again.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-00000001' \
@@ -239,7 +239,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-000
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -268,9 +268,9 @@ curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-000
 }
 ```
 
-## DELETE `/mcp-services/:id` - 删除 MCP 服务
+## DELETE `/mcp-services/:id` - Delete an MCP Service
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/mcp-services/mcp-00000001' \
@@ -278,7 +278,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/mcp-services/mcp-
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -287,11 +287,11 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/mcp-services/mcp-
 }
 ```
 
-## POST `/mcp-services/:id/test` - 测试 MCP 服务连通性
+## POST `/mcp-services/:id/test` - Test MCP Service Connectivity
 
-后端会以已保存配置建立一次 MCP 连接，返回连接结果及探测到的工具/资源列表。连接失败时 HTTP 仍为 200，但 `data.success` 为 `false`，错误原因在 `data.message` 中。
+The backend establishes an MCP connection using the saved configuration and returns the connection result along with the discovered tools/resources. If the connection fails, the HTTP status is still 200, but `data.success` is `false`, with the error reason in `data.message`.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/test' \
@@ -299,7 +299,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/mcp-services/mcp-00
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -336,9 +336,9 @@ curl --location --request POST 'http://localhost:8080/api/v1/mcp-services/mcp-00
 }
 ```
 
-## GET `/mcp-services/:id/tools` - 获取 MCP 服务工具列表
+## GET `/mcp-services/:id/tools` - Get the MCP Service's Tool List
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tools' \
@@ -346,7 +346,7 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tools' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -388,9 +388,9 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tools' \
 }
 ```
 
-## GET `/mcp-services/:id/resources` - 获取 MCP 服务资源列表
+## GET `/mcp-services/:id/resources` - Get the MCP Service's Resource List
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/resources' \
@@ -398,7 +398,7 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/resource
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -420,24 +420,24 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/resource
 }
 ```
 
-## GET `/mcp-services/:id/tool-approvals` - 列出工具人工审批策略
+## GET `/mcp-services/:id/tool-approvals` - List Tool Manual Approval Policies
 
-返回该 MCP 服务下各工具持久化的 `require_approval` 标记。仅返回数据库中已显式配置过的工具记录；未出现在列表中的工具默认无需审批。
+Returns the persisted `require_approval` flag for each tool under this MCP service. Only tool records that have been explicitly configured in the database are returned; tools not appearing in the list do not require approval by default.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明        |
+| Field | Type   | Description        |
 | ---- | ------ | ----------- |
-| id   | string | MCP 服务 ID |
+| id   | string | MCP service ID |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tool-approvals' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -457,24 +457,24 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tool-app
 }
 ```
 
-## PUT `/mcp-services/:id/tool-approvals/:tool_name` - 设置工具人工审批策略
+## PUT `/mcp-services/:id/tool-approvals/:tool_name` - Set a Tool's Manual Approval Policy
 
-为指定 MCP 服务下的某个工具设置/更新人工审批要求。当 `require_approval` 为 `true` 时，Agent 在调用该工具前会阻塞并产生一条待审批记录，需要前端调用 `POST /agent/tool-approvals/:pending_id` 完成审批。
+Sets/updates the manual approval requirement for a given tool under a specific MCP service. When `require_approval` is `true`, the Agent will block before calling this tool and generate a pending approval record, requiring the frontend to call `POST /agent/tool-approvals/:pending_id` to complete the approval.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段       | 类型   | 说明                                                                |
+| Field       | Type   | Description                                                                |
 | ---------- | ------ | ------------------------------------------------------------------- |
-| id         | string | MCP 服务 ID                                                         |
-| tool_name  | string | 工具名（由 Gin 自动 URL 解码，调用方需对名称中的 `%`、`/` 做 URL 编码） |
+| id         | string | MCP service ID                                                         |
+| tool_name  | string | Tool name (automatically URL-decoded by Gin; callers must URL-encode `%` and `/` in the name) |
 
-**请求体**:
+**Request body**:
 
-| 字段              | 类型    | 必填 | 说明                                |
+| Field              | Type    | Required | Description                                |
 | ----------------- | ------- | ---- | ----------------------------------- |
-| require_approval  | boolean | 是   | 是否要求人工审批后才能执行该工具    |
+| require_approval  | boolean | Yes   | Whether manual approval is required before this tool can execute    |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tool-approvals/delete_file' \
@@ -485,7 +485,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-000
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -493,27 +493,27 @@ curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-000
 }
 ```
 
-## POST `/agent/tool-approvals/:pending_id` - 处理待审批工具调用
+## POST `/agent/tool-approvals/:pending_id` - Handle a Pending Tool Call Approval
 
-用于 Agent 在执行过程中阻塞等待人工审批的场景：当 Agent 命中一个 `require_approval = true` 的工具时会生成一条 `pending_id`，前端拿到这个 ID 后调用此接口将审批结果回传给 Agent，Agent 才会继续执行（或终止）。
+Used for scenarios where the Agent blocks and waits for manual approval during execution: when the Agent hits a tool with `require_approval = true`, a `pending_id` is generated; after the frontend obtains this ID, it calls this endpoint to relay the approval result back to the Agent, allowing it to continue execution (or terminate).
 
-**鉴权要求**：请求上下文中必须有已认证用户（`user_id`），且该用户必须是当前 pending 会话的所有者；空间与用户两层都会做 fail-close 校验。
+**Authentication requirement**: the request context must have an authenticated user (`user_id`), and that user must be the owner of the current pending session; both the space and user levels undergo fail-close validation.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段        | 类型   | 说明                |
+| Field        | Type   | Description                |
 | ----------- | ------ | ------------------- |
-| pending_id  | string | 待审批记录 ID       |
+| pending_id  | string | Pending approval record ID       |
 
-**请求体**:
+**Request body**:
 
-| 字段           | 类型   | 必填 | 说明                                                                                                              |
+| Field           | Type   | Required | Description                                                                                                              |
 | -------------- | ------ | ---- | ----------------------------------------------------------------------------------------------------------------- |
-| decision       | string | 是   | 审批结论，必须为 `approve` 或 `reject`                                                                            |
-| modified_args  | object | 否   | 仅在 `approve` 时生效，允许人工修改本次工具调用的参数；必须是非 null 的 JSON 对象，否则返回 400                    |
-| reason         | string | 否   | 审批理由（任意，便于审计）                                                                                        |
+| decision       | string | Yes   | Approval decision, must be `approve` or `reject`                                                                            |
+| modified_args  | object | No   | Only effective when `approve`, allows manual modification of the tool call's parameters for this invocation; must be a non-null JSON object, otherwise returns 400                    |
+| reason         | string | No   | Approval reason (freeform, for audit purposes)                                                                                        |
 
-**请求（通过）**:
+**Request (approve)**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approvals/pending-abcdef123456' \
@@ -528,7 +528,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approval
 }'
 ```
 
-**请求（驳回）**:
+**Request (reject)**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approvals/pending-abcdef123456' \
@@ -540,7 +540,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approval
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -548,10 +548,10 @@ curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approval
 }
 ```
 
-**错误码说明**:
+**Error code reference**:
 
-| HTTP | 触发条件                                                                                |
+| HTTP | Trigger condition                                                                                |
 | ---- | --------------------------------------------------------------------------------------- |
-| 400  | `decision` 不是 `approve`/`reject`；或 `modified_args` 是 `null`/非对象；或空间/用户错配 |
-| 401  | 上下文缺失认证用户（中间件未注入 `user_id`）                                            |
-| 404  | `pending_id` 不存在或已完成（超时/取消已先一步消费）                                    |
+| 400  | `decision` is neither `approve` nor `reject`; or `modified_args` is `null`/not an object; or space/user mismatch |
+| 401  | No authenticated user in context (middleware did not inject `user_id`)                                            |
+| 404  | `pending_id` does not exist or has already been completed (consumed earlier by timeout/cancellation)                                    |

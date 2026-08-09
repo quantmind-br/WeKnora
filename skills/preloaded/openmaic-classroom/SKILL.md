@@ -1,316 +1,235 @@
 ---
-name: openmaic-classroom
-description: 将 RAG 检索结果、文档块或知识图谱概念转换为 OpenMAIC 互动课程。当用户要求将知识库内容、检索到的文档片段、上传的文档、或知识图谱中的概念批量转换为教学课件/互动课堂时使用此技能。支持纯需求生成、基于 PDF 内容的课程生成、和基于概念图遍历的批量课堂生成。
+name: OpenMAIC Classroom
+description: Converts RAG retrieval results, document chunks, or knowledge graph concepts into OpenMAIC interactive courses. Use this skill when the user asks to convert knowledge base content, retrieved document snippets, uploaded documents, or knowledge graph concepts into teaching materials / interactive lessons in bulk. Supports pure requirement generation, course generation from PDF content, and bulk classroom generation from concept graph traversal.
 ---
 
 # OpenMAIC Classroom Generator
 
-将 WeKnora 知识库中的 RAG 检索结果或文档内容转换为 OpenMAIC 互动课程。
+Converts RAG retrieval results or document content in the WeKnora knowledge base into OpenMAIC interactive courses.
 
-## 核心能力
+## Core Capabilities
 
-1. **RAG → 课程**: 将知识检索结果提炼为教学需求（requirement），通过 OpenMAIC API 生成互动课程
-2. **PDF → 课程**: 解析用户上传的 PDF，结合内容生成课程
-3. **文档块 → 课程集**: 将多个文档块/知识片段组织为多阶段课程集
-4. **概念图遍历 → 批量微课堂**: 遍历知识图谱中所有 concept 页面，每个 concept 生成一个 micro-classroom
+1. **RAG → Course**: distill knowledge retrieval results into teaching requirements and generate interactive courses through the OpenMAIC API
+2. **PDF → Course**: parse user-uploaded PDFs and generate courses from the content
+3. **Document chunks → Course set**: organize multiple document chunks / knowledge snippets into a multi-stage course set
+4. **Concept graph traversal → bulk micro-classrooms**: traverse all concept pages in the knowledge graph and generate one micro-classroom per concept
 
-## 能力边界
+## Scope Boundaries
 
-> **通过 WeKnora 注册的 mcp_api_requester MCP 工具，你可以直接调用 OpenMAIC API**（HTTP POST/GET 请求）。
-> 该工具在 WeKnora agent 中注册为 `mcp_{service_name}_{tool_name}` 格式（如 `mcp_mcp_api_requester_make_request`）。
-> **必须**使用该 MCP 工具调用 API。如果 MCP 工具未配置或不可用，引导用户先部署 mcp-api-requester，不提供 curl 命令。
+> **Through the mcp_api_requester MCP tool registered in WeKnora, you can call the OpenMAIC API directly** (HTTP POST/GET requests).
+> The tool is registered in the WeKnora agent as `mcp_{service_name}_{tool_name}` (e.g. `mcp_mcp_api_requester_make_request`).
+> You **must** use this MCP tool to call the API. If the MCP tool is not configured or unavailable, guide the user to deploy mcp-api-requester first instead of providing curl commands.
 
-> **⚠️ MCP 可用性检查（每次读取此文件后必须执行）：**
-> 在开始工作前，检查可用的 MCP 工具列表中是否存在名称包含 `mcp_api_requester` 的工具。
-> - **如果未找到**：必须提醒用户："未检测到 `mcp_api_requester` MCP 服务。请先从 https://github.com/yryuu/mcp-api-requester 下载代码并部署，然后在 WeKnora 中注册该 MCP 服务。"
-> - **如果已找到**：继续后续流程，使用该 MCP 工具调用 API。
+> **⚠️ MCP availability check (must run every time this file is read):**
+> Before starting work, check whether the available MCP tools include one whose name contains `mcp_api_requester`.
+> - **If not found**: you must remind the user: "The `mcp_api_requester` MCP service was not detected. Please download the code from https://github.com/yryuu/mcp-api-requester, deploy it, and then register this MCP service in WeKnora."
+> - **If found**: continue with the flow below and call the API through that MCP tool.
 
-## 模式选择
+## Mode Selection
 
-OpenMAIC 有两种使用模式，**根据用户场景选择**：
+OpenMAIC has two usage modes; **choose based on the user's scenario**:
 
-| 模式 | Base URL | 认证方式 | 适用场景 |
-|------|----------|----------|----------|
-| 托管模式（推荐快速使用） | `https://open.maic.chat` | `Authorization: Bearer <access-code>` | 用户有 open.maic.chat 访问码，无需本地部署 |
-| 本地模式 | 用户提供（见本地模式 Base URL 处理） | 无认证（本地自部署） | 用户自行部署了 OpenMAIC 实例 |
+| Mode | Base URL | Authentication | Fits |
+|------|----------|----------|------|
+| Hosted mode (recommended for quick use) | `https://open.maic.chat` | `Authorization: Bearer <access-code>` | The user has an open.maic.chat access code and does not need a local deployment |
+| Local mode | Provided by the user (see Local Mode Base URL Handling) | No authentication (self-deployed locally) | The user deployed their own OpenMAIC instance |
 
-**判断规则**：
-- 用户提到"在线服务"、"open.maic.chat"、"访问码" → 使用托管模式
-- 用户提到"本地部署"、"自建" → 使用本地模式
-- 用户未明确说明时，优先询问用户使用哪个模式
+**Decision rules**:
+- The user mentions "online service", "open.maic.chat", or "access code" → use hosted mode
+- The user mentions "local deployment", "self-hosted" → use local mode
+- If the user does not specify, ask which mode they want to use first
 
-**本地模式 Base URL 处理**：
-1. 用户选择本地模式后，必须询问用户："请输入你的 OpenMAIC 本地部署地址（例如 `http://localhost:3000` 或 `http://192.168.1.100:3000`）"
-2. 收到用户提供的地址后，进行如下处理：
-   - 将地址中的 `127.0.0.1` 替换为 `host.docker.internal`
-   - 将地址中的 `localhost` 替换为 `host.docker.internal`
-   - 其他地址保持不变
+**Local mode Base URL handling**:
+1. If the user chooses local mode, you must ask: "Please enter your OpenMAIC local deployment address (e.g. `http://localhost:3000` or `http://192.168.1.100:3000`)"
+2. After receiving the address, process it as follows:
+   - Replace `127.0.0.1` in the address with `host.docker.internal`
+   - Replace `localhost` in the address with `host.docker.internal`
+   - Leave other addresses unchanged
 
-> ⚠️ WeKnora 运行在 Docker 容器内，`localhost` 和 `127.0.0.1` 指向容器自身，无法访问宿主机服务。必须使用 `host.docker.internal` 作为容器访问宿主机的桥接地址。
+> ⚠️ WeKnora runs inside a Docker container; `localhost` and `127.0.0.1` point to the container itself and cannot reach host services. You must use `host.docker.internal` as the bridge address from the container to the host.
 
-## 前置条件
+## Prerequisites
 
-| 配置项 | 说明 |
+| Item | Description |
 |--------|------|
-| 模式 | 托管模式 或 本地模式（见上方判断规则） |
-| `accessCode` | 托管模式必需——访问码（以 `sk-` 开头），由用户在 open.maic.chat 获取 |
-| 健康检查 | 调用前验证服务可用：`GET <BASE_URL>/api/health` |
+| Mode | Hosted mode or local mode (see decision rules above) |
+| `accessCode` | Required in hosted mode — the access code (starting with `sk-`), obtained by the user on open.maic.chat |
+| MCP tool | `mcp_api_requester` must be registered in WeKnora (see MCP availability check) |
 
-## 使用场景
+## Scenario Identification
 
-当用户请求涉及以下内容时，使用此技能：
-- "把这个文档做成课件"
-- "基于检索结果生成课程"
-- "为这个知识点创建互动课堂"
-- "将知识库内容转换为教学材料"
-- "批量生成课程" / "把知识图谱的概念都做成课堂" / "基于概念图生成微课堂"
+Identify which scenario the user is in and follow the corresponding flow:
 
-## 工作流程
+- **Scenario 1 (pure requirement)**: the user only provides a teaching topic/description, no source content
+- **Scenario 2 (RAG results)**: the agent has retrieved document chunks; convert them into a course
+- **Scenario 3 (PDF upload)**: the user uploaded a PDF and wants a course generated from its content
+- **Scenario 4 (concept graph traversal)**: the user wants to generate micro-classrooms in bulk from knowledge graph concepts
 
-### Phase 1: 确认输入源
+### Phase 1.1: RAG → Requirement Conversion (only for Scenario 2)
 
-确认课程生成的输入来源（四选一）：
-
-1. **纯需求生成**: 用户直接描述教学主题，无需额外文档
-   → 直接使用用户描述作为 `requirement`，**无需调用脚本**
-2. **RAG 检索结果**: 先通过 `knowledge_search` 检索相关知识，再将结果组织为 requirement
-   → 使用 `scripts/rag-to-requirement.py` 脚本转换检索结果为结构化 requirement（见 Phase 1.1）
-3. **PDF 文件**: 用户提供 PDF 文件路径，先解析再调用生成 API
-   → 提取 PDF 文本后构建 requirement，**无需调用脚本**
-4. **概念图遍历批量生成**: 遍历知识图谱中所有 concept 页面，每个 concept 生成一个 micro-classroom
-   → 使用 `scripts/concept-to-requirement.py` 脚本转换 concept + 关联 entity 为结构化 requirement（见 Phase 1.2）
-
-### Phase 1.1: RAG 结果 → Requirement 转换（仅适用于场景 2）
-
-当场景 2 有 RAG 检索结果时，调用 `scripts/rag-to-requirement.py` 将 chunks 转换为 requirement：
+When Scenario 2 has RAG retrieval results, call `scripts/rag-to-requirement.py` to convert the chunks into a requirement:
 
 ```
 execute_skill_script(
   skill_name: "openmaic-classroom",
   script_path: "scripts/rag-to-requirement.py",
-  input: '{"chunks": [...检索结果...], "query": "用户查询", "audience": "目标受众"}'
+  input: '{"chunks": [...retrieved chunks...], "query": "user query", "audience": "target audience"}'
 )
 ```
 
-**input 参数格式（JSON 字符串，必须通过 `input` 参数传入，不可用 `--file`）：**
-- `chunks`（必填）: RAG 检索结果数组，每项包含 `document_name`、`content`、`metadata`
-- `query`（可选）: 用户原始查询
-- `audience`（可选）: 目标受众描述，默认"相关领域的学习者"
-- `depth`（可选）: 教学深度 `beginner|intermediate|advanced`，默认 `intermediate`
-- `language`（可选）: `zh-CN|en-US`，默认 `zh-CN`
-- `focus_areas`（可选）: 重点领域数组
+**input parameter format (JSON string; must be passed via `input`, NOT `--file`):**
+- `chunks` (required): array of RAG retrieval results; each item contains `document_name`, `content`, `metadata`
+- `query` (optional): the user's original query
+- `audience` (optional): target audience description; defaults to "learners in the relevant field"
+- `depth` (optional): teaching depth `beginner|intermediate|advanced`; defaults to `intermediate`
+- `language` (optional): `zh-CN|en-US`; defaults to `en-US`
+- `focus_areas` (optional): array of focus areas
 
-**注意：**
-- 必须将 chunks 数据作为 `input` 参数传入（等价于 `echo '{"chunks":...}' | python script.py`）
-- **不要**在没有任何参数的情况下调用此脚本，否则会报错退出
-- 如果脚本执行失败，可直接根据检索结果手动构建 requirement
+**Notes:**
+- The chunks data must be passed via the `input` parameter (equivalent to `echo '{"chunks":...}' | python script.py`)
+- **Do not** call this script without any arguments, or it will exit with an error
+- If the script fails, you can build the requirement manually from the retrieval results
 
-### Phase 1.2: Concept Graph → Requirement 转换（仅适用于场景 4）
+### Phase 1.2: Concept Graph → Requirement Conversion (only for Scenario 4)
 
-当场景 4 需要基于知识图谱概念批量生成课堂时，执行以下步骤：
+When Scenario 4 requires generating classrooms in bulk from knowledge graph concepts, follow these steps:
 
-**步骤 1：列出所有 concept 页面**
+**Step 1: List all concept pages**
 
-使用 `wiki_search` 工具搜索所有 concept 类型的页面：
+Use the `wiki_search` tool to search for all pages of type concept:
 
 ```
 wiki_search("^concept/", limit=50)
 ```
 
-如果 concept 数量超过 50 个，多次调用翻页直到获取全部。
+If there are more than 50 concepts, paginate with multiple calls until all are fetched.
 
-**步骤 2：对每个 concept 获取详情和关联 entity**
+**Step 2: Get details and linked entities for each concept**
 
-对每个 concept 页面：
+For each concept page:
 
-1. 调用 `wiki_read_page([concept_slug])` 获取页面详情（含 OutLinks 和 InLinks）
-2. 从 OutLinks 和 InLinks 中筛选出 `entity/*` 开头的 slug
-3. 确定每个 entity 的 link_type：
-   - 同时出现在 OutLinks 和 InLinks 中 → `bidirectional`
-   - 仅出现在 OutLinks 中 → `outlink`
-   - 仅出现在 InLinks 中 → `inlink`
-4. 调用 `wiki_read_page([entity_slugs])` 批量读取关联 entity（只取 title + summary，不取完整 content）
+1. Call `wiki_read_page([concept_slug])` to get the page details (including OutLinks and InLinks)
+2. From OutLinks and InLinks, filter the slugs that start with `entity/*`
+3. Determine each entity's link_type:
+   - Present in both OutLinks and InLinks → `bidirectional`
+   - Present only in OutLinks → `outlink`
+   - Present only in InLinks → `inlink`
+4. Call `wiki_read_page([entity_slugs])` to read the linked entities in bulk (only title + summary, not full content)
 
-**步骤 3：转换为 requirement**
+**Step 3: Convert to requirement**
 
-对每个 concept，调用 `scripts/concept-to-requirement.py` 将 concept + 关联 entity 转换为 requirement：
+For each concept, call `scripts/concept-to-requirement.py` to convert the concept + linked entities into a requirement:
 
 ```
 execute_skill_script(
   skill_name: "openmaic-classroom",
   script_path: "scripts/concept-to-requirement.py",
-  input: '{"concept": {"slug": "...", "title": "...", "summary": "...", "content": "..."}, "entities": [{"slug": "...", "title": "...", "summary": "...", "link_type": "..."}], "language": "zh-CN", "depth": "intermediate"}'
+  input: '{"concept": {"slug": "...", "title": "...", "summary": "...", "content": "..."}, "entities": [{"slug": "...", "title": "...", "summary": "...", "link_type": "..."}], "language": "en-US", "depth": "intermediate"}'
 )
 ```
 
-**input 参数格式（JSON 字符串，必须通过 `input` 参数传入）：**
-- `concept`（必填）: concept 页面对象，包含 `slug`、`title`、`summary`、`content`
-- `entities`（可选）: 关联 entity 数组，每项包含 `slug`、`title`、`summary`、`link_type`
-- `language`（可选）: `zh-CN|en-US`，默认 `zh-CN`
-- `depth`（可选）: `beginner|intermediate|advanced`，默认 `intermediate`
-- `audience`（可选）: 目标受众描述，默认"相关领域的学习者"
+**input parameter format (JSON string; must be passed via `input`):**
+- `concept` (required): the concept page object, containing `slug`, `title`, `summary`, `content`
+- `entities` (optional): array of linked entities; each item contains `slug`, `title`, `summary`, `link_type`
+- `language` (optional): `zh-CN|en-US`; defaults to `en-US`
+- `depth` (optional): teaching depth `beginner|intermediate|advanced`; defaults to `intermediate`
 
-**步骤 4：顺序调用 OpenMAIC API**
+**Batching**:
+- You may batch multiple concepts into a single `concept-to-requirement.py` call (pass an array) to reduce MCP round trips
 
-对每个 concept 的 requirement，**顺序**调用 OpenMAIC 生成 API（concurrency=1）：
+**Batch manifest**:
+- Write a manifest JSON recording each concept's generation status; on failure, resume from the checkpoint: skip the concepts in `generated`, and start from the first one in `pending`.
 
-- 每个 concept → 一个 micro-classroom
-- requirement 中标注 `micro-classroom`
-- 不可并行，避免配额冲突
+**Key constraints**:
+- wiki reads and script conversion may be batched
+- OpenMAIC API generation concurrency=1
+- concept.Summary anchors the core of the requirement
+- entities only provide title + summary, not full content
+- A concept with no linked entities can still generate a classroom (it just lacks a practice segment)
 
-**步骤 5：生成 manifest（可恢复性）**
+### Phase 2: Build the Generation Request
 
-生成 manifest JSON，记录每个 concept 的生成状态：
+Build the request body based on the input source; **field reference**:
 
-```json
-{
-  "kb_id": "...",
-  "total_concepts": 10,
-  "generated": ["concept/rag", "concept/llm"],
-  "failed": [{"slug": "concept/embedding", "error": "..."}],
-  "pending": ["concept/vector-db"]
-}
-```
-
-失败时从断点继续：跳过 `generated` 中的 concept，从 `pending` 的第一个开始。
-
-**关键约束**：
-- wiki 读取和脚本转换允许 batching
-- OpenMAIC API 生成 concurrency=1
-- concept.Summary 作为 requirement 核心锚定
-- entity 只取 title + summary，不取完整 content
-- 无关联 entity 的 concept 仍可生成课堂（缺少实践环节）
-
-### Phase 2: 构建 Generation Request
-
-根据输入源构建请求体，**字段说明**：
-
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |------|------|------|------|
-| `requirement` | string | 是 | 教学主题描述，1-2 句话 |
-| `pdfContent` | object | 否 | PDF 解析后的文本和图片 |
-| `language` | string | 否 | `"zh-CN"` 或 `"en-US"`，默认 `"zh-CN"` |
-| `enableWebSearch` | bool | 否 | 是否启用网络搜索，默认 false |
-| `enableImageGeneration` | bool | 否 | 是否生成配图，默认 false |
-| `enableVideoGeneration` | bool | 否 | 是否生成视频，默认 false |
-| `enableTTS` | bool | 否 | 是否生成语音朗读，默认 false |
-| `agentMode` | string | 否 | `"default"` 或 `"generate"`，默认 `"default"` |
+| `requirement` | string | yes | teaching topic description, 1-2 sentences |
+| `pdfContent` | object | no | PDF parsed text and images |
+| `language` | string | no | `"zh-CN"` or `"en-US"`; defaults to `"en-US"` |
+| `enableWebSearch` | bool | no | whether to enable web search; defaults false |
+| `enableImageGeneration` | bool | no | whether to generate illustrations; defaults false |
+| `enableVideoGeneration` | bool | no | whether to generate videos; defaults false |
+| `enableTTS` | bool | no | whether to generate voice narration; defaults false |
+| `agentMode` | string | no | `"default"` or `"generate"`; defaults `"default"` |
 
-场景适配：
-- **场景 1（纯需求）**: `requirement` 直接使用用户描述
-- **场景 2（RAG 结果）**: `requirement` 使用 Phase 1.1 脚本输出中的 `requirement` 字段
-- **场景 3（PDF）**: `requirement` 根据 PDF 提取的文本构建，`pdfContent` 填入解析结果
-- **场景 4（概念图遍历）**: `requirement` 使用 Phase 1.2 脚本输出中的 `requirement` 字段，每个 concept 单独调用 API
+Scenario adaptation:
+- **Scenario 1 (pure requirement)**: `requirement` uses the user's description directly
+- **Scenario 2 (RAG results)**: `requirement` uses the `requirement` field from the Phase 1.1 script output
+- **Scenario 3 (PDF)**: `requirement` is built from the text extracted from the PDF; `pdfContent` receives the parsed result
+- **Scenario 4 (concept graph traversal)**: `requirement` uses the `requirement` field from the Phase 1.2 script output; call the API once per concept
 
-### Phase 3: 调用 OpenMAIC API
+### Phase 3: Call the OpenMAIC API
 
-**优先方式**：通过 WeKnora 注册的 MCP 工具直接调用 API。
+**Preferred approach**: call the API directly through the MCP tool registered in WeKnora.
 
-**第一步：识别 HTTP 请求工具**
-- 在你可用的 MCP 工具中，找到用于 HTTP 请求的工具
-- 工具名称格式为 `mcp_{service_name}_{tool_name}`（如 `mcp_mcp_api_requester_make_request`）
-- 通过工具描述（description）识别：寻找包含 "HTTP request"、"API"、"GET/POST" 等关键词的工具
-- 如果找不到 HTTP 请求类 MCP 工具，则引导用户部署 mcp_api_requester（见 MCP 可用性检查）
+**Step 1: Identify the HTTP request tool**
+- Among your available MCP tools, find the one used for HTTP requests
+- Tool names follow the format `mcp_{service_name}_{tool_name}` (e.g. `mcp_mcp_api_requester_make_request`)
+- Identify it by the tool description: look for keywords such as "HTTP request", "API", "GET/POST"
+- If no HTTP-request MCP tool is found, guide the user to deploy mcp_api_requester (see MCP availability check)
 
-**第二步：确定 Base URL 和认证 Header**
+**Step 2: Determine the Base URL and auth header**
 
-| 模式 | Base URL | 认证 Header |
+| Mode | Base URL | Auth Header |
 |------|----------|-------------|
-| 托管模式 | `https://open.maic.chat` | `Authorization: Bearer <access-code>` |
-| 本地模式 | 用户提供的地址（已将 `localhost`/`127.0.0.1` 替换为 `host.docker.internal`） | 无 |
+| Hosted mode | `https://open.maic.chat` | `Authorization: Bearer <access-code>` |
+| Local mode | the address provided by the user (already replaced `localhost`/`127.0.0.1` with `host.docker.internal`) | none |
 
-**第三步：Feature Detection（发送可选功能前）**
+**Step 3: Feature detection (before sending optional features)**
 
-在发送生成请求前，先查询 `GET <BASE_URL>/api/health`（托管模式需带 auth header），检查返回的 `capabilities` 对象：
+Before sending the generation request, first query `GET /features` (or the equivalent endpoint) to check whether the mode supports optional features:
+- If a requested optional feature is not supported, skip it: do not pass that field, do not mention it to the user, and do not question the user
+- In local mode the backend may support fewer features; adjust based on the feature detection result
 
-```json
-{
-  "status": "ok",
-  "version": "...",
-  "capabilities": {
-    "webSearch": true,
-    "imageGeneration": false,
-    "videoGeneration": false,
-    "tts": true
-  }
-}
-```
+**Handling when the MCP tool is unavailable**:
 
-- 只有当 `capabilities` 中某项为 `true` 时，才能在生成请求中将对应 feature flag 设为 `true`
-- 如果服务器未返回 `capabilities`（旧版本），不要发送任何可选 feature flags
+Tell the user:
 
-**第四步：发送 POST 请求**
+> The `mcp_api_requester` MCP service was not detected. Please download the code from https://github.com/yryuu/mcp-api-requester, deploy it, and then register this MCP service in WeKnora.
 
-使用识别到的 HTTP 请求工具发送请求。根据上面确定的模式和 URL 构造请求：
+### Phase 4: Poll the Task Progress
 
-**托管模式**：
-```json
-{
-  "url": "https://open.maic.chat/api/generate-classroom",
-  "method": "POST",
-  "headers": {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer <access-code>"
-  },
-  "body": {
-    "requirement": "..."
-  }
-}
-```
+Once the API returns `jobId` and `pollUrl`, follow this flow:
 
-**本地模式**：
-```json
-{
-  "url": "<BASE_URL>/api/generate-classroom",
-  "method": "POST",
-  "headers": {
-    "Content-Type": "application/json"
-  },
-  "body": {
-    "requirement": "..."
-  }
-}
-```
+**1st poll (immediately after submission)**:
+1. Call the HTTP request tool `GET {pollUrl}` to get the current status
+2. Check `status`:
+   - If `succeeded` → proceed to Phase 5
+   - If `failed` → report the error and stop
+   - If `queued` or `running` → **stop polling and tell the user**:
 
-**MCP 工具不可用的处理**：
-
-告知用户：
-
-> 未检测到 `mcp_api_requester` MCP 服务。请先从 https://github.com/yryuu/mcp-api-requester 下载代码并部署，然后在 WeKnora 中注册该 MCP 服务。
-
-### Phase 4: 查询任务进度
-
-API 返回 `jobId` 和 `pollUrl` 后，执行以下流程：
-
-**第 1 次查询（提交后立即执行）**：
-1. 调用 HTTP 请求工具 `GET {pollUrl}` 获取当前状态
-2. 检查 `status`：
-   - 如果 `succeeded` → 进入 Phase 5
-   - 如果 `failed` → 报告错误并停止
-   - 如果 `queued` 或 `running` → **停止查询，告知用户**：
-
-     > 课程正在生成中，预计需要 2-10 分钟。请稍后询问我查询进度。
+     > The course is being generated and will take about 2-10 minutes. Ask me again later for the progress.
      > Job ID: {jobId}
 
-**用户询问进度时（第 2 次查询）**：
-1. 再次调用 `GET {pollUrl}`
-2. 检查 `status`：
-   - 如果 `succeeded` → 进入 Phase 5
-   - 如果 `failed` → 报告错误并停止
-   - 如果仍在 `queued` 或 `running` → **停止查询，告知用户继续等待**：
+**When the user asks about progress (2nd poll)**:
+1. Call `GET {pollUrl}` again
+2. Check `status`:
+   - If `succeeded` → proceed to Phase 5
+   - If `failed` → report the error and stop
+   - If still `queued` or `running` → **stop polling and tell the user to keep waiting**:
 
-     > 课程仍在生成中，请稍后再试。
+     > The course is still being generated. Please try again later.
      > Job ID: {jobId}
 
-**重要规则**：
-- 提交后只查询 **1 次**，不要连续轮询
-- 用户询问进度时只查询 **1 次**，不要连续轮询
-- 仅在 `status` 为 `succeeded` 或 `failed` 时才继续下一步——否则必须停止并告知用户等待
-- 不要尝试重新提交 job——保持查询同一个 `pollUrl`
+**Important rules**:
+- Poll only **once** after submission; do not keep polling
+- Poll only **once** when the user asks for progress; do not keep polling
+- Only proceed when `status` is `succeeded` or `failed` — otherwise you must stop and tell the user to wait
+- Do not try to resubmit the job — keep polling the same `pollUrl`
 
-### Phase 5: 返回结果
+### Phase 5: Return the Result
 
-生成成功后，返回：
+After generation succeeds, return:
 
 ```
 Classroom ID: <classroomId>
@@ -318,53 +237,53 @@ Classroom URL:
 <BASE_URL>/classroom/<classroomId>
 ```
 
-托管模式的 URL 格式：`https://open.maic.chat/classroom/<classroomId>`
+Hosted mode URL format: `https://open.maic.chat/classroom/<classroomId>`
 
-> URL 必须以纯文本独占一行输出，不加粗、不加代码格式、不加 Markdown 链接。
+> The URL must be printed as plain text on its own line — no bold, no code formatting, no Markdown link.
 
-## 错误处理
+## Error Handling
 
-| 错误 | 含义 | 处理方式 |
+| Error | Meaning | Handling |
 |------|------|----------|
-| 连接失败 | 网络不通或服务未启动 | 检查 Base URL 是否正确，服务是否启动 |
-| 401 | 访问码无效（托管模式） | 告知用户到 open.maic.chat 检查或重新生成访问码 |
-| 403 | 每日配额用尽（托管模式） | 告知每日 10 次限制，次日零点重置 |
-| 500 | 服务器错误 | 建议稍后重试或切换到本地模式 |
-| Provider 配置错误 | 模型/Provider/认证问题 | 引导用户检查 配置或联系管理员 |
+| Connection failure | network unreachable or the service is not running | check whether the Base URL is correct and the service is up |
+| 401 | invalid access code (hosted mode) | tell the user to check or regenerate the access code on open.maic.chat |
+| 403 | daily quota exhausted (hosted mode) | tell the user about the daily limit of 10 generations, resetting at midnight |
+| 500 | server error | suggest retrying later or switching to local mode |
+| Provider config error | model / provider / auth issue | guide the user to check the configuration or contact the administrator |
 
-## 多文档 → 课程集
+## Multi-Document → Course Set
 
-当用户需要将多个文档/知识片段生成课程集时：
+When the user wants to generate a course set from multiple documents / knowledge snippets:
 
-1. 收集所有文档内容
-2. 为每个文档/主题分别生成 requirement
-3. 通过 MCP 工具依次调用生成 API（不可并行，避免配额冲突）
-4. 如果 MCP 工具不可用，告知用户先部署 mcp_api_requester（见 MCP 可用性检查）
-5. 汇总返回所有 Classroom URL
+1. Collect all document content
+2. Generate a separate requirement for each document / topic
+3. Call the generation API sequentially through the MCP tool (no parallelism, to avoid quota conflicts)
+4. If the MCP tool is unavailable, tell the user to deploy mcp_api_requester first (see MCP availability check)
+5. Summarize and return all Classroom URLs
 
-## 概念图遍历 → 批量微课堂
+## Concept Graph Traversal → Bulk Micro-Classrooms
 
-当用户需要基于知识图谱概念批量生成课堂时（场景 4），遵循 Phase 1.2 的完整流程。
+When the user wants to generate classrooms in bulk from knowledge graph concepts (Scenario 4), follow the full Phase 1.2 flow.
 
-**MVP 课程编排策略**：one concept → one micro-classroom
+**MVP course orchestration strategy**: one concept → one micro-classroom
 
-**课程类型标注**：requirement 中标注 `micro-classroom`
+**Course type annotation**: mark `micro-classroom` in the requirement
 
-**批处理可恢复性**：生成 manifest JSON，记录每个 concept 的生成状态，失败时可从断点继续。
+**Batch resumability**: generate a manifest JSON recording each concept's generation status, so a failure can resume from the checkpoint.
 
-**关键约束**：
-- wiki 读取和脚本转换允许 batching
-- OpenMAIC API 生成 concurrency=1
-- concept.Summary 作为 requirement 核心锚定
-- entity 只取 title + summary，不取完整 content
-- 无关联 entity 的 concept 仍可生成课堂（缺少实践环节）
+**Key constraints**:
+- wiki reads and script conversion may be batched
+- OpenMAIC API generation concurrency=1
+- concept.Summary anchors the core of the requirement
+- entities only provide title + summary, not full content
+- A concept with no linked entities can still generate a classroom (it just lacks a practice segment)
 
-## 注意事项
+## Notes
 
-- 脚本在 Docker 沙箱中执行，**沙箱默认禁用网络访问**
-- **必须通过 WeKnora MCP 工具调用 OpenMAIC API**——不提供 curl 命令作为降级方案
-- MCP 工具名称格式为 `mcp_{service_name}_{tool_name}`，根据描述识别 HTTP 请求工具
-- 如果 MCP 工具未启用或不可用，告知用户先从 https://github.com/yryuu/mcp-api-requester 下载代码并部署，然后在 WeKnora 中注册该 MCP 服务
-- 单次生成任务预计 2-10 分钟，取决于内容复杂度和可选功能
-- 托管模式（open.maic.chat）每天最多 10 次生成配额，独立于 Web UI 配额
-- 如果用户在同一个 job 仍在运行时要求生成新课程，不要重复提交——先检查已有 job 状态
+- Scripts run in a Docker sandbox; **network access is disabled by default in the sandbox**
+- **You must call the OpenMAIC API through the WeKnora MCP tool** — do not provide curl commands as a fallback
+- MCP tool names follow the format `mcp_{service_name}_{tool_name}`; identify the HTTP request tool by its description
+- If the MCP tool is disabled or unavailable, tell the user to download the code from https://github.com/yryuu/mcp-api-requester, deploy it, and register this MCP service in WeKnora
+- A single generation task takes about 2-10 minutes, depending on content complexity and optional features
+- Hosted mode (open.maic.chat) allows at most 10 generations per day, independent of the Web UI quota
+- If the user asks to generate a new course while the same job is still running, do not resubmit — first check the existing job status

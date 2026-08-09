@@ -288,8 +288,8 @@ func (s *embedChannelService) chunkAllowedForEmbed(
 	if chunk == nil || chunk.KnowledgeBaseID == "" {
 		return false
 	}
-	// 显式重校验空间：GetChunkByIDOnly 无空间过滤，且 KBSelectionMode=="all"/默认
-	// 分支会无条件放行，必须在此挡住跨空间 chunk id 撞库读取他人知识库正文。
+	// Explicitly revalidate space: GetChunkByIDOnly has no space filter, and when KBSelectionMode=="all"/default,
+	// the branch lets requests through unconditionally — this must block cross-space chunk id collisions from reading another tenant's knowledge base content here.
 	if ch == nil || chunk.TenantID != ch.TenantID {
 		return false
 	}

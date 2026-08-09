@@ -196,7 +196,7 @@ func (r *chunkRepository) ListPagedChunksByKnowledgeID(
 			}
 
 			// FAQ type: search based on searchField
-			// 根据数据库类型使用不同的 JSON 查询语法
+			// Uses different JSON query syntax depending on the database type
 			isPostgres := db.Dialector.Name() == "postgres"
 
 			switch searchField {
@@ -206,7 +206,7 @@ func (r *chunkRepository) ListPagedChunksByKnowledgeID(
 					db = db.Where("metadata->>'standard_question' ILIKE ?", like)
 				} else {
 					// MySQL: metadata->>'$.standard_question' (MySQL 5.7.13+)
-					// 也可以用 JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.standard_question'))
+					// JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.standard_question')) also works
 					db = db.Where("metadata->>'$.standard_question' LIKE ?", like)
 				}
 			case "similar_questions":
@@ -646,7 +646,7 @@ func (r *chunkRepository) ListAllFAQChunksByKnowledgeID(
 	tenantID uint64,
 	knowledgeID string,
 ) ([]*types.Chunk, error) {
-	const batchSize = 1000 // 每批查询1000条
+	const batchSize = 1000 // Query 1000 records per batch
 	var allChunks []*types.Chunk
 	offset := 0
 
@@ -661,14 +661,14 @@ func (r *chunkRepository) ListAllFAQChunksByKnowledgeID(
 			return nil, err
 		}
 
-		// 如果没有查询到数据，说明已经查询完毕
+		// If no data is returned, the query is complete
 		if len(batchChunks) == 0 {
 			break
 		}
 
 		allChunks = append(allChunks, batchChunks...)
 
-		// 如果返回的数据少于批次大小，说明已经是最后一批
+		// If the returned data is smaller than the batch size, this is the last batch
 		if len(batchChunks) < batchSize {
 			break
 		}
@@ -687,7 +687,7 @@ func (r *chunkRepository) ListAllFAQChunksWithMetadataByKnowledgeBaseID(
 	tenantID uint64,
 	kbID string,
 ) ([]*types.Chunk, error) {
-	const batchSize = 1000 // 每批查询1000条
+	const batchSize = 1000 // Query 1000 records per batch
 	var allChunks []*types.Chunk
 	offset := 0
 
@@ -703,14 +703,14 @@ func (r *chunkRepository) ListAllFAQChunksWithMetadataByKnowledgeBaseID(
 			return nil, err
 		}
 
-		// 如果没有查询到数据，说明已经查询完毕
+		// If no data is returned, the query is complete
 		if len(batchChunks) == 0 {
 			break
 		}
 
 		allChunks = append(allChunks, batchChunks...)
 
-		// 如果返回的数据少于批次大小，说明已经是最后一批
+		// If the returned data is smaller than the batch size, this is the last batch
 		if len(batchChunks) < batchSize {
 			break
 		}
@@ -798,7 +798,7 @@ func (r *chunkRepository) ListAllFAQChunksForExport(
 	tenantID uint64,
 	knowledgeID string,
 ) ([]*types.Chunk, error) {
-	const batchSize = 1000 // 每批查询1000条
+	const batchSize = 1000 // Query 1000 records per batch
 	var allChunks []*types.Chunk
 	offset := 0
 
@@ -815,14 +815,14 @@ func (r *chunkRepository) ListAllFAQChunksForExport(
 			return nil, err
 		}
 
-		// 如果没有查询到数据，说明已经查询完毕
+		// If no data is returned, the query is complete
 		if len(batchChunks) == 0 {
 			break
 		}
 
 		allChunks = append(allChunks, batchChunks...)
 
-		// 如果返回的数据少于批次大小，说明已经是最后一批
+		// If the returned data is smaller than the batch size, this is the last batch
 		if len(batchChunks) < batchSize {
 			break
 		}
@@ -1247,7 +1247,7 @@ func (r *chunkRepository) ListRecentDocumentChunksWithQuestions(
 	if len(kbIDs) > 0 && len(knowledgeIDs) > 0 {
 		baseQuery = baseQuery.Where("knowledge_base_id IN ? OR knowledge_id IN ?", kbIDs, knowledgeIDs)
 	} else if len(knowledgeIDs) > 0 {
-		// 指定了具体知识文档，直接按 knowledge_id 过滤（忽略 kbIDs）
+		// A specific knowledge document is specified, filter directly by knowledge_id (ignore kbIDs)
 		baseQuery = baseQuery.Where("knowledge_id IN ?", knowledgeIDs)
 	} else if len(kbIDs) > 0 {
 		baseQuery = baseQuery.Where("knowledge_base_id IN ?", kbIDs)

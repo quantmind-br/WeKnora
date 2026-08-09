@@ -11,7 +11,7 @@
       filterable
       style="width: 100%;"
     >
-      <!-- 已有的模型选项 -->
+      <!-- Existing model options -->
       <t-option
         v-for="model in models"
         :key="model.id"
@@ -27,7 +27,7 @@
         </div>
       </t-option>
       
-      <!-- 添加模型选项（在底部） -->
+      <!-- Add model option (at the bottom) -->
       <t-option
         v-if="!disabled"
         value="__add_model__"
@@ -55,7 +55,7 @@ interface Props {
   placeholder?: string
   status?: 'default' | 'success' | 'warning' | 'error'
   clearable?: boolean
-  // 可选：外部传入的所有模型列表，如果提供则不调用API
+  // Optional: full list of models passed in externally; if provided, skip the API call
   allModels?: ModelConfig[]
 }
 
@@ -84,7 +84,7 @@ const modelDisplayName = (model: ModelConfig) => {
   return displayName || model.name
 }
 
-// 监听 allModels 变化，自动过滤当前类型的模型
+// Watch for changes to allModels and auto-filter models of the current type
 watch(() => props.allModels, (newModels) => {
   if (newModels && Array.isArray(newModels)) {
     models.value = newModels.filter(m => m.type === props.modelType)
@@ -96,9 +96,9 @@ const selectedModel = computed(() => {
   return models.value.find(m => m.id === props.selectedModelId)
 })
 
-// 加载模型列表（仅在未提供 allModels 时调用）
+// Load the model list (only called when allModels is not provided)
 const loadModels = async () => {
-  // 如果外部提供了 allModels，则不需要加载
+  // If allModels is provided externally, no need to load
   if (props.allModels) {
     return
   }
@@ -106,7 +106,7 @@ const loadModels = async () => {
   loading.value = true
   try {
     const result = await listModels()
-    // 前端按类型筛选模型
+    // Filter models by type on the frontend
     if (result && Array.isArray(result)) {
       models.value = result.filter(m => m.type === props.modelType)
     } else {
@@ -121,9 +121,9 @@ const loadModels = async () => {
   }
 }
 
-// 处理模型选择变化
+// Handle model selection changes
 const handleModelChange = (value?: string) => {
-  // 如果选择的是添加模型选项，触发添加事件而不更新选中值
+  // If the selected option is "add model", trigger the add event instead of updating the selected value
   if (value === '__add_model__') {
     emit('add-model')
     return
@@ -131,13 +131,13 @@ const handleModelChange = (value?: string) => {
   emit('update:selectedModelId', value || '')
 }
 
-// 暴露刷新方法给父组件
+// Expose a refresh method to the parent component
 defineExpose({
   refresh: loadModels
 })
 
 onMounted(() => {
-  // 只有在没有提供 allModels 时才加载
+  // Only load when allModels is not provided
   if (!props.allModels) {
     loadModels()
   }

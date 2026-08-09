@@ -16,7 +16,7 @@ import (
 
 const weKnoraCloudRerankPath = "/api/v1/rerank"
 
-// WeKnoraCloudReranker 实现 rerank.Reranker 接口，对接 WeKnoraCloud /api/v1/rerank
+// WeKnoraCloudReranker implements the rerank.Reranker interface, integrating with WeKnoraCloud /api/v1/rerank
 type WeKnoraCloudReranker struct {
 	modelName       string
 	remoteModelName string
@@ -27,7 +27,7 @@ type WeKnoraCloudReranker struct {
 	client          *http.Client
 }
 
-// NewWeKnoraCloudReranker 构造 WeKnoraCloudReranker
+// NewWeKnoraCloudReranker constructs a WeKnoraCloudReranker
 func NewWeKnoraCloudReranker(config *RerankerConfig) (*WeKnoraCloudReranker, error) {
 	if config.AppID == "" {
 		return nil, fmt.Errorf("WeKnoraCloud reranker: AppID is required")

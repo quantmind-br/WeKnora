@@ -6,54 +6,54 @@ import (
 	"strings"
 )
 
-// SSEEvent 表示一个 Server-Sent Events 事件
+// SSEEvent represents a Server-Sent Events event
 type SSEEvent struct {
 	Data []byte
 	Done bool
 }
 
-// SSEReader 用于读取 SSE 流
+// SSEReader is used to read an SSE stream
 type SSEReader struct {
 	scanner *bufio.Scanner
 }
 
-// NewSSEReader 创建 SSE 读取器
+// NewSSEReader creates an SSE reader
 func NewSSEReader(reader io.Reader) *SSEReader {
 	scanner := bufio.NewScanner(reader)
-	// 设置更大的缓冲区以处理长行（思维链内容可能很长）
+	// Sets a larger buffer to handle long lines (chain-of-thought content can be long)
 	buf := make([]byte, 1024*1024)
 	scanner.Buffer(buf, 1024*1024)
 	return &SSEReader{scanner: scanner}
 }
 
-// ReadEvent 读取下一个 SSE 事件
+// ReadEvent reads the next SSE event
 func (r *SSEReader) ReadEvent() (*SSEEvent, error) {
 	for r.scanner.Scan() {
 		line := r.scanner.Text()
 
-		// 空行，跳过
+		// Empty line, skip
 		if line == "" {
 			continue
 		}
 
-		// 检查是否为结束标记
+		// Check whether it's the end marker
 		if line == "data: [DONE]" {
 			return &SSEEvent{Done: true}, nil
 		}
 
-		// 解析 data 行
+		// Parse the data line
 		if strings.HasPrefix(line, "data: ") {
 			jsonStr := line[6:]
 			return &SSEEvent{Data: []byte(jsonStr)}, nil
 		}
 
-		// 增强兼容性(data:后面没有紧接着一个空格)
+		// Improve compatibility (no space right after "data:")
 		if strings.HasPrefix(line, "data:") {
 			jsonStr := line[5:]
 			return &SSEEvent{Data: []byte(jsonStr)}, nil
 		}
 
-		// 其他行（如 event:, id: 等）跳过
+		// Other lines (e.g. event:, id:, etc.) are skipped
 	}
 
 	if err := r.scanner.Err(); err != nil {

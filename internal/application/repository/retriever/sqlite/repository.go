@@ -378,7 +378,7 @@ func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.Retr
 
 	tbl := vecTableName(dim)
 
-	// ⚠️ sqlite-vec 要求必须有 k = ?
+	// Warning: sqlite-vec requires k = ? to be present
 	vecSQL := fmt.Sprintf(`
 		SELECT v.rowid, v.distance,
 			e.source_id, e.source_type, e.chunk_id,
@@ -396,16 +396,16 @@ func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.Retr
 
 	args := []interface{}{
 		queryBlob,
-		params.TopK, // 这里就是 k
+		params.TopK, // Here, this is k
 	}
 
-	// 追加过滤条件
+	// Append filter conditions
 	for _, wp := range buildFilterWhere(params, "filtered") {
 		vecSQL += " AND " + wp.clause
 		args = append(args, wp.args...)
 	}
 
-	// ⚠️ 这里仍然建议加 ORDER BY，虽然 vec0 已经按距离返回
+	// Warning: it's still recommended to add ORDER BY here, even though vec0 already returns results sorted by distance
 	vecSQL += ") ORDER BY v.distance ASC"
 
 	type row struct {

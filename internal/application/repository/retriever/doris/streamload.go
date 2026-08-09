@@ -15,23 +15,23 @@ import (
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
-// Stream Load 相关常量。
+// Stream Load related constants.
 const (
-	// 单批 Stream Load 的 JSON body 上限（保守值，远小于 Doris 默认 streaming_load_max_mb=10240）。
-	// 主要目的是控制单次 HTTP 请求的尾延迟，超过则自动拆批。
+	// Upper bound for a single Stream Load batch's JSON body (a conservative value, far below Doris's default streaming_load_max_mb=10240).
+	// Mainly intended to control tail latency for a single HTTP request; batches are auto-split when exceeded.
 	streamLoadMaxBatchBytes = 1 << 20 // 1 MiB
 
-	// HTTP 头 Authorization 用 Basic auth；Stream Load 也支持 token，
-	// 这里走最常用的用户名/密码方案与 MySQL 协议保持一致。
+	// The HTTP Authorization header uses Basic auth; Stream Load also supports token,
+	// here we use the most common username/password scheme, consistent with the MySQL protocol.
 	headerAuthorization = "Authorization"
 	headerExpect        = "Expect"
 	headerContentType   = "Content-Type"
 )
 
-// streamLoadResponse 是 Doris FE/BE 返回的 Stream Load 结果体。
+// streamLoadResponse is the Stream Load result body returned by Doris FE/BE.
 //
-// 关键字段：Status 应为 "Success" 或 "Publish Timeout"（后者表示数据已写入但发布事务超时，
-// 仍视为成功）。其它状态都视为失败。
+// Key field: Status should be "Success" or "Publish Timeout" (the latter means data was written but the publish transaction timed out,
+// still considered success). All other statuses are considered failures.
 type streamLoadResponse struct {
 	TxnId                  int64  `json:"TxnId"`
 	Label                  string `json:"Label"`
@@ -51,7 +51,7 @@ type streamLoadResponse struct {
 	ErrorURL               string `json:"ErrorURL"`
 }
 
-// streamLoadURL 拼装某张表的 Stream Load HTTP 端点。
+// streamLoadURL builds the Stream Load HTTP endpoint for a given table.
 func (r *dorisRepository) streamLoadURL(table string) string {
 	return fmt.Sprintf("%s/api/%s/%s/_stream_load",
 		r.feHTTPBase, url.PathEscape(r.database), url.PathEscape(table))
@@ -97,18 +97,18 @@ func newDorisStreamLoadHTTPClient() *http.Client {
 	return client
 }
 
-// partialUpdateRows 把若干行通过 Stream Load 的 partial update 模式写回目标表。
+// partialUpdateRows writes rows back to the target table via Stream Load's partial update mode.
 //
-// columns 是参与本次 partial update 的列（必须包含 UNIQUE KEY 列，即 "id"）。
-// rows 中每一项是一个与 columns 等长的字段值数组。
+// columns are the columns participating in this partial update (must include the UNIQUE KEY column, i.e. "id").
+// Each item in rows is an array of field values with the same length as columns.
 //
-// 实现要点：
-//  1. 用 JSON 数组的 body 形式，header 加 strip_outer_array=true。
-//  2. 设置 partial_columns=true、merge_type=APPEND，触发 Doris 的 partial update 模式
-//     (Doris 4.1 + UNIQUE KEY MoW 表的标准玩法)。
-//  3. 按 streamLoadMaxBatchBytes 自动拆批，避免单次过大。
-//  4. 处理 307：Doris 的 FE 会 redirect 到 BE，net/http 默认会跟随；
-//     这里需要保证 GetBody 可重发（已通过 bytes.NewReader 构造 Body 满足）。
+// Implementation notes:
+// 1. Use a JSON array body, with header strip_outer_array=true.
+// 2. Set partial_columns=true, merge_type=APPEND, to trigger Doris's partial update mode
+// (standard approach for Doris 4.1 + UNIQUE KEY MoW tables).
+// 3. Auto-split batches by streamLoadMaxBatchBytes to avoid oversized single requests.
+// 4. Handle 307: Doris's FE redirects to BE, which net/http follows by default;
+// this requires GetBody to be resendable (already satisfied via bytes.NewReader for the Body).
 func (r *dorisRepository) partialUpdateRows(ctx context.Context,
 	table string, columns []string, rows []map[string]any,
 ) error {
@@ -123,7 +123,7 @@ func (r *dorisRepository) partialUpdateRows(ctx context.Context,
 	return nil
 }
 
-// streamLoadOnce 发出一次 Stream Load HTTP 请求。
+// streamLoadOnce sends a single Stream Load HTTP request.
 func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 	table string, columns []string, rows []map[string]any,
 ) error {
@@ -149,7 +149,7 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 		return fmt.Errorf("build stream load request: %w", err)
 	}
 
-	// GetBody 让 redirect 时可以重新读 body（FE -> BE 的 307 需要重发 PUT body）。
+	// GetBody allows the body to be re-read on redirect (the FE -> BE 307 requires resending the PUT body).
 	bodyCopy := append([]byte(nil), body...)
 	req.GetBody = func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(bodyCopy)), nil
@@ -196,10 +196,10 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 	}
 }
 
-// chunkRows 把行按累积 JSON 体大小切分，每段不超过 maxBytes。
+// chunkRows splits rows by cumulative JSON body size, with each chunk not exceeding maxBytes.
 //
-// 注意：JSON 序列化的实际开销大约是 marshal 后的字节数，而单行 marshal
-// 加上逗号 + 数组括号约等于本估算。这里用粗略估计避免每段都 marshal。
+// Note: the actual cost of JSON serialization is roughly the marshaled byte count, while a single-row marshal
+// plus a comma and array brackets is approximately this estimate. A rough estimate is used here to avoid marshaling every chunk.
 func chunkRows(rows []map[string]any, maxBytes int) [][]map[string]any {
 	if len(rows) == 0 {
 		return nil
@@ -215,7 +215,7 @@ func chunkRows(rows []map[string]any, maxBytes int) [][]map[string]any {
 	for _, row := range rows {
 		raw, err := json.Marshal(row)
 		if err != nil {
-			// marshal 失败时把这一行单独成段，由上层 streamLoadOnce 再次 marshal 报错。
+			// If marshal fails, this row becomes its own chunk, so the caller streamLoadOnce can marshal it again and report the error.
 			if len(curr) > 0 {
 				out = append(out, curr)
 			}
@@ -224,7 +224,7 @@ func chunkRows(rows []map[string]any, maxBytes int) [][]map[string]any {
 			size = 0
 			continue
 		}
-		// 加上逗号位（除第一行之外）。
+		// plus the comma position (except for the first row).
 		need := len(raw)
 		if len(curr) > 0 {
 			need++
@@ -244,11 +244,11 @@ func chunkRows(rows []map[string]any, maxBytes int) [][]map[string]any {
 }
 
 // ---------------------------------------------------------------------------
-// 业务面方法：BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID
+// Business-facing methods: BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID
 // ---------------------------------------------------------------------------
 
-// BatchUpdateChunkEnabledStatus 批量更新 chunk 的 is_enabled 字段。
-// legacy 模式走 Stream Load partial update；inner_product_duplicate 模式改为读整行后 replaceRows 写回。
+// BatchUpdateChunkEnabledStatus batch-updates the chunk's is_enabled field.
+// Legacy mode uses Stream Load partial update; inner_product_duplicate mode instead reads the full row then writes it back via replaceRows.
 func (r *dorisRepository) BatchUpdateChunkEnabledStatus(ctx context.Context,
 	chunkStatusMap map[string]bool,
 ) error {
@@ -278,7 +278,7 @@ func (r *dorisRepository) BatchUpdateChunkEnabledStatus(ctx context.Context,
 	}, "rewrite is_enabled")
 }
 
-// BatchUpdateChunkTagID 批量更新 chunk 的 tag_id 字段。逻辑与 EnabledStatus 一致。
+// BatchUpdateChunkTagID batch-updates the chunk's tag_id field. Logic is consistent with EnabledStatus.
 func (r *dorisRepository) BatchUpdateChunkTagID(ctx context.Context,
 	chunkTagMap map[string]string,
 ) error {
@@ -447,17 +447,17 @@ func (r *dorisRepository) loadRowsByChunkIDs(ctx context.Context,
 	return batch, nil
 }
 
-// rowLocation 表示某行在哪个表里、主键 id 是什么。
+// rowLocation indicates which table a row is in and what its primary key id is.
 type rowLocation struct {
 	table string
 	id    string
 }
 
-// lookupChunkRowKeys 查询给定的 chunkIDs 在所有 <base>_<dim> 表中的物理位置：
+// lookupChunkRowKeys looks up the physical location of the given chunkIDs across all <base>_<dim> tables:
 //   - key：chunk_id
-//   - value：[(table, id), ...]，因为同一 chunk 可能在多个维度的表里都有副本。
+// value: [(table, id), ...], since the same chunk may have copies in tables across multiple dimensions.
 //
-// 跨表查询使用 listEmbeddingTables 列出的所有匹配表；每张表执行一次
+// Cross-table queries use all matching tables listed by listEmbeddingTables; each table is queried once
 // SELECT id, chunk_id FROM <table> WHERE chunk_id IN (?, ?, ...)。
 func (r *dorisRepository) lookupChunkRowKeys(ctx context.Context,
 	chunkIDs []string,

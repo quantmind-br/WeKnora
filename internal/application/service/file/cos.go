@@ -215,7 +215,7 @@ func (s *cosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 	ext := filepath.Ext(safeName)
 	reader := bytes.NewReader(data)
 
-	// 如果请求写入临时桶且临时桶已配置
+	// If the request writes to the temp bucket and the temp bucket is configured
 	if temp && s.tempClient != nil {
 		objectName := fmt.Sprintf("exports/%d/%s%s", tenantID, uuid.New().String(), ext)
 		_, err := s.tempClient.Object.Put(ctx, objectName, reader, nil)
@@ -226,7 +226,7 @@ func (s *cosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 		return fmt.Sprintf("%s%s", s.tempBucketURL, objectName), nil
 	}
 
-	// 写入主桶
+	// Write to the primary bucket
 	objectName := fmt.Sprintf("%s/%d/exports/%s%s", s.cosPathPrefix, tenantID, uuid.New().String(), ext)
 	_, err = s.client.Object.Put(ctx, objectName, reader, nil)
 	if err != nil {
@@ -238,7 +238,7 @@ func (s *cosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 
 // GetFileURL returns a presigned download URL for the file
 func (s *cosFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
-	// 判断文件属于哪个桶
+	// Determine which bucket the file belongs to
 	if s.tempClient != nil && strings.HasPrefix(filePath, s.tempBucketURL) {
 		objectName := strings.TrimPrefix(filePath, s.tempBucketURL)
 		if err := utils.SafeObjectKey(objectName); err != nil {

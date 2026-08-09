@@ -9,37 +9,37 @@
     @cancel="handleClose"
   >
     <!--
-      Header icon — 与 McpSettings 列表 .service-card__badge 同款：
-      transport_type 决定图标和容器配色。SSE 绿、HTTP-Streamable 蓝。
-      非 scoped 块 .mcp-drawer--{transport} 注入背景与文字色，currentColor
-      让 t-icon 跟着染色。
+      Header icon — same style as McpSettings list's .service-card__badge:
+      transport_type determines the icon and container coloring. SSE is green, HTTP-Streamable is blue.
+      The non-scoped block .mcp-drawer--{transport} injects background and text color; currentColor
+      lets t-icon pick up the color too.
     -->
     <template #headerIcon>
       <t-icon :name="transportIcon" />
     </template>
 
-    <!-- 副标题：transport 类型名 + 启用状态 mini chip -->
+    <!-- subtitle: transport type name + enabled-status mini chip -->
     <template #subtitle>
       <span>{{ transportLabel }}</span>
       <span
         class="subtitle-tag"
         :class="formData.enabled ? 'subtitle-tag--ok' : 'subtitle-tag--muted'"
       >
-        {{ formData.enabled ? t('mcpSettings.enabled', '已启用') : t('mcpSettings.disabled', '已禁用') }}
+        {{ formData.enabled ? t('mcpSettings.enabled', 'Enabled') : t('mcpSettings.disabled', 'Disabled') }}
       </span>
     </template>
 
     <!--
-      测试连接按钮挪到 footer-left，与 ModelEditorDialog/Storage/Parser/
-      WebSearch 抽屉同款。仅 edit 模式有效（需要服务 id 才能调 /test 端点）。
-      create 模式下按钮 disabled 并提示"保存后可测试"。
+      Test connection button moved to footer-left, same style as ModelEditorDialog/Storage/Parser/
+      WebSearch drawer. Only works in edit mode (needs a service id to call the /test endpoint).
+      In create mode the button is disabled with a hint to "save first to test".
     -->
     <template #footer-left>
       <t-button
         variant="outline"
         :loading="testing"
         :disabled="mode === 'add' || !props.service?.id"
-        :title="mode === 'add' ? t('mcpServiceDialog.testAfterSaveHint', '保存后可测试连接') : ''"
+        :title="mode === 'add' ? t('mcpServiceDialog.testAfterSaveHint', 'Save first to test the connection') : ''"
         @click="handleTestConnection"
       >
         <template #icon>
@@ -54,14 +54,14 @@
             class="status-icon unavailable"
           />
         </template>
-        {{ testing ? t('webSearchSettings.testing', '测试中…') : t('mcpSettings.actions.test', '测试连接') }}
+        {{ testing ? t('webSearchSettings.testing', 'Testing…') : t('mcpSettings.actions.test', 'Test connection') }}
       </t-button>
     </template>
 
     <t-form ref="formRef" :data="formData" :rules="rules" label-align="top">
       <!--
-        从代码导入：粘贴标准 mcpServers JSON，纯前端解析后填回表单。
-        不自动提交；用户检查后再点保存。
+        Import from code: paste standard mcpServers JSON, parse it purely on the frontend and fill it back into the form.
+        Does not auto-submit; the user reviews before clicking save.
       -->
       <section class="setting-drawer__section code-import">
         <button type="button" class="code-import__toggle" @click="codeImportOpen = !codeImportOpen">
@@ -88,9 +88,9 @@
         </div>
       </section>
 
-      <!-- Section 1 — 基本信息 -->
+      <!-- Section 1 — Basic Info -->
       <section class="setting-drawer__section">
-        <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.basicSection', '基本信息') }}</h4>
+        <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.basicSection', 'Basic info') }}</h4>
 
         <div class="form-item">
           <label class="form-label required">{{ t('mcpServiceDialog.name') }}</label>
@@ -111,19 +111,19 @@
           <div class="vision-toggle">
             <t-switch v-model="formData.enabled" />
             <span class="form-desc form-desc--inline">
-              {{ t('mcpServiceDialog.enableServiceDesc', '关闭后该服务不会被调用') }}
+              {{ t('mcpServiceDialog.enableServiceDesc', 'When disabled, this service will not be called') }}
             </span>
           </div>
         </div>
       </section>
 
-      <!-- Section 2 — 连接配置（transport + url） -->
+      <!-- Section 2 — Connection Config (transport + url) -->
       <section class="setting-drawer__section">
-        <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.connectionSection', '连接配置') }}</h4>
+        <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.connectionSection', 'Connection settings') }}</h4>
 
         <div class="form-item">
           <label class="form-label required">{{ t('mcpServiceDialog.transportType') }}</label>
-          <!-- 紧凑 pill segmented，与 ModelEditorDialog 来源切换 / Storage MinIO 部署模式同款 -->
+          <!-- Compact pill segmented, same style as ModelEditorDialog source switcher / Storage MinIO deployment mode -->
           <div class="source-options" role="radiogroup">
             <button
               type="button"
@@ -151,7 +151,7 @@
           <t-input v-model="formData.url" :placeholder="t('mcpServiceDialog.serviceUrlPlaceholder')" />
         </div>
 
-        <!-- 自定义请求头：附加到每次 MCP 请求的 HTTP header（与模型管理同款交互） -->
+        <!-- Custom request headers: appended to every MCP request's HTTP header (same interaction as model management) -->
         <div class="form-item">
           <div class="custom-headers-header">
             <label class="form-label" style="margin-bottom: 0">
@@ -190,13 +190,13 @@
         </div>
       </section>
 
-      <!-- Section 3 — 认证配置（无 / API Key / Bearer Token / OAuth） -->
+      <!-- Section 3 — Auth Config (None / API Key / Bearer Token / OAuth) -->
       <section class="setting-drawer__section">
         <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.authConfig') }}</h4>
 
         <div class="form-item">
-          <label class="form-label">{{ t('mcpServiceDialog.authType', '认证方式') }}</label>
-          <!-- 展开式 pill segmented，与上方传输类型同款，避免再点开下拉 -->
+          <label class="form-label">{{ t('mcpServiceDialog.authType', 'Authentication method') }}</label>
+          <!-- Expandable pill segmented, same style as the transport type above, avoids re-opening a dropdown -->
           <div class="source-options" role="radiogroup">
             <button
               v-for="opt in authTypeOptions"
@@ -211,23 +211,23 @@
           </div>
         </div>
 
-        <!-- OAuth 2.0：零配置（自动发现 + 动态客户端注册），按用户授权 -->
+        <!-- OAuth 2.0: zero-config (auto-discovery + dynamic client registration), authorized per user -->
         <template v-if="isOAuth">
           <div class="form-item">
-            <label class="form-label">{{ t('mcpServiceDialog.oauthScopes', 'Scopes（可选，空格分隔）') }}</label>
+            <label class="form-label">{{ t('mcpServiceDialog.oauthScopes', 'Scopes (optional, space-separated)') }}</label>
             <t-input v-model="oauthScopesText" :placeholder="t('mcpServiceDialog.optional')" />
           </div>
           <div class="form-item">
-            <label class="form-label">{{ t('mcpServiceDialog.oauthAuthorization', '授权状态') }}</label>
+            <label class="form-label">{{ t('mcpServiceDialog.oauthAuthorization', 'Authorization status') }}</label>
             <div class="oauth-status">
               <t-tag v-if="oauthTokenState === 'authorized'" theme="success" variant="light">
-                {{ t('mcpServiceDialog.oauthAuthorized', '已授权') }}
+                {{ t('mcpServiceDialog.oauthAuthorized', 'Authorized') }}
               </t-tag>
               <t-tag v-else-if="oauthTokenState === 'refreshable'" theme="primary" variant="light">
-                {{ t('mcpServiceDialog.oauthRefreshable', 'Token 已过期，将自动刷新') }}
+                {{ t('mcpServiceDialog.oauthRefreshable', 'Token expired; it will refresh automatically') }}
               </t-tag>
               <t-tag v-else theme="warning" variant="light">
-                {{ t('mcpServiceDialog.oauthUnauthorized', '未授权') }}
+                {{ t('mcpServiceDialog.oauthUnauthorized', 'Unauthorized') }}
               </t-tag>
               <t-button
                 size="small"
@@ -235,7 +235,7 @@
                 :loading="oauthAuthorizing || oauthChecking || submitting"
                 @click="handleAuthorize"
               >
-                {{ oauthTokenState === 'reauth_required' ? t('mcpServiceDialog.oauthAuthorize', '去授权') : t('mcpServiceDialog.oauthReauthorize', '重新授权') }}
+                {{ oauthTokenState === 'reauth_required' ? t('mcpServiceDialog.oauthAuthorize', 'Authorize') : t('mcpServiceDialog.oauthReauthorize', 'Re-authorize') }}
               </t-button>
               <t-button
                 v-if="oauthTokenState !== 'reauth_required' && props.service?.id"
@@ -244,30 +244,30 @@
                 variant="outline"
                 @click="handleRevokeOAuth"
               >
-                {{ t('mcpServiceDialog.oauthRevoke', '撤销授权') }}
+                {{ t('mcpServiceDialog.oauthRevoke', 'Revoke authorization') }}
               </t-button>
             </div>
             <p class="form-desc">
-              {{ t('mcpServiceDialog.oauthAuthorizeHint', '点击「去授权」会先自动保存当前配置，再发起授权（每个用户独立授权）。') }}
+              {{ t('mcpServiceDialog.oauthAuthorizeHint', 'Clicking Authorize saves the current config first, then starts authorization (per user).') }}
             </p>
           </div>
         </template>
 
         <!--
-          非 OAuth：Edit 模式下凭证由 CredentialResource 管理（独立的
-          /credentials 子资源调用）；Create 模式下用 plain password input。
-          两个字段都是 optional — MCP 服务可能完全不需要鉴权。
+          Non-OAuth: in Edit mode credentials are managed by CredentialResource (a separate
+          /credentials sub-resource call); in Create mode use a plain password input.
+          Both fields are optional — the MCP service may not require auth at all.
         -->
-        <!-- 凭证 Header 策略：请求头名称 + 密钥值（其余 auth_type 不展示密钥字段） -->
+        <!-- Credential header strategy: header name + secret value (other auth_types don't show the secret field) -->
         <template v-else-if="formData.auth_config.auth_type === 'api_key'">
-          <!-- 请求头名称（非密钥）：默认 X-API-Key，Bearer/裸 token 场景填 Authorization。 -->
+          <!-- Header name (not secret): defaults to X-API-Key, fill Authorization for Bearer/bare-token scenarios. -->
           <div class="form-item">
-            <label class="form-label">{{ t('mcpServiceDialog.apiKeyHeader', '请求头名称') }}</label>
+            <label class="form-label">{{ t('mcpServiceDialog.apiKeyHeader', 'Header name') }}</label>
             <t-input
               v-model="formData.auth_config.api_key_header"
               placeholder="X-API-Key"
             />
-            <p class="form-desc">{{ t('mcpServiceDialog.apiKeyHeaderDesc', '留空默认 X-API-Key。Bearer 方式请填 Authorization，并在下方密钥值中写 “Bearer <token>”；需要裸 token 时填 Authorization 并直接填入 token。') }}</p>
+            <p class="form-desc">{{ t('mcpServiceDialog.apiKeyHeaderDesc', 'Leave empty to use X-API-Key. For Bearer, set Authorization and put “Bearer <token>” in the secret; for a raw token, set Authorization and paste the token only.') }}</p>
           </div>
 
           <CredentialResource
@@ -277,7 +277,7 @@
             :meta="credentialMeta"
           />
           <div v-else class="form-item">
-            <label class="form-label">{{ t('mcpServiceDialog.credentialValue', '密钥值 / Token') }}</label>
+            <label class="form-label">{{ t('mcpServiceDialog.credentialValue', 'Secret / Token') }}</label>
             <t-input
               v-model="formData.auth_config.api_key"
               type="password"
@@ -289,8 +289,8 @@
         </template>
       </section>
 
-      <!-- Section 4 — 高级配置（超时/重试），改用带后缀单位的轻量数字输入框，
-           不再用 t-input-number 的加减器（步进按钮在这里没必要，用户更倾向直接键入）。 -->
+      <!-- Section 4 — Advanced Config (timeout/retry), switched to lightweight number inputs with unit suffixes,
+           no longer using t-input-number's increment/decrement steppers (step buttons aren't needed here, users prefer typing directly). -->
       <section class="setting-drawer__section">
         <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.advancedConfig') }}</h4>
 
@@ -306,7 +306,7 @@
             @blur="onAdvancedNumberBlur('timeout', 30, 1, 300)"
           >
             <template #suffix>
-              <span class="number-input__unit">{{ t('mcpServiceDialog.unitSecond', '秒') }}</span>
+              <span class="number-input__unit">{{ t('mcpServiceDialog.unitSecond', 'sec') }}</span>
             </template>
           </t-input>
         </div>
@@ -322,7 +322,7 @@
             @blur="onAdvancedNumberBlur('retry_count', 3, 0, 10)"
           >
             <template #suffix>
-              <span class="number-input__unit">{{ t('mcpServiceDialog.unitTimes', '次') }}</span>
+              <span class="number-input__unit">{{ t('mcpServiceDialog.unitTimes', 'times') }}</span>
             </template>
           </t-input>
         </div>
@@ -338,16 +338,16 @@
             @blur="onAdvancedNumberBlur('retry_delay', 1, 0, 60)"
           >
             <template #suffix>
-              <span class="number-input__unit">{{ t('mcpServiceDialog.unitSecond', '秒') }}</span>
+              <span class="number-input__unit">{{ t('mcpServiceDialog.unitSecond', 'sec') }}</span>
             </template>
           </t-input>
         </div>
       </section>
 
-      <!-- Section 5 — 测试结果（内联，避免在抽屉上再叠一个居中弹窗） -->
+      <!-- Section 5 — Test Results (inline, avoids stacking another centered dialog on top of the drawer) -->
       <section v-if="testResult" ref="testResultSection" class="setting-drawer__section">
         <div class="test-result-header">
-          <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.testResultTitle', '测试结果') }}</h4>
+          <h4 class="setting-drawer__section-title">{{ t('mcpServiceDialog.testResultTitle', 'Test result') }}</h4>
           <t-button
             variant="text"
             theme="default"
@@ -605,9 +605,9 @@ const isOAuth = computed(() => formData.value.auth_config.auth_type === 'oauth')
 // value prefix). "None" stays as the default for services that need no auth or
 // only the custom headers configured above.
 const authTypeOptions = computed(() => [
-  { value: '', label: t('mcpServiceDialog.authTypeNone', '无 / 自定义 Header') },
+  { value: '', label: t('mcpServiceDialog.authTypeNone', 'None / custom header') },
   { value: 'api_key', label: t('mcpServiceDialog.authTypeApiKey', 'API Key / Token') },
-  { value: 'oauth', label: t('mcpServiceDialog.authTypeOAuth', 'OAuth 2.0（首次连接授权）') },
+  { value: 'oauth', label: t('mcpServiceDialog.authTypeOAuth', 'OAuth 2.0 (authorize on first connect)') },
 ])
 
 // ---- OAuth authorization state (edit mode only) ----
@@ -647,7 +647,7 @@ async function startAuthorize(serviceId: string) {
       frontend_redirect: frontendRedirect,
     })
     if (!authorization.authorizationUrl || !authorization.authorizationAttempt) {
-      MessagePlugin.error(t('mcpServiceDialog.toasts.authorizeFailed', '发起授权失败') as string)
+      MessagePlugin.error(t('mcpServiceDialog.toasts.authorizeFailed', 'Failed to start authorization') as string)
       oauthAuthorizing.value = false
       return
     }
@@ -664,13 +664,13 @@ async function startAuthorize(serviceId: string) {
         oauthAuthorizing.value = false
         if (oauthAuthorized.value) {
           try { popup?.close() } catch { /* cross-origin close may throw */ }
-          MessagePlugin.success(t('mcpServiceDialog.toasts.authorized', '授权成功') as string)
+          MessagePlugin.success(t('mcpServiceDialog.toasts.authorized', 'Authorization succeeded') as string)
         }
       }
     }, 1500)
   } catch (e) {
     console.error('Failed to start MCP OAuth authorization:', e)
-    MessagePlugin.error(t('mcpServiceDialog.toasts.authorizeFailed', '发起授权失败') as string)
+    MessagePlugin.error(t('mcpServiceDialog.toasts.authorizeFailed', 'Failed to start authorization') as string)
     oauthAuthorizing.value = false
   }
 }
@@ -714,10 +714,10 @@ async function handleRevokeOAuth() {
     await revokeMCPOAuthToken(props.service.id)
     oauthAuthorized.value = false
     oauthTokenState.value = 'reauth_required'
-    MessagePlugin.success(t('mcpServiceDialog.toasts.revoked', '已撤销授权') as string)
+    MessagePlugin.success(t('mcpServiceDialog.toasts.revoked', 'Authorization revoked') as string)
   } catch (e) {
     console.error('Failed to revoke MCP OAuth token:', e)
-    MessagePlugin.error(t('mcpServiceDialog.toasts.revokeFailed', '撤销失败') as string)
+    MessagePlugin.error(t('mcpServiceDialog.toasts.revokeFailed', 'Revoke failed') as string)
   }
 }
 
@@ -739,7 +739,7 @@ const transportLabel = computed(() => {
 // secret, so the credential card is only shown for the api_key strategy.
 const credentialFields = computed<CredentialFieldDef<McpCredentialField>[]>(() => {
   if (formData.value.auth_config.auth_type === 'api_key') {
-    return [{ key: 'api_key', label: t('mcpServiceDialog.credentialValue', '密钥值 / Token') }]
+    return [{ key: 'api_key', label: t('mcpServiceDialog.credentialValue', 'Secret / Token') }]
   }
   return []
 })
@@ -805,7 +805,7 @@ const lastTestOk = ref<boolean | null>(null)
 const testResult = ref<MCPTestResult | null>(null)
 const testResultSection = ref<HTMLElement | null>(null)
 
-// 结果区在抽屉最底部，测试完成后主动滚动到可见，免得用户以为没反应。
+// Results area sits at the very bottom of the drawer, auto-scrolls into view once the test finishes, so users don't think nothing happened.
 function scrollToTestResult() {
   void nextTick(() => {
     testResultSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -850,7 +850,7 @@ async function handleTestConnection() {
     if (safe.oauth_required === true && formData.value.auth_config.auth_type !== 'oauth') {
       formData.value.auth_config.auth_type = 'oauth'
       MessagePlugin.warning(
-        t('mcpServiceDialog.toasts.oauthRequired', '该服务需要 OAuth 授权，已自动切换为 OAuth 2.0，请保存后点击「去授权」。') as string,
+        t('mcpServiceDialog.toasts.oauthRequired', 'This service requires OAuth. Switched to OAuth 2.0 automatically; save, then click Authorize.') as string,
       )
     }
     scrollToTestResult()
@@ -932,10 +932,10 @@ const resetForm = () => {
 watch(
   () => props.service,
   (service) => {
-    // 切到不同服务（或新增）时清空上次测试反馈，避免旧的 ✓/✗ 漂在新表单上
+    // Clear the previous test feedback when switching to a different service (or adding a new one), so stale ✓/✗ doesn't linger on the new form
     lastTestOk.value = null
     testResult.value = null
-    // 同时重置代码导入区域，避免上一个服务残留的粘贴内容/报错漂到新表单
+    // Also reset the code import area, so pasted content/errors left over from the previous service don't linger on the new form
     codeImportOpen.value = false
     codeImportText.value = ''
     codeImportError.value = ''
@@ -1062,12 +1062,12 @@ const handleClose = () => {
 </script>
 
 <style scoped lang="less">
-// ---- 抽屉内容 — 与 ModelEditorDialog 同款约定 ----
+// ---- Drawer content — same convention as ModelEditorDialog ----
 .form-item {
   margin-bottom: 0;
 }
 
-// ---- 自定义请求头（与 ModelEditorDialog 同款 key/value 行） ----
+// ---- Custom request headers (same key/value rows as ModelEditorDialog) ----
 .custom-headers-header {
   display: flex;
   align-items: center;
@@ -1109,7 +1109,7 @@ const handleClose = () => {
   }
 }
 
-// ---- 从代码导入 ----
+// ---- Import from code ----
 .code-import {
   &__toggle {
     display: inline-flex;
@@ -1221,12 +1221,12 @@ const handleClose = () => {
   font-size: 13px;
 }
 
-// 隐藏 t-form 默认 form-item 容器 — 走自定义 .form-item / .form-label
+// Hide t-form's default form-item container — use custom .form-item / .form-label instead
 :deep(.t-form) .t-form-item {
   display: none;
 }
 
-// ---- 紧凑 pill segmented（transport 切换） ----
+// ---- Compact pill segmented (transport switch) ----
 .source-options {
   display: inline-flex;
   align-items: center;
@@ -1282,10 +1282,10 @@ const handleClose = () => {
   gap: 8px;
 }
 
-// ---- 高级配置数字输入：替代 t-input-number 的步进按钮，更轻量 ----
-// 用普通 t-input + suffix 单位 + type=number。原生 number 输入会
-// 在 Chrome 上显示一对 spin button，scoped 里把它们隐藏掉以保持视觉
-// 干净。最大/最小值通过 onBlur clamp，而不是依赖原生 step 限制。
+// ---- Advanced config number inputs: replaces t-input-number's stepper buttons, lighter weight ----
+// Use a plain t-input + suffix unit + type=number. Native number inputs show
+// a pair of spin buttons on Chrome; hidden in scoped styles to keep the visuals
+// clean. Max/min are clamped via onBlur, not relying on native step limits.
 .number-input {
   :deep(input::-webkit-outer-spin-button),
   :deep(input::-webkit-inner-spin-button) {
@@ -1294,7 +1294,7 @@ const handleClose = () => {
     margin: 0;
   }
 
-  // Firefox 把 type=number 渲染成 textfield 风格更好看
+  // Firefox renders type=number as textfield style, which looks better
   :deep(input[type="number"]) {
     -moz-appearance: textfield;
     appearance: textfield;
@@ -1307,7 +1307,7 @@ const handleClose = () => {
   user-select: none;
 }
 
-// ---- footer-left 测试按钮的状态 icon ----
+// ---- Status icon for the footer-left test button ----
 .status-icon {
   font-size: 16px;
   flex-shrink: 0;
@@ -1321,7 +1321,7 @@ const handleClose = () => {
   }
 }
 
-// ---- 副标题里的小标签 ----
+// ---- Small tag in the subtitle ----
 .subtitle-tag {
   display: inline-flex;
   align-items: center;

@@ -1,101 +1,105 @@
-# 微信小程序客户端
+Vou traduzir o documento diretamente, mantendo toda a estrutura markdown.
 
-WeKnora 在仓库的 `miniprogram/` 目录下提供了一个轻量级的微信小程序客户端，作为移动端的快捷入口。它不试图复刻 Web 前端的完整功能，而是聚焦三件事：
+---
 
-- 配置 WeKnora API 地址与租户 API Key；
-- 列出并选择知识库（Knowledge Base），把网页 URL 导入到选中的知识库；
-- 面向选中的知识库发起知识问答（Knowledge Chat）。
+# WeChat Mini Program Client
 
-## 技术栈
+WeKnora provides a lightweight WeChat Mini Program client under the repository's `miniprogram/` directory, serving as a quick mobile entry point. It does not attempt to replicate the full functionality of the Web frontend, but instead focuses on three things:
 
-该客户端是**原生微信小程序**（native Mini Program），未使用 Taro / uni-app / mpvue 等跨端框架，也没有任何 npm 运行时依赖：
+- Configuring the WeKnora API address and tenant API Key;
+- Listing and selecting a Knowledge Base, and importing web page URLs into the selected knowledge base;
+- Initiating Knowledge Chat against the selected knowledge base.
 
-- `miniprogram/app.js` — 标准的 `App({...})` 入口，`onLaunch` 时向本地存储写入默认设置；
-- `miniprogram/app.json` — 标准小程序全局配置（`pages`、`window`、`tabBar`）；
-- `miniprogram/app.wxss` — 全局样式；页面均为 `js / wxml / wxss / json` 四件套；
-- `miniprogram/package.json` — 包名 `weknora-miniprogram`（version `0.1.0`），`description` 为 "WeChat Mini Program plugin for WeKnora"，**没有 `dependencies`**，仅有一个测试脚本（见下文「测试」）；
-- `miniprogram/project.config.json` — `compileType: "miniprogram"`，`libVersion: "latest"`（基础库使用最新版），编译选项开启 `es6`、`enhance`、`postcss`、`minified`，并开启 `urlCheck: true`（合法域名校验）。**注意：该文件刻意不包含 `appid` 字段**，AppID 通过私有配置文件提供（见「构建与发布」）。
+## Tech Stack
 
-全局窗口样式：导航栏标题 `WeKnora`，背景色 `#0d3b2a`（深绿），文字白色。
+This client is a **native WeChat Mini Program**, without using cross-platform frameworks such as Taro / uni-app / mpvue, and with no npm runtime dependencies at all:
 
-## 页面清单
+- `miniprogram/app.js` — the standard `App({...})` entry point; on `onLaunch` it writes default settings to local storage;
+- `miniprogram/app.json` — standard Mini Program global configuration (`pages`, `window`, `tabBar`);
+- `miniprogram/app.wxss` — global styles; pages each use the standard `js / wxml / wxss / json` four-file set;
+- `miniprogram/package.json` — package name `weknora-miniprogram` (version `0.1.0`), with `description` "WeChat Mini Program plugin for WeKnora", **with no `dependencies`**, only a single test script (see "Testing" below);
+- `miniprogram/project.config.json` — `compileType: "miniprogram"`, `libVersion: "latest"` (uses the latest base library), compilation options enable `es6`, `enhance`, `postcss`, `minified`, and enable `urlCheck: true` (legal domain validation). **Note: this file intentionally does not include an `appid` field**; the AppID is provided via a private configuration file (see "Build and Release").
 
-`miniprogram/app.json` 中注册了 3 个页面，且三者同时构成底部 `tabBar`（选中色 `#07c05f`）：
+Global window style: navigation bar title `WeKnora`, background color `#0d3b2a` (dark green), white text.
 
-| 页面路径 | 名称（tabBar 文案） | 功能 |
+## Page List
+
+`miniprogram/app.json` registers 3 pages, and all three together make up the bottom `tabBar` (selected color `#07c05f`):
+
+| Page Path | Name (tabBar label) | Function |
 | --- | --- | --- |
-| `pages/index/index` | Knowledge（知识库） | 首页。检测是否已配置 baseUrl / API Key，未配置时提示并可一键跳转 Settings；调用 `GET /api/v1/knowledge-bases` 加载知识库列表，通过 `picker` 或列表点选知识库（选择结果持久化到本地存储）；输入网页 URL 后调用 `POST /api/v1/knowledge-bases/{id}/knowledge/url` 将该 URL 导入选中知识库（`enable_multimodel` 固定为 `false`） |
-| `pages/chat/chat` | Chat（问答） | 知识问答页。首次提问时通过 `POST /api/v1/sessions` 懒创建会话（携带选中的 `knowledge_base_id`），随后调用 `POST /api/v1/knowledge-chat/{sessionId}` 提问；返回体为 SSE 文本，客户端用 `utils/sse.js` 解析并拼接 `response_type === "answer"` 的分片后整体展示（解析失败则回退展示原始响应） |
-| `pages/settings/settings` | Settings（设置） | 连接配置页。填写 API Base URL 与 API Key（密码输入框），保存到本地存储 `weknora_settings` |
+| `pages/index/index` | Knowledge | Home page. Checks whether baseUrl / API Key are already configured; if not, prompts the user with a one-tap jump to Settings; calls `GET /api/v1/knowledge-bases` to load the knowledge base list, and lets the user select a knowledge base via a `picker` or list tap (the selection is persisted to local storage); after entering a web page URL, calls `POST /api/v1/knowledge-bases/{id}/knowledge/url` to import that URL into the selected knowledge base (`enable_multimodel` is fixed to `false`) |
+| `pages/chat/chat` | Chat | Knowledge Q&A page. On the first question, lazily creates a session via `POST /api/v1/sessions` (carrying the selected `knowledge_base_id`), then calls `POST /api/v1/knowledge-chat/{sessionId}` to ask the question; the response body is SSE text, which the client parses with `utils/sse.js`, concatenating the chunks where `response_type === "answer"` and displaying the result as a whole (falling back to displaying the raw response if parsing fails) |
+| `pages/settings/settings` | Settings | Connection configuration page. Fill in the API Base URL and API Key (password input field), saved to local storage under `weknora_settings` |
 
-## 后端地址与认证配置
+## Backend Address and Authentication Configuration
 
-小程序**不在代码中硬编码后端地址**，一切连接信息由用户在「Settings」页填写，存储于 `wx.setStorageSync` 的本地存储键 `weknora_settings` 中，结构包含三个字段：
+The Mini Program **does not hard-code the backend address in the code**; all connection information is filled in by the user on the "Settings" page and stored under the local storage key `weknora_settings` via `wx.setStorageSync`, with a structure containing three fields:
 
 ```js
 {
-  baseUrl: "http://localhost:8080",   // app.js onLaunch 写入的默认值
+  baseUrl: "http://localhost:8080",   // default value written by app.js onLaunch
   apiKey: "",
   selectedKnowledgeBaseId: ""
 }
 ```
 
-- **默认值**：`miniprogram/app.js` 在 `onLaunch` 中若发现本地无设置，会写入默认 `baseUrl: "http://localhost:8080"`、空 `apiKey`。默认值仅便于本地开发，实际使用必须在 Settings 页改为真实地址。
-- **读写与规范化**：`miniprogram/utils/config.js` 提供 `getSettings()` / `saveSettings()`，并通过 `normalizeBaseUrl()` 去除首尾空白与末尾 `/`。
-- **认证方式为 API Key**：`miniprogram/utils/request.js` 中所有请求统一携带请求头：
-  - `X-API-Key: <用户填写的 API Key>`（来自 WeKnora 租户设置页，形如 `sk-...`）；
-  - `X-Request-ID: mp-<时间戳>-<随机串>`（便于服务端追踪）；
-  - `Content-Type: application/json`。
-- **前置校验**：`baseUrl` 或 `apiKey` 任一缺失时，请求会直接以错误 Promise 拒绝（"Please configure the WeKnora API base URL / API key first."）；`pages/index/index.js` 的 `onShow` 也会据此显示引导用户去 Settings 页的提示。
-- **AppID 配置**：微信小程序 AppID 不放在共享的 `project.config.json` 中，而是复制 `miniprogram/project.private.config.json.example` 为 `project.private.config.json` 并填入真实 AppID（示例文件内容为 `{"appid": "your-wechat-mini-program-appid"}`）。
+- **Default value**: In `onLaunch`, `miniprogram/app.js` writes a default `baseUrl: "http://localhost:8080"` and empty `apiKey` if no local settings are found. This default is only for local development convenience — actual use requires changing it to a real address on the Settings page.
+- **Read/write and normalization**: `miniprogram/utils/config.js` provides `getSettings()` / `saveSettings()`, and strips leading/trailing whitespace and a trailing `/` via `normalizeBaseUrl()`.
+- **Authentication method is API Key**: all requests in `miniprogram/utils/request.js` uniformly carry the following request headers:
+  - `X-API-Key: <the API Key entered by the user>` (from the WeKnora tenant settings page, in the form `sk-...`);
+  - `X-Request-ID: mp-<timestamp>-<random string>` (for server-side tracing);
+  - `Content-Type: application/json`.
+- **Pre-validation**: if either `baseUrl` or `apiKey` is missing, the request is directly rejected with an error Promise ("Please configure the WeKnora API base URL / API key first."); `pages/index/index.js`'s `onShow` likewise uses this to display a prompt guiding the user to the Settings page.
+- **AppID configuration**: the WeChat Mini Program AppID is not placed in the shared `project.config.json`, but instead by copying `miniprogram/project.private.config.json.example` to `project.private.config.json` and filling in the real AppID (the example file's content is `{"appid": "your-wechat-mini-program-appid"}`).
 
-调用到的后端接口（均定义在 `miniprogram/utils/request.js`）：
+Backend interfaces invoked (all defined in `miniprogram/utils/request.js`):
 
-| 函数 | 方法与路径 |
+| Function | Method and Path |
 | --- | --- |
 | `listKnowledgeBases()` | `GET /api/v1/knowledge-bases` |
 | `createKnowledgeFromURL(kbId, url, enableMultimodel)` | `POST /api/v1/knowledge-bases/{kbId}/knowledge/url` |
 | `createSession(kbId)` | `POST /api/v1/sessions` |
 | `knowledgeChat(sessionId, query, kbId)` | `POST /api/v1/knowledge-chat/{sessionId}` |
 
-## utils/ 工具模块
+## utils/ Utility Modules
 
-| 文件 | 职责 |
+| File | Responsibility |
 | --- | --- |
-| `miniprogram/utils/config.js` | 设置的持久化层：定义存储键 `STORAGE_KEY = "weknora_settings"`，提供 `getSettings()`、`saveSettings()`（合并式更新）与 `normalizeBaseUrl()`（trim 并去除末尾斜杠） |
-| `miniprogram/utils/request.js` | 基于 `wx.request` 的 Promise 化 HTTP 封装：拼接 `baseUrl + path`、注入 `X-API-Key` / `X-Request-ID` 头、统一 2xx 判定与错误消息提取（优先 `error.message`，其次 `message`，兜底 `HTTP <status>`）；并导出上表 4 个业务 API 函数 |
-| `miniprogram/utils/sse.js` | Server-Sent Events 文本解析器：`parseSSE(raw)` 按空行切分事件块、解析 `event:` / `data:` 行；`collectAnswerFromSSE(raw)` 将各事件的 `data` 按 JSON 解析并累加 `response_type === "answer"` 的 `content`，得到最终答案文本。注意小程序端**不做流式渲染**，而是等 `wx.request` 拿到完整 SSE 文本后一次性解析展示 |
+| `miniprogram/utils/config.js` | Persistence layer for settings: defines the storage key `STORAGE_KEY = "weknora_settings"`, provides `getSettings()`, `saveSettings()` (merge-style update), and `normalizeBaseUrl()` (trims and strips a trailing slash) |
+| `miniprogram/utils/request.js` | Promise-based HTTP wrapper built on `wx.request`: concatenates `baseUrl + path`, injects `X-API-Key` / `X-Request-ID` headers, applies unified 2xx status checking and error message extraction (preferring `error.message`, then `message`, falling back to `HTTP <status>`); also exports the 4 business API functions listed in the table above |
+| `miniprogram/utils/sse.js` | Server-Sent Events text parser: `parseSSE(raw)` splits event blocks on blank lines and parses `event:` / `data:` lines; `collectAnswerFromSSE(raw)` JSON-parses each event's `data` and accumulates the `content` where `response_type === "answer"` to produce the final answer text. Note that the Mini Program side **does not do streaming rendering** — it waits until `wx.request` receives the complete SSE text and then parses and displays it all at once |
 
-## 数据流概览
+## Data Flow Overview
 
 ```mermaid
 flowchart LR
-    S["Settings 页<br/>(baseUrl + API Key)"] -->|"wx.setStorageSync(weknora_settings)"| C["utils/config.js"]
-    K["Knowledge 页<br/>(pages/index)"] -->|"listKnowledgeBases / createKnowledgeFromURL"| R["utils/request.js<br/>(X-API-Key 头)"]
-    Q["Chat 页<br/>(pages/chat)"] -->|"createSession / knowledgeChat"| R
-    R -->|"wx.request"| B["WeKnora 后端<br/>/api/v1/*"]
-    B -->|"SSE 文本"| P["utils/sse.js<br/>collectAnswerFromSSE"]
+    S["Settings page<br/>(baseUrl + API Key)"] -->|"wx.setStorageSync(weknora_settings)"| C["utils/config.js"]
+    K["Knowledge page<br/>(pages/index)"] -->|"listKnowledgeBases / createKnowledgeFromURL"| R["utils/request.js<br/>(X-API-Key header)"]
+    Q["Chat page<br/>(pages/chat)"] -->|"createSession / knowledgeChat"| R
+    R -->|"wx.request"| B["WeKnora Backend<br/>/api/v1/*"]
+    B -->|"SSE text"| P["utils/sse.js<br/>collectAnswerFromSSE"]
     P --> Q
     C --> R
 ```
 
-## 构建与发布流程
+## Build and Release Process
 
-小程序无需编译步骤（原生开发、无构建工具链），直接用微信开发者工具（WeChat DevTools）打开即可：
+The Mini Program requires no build step (native development, no build toolchain) — simply open it directly with WeChat DevTools:
 
-1. **导入项目**：在微信开发者工具中选择「导入项目」，目录指向仓库的 `miniprogram/`。工具会读取 `project.config.json`（项目名 "WeKnora Mini Program"）。
-2. **配置 AppID**：复制 `miniprogram/project.private.config.json.example` 为 `project.private.config.json`，将 `appid` 替换为你自己的小程序 AppID。共享的 `project.config.json` 刻意不含 AppID，避免维护者被迫使用占位项目；`project.private.config.json` 属于个人私有配置，不应提交。
-3. **配置后端连接**：运行后进入 **Settings** tab，填写 API Base URL（如 `https://weknora.example.com`）与从 WeKnora 租户设置页获取的 API Key，保存。
-4. **本地调试注意**：`project.config.json` 开启了 `urlCheck: true`，开发者工具默认会拦截 `localhost` 等非合法域名请求。本地测试可在 DevTools 中勾选「不校验合法域名」，或通过 HTTPS 开发域名暴露 WeKnora 服务。
-5. **发布**：正式发布前，需在微信公众平台的小程序管理后台，把 WeKnora API 域名（必须为 HTTPS）加入 request 合法域名（request 域名白名单）；随后在开发者工具中点击「上传」提交代码，再在管理后台提交审核并发布。
+1. **Import the project**: in WeChat DevTools, select "Import Project" and point the directory to the repository's `miniprogram/`. The tool will read `project.config.json` (project name "WeKnora Mini Program").
+2. **Configure the AppID**: copy `miniprogram/project.private.config.json.example` to `project.private.config.json`, and replace `appid` with your own Mini Program AppID. The shared `project.config.json` intentionally does not include the AppID, to avoid forcing maintainers to use a placeholder project; `project.private.config.json` is a personal private configuration file and should not be committed.
+3. **Configure the backend connection**: after running, go to the **Settings** tab, fill in the API Base URL (e.g. `https://weknora.example.com`) and the API Key obtained from the WeKnora tenant settings page, then save.
+4. **Local debugging note**: `project.config.json` has `urlCheck: true` enabled, so by default DevTools will block requests to non-legal domains such as `localhost`. For local testing, you can check "Do not verify legal domains" in DevTools, or expose the WeKnora service via an HTTPS development domain.
+5. **Release**: before formal release, you need to add the WeKnora API domain (which must be HTTPS) to the request legal domain list (request domain whitelist) in the Mini Program admin console on the WeChat Official Accounts Platform; then click "Upload" in DevTools to submit the code, and finally submit it for review and release in the admin console.
 
-### 测试
+### Testing
 
-`miniprogram/package.json` 定义了唯一脚本：
+`miniprogram/package.json` defines a single script:
 
 ```bash
 cd miniprogram
-npm test    # 实际执行 node --test ../tests/miniprogram/*.test.js
+npm test    # actually runs node --test ../tests/miniprogram/*.test.js
 ```
 
-即使用 Node.js 内置 test runner 运行仓库 `tests/miniprogram/miniprogram.test.js` 中的单元测试（覆盖 `utils/` 下的纯函数逻辑），无需安装任何依赖。
+That is, it uses Node.js's built-in test runner to run the unit tests in the repository's `tests/miniprogram/miniprogram.test.js` (covering the pure-function logic under `utils/`), without needing to install any dependencies.

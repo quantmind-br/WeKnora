@@ -107,8 +107,8 @@ const formatTime = (time?: string) => {
 const getSourceInfo = (item: KnowledgeItem): { icon: string; label: string } => {
   const ch = item.channel;
   if (ch === 'feishu') return { icon: 'cloud-download', label: t('knowledgeBase.channelFeishu') };
-  // Drive (云盘) connectors use their own channel so Drive docs show
-  // "飞书云盘" / "Lark 云盘", distinct from the wiki connector's "飞书".
+  // Drive (cloud storage) connectors use their own channel so Drive docs show
+  // "Lark Drive" ("Lark 云盘"), distinct from the wiki connector's "Feishu".
   if (ch === 'feishu_drive') return { icon: 'cloud-download', label: t('knowledgeBase.channelFeishuDrive') };
   if (ch === 'lark_drive') return { icon: 'cloud-download', label: t('knowledgeBase.channelLarkDrive') };
   if (ch === 'notion') return { icon: 'cloud-download', label: t('knowledgeBase.channelNotion') };
@@ -204,7 +204,7 @@ const onMoreVisible = (id: string, visible: boolean) => {
   }
 };
 
-// 吸顶检测：哨兵离开视口说明 header 已吸附在滚动容器顶部
+// Sticky detection: sentinel leaving the viewport means the header has stuck to the top of the scroll container
 const stickySentinel = ref<HTMLElement | null>(null);
 const headerStuck = ref(false);
 let stickyObserver: IntersectionObserver | null = null;
@@ -497,7 +497,7 @@ const handleAction = (action: 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'mo
   background: var(--td-bg-color-container);
   border: 1px solid var(--td-component-stroke);
   border-radius: 9px;
-  /* 不能用 overflow:hidden，否则表头 position:sticky 相对外层滚动区失效 */
+  /* Don't use overflow:hidden, or the table header's position:sticky will fail relative to the outer scroll area */
   overflow: visible;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   animation: doc-list-fade-in 0.32s ease-out;
@@ -615,7 +615,7 @@ const handleAction = (action: 'edit' | 'reparse' | 'cancel-parse' | 'move' | 'mo
   justify-content: flex-end;
 }
 
-/* TDesign 勾选框：去掉空白 label、与表格行对齐 */
+/* TDesign checkbox: remove blank label, align with table row */
 .doc-list-check {
   margin: 0;
 

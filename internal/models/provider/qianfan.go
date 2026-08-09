@@ -10,18 +10,18 @@ const (
 	QianfanBaseURL = "https://qianfan.baidubce.com/v2"
 )
 
-// QianfanProvider 实现百度千帆的 Provider 接口
+// QianfanProvider implements the Provider interface for Baidu Qianfan
 type QianfanProvider struct{}
 
 func init() {
 	Register(&QianfanProvider{})
 }
 
-// Info 返回百度千帆 provider 的元数据
+// Info returns metadata for the Baidu Qianfan provider
 func (p *QianfanProvider) Info() ProviderInfo {
 	return ProviderInfo{
 		Name:        ProviderQianfan,
-		DisplayName: "百度千帆 Baidu Cloud",
+		DisplayName: "Baidu Qianfan",
 		Description: "ernie-5.0-thinking-preview, embedding-v1, bce-reranker-base, etc.",
 		DefaultURLs: map[types.ModelType]string{
 			types.ModelTypeKnowledgeQA: QianfanBaseURL,
@@ -39,7 +39,7 @@ func (p *QianfanProvider) Info() ProviderInfo {
 	}
 }
 
-// ValidateConfig 验证百度千帆 provider 配置
+// ValidateConfig validates Baidu Qianfan provider configuration
 func (p *QianfanProvider) ValidateConfig(config *Config) error {
 	if config.BaseURL == "" {
 		return fmt.Errorf("base URL is required for Qianfan provider")

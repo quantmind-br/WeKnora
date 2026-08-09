@@ -105,11 +105,11 @@ func validateDefaultFileImportRequirements(
 	fileType = normalizeFileExtension(fileType)
 	if IsImageType(fileType) && !eff.VLMConfig.IsEnabled() {
 		logger.Error(ctx, "VLM model is not configured")
-		return werrors.NewBadRequestError("上传图片文件需要设置VLM模型")
+		return werrors.NewBadRequestError("Uploading image files requires a VLM model to be configured")
 	}
 	if IsAudioType(fileType) && !kb.ASRConfig.IsASREnabled() {
 		logger.Error(ctx, "ASR model is not configured")
-		return werrors.NewBadRequestError("上传音频文件需要设置ASR语音识别模型")
+		return werrors.NewBadRequestError("Uploading audio files requires an ASR speech recognition model to be configured")
 	}
 	return nil
 }
@@ -172,12 +172,12 @@ func ValidateProcessOverrides(
 
 	if hasImage {
 		if !eff.VLMConfig.IsEnabled() {
-			return werrors.NewBadRequestError("上传图片文件需要设置VLM模型")
+			return werrors.NewBadRequestError("Uploading image files requires a VLM model to be configured")
 		}
 	}
 
 	if hasAudio && !eff.ASRConfig.IsASREnabled() {
-		return werrors.NewBadRequestError("上传音频文件需要设置ASR语音识别模型")
+		return werrors.NewBadRequestError("Uploading audio files requires an ASR speech recognition model to be configured")
 	}
 
 	if err := types.ValidateEffectiveProcessPromptInstructions(eff); err != nil {

@@ -1,28 +1,28 @@
 # Web Search API
 
-[返回目录](./README.md)
+[Back to Table of Contents](./README.md)
 
-包含两组接口：
-- `/web-search/providers`：返回**可用的 provider 类型**（只读元数据）
-- `/web-search-providers/*`：当前空间**自定义保存**的 provider CRUD 与连通性测试
+Contains two groups of endpoints:
+- `/web-search/providers`: returns **available provider types** (read-only metadata)
+- `/web-search-providers/*`: CRUD and connectivity testing for the providers **custom-saved** in the current space
 
-| 方法   | 路径                                  | 描述                                |
-| ------ | ------------------------------------- | ----------------------------------- |
-| GET    | `/web-search/providers`               | 获取网络搜索服务商类型列表           |
-| GET    | `/web-search-providers/types`         | 获取 Provider 类型元数据（含参数定义） |
-| POST   | `/web-search-providers/test`          | 使用原始凭证测试连通性（不落库）       |
-| POST   | `/web-search-providers`               | 创建空间级 Provider 配置             |
-| GET    | `/web-search-providers`               | 获取当前空间已保存的 Provider 列表     |
-| GET    | `/web-search-providers/:id`           | 获取指定 Provider 详情               |
-| PUT    | `/web-search-providers/:id`           | 更新 Provider                       |
-| DELETE | `/web-search-providers/:id`           | 删除 Provider                       |
-| POST   | `/web-search-providers/:id/test`      | 使用已保存凭证测试连通性             |
+| Method | Path                                  | Description                                |
+| ------ | ------------------------------------- | ------------------------------------------- |
+| GET    | `/web-search/providers`               | Get the list of web search provider types     |
+| GET    | `/web-search-providers/types`         | Get provider type metadata (including parameter definitions) |
+| POST   | `/web-search-providers/test`          | Test connectivity using raw credentials (not persisted) |
+| POST   | `/web-search-providers`               | Create a space-level provider configuration |
+| GET    | `/web-search-providers`               | Get the list of providers saved in the current space |
+| GET    | `/web-search-providers/:id`           | Get details of a specific provider          |
+| PUT    | `/web-search-providers/:id`           | Update a provider                           |
+| DELETE | `/web-search-providers/:id`           | Delete a provider                           |
+| POST   | `/web-search-providers/:id/test`      | Test connectivity using saved credentials   |
 
-## GET `/web-search/providers` - 获取网络搜索服务商类型列表
+## GET `/web-search/providers` - Get the list of web search provider types
 
-获取系统中可用的网络搜索服务商列表（系统级元数据，与空间无关）。
+Retrieves the list of web search providers available in the system (system-level metadata, independent of space).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/web-search/providers' \
@@ -30,7 +30,7 @@ curl --location 'http://localhost:8080/api/v1/web-search/providers' \
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -38,19 +38,19 @@ curl --location 'http://localhost:8080/api/v1/web-search/providers' \
         {
             "name": "google",
             "label": "Google Search",
-            "description": "通过 Google 自定义搜索 API 进行网络搜索",
+            "description": "Web search via the Google Custom Search API",
             "enabled": true
         },
         {
             "name": "bing",
             "label": "Bing Search",
-            "description": "通过 Bing Search API 进行网络搜索",
+            "description": "Web search via the Bing Search API",
             "enabled": true
         },
         {
             "name": "serpapi",
             "label": "SerpAPI",
-            "description": "通过 SerpAPI 进行搜索引擎结果抓取",
+            "description": "Search engine result scraping via SerpAPI",
             "enabled": false
         }
     ],
@@ -58,18 +58,18 @@ curl --location 'http://localhost:8080/api/v1/web-search/providers' \
 }
 ```
 
-## GET `/web-search-providers/types` - 获取 Provider 类型元数据
+## GET `/web-search-providers/types` - Get provider type metadata
 
-返回 UI 表单需要的所有 provider 类型及参数定义（每种 provider 需要哪些字段、类型、是否必填）。
+Returns all provider types and their parameter definitions needed by the UI form (which fields each provider requires, their type, and whether they're required).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/web-search-providers/types' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -88,18 +88,18 @@ curl --location 'http://localhost:8080/api/v1/web-search-providers/types' \
 }
 ```
 
-## POST `/web-search-providers/test` - 使用原始凭证测试连通性
+## POST `/web-search-providers/test` - Test connectivity using raw credentials
 
-前端表单"测试连接"按钮使用：用尚未保存的凭证发起一次样本搜索。
+Used by the "Test Connection" button on the frontend form: runs a sample search using credentials that have not yet been saved.
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段       | 类型   | 必填 | 说明                              |
-| ---------- | ------ | ---- | --------------------------------- |
-| provider   | string | 是   | provider 类型（如 `google`、`bing`） |
-| parameters | object | 是   | 该 provider 所需凭证与参数（与 `/types` 中 `parameter_schema` 对应） |
+| Field      | Type   | Required | Description                              |
+| ---------- | ------ | -------- | ----------------------------------------- |
+| provider   | string | Yes      | Provider type (e.g. `google`, `bing`)     |
+| parameters | object | Yes      | Credentials and parameters required by this provider (corresponds to `parameter_schema` in `/types`) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/web-search-providers/test' \
@@ -114,22 +114,22 @@ curl --location --request POST 'http://localhost:8080/api/v1/web-search-provider
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-失败时：
+On failure:
 
 ```json
 { "success": false, "error": "google api: 403 forbidden" }
 ```
 
-### 智谱 AI 配置
+### Zhipu AI configuration
 
-智谱使用独立的 Web Search API。`search_engine` 和 `content_size` 存放在
-`parameters.extra_config` 中；未指定时分别使用 `search_std` 和 `medium`。
+Zhipu uses its own independent Web Search API. `search_engine` and `content_size` are stored in
+`parameters.extra_config`; when not specified, they default to `search_std` and `medium` respectively.
 
 ```json
 {
@@ -144,31 +144,31 @@ curl --location --request POST 'http://localhost:8080/api/v1/web-search-provider
 }
 ```
 
-`search_engine` 支持 `search_std`、`search_pro`、`search_pro_sogou` 和
-`search_pro_quark`；`content_size` 支持 `medium` 和 `high`。
+`search_engine` supports `search_std`, `search_pro`, `search_pro_sogou`, and
+`search_pro_quark`; `content_size` supports `medium` and `high`.
 
-## POST `/web-search-providers` - 创建 Provider
+## POST `/web-search-providers` - Create a provider
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段        | 类型    | 必填 | 说明                                       |
-| ----------- | ------- | ---- | ------------------------------------------ |
-| name        | string  | 是   | Provider 显示名（在空间内唯一友好名）       |
-| provider    | string  | 是   | Provider 类型（来自 `/web-search-providers/types`） |
-| description | string  | 否   | 备注                                       |
-| parameters  | object  | 否   | 凭证与参数                                 |
-| is_default  | boolean | 否   | 是否设为当前空间默认 Provider              |
+| Field       | Type    | Required | Description                                       |
+| ----------- | ------- | -------- | -------------------------------------------------- |
+| name        | string  | Yes      | Provider display name (must be unique and friendly within the space) |
+| provider    | string  | Yes      | Provider type (from `/web-search-providers/types`) |
+| description | string  | No       | Remarks                                            |
+| parameters  | object  | No       | Credentials and parameters                         |
+| is_default  | boolean | No       | Whether to set as the default provider for the current space |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/web-search-providers' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "公司 Google CSE",
+    "name": "Company Google CSE",
     "provider": "google",
-    "description": "用于内网搜索",
+    "description": "For internal network search",
     "parameters": {
         "api_key": "AIza...",
         "cx": "0123456789:abcdefg"
@@ -177,14 +177,14 @@ curl --location 'http://localhost:8080/api/v1/web-search-providers' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "id": "wsp-...",
         "tenant_id": 1,
-        "name": "公司 Google CSE",
+        "name": "Company Google CSE",
         "provider": "google",
         "is_default": true,
         "parameters": { "api_key": "***", "cx": "0123456789:abcdefg" }
@@ -193,86 +193,86 @@ curl --location 'http://localhost:8080/api/v1/web-search-providers' \
 }
 ```
 
-## GET `/web-search-providers` - 获取 Provider 列表
+## GET `/web-search-providers` - Get the list of providers
 
-返回当前空间已保存的所有 Provider。
+Returns all providers saved in the current space.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/web-search-providers' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": [
-        { "id": "wsp-001", "name": "公司 Google CSE", "provider": "google", "is_default": true }
+        { "id": "wsp-001", "name": "Company Google CSE", "provider": "google", "is_default": true }
     ],
     "success": true
 }
 ```
 
-## GET `/web-search-providers/:id` - 获取 Provider 详情
+## GET `/web-search-providers/:id` - Get provider details
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明        |
-| ---- | ------ | ----------- |
-| id   | string | Provider ID |
+| Field | Type   | Description  |
+| ----- | ------ | ------------ |
+| id    | string | Provider ID  |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/web-search-providers/wsp-001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: 同创建接口。404 表示不存在。
+**Response**: Same as the create endpoint. A 404 indicates the provider does not exist.
 
-## PUT `/web-search-providers/:id` - 更新 Provider
+## PUT `/web-search-providers/:id` - Update a provider
 
-**说明**：`provider` 字段（类型）创建后不可修改，仅支持更新 `name` / `description` / `parameters` / `is_default`。
+**Note**: The `provider` field (type) cannot be changed after creation; only `name` / `description` / `parameters` / `is_default` can be updated.
 
-**参数说明（请求体）**: 同创建接口，但不包含 `provider`。
+**Parameters (request body)**: Same as the create endpoint, but without `provider`.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/web-search-providers/wsp-001' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "公司 Google CSE (v2)",
+    "name": "Company Google CSE (v2)",
     "parameters": { "api_key": "NEW...", "cx": "0123456789:abcdefg" },
     "is_default": false
 }'
 ```
 
-**响应**: `{ "data": {...更新后实体...}, "success": true }`
+**Response**: `{ "data": {...updated entity...}, "success": true }`
 
-## DELETE `/web-search-providers/:id` - 删除 Provider
+## DELETE `/web-search-providers/:id` - Delete a provider
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/web-search-providers/wsp-001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: `{ "success": true }`
+**Response**: `{ "success": true }`
 
-## POST `/web-search-providers/:id/test` - 测试已保存的 Provider
+## POST `/web-search-providers/:id/test` - Test a saved provider
 
-使用数据库中已保存的凭证发起一次样本搜索。
+Runs a sample search using the credentials already saved in the database.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/web-search-providers/wsp-001/test' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: 同 `POST /web-search-providers/test`。
+**Response**: Same as `POST /web-search-providers/test`.

@@ -56,7 +56,7 @@ func (h *TagHandler) resolveTagIDWithCtx(c *gin.Context, ctx context.Context) (s
 		tenantID := types.MustTenantIDFromContext(ctx)
 		tag, err := h.tagRepo.GetBySeqID(ctx, tenantID, seqID)
 		if err != nil {
-			return "", errors.NewNotFoundError("标签不存在")
+			return "", errors.NewNotFoundError("Tag not found")
 		}
 		return tag.ID, nil
 	}
@@ -69,17 +69,17 @@ func (h *TagHandler) getChunksBySeqIDs(ctx context.Context, tenantID uint64, seq
 }
 
 // ListTags godoc
-// @Summary      获取标签列表
-// @Description  获取知识库下的所有标签及统计信息
-// @Tags         标签管理
+// @Summary      Get tag list
+// @Description  Get all tags and their statistics for a knowledge base
+// @Tags         Tag Management
 // @Accept       json
 // @Produce      json
-// @Param        id         path      string  true   "知识库ID"
-// @Param        page       query     int     false  "页码"
-// @Param        page_size  query     int     false  "每页数量"
-// @Param        keyword    query     string  false  "关键词搜索"
-// @Success      200        {object}  map[string]interface{}  "标签列表"
-// @Failure      400        {object}  errors.AppError         "请求参数错误"
+// @Param        id         path      string  true   "Knowledge Base ID"
+// @Param        page       query     int     false  "Page number"
+// @Param        page_size  query     int     false  "Items per page"
+// @Param        keyword    query     string  false  "Keyword search"
+// @Success      200        {object}  map[string]interface{}  "Tag list"
+// @Failure      400        {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/tags [get]
@@ -90,7 +90,7 @@ func (h *TagHandler) ListTags(c *gin.Context) {
 	var page types.Pagination
 	if err := c.ShouldBindQuery(&page); err != nil {
 		logger.Error(ctx, "Failed to bind pagination query", err)
-		c.Error(errors.NewBadRequestError("分页参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid pagination parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -116,15 +116,15 @@ type createTagRequest struct {
 }
 
 // CreateTag godoc
-// @Summary      创建标签
-// @Description  在知识库下创建新标签
-// @Tags         标签管理
+// @Summary      Create tag
+// @Description  Create a new tag in a knowledge base
+// @Tags         Tag Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string  true  "知识库ID"
-// @Param        request  body      object{name=string,color=string,sort_order=int}  true  "标签信息"
-// @Success      200      {object}  map[string]interface{}  "创建的标签"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string  true  "Knowledge Base ID"
+// @Param        request  body      object{name=string,color=string,sort_order=int}  true  "Tag info"
+// @Success      200      {object}  map[string]interface{}  "Created tag"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/tags [post]
@@ -135,7 +135,7 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 	var req createTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind create tag payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -162,16 +162,16 @@ type updateTagRequest struct {
 }
 
 // UpdateTag godoc
-// @Summary      更新标签
-// @Description  更新标签信息
-// @Tags         标签管理
+// @Summary      Update tag
+// @Description  Update tag info
+// @Tags         Tag Management
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string  true  "知识库ID"
-// @Param        tag_id   path      string  true  "标签ID (UUID或seq_id)"
-// @Param        request  body      object  true  "标签更新信息"
-// @Success      200      {object}  map[string]interface{}  "更新后的标签"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string  true  "Knowledge Base ID"
+// @Param        tag_id   path      string  true  "Tag ID (UUID or seq_id)"
+// @Param        request  body      object  true  "Tag update info"
+// @Success      200      {object}  map[string]interface{}  "Updated tag"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/tags/{tag_id} [put]
@@ -187,7 +187,7 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 	var req updateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to bind update tag payload", err)
-		c.Error(errors.NewBadRequestError("请求参数不合法").WithDetails(err.Error()))
+		c.Error(errors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -207,18 +207,18 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 }
 
 // DeleteTag godoc
-// @Summary      删除标签
-// @Description  删除标签，可使用force=true强制删除被引用的标签，content_only=true仅删除标签下的内容而保留标签本身
-// @Tags         标签管理
+// @Summary      Delete tag
+// @Description  Delete a tag; force=true deletes a referenced tag, content_only=true deletes only its content while keeping the tag
+// @Tags         Tag Management
 // @Accept       json
 // @Produce      json
-// @Param        id            path      string              true   "知识库ID"
-// @Param        tag_id        path      string              true   "标签ID (UUID或seq_id)"
-// @Param        force         query     bool                false  "强制删除"
-// @Param        content_only  query     bool                false  "仅删除内容，保留标签"
-// @Param        body          body      DeleteTagRequest    false  "删除选项"
-// @Success      200           {object}  map[string]interface{}  "删除成功"
-// @Failure      400           {object}  errors.AppError         "请求参数错误"
+// @Param        id            path      string              true   "Knowledge Base ID"
+// @Param        tag_id        path      string              true   "Tag ID (UUID or seq_id)"
+// @Param        force         query     bool                false  "Force delete"
+// @Param        content_only  query     bool                false  "Delete content only, keep the tag"
+// @Param        body          body      DeleteTagRequest    false  "Delete options"
+// @Success      200           {object}  map[string]interface{}  "Deleted successfully"
+// @Failure      400           {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/tags/{tag_id} [delete]

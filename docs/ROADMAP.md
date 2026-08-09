@@ -1,46 +1,46 @@
 # WeKnora Roadmap
 
-本文档描述 WeKnora 的产品规划与计划方向，会随项目进展持续更新。
+This document describes WeKnora's product plans and roadmap direction, and will be continuously updated as the project progresses.
 
-## 轻量化部署
-- [ ] WeKnora 官方提供原子化调用接口（Embedding、ReRank、LLM、文档解析等），并提供一定免费使用额度
-- [ ] WeKnora 官方提供完整云端服务，用户可在平台上直接体验 WeKnora 能力
-- [ ] 推出 WeKnora Lite 版本，供私有化部署需求不强的用户快速体验产品能力
+## Lightweight Deployment
+- [ ] WeKnora officially provides atomic invocation interfaces (Embedding, ReRank, LLM, document parsing, etc.), with a certain amount of free usage quota
+- [ ] WeKnora officially provides a complete cloud service, allowing users to directly experience WeKnora's capabilities on the platform
+- [ ] Launch a WeKnora Lite version for users without strong private deployment needs to quickly experience the product's capabilities
 
-## 知识理解
-- [x] 抽象整体文档解析模块，支持切换内置解析、MinerU 或其它解析方式
-- [ ] 优化文档分块策略，除规则分块外支持语义分块、章节分块等
-- [ ] 文档结构可视化：展示解析后的文档章节结构、图谱关系等
-- [ ] 支持音视频等更多文档格式，增强多模态理解能力
+## Knowledge Understanding
+- [x] Abstract the overall document parsing module, supporting switching between built-in parsing, MinerU, or other parsing methods
+- [ ] Optimize the document chunking strategy — in addition to rule-based chunking, support semantic chunking, section-based chunking, etc.
+- [ ] Document structure visualization: display the parsed document's section structure, graph relationships, etc.
+- [ ] Support more document formats such as audio and video, enhancing multimodal understanding capabilities
 
-## 检索与总结
-- [ ] 支持在输入框中通过「@标签」指定检索范围
-- [ ] 支持在输入框中上传图片、附件进行检索
-    - [x] 支持对话框中上传图片
-    - [ ] 支持对话框中上传附件
+## Retrieval and Summarization
+- [ ] Support specifying the retrieval scope via "@tags" in the input box
+- [ ] Support uploading images and attachments for retrieval in the input box
+    - [x] Support uploading images in the chat dialog
+    - [ ] Support uploading attachments in the chat dialog
 
-## 知识库相关模型训练
-- [ ] 训练与检索召回相关的模型（Embedding、ReRank、LLM 等）
-- [ ] 在文档解析与文档理解方面持续探索，推进自研相关模型
+## Knowledge Base-Related Model Training
+- [ ] Train models related to retrieval and recall (Embedding, ReRank, LLM, etc.)
+- [ ] Continue exploring document parsing and document understanding, advancing self-developed related models
 
-## 知识库形态
-- [ ] 扩展知识库形态，支持时序数据的存储与索引
-- [ ] 探索知识库与 Memory 结合的应用场景
+## Knowledge Base Forms
+- [ ] Expand knowledge base forms, supporting storage and indexing of time-series data
+- [ ] Explore application scenarios combining knowledge bases with Memory
 
-## IM 集成
-- [x] 支持与企微、飞书等 IM 系统集成，在 IM 内使用 WeKnora 能力
+## IM Integration
+- [x] Support integration with IM systems such as WeCom (企微) and Feishu, enabling use of WeKnora's capabilities within IM
 
-## 组件与扩展
-- [ ] 鼓励社区维护各厂商的模型服务、网络搜索服务等组件
-- [ ] 鼓励社区提供更多与知识库相关的 Skills
+## Components and Extensions
+- [ ] Encourage the community to maintain components such as model services and web search services for various vendors
+- [ ] Encourage the community to provide more Skills related to knowledge bases
 
-## 周边生态建设
-- [ ] 提供 Chrome 扩展，支持类似「剪藏」功能，将网页内容保存至知识库并支持检索、总结、问答
-- [ ] 提供小程序插件（具体形态待定）
-- [ ] 提供 JS SDK，便于在网页中集成 WeKnora 能力
-- [ ] 鼓励社区提供 VSCode、Cursor、Claude Code 等编辑器/IDE 插件
+## Surrounding Ecosystem Development
+- [ ] Provide a Chrome extension supporting a "clipping"-like feature, saving web page content to the knowledge base with support for retrieval, summarization, and Q&A
+- [ ] Provide a mini-program plugin (specific form to be determined)
+- [ ] Provide a JS SDK to facilitate integrating WeKnora's capabilities into web pages
+- [ ] Encourage the community to provide editor/IDE plugins for VSCode, Cursor, Claude Code, etc.
 
-## 文档建设
-- [ ] 完善官方文档（使用说明、API、部署等）
-- [ ] 鼓励用户贡献文档、博客、视频等，形成社区化文档体系
-- [ ] 在知乎平台建设 WeKnora 内容合集
+## Documentation Development
+- [ ] Improve official documentation (usage instructions, API, deployment, etc.)
+- [ ] Encourage users to contribute documentation, blogs, videos, etc., forming a community-driven documentation ecosystem
+- [ ] Build a WeKnora content collection on the Zhihu (知乎) platform

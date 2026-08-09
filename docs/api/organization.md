@@ -1,128 +1,128 @@
-# 组织管理 API
+# Organization Management API
 
-[返回目录](./README.md)
+[Back to index](./README.md)
 
-组织（Organization，又称"空间"）是 WeKnora 的多空间协作单元。一个用户可以创建/加入多个组织，并以 owner / admin / editor / viewer 的角色参与；知识库与智能体可以共享到组织内，组织成员根据角色获得相应的访问权限。
+An Organization (also called a "Space") is WeKnora's multi-space collaboration unit. A user can create/join multiple organizations, participating with the role of owner / admin / editor / viewer; knowledge bases and agents can be shared within an organization, and organization members are granted corresponding access based on their role.
 
-本页文档覆盖以下六类接口：
+This page covers the following six categories of endpoints:
 
-- 组织管理：组织 CRUD、邀请码、搜索、加入与离开
-- 成员管理：成员列表、角色变更、移除、邀请
-- 加入请求：申请列表、审核
-- 知识库共享：将知识库共享到组织 / 取消共享 / 修改权限
-- 智能体共享：将智能体共享到组织 / 取消共享
-- 我的共享视图：当前用户可访问的所有共享知识库 / 智能体
+- Organization management: organization CRUD, invite codes, search, joining and leaving
+- Member management: member list, role changes, removal, invitations
+- Join requests: request list, review
+- Knowledge base sharing: share a knowledge base to an organization / unshare / change permission
+- Agent sharing: share an agent to an organization / unshare
+- My shared view: all shared knowledge bases / agents accessible to the current user
 
-公共说明：
-- 所有路径前缀为 `/api/v1`
-- 鉴权头：`X-API-Key: sk-xxxxx`（或 `Authorization: Bearer ...`）
-- 错误响应统一为 `{ "success": false, "error": "..." }`，HTTP 状态码遵循 RESTful 语义
-- 角色 (`OrgMemberRole`) 取值：`owner` / `admin` / `editor` / `viewer`
-- 共享权限 (`permission`) 取值：`viewer` / `editor`（创建时通常只允许这两个）
+General notes:
+- All paths are prefixed with `/api/v1`
+- Auth header: `X-API-Key: sk-xxxxx` (or `Authorization: Bearer ...`)
+- Error responses uniformly take the form `{ "success": false, "error": "..." }`; HTTP status codes follow RESTful semantics
+- Role (`OrgMemberRole`) values: `owner` / `admin` / `editor` / `viewer`
+- Share permission (`permission`) values: `viewer` / `editor` (typically only these two are allowed on creation)
 
-## 路由总览
+## Route overview
 
-### 组织管理
+### Organization management
 
-| 方法   | 路径                                          | 描述                                |
-| ------ | --------------------------------------------- | ----------------------------------- |
-| POST   | `/organizations`                              | 创建组织                            |
-| GET    | `/organizations`                              | 获取我的组织列表（含资源数量）        |
-| GET    | `/organizations/preview/:code`                | 通过邀请码预览组织（不加入）          |
-| POST   | `/organizations/join`                         | 通过邀请码加入组织                  |
-| POST   | `/organizations/join-request`                 | 提交加入申请（针对需要审核的组织）    |
-| GET    | `/organizations/search`                       | 搜索可加入的可被搜索的组织            |
-| POST   | `/organizations/join-by-id`                   | 通过组织 ID 加入可被搜索的组织        |
-| GET    | `/organizations/:id`                          | 获取组织详情                        |
-| PUT    | `/organizations/:id`                          | 更新组织                            |
-| DELETE | `/organizations/:id`                          | 删除组织                            |
-| POST   | `/organizations/:id/leave`                    | 离开组织                            |
-| POST   | `/organizations/:id/request-upgrade`          | 现有成员申请角色升级                |
-| POST   | `/organizations/:id/invite-code`              | 重新生成邀请码                      |
+| Method | Path                                          | Description                                |
+| ------ | --------------------------------------------- | -------------------------------------------- |
+| POST   | `/organizations`                              | Create an organization                      |
+| GET    | `/organizations`                              | Get my organization list (with resource counts) |
+| GET    | `/organizations/preview/:code`                | Preview an organization via invite code (without joining) |
+| POST   | `/organizations/join`                         | Join an organization via invite code        |
+| POST   | `/organizations/join-request`                 | Submit a join request (for organizations requiring review) |
+| GET    | `/organizations/search`                       | Search for joinable, searchable organizations |
+| POST   | `/organizations/join-by-id`                   | Join a searchable organization via organization ID |
+| GET    | `/organizations/:id`                          | Get organization details                    |
+| PUT    | `/organizations/:id`                          | Update an organization                      |
+| DELETE | `/organizations/:id`                          | Delete an organization                      |
+| POST   | `/organizations/:id/leave`                    | Leave an organization                       |
+| POST   | `/organizations/:id/request-upgrade`          | Existing member requests a role upgrade     |
+| POST   | `/organizations/:id/invite-code`              | Regenerate the invite code                  |
 
-### 成员管理
+### Member management
 
-| 方法   | 路径                                          | 描述                              |
-| ------ | --------------------------------------------- | --------------------------------- |
-| GET    | `/organizations/:id/search-users`             | 搜索可邀请的用户（仅管理员）       |
-| POST   | `/organizations/:id/invite`                   | 直接添加用户为成员（仅管理员）     |
-| GET    | `/organizations/:id/members`                  | 获取成员列表                      |
-| PUT    | `/organizations/:id/members/:user_id`         | 更新成员角色                      |
-| DELETE | `/organizations/:id/members/:user_id`         | 移除成员                          |
+| Method | Path                                          | Description                            |
+| ------ | --------------------------------------------- | ---------------------------------------- |
+| GET    | `/organizations/:id/search-users`             | Search for invitable users (admin only) |
+| POST   | `/organizations/:id/invite`                   | Directly add a user as a member (admin only) |
+| GET    | `/organizations/:id/members`                  | Get the member list                     |
+| PUT    | `/organizations/:id/members/:user_id`         | Update a member's role                  |
+| DELETE | `/organizations/:id/members/:user_id`         | Remove a member                         |
 
-### 加入请求
+### Join requests
 
-| 方法 | 路径                                                    | 描述                       |
-| ---- | ------------------------------------------------------- | -------------------------- |
-| GET  | `/organizations/:id/join-requests`                      | 获取待审核加入申请列表       |
-| PUT  | `/organizations/:id/join-requests/:request_id/review`   | 审核加入申请（仅管理员）     |
+| Method | Path                                                    | Description                     |
+| ------ | -------------------------------------------------------- | --------------------------------- |
+| GET    | `/organizations/:id/join-requests`                      | Get the list of pending join requests |
+| PUT    | `/organizations/:id/join-requests/:request_id/review`   | Review a join request (admin only) |
 
-### 知识库共享
+### Knowledge base sharing
 
-| 方法   | 路径                                          | 描述                                  |
-| ------ | --------------------------------------------- | ------------------------------------- |
-| POST   | `/knowledge-bases/:id/shares`                 | 将知识库共享到组织                    |
-| GET    | `/knowledge-bases/:id/shares`                 | 获取该知识库的共享列表                 |
-| PUT    | `/knowledge-bases/:id/shares/:share_id`       | 更新共享权限                          |
-| DELETE | `/knowledge-bases/:id/shares/:share_id`       | 取消共享                              |
-| GET    | `/organizations/:id/shares`                   | 获取组织下被共享进来的知识库列表        |
-| GET    | `/organizations/:id/shared-knowledge-bases`   | 组织内全部知识库（含我共享的，空间视图） |
+| Method | Path                                          | Description                                    |
+| ------ | --------------------------------------------- | -------------------------------------------------- |
+| POST   | `/knowledge-bases/:id/shares`                 | Share a knowledge base to an organization         |
+| GET    | `/knowledge-bases/:id/shares`                 | Get the share list for this knowledge base        |
+| PUT    | `/knowledge-bases/:id/shares/:share_id`       | Update the share permission                       |
+| DELETE | `/knowledge-bases/:id/shares/:share_id`       | Unshare                                           |
+| GET    | `/organizations/:id/shares`                   | Get the list of knowledge bases shared into an organization |
+| GET    | `/organizations/:id/shared-knowledge-bases`   | All knowledge bases in an organization (including ones I shared, space view) |
 
-### 智能体共享
+### Agent sharing
 
-| 方法   | 路径                                          | 描述                                  |
-| ------ | --------------------------------------------- | ------------------------------------- |
-| POST   | `/agents/:id/shares`                          | 将智能体共享到组织                    |
-| GET    | `/agents/:id/shares`                          | 获取该智能体的共享列表                |
-| DELETE | `/agents/:id/shares/:share_id`                | 取消共享                              |
-| GET    | `/organizations/:id/agent-shares`             | 获取组织下被共享进来的智能体列表        |
-| GET    | `/organizations/:id/shared-agents`            | 组织内全部智能体（含我共享的，空间视图） |
+| Method | Path                                          | Description                                    |
+| ------ | --------------------------------------------- | -------------------------------------------------- |
+| POST   | `/agents/:id/shares`                          | Share an agent to an organization                 |
+| GET    | `/agents/:id/shares`                          | Get the share list for this agent                 |
+| DELETE | `/agents/:id/shares/:share_id`                | Unshare                                           |
+| GET    | `/organizations/:id/agent-shares`             | Get the list of agents shared into an organization |
+| GET    | `/organizations/:id/shared-agents`            | All agents in an organization (including ones I shared, space view) |
 
-### 我的共享视图
+### My shared view
 
-| 方法 | 路径                          | 描述                                    |
-| ---- | ----------------------------- | --------------------------------------- |
-| GET  | `/shared-knowledge-bases`     | 获取所有共享给我的知识库（跨组织）        |
-| GET  | `/shared-agents`              | 获取所有共享给我的智能体（跨组织）        |
+| Method | Path                          | Description                                    |
+| ------ | ------------------------------ | -------------------------------------------------- |
+| GET    | `/shared-knowledge-bases`     | Get all knowledge bases shared with me (cross-organization) |
+| GET    | `/shared-agents`              | Get all agents shared with me (cross-organization) |
 
 ---
 
-## 组织管理
+## Organization management
 
-### POST `/organizations` - 创建组织
+### POST `/organizations` - Create an organization
 
-**请求体**:
+**Request body**:
 
-| 字段                        | 类型    | 必填 | 说明                                              |
-| --------------------------- | ------- | ---- | ------------------------------------------------- |
-| name                        | string  | 是   | 组织名称（1-255 字符）                            |
-| description                 | string  | 否   | 组织描述（最多 1000 字符）                        |
-| avatar                      | string  | 否   | 头像 URL（最多 512 字符）                         |
-| invite_code_validity_days   | int     | 否   | 邀请码有效天数：`0`=永久，`1` / `7` / `30`，默认 7 |
-| member_limit                | int     | 否   | 成员上限，`0`=不限，默认 50                       |
+| Field                        | Type    | Required | Description                                        |
+| ---------------------------- | ------- | -------- | --------------------------------------------------- |
+| name                        | string  | Yes  | Organization name (1-255 characters)                    |
+| description                 | string  | No   | Organization description (up to 1000 characters)        |
+| avatar                      | string  | No   | Avatar URL (up to 512 characters)                        |
+| invite_code_validity_days   | int     | No   | Invite code validity in days: `0`=permanent, `1` / `7` / `30`, default 7 |
+| member_limit                | int     | No   | Member limit, `0`=unlimited, default 50               |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "AI 技术团队",
-    "description": "专注于 AI 技术研究与知识管理",
+    "name": "AI Tech Team",
+    "description": "Focused on AI technology research and knowledge management",
     "invite_code_validity_days": 7,
     "member_limit": 50
 }'
 ```
 
-**响应**（`201 Created`）：
+**Response** (`201 Created`):
 
 ```json
 {
     "data": {
         "id": "org-00000001",
-        "name": "AI 技术团队",
-        "description": "专注于 AI 技术研究与知识管理",
+        "name": "AI Tech Team",
+        "description": "Focused on AI technology research and knowledge management",
         "avatar": "",
         "owner_id": "user-00000001",
         "invite_code": "",
@@ -144,18 +144,18 @@ curl --location 'http://localhost:8080/api/v1/organizations' \
 }
 ```
 
-### GET `/organizations` - 获取我的组织列表
+### GET `/organizations` - Get my organization list
 
-返回当前用户所属的全部组织；`resource_counts` 字段附带每个空间内的知识库数与智能体数，供列表页侧栏直接渲染。
+Returns all organizations the current user belongs to; the `resource_counts` field includes the knowledge base count and agent count for each space, for the list page sidebar to render directly.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -163,8 +163,8 @@ curl --location 'http://localhost:8080/api/v1/organizations' \
         "organizations": [
             {
                 "id": "org-00000001",
-                "name": "AI 技术团队",
-                "description": "专注于 AI 技术研究与知识管理",
+                "name": "AI Tech Team",
+                "description": "Focused on AI technology research and knowledge management",
                 "owner_id": "user-00000001",
                 "invite_code": "ABC123XY",
                 "invite_code_expires_at": "2025-08-19T10:00:00+08:00",
@@ -193,31 +193,31 @@ curl --location 'http://localhost:8080/api/v1/organizations' \
 }
 ```
 
-### GET `/organizations/preview/:code` - 通过邀请码预览组织
+### GET `/organizations/preview/:code` - Preview an organization via invite code
 
-不需要事先成为成员，可用于"加入前预览"页面。`:code` 为邀请码字符串。
+No need to become a member beforehand; can be used for a "preview before joining" page. `:code` is the invite code string.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明   |
+| Field | Type   | Description   |
 | ---- | ------ | ------ |
-| code | string | 邀请码 |
+| code | string | Invite code |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/preview/ABC123XY' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "id": "org-00000001",
-        "name": "AI 技术团队",
-        "description": "专注于 AI 技术研究与知识管理",
+        "name": "AI Tech Team",
+        "description": "Focused on AI technology research and knowledge management",
         "avatar": "",
         "member_count": 3,
         "share_count": 2,
@@ -230,17 +230,17 @@ curl --location 'http://localhost:8080/api/v1/organizations/preview/ABC123XY' \
 }
 ```
 
-### POST `/organizations/join` - 通过邀请码加入组织
+### POST `/organizations/join` - Join an organization via invite code
 
-仅适用于 `require_approval: false` 的组织。需要审核的组织请改用 `/organizations/join-request`。
+Only applies to organizations with `require_approval: false`. For organizations requiring review, use `/organizations/join-request` instead.
 
-**请求体**:
+**Request body**:
 
-| 字段        | 类型   | 必填 | 说明                  |
+| Field        | Type   | Required | Description                  |
 | ----------- | ------ | ---- | --------------------- |
-| invite_code | string | 是   | 邀请码（8-32 字符）   |
+| invite_code | string | Yes   | Invite code (8-32 characters)   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/join' \
@@ -251,21 +251,21 @@ curl --location 'http://localhost:8080/api/v1/organizations/join' \
 }'
 ```
 
-**响应**: 返回加入后的组织信息（结构同 `GET /organizations/:id`）。
+**Response**: Returns the organization information after joining (same structure as `GET /organizations/:id`).
 
-### POST `/organizations/join-request` - 提交加入申请
+### POST `/organizations/join-request` - Submit a join request
 
-当组织开启审核（`require_approval: true`）时使用。
+Used when the organization has review enabled (`require_approval: true`).
 
-**请求体**:
+**Request body**:
 
-| 字段        | 类型   | 必填 | 说明                                        |
+| Field        | Type   | Required | Description                                        |
 | ----------- | ------ | ---- | ------------------------------------------- |
-| invite_code | string | 是   | 邀请码（8-32 字符）                         |
-| message     | string | 否   | 申请留言（最多 500 字符）                   |
-| role        | string | 否   | 期望角色：`viewer` / `editor` / `admin`     |
+| invite_code | string | Yes   | Invite code (8-32 characters)                         |
+| message     | string | No   | Request message (up to 500 characters)                   |
+| role        | string | No   | Desired role: `viewer` / `editor` / `admin`     |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/join-request' \
@@ -273,12 +273,12 @@ curl --location 'http://localhost:8080/api/v1/organizations/join-request' \
 --header 'Content-Type: application/json' \
 --data '{
     "invite_code": "ABC123XY",
-    "message": "希望加入团队参与知识库建设",
+    "message": "Would like to join the team to help build out the knowledge base",
     "role": "editor"
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -294,33 +294,33 @@ curl --location 'http://localhost:8080/api/v1/organizations/join-request' \
 }
 ```
 
-### GET `/organizations/search` - 搜索可加入的组织
+### GET `/organizations/search` - Search for joinable organizations
 
-返回设置了 `searchable: true` 的组织。仅返回元数据，不返回邀请码。
+Returns organizations with `searchable: true`. Only returns metadata, never the invite code.
 
-**查询参数**:
+**Query parameters**:
 
-| 字段  | 类型   | 必填 | 说明                              |
-| ----- | ------ | ---- | --------------------------------- |
-| q     | string | 否   | 搜索关键词（名称或描述模糊匹配）   |
-| limit | int    | 否   | 返回数量（1-100，默认 20）         |
+| Field  | Type   | Required | Description                              |
+| ----- | ------ | ---- | ---------------------------------- |
+| q     | string | No   | Search keyword (fuzzy match on name or description)   |
+| limit | int    | No   | Number of results to return (1-100, default 20)         |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/search?q=AI&limit=10' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": [
         {
             "id": "org-00000001",
-            "name": "AI 技术团队",
-            "description": "专注于 AI 技术研究与知识管理",
+            "name": "AI Tech Team",
+            "description": "Focused on AI technology research and knowledge management",
             "avatar": "",
             "member_count": 3,
             "member_limit": 50,
@@ -335,19 +335,19 @@ curl --location 'http://localhost:8080/api/v1/organizations/search?q=AI&limit=10
 }
 ```
 
-### POST `/organizations/join-by-id` - 通过组织 ID 加入
+### POST `/organizations/join-by-id` - Join via organization ID
 
-用于"搜索可加入空间"流程，无需邀请码；目标组织必须 `searchable: true`。如果组织开启了审核，会创建加入申请；否则直接加入。
+Used for the "search for a joinable space" flow, without needing an invite code; the target organization must have `searchable: true`. If the organization has review enabled, a join request is created; otherwise the user joins directly.
 
-**请求体**:
+**Request body**:
 
-| 字段             | 类型   | 必填 | 说明                                       |
-| ---------------- | ------ | ---- | ------------------------------------------ |
-| organization_id  | string | 是   | 目标组织 ID                                |
-| message          | string | 否   | 申请留言（最多 500 字符）                  |
-| role             | string | 否   | 期望角色：`viewer` / `editor` / `admin`    |
+| Field             | Type   | Required | Description                                       |
+| ---------------- | ------ | ---- | ------------------------------------------- |
+| organization_id  | string | Yes   | Target organization ID                                |
+| message          | string | No   | Request message (up to 500 characters)                  |
+| role             | string | No   | Desired role: `viewer` / `editor` / `admin`    |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/join-by-id' \
@@ -355,36 +355,36 @@ curl --location 'http://localhost:8080/api/v1/organizations/join-by-id' \
 --header 'Content-Type: application/json' \
 --data '{
     "organization_id": "org-00000001",
-    "message": "希望加入贵团队",
+    "message": "Would like to join your team",
     "role": "viewer"
 }'
 ```
 
-**响应**: 返回加入后的组织信息（结构同 `GET /organizations/:id`）。
+**Response**: Returns the organization information after joining (same structure as `GET /organizations/:id`).
 
-### GET `/organizations/:id` - 获取组织详情
+### GET `/organizations/:id` - Get organization details
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明    |
+| Field | Type   | Description    |
 | ---- | ------ | ------- |
-| id   | string | 组织 ID |
+| id   | string | Organization ID |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "id": "org-00000001",
-        "name": "AI 技术团队",
-        "description": "专注于 AI 技术研究与知识管理",
+        "name": "AI Tech Team",
+        "description": "Focused on AI technology research and knowledge management",
         "avatar": "",
         "owner_id": "user-00000001",
         "invite_code": "ABC123XY",
@@ -407,83 +407,83 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001' \
 }
 ```
 
-`invite_code` 与 `invite_code_expires_at` 仅当前用户为 owner 或 admin 时返回。
+`invite_code` and `invite_code_expires_at` are only returned when the current user is the owner or an admin.
 
-### PUT `/organizations/:id` - 更新组织
+### PUT `/organizations/:id` - Update an organization
 
-**请求体**（全部字段均为可选，传 `null` 等同于不更新）:
+**Request body** (all fields are optional; passing `null` is equivalent to not updating):
 
-| 字段                        | 类型    | 说明                                          |
-| --------------------------- | ------- | --------------------------------------------- |
-| name                        | string  | 组织名称（1-255 字符）                        |
-| description                 | string  | 组织描述（最多 1000 字符）                    |
-| avatar                      | string  | 头像 URL（最多 512 字符）                     |
-| require_approval            | bool    | 加入是否需要审核                              |
-| searchable                  | bool    | 是否在 `/organizations/search` 中可被发现     |
-| invite_code_validity_days   | int     | 邀请码有效天数（0=永久，1/7/30）              |
-| member_limit                | int     | 成员上限（0=不限）                            |
+| Field                        | Type    | Description                                          |
+| ---------------------------- | ------- | --------------------------------------------- |
+| name                        | string  | Organization name (1-255 characters)                        |
+| description                 | string  | Organization description (up to 1000 characters)                    |
+| avatar                      | string  | Avatar URL (up to 512 characters)                     |
+| require_approval            | bool    | Whether joining requires review                              |
+| searchable                  | bool    | Whether it can be discovered in `/organizations/search`     |
+| invite_code_validity_days   | int     | Invite code validity in days (0=permanent, 1/7/30)              |
+| member_limit                | int     | Member limit (0=unlimited)                            |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/organizations/org-00000001' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "description": "专注于 AI 技术研究与知识管理（更新）",
+    "description": "Focused on AI technology research and knowledge management (updated)",
     "require_approval": true,
     "searchable": true
 }'
 ```
 
-**响应**: 返回更新后的组织信息（结构同 `GET /organizations/:id`）。
+**Response**: Returns the updated organization information (same structure as `GET /organizations/:id`).
 
-### DELETE `/organizations/:id` - 删除组织
+### DELETE `/organizations/:id` - Delete an organization
 
-仅 owner 可删除；删除会同时清理成员关系与共享记录。
+Only the owner can delete; deletion also cleans up membership relationships and share records.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/organizations/org-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-### POST `/organizations/:id/leave` - 离开组织
+### POST `/organizations/:id/leave` - Leave an organization
 
-owner 不能离开自己的组织，需先转让所有权或删除组织。
+The owner cannot leave their own organization; they must transfer ownership or delete the organization first.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/organizations/org-00000001/leave' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true, "message": "Left organization successfully" }
 ```
 
-### POST `/organizations/:id/request-upgrade` - 申请角色升级
+### POST `/organizations/:id/request-upgrade` - Request a role upgrade
 
-由已加入的成员主动发起，等待管理员审核（出现在 `/organizations/:id/join-requests` 中的 `request_type: "upgrade"`）。
+Initiated by an existing member, awaiting admin review (appears in `/organizations/:id/join-requests` as `request_type: "upgrade"`).
 
-**请求体**:
+**Request body**:
 
-| 字段           | 类型   | 必填 | 说明                                                 |
+| Field           | Type   | Required | Description                                                 |
 | -------------- | ------ | ---- | ---------------------------------------------------- |
-| requested_role | string | 是   | 期望角色：`viewer` / `editor` / `admin`              |
-| message        | string | 否   | 申请理由（最多 500 字符）                            |
+| requested_role | string | Yes   | Desired role: `viewer` / `editor` / `admin`              |
+| message        | string | No   | Reason for the request (up to 500 characters)                            |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/organizations/org-00000001/request-upgrade' \
@@ -491,11 +491,11 @@ curl --location --request POST 'http://localhost:8080/api/v1/organizations/org-0
 --header 'Content-Type: application/json' \
 --data '{
     "requested_role": "admin",
-    "message": "需要管理员权限来管理知识库共享"
+    "message": "Need admin permissions to manage knowledge base sharing"
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -511,18 +511,18 @@ curl --location --request POST 'http://localhost:8080/api/v1/organizations/org-0
 }
 ```
 
-### POST `/organizations/:id/invite-code` - 重新生成邀请码
+### POST `/organizations/:id/invite-code` - Regenerate the invite code
 
-仅 owner / admin 可调用，会让旧邀请码失效。
+Only owner / admin can call this; it invalidates the old invite code.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request POST 'http://localhost:8080/api/v1/organizations/org-00000001/invite-code' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -533,27 +533,27 @@ curl --location --request POST 'http://localhost:8080/api/v1/organizations/org-0
 
 ---
 
-## 成员管理
+## Member management
 
-### GET `/organizations/:id/search-users` - 搜索可邀请的用户
+### GET `/organizations/:id/search-users` - Search for invitable users
 
-仅 owner / admin 可调用。匹配用户名或邮箱，自动排除已在该组织内的用户。
+Only owner / admin can call this. Matches against username or email, automatically excluding users already in the organization.
 
-**查询参数**:
+**Query parameters**:
 
-| 字段  | 类型   | 必填 | 说明                          |
+| Field  | Type   | Required | Description                          |
 | ----- | ------ | ---- | ----------------------------- |
-| q     | string | 是   | 关键词（用户名或邮箱）         |
-| limit | int    | 否   | 返回数量上限，默认 10          |
+| q     | string | Yes   | Keyword (username or email)         |
+| limit | int    | No   | Maximum number of results, default 10          |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/search-users?q=zhang&limit=10' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -569,18 +569,18 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/search-
 }
 ```
 
-### POST `/organizations/:id/invite` - 直接邀请用户
+### POST `/organizations/:id/invite` - Directly invite a user
 
-仅 owner / admin 可调用，被邀请用户直接成为成员（无需审核）。
+Only owner / admin can call this; the invited user becomes a member directly (no review needed).
 
-**请求体**:
+**Request body**:
 
-| 字段    | 类型   | 必填 | 说明                                        |
+| Field    | Type   | Required | Description                                        |
 | ------- | ------ | ---- | ------------------------------------------- |
-| user_id | string | 是   | 被邀请用户的 ID                             |
-| role    | string | 是   | 角色：`viewer` / `editor` / `admin`         |
+| user_id | string | Yes   | ID of the invited user                             |
+| role    | string | Yes   | Role: `viewer` / `editor` / `admin`         |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/invite' \
@@ -592,22 +592,22 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/invite'
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true, "message": "Member added successfully" }
 ```
 
-### GET `/organizations/:id/members` - 获取成员列表
+### GET `/organizations/:id/members` - Get the member list
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/members' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -640,22 +640,22 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/members
 }
 ```
 
-### PUT `/organizations/:id/members/:user_id` - 更新成员角色
+### PUT `/organizations/:id/members/:user_id` - Update a member's role
 
-**路径参数**:
+**Path parameters**:
 
-| 字段     | 类型   | 说明           |
+| Field     | Type   | Description           |
 | -------- | ------ | -------------- |
-| id       | string | 组织 ID        |
-| user_id  | string | 目标成员的用户 ID |
+| id       | string | Organization ID        |
+| user_id  | string | Target member's user ID |
 
-**请求体**:
+**Request body**:
 
-| 字段 | 类型   | 必填 | 说明                                |
+| Field | Type   | Required | Description                                |
 | ---- | ------ | ---- | ----------------------------------- |
-| role | string | 是   | `viewer` / `editor` / `admin`       |
+| role | string | Yes   | `viewer` / `editor` / `admin`       |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/organizations/org-00000001/members/user-00000002' \
@@ -664,24 +664,24 @@ curl --location --request PUT 'http://localhost:8080/api/v1/organizations/org-00
 --data '{ "role": "admin" }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-### DELETE `/organizations/:id/members/:user_id` - 移除成员
+### DELETE `/organizations/:id/members/:user_id` - Remove a member
 
-仅 owner / admin 可调用，不能移除 owner。
+Only owner / admin can call this; the owner cannot be removed.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/organizations/org-00000001/members/user-00000002' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
@@ -689,20 +689,20 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/organizations/org
 
 ---
 
-## 加入请求
+## Join requests
 
-### GET `/organizations/:id/join-requests` - 获取待审核申请列表
+### GET `/organizations/:id/join-requests` - Get the list of pending requests
 
-仅 owner / admin 可调用。仅返回 `status: pending` 的记录；`request_type` 区分新加入申请（`join`）与升级申请（`upgrade`）。
+Only owner / admin can call this. Only returns records with `status: pending`; `request_type` distinguishes new join requests (`join`) from upgrade requests (`upgrade`).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/join-requests' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -713,7 +713,7 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/join-re
                 "user_id": "user-00000003",
                 "username": "zhangwei",
                 "email": "zhangwei@example.com",
-                "message": "希望加入团队参与知识库建设",
+                "message": "Would like to join the team to help build out the knowledge base",
                 "request_type": "join",
                 "prev_role": "",
                 "requested_role": "editor",
@@ -725,7 +725,7 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/join-re
                 "user_id": "user-00000002",
                 "username": "zhangsan",
                 "email": "zhangsan@example.com",
-                "message": "需要管理员权限来管理知识库共享",
+                "message": "Need admin permissions to manage knowledge base sharing",
                 "request_type": "upgrade",
                 "prev_role": "editor",
                 "requested_role": "admin",
@@ -739,26 +739,26 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/join-re
 }
 ```
 
-### PUT `/organizations/:id/join-requests/:request_id/review` - 审核加入申请
+### PUT `/organizations/:id/join-requests/:request_id/review` - Review a join request
 
-仅 owner / admin 可调用。
+Only owner / admin can call this.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段       | 类型   | 说明     |
+| Field       | Type   | Description     |
 | ---------- | ------ | -------- |
-| id         | string | 组织 ID  |
-| request_id | string | 申请 ID  |
+| id         | string | Organization ID  |
+| request_id | string | Request ID  |
 
-**请求体**:
+**Request body**:
 
-| 字段     | 类型   | 必填 | 说明                                                                  |
+| Field     | Type   | Required | Description                                                                  |
 | -------- | ------ | ---- | --------------------------------------------------------------------- |
-| approved | bool   | 是   | 是否通过                                                              |
-| message  | string | 否   | 审核留言（最多 500 字符）                                             |
-| role     | string | 否   | 通过时强制分配的角色（缺省按申请者请求的角色），仅 `viewer/editor/admin` |
+| approved | bool   | Yes   | Whether to approve                                                              |
+| message  | string | No   | Review message (up to 500 characters)                                             |
+| role     | string | No   | Role to force-assign upon approval (defaults to the role requested by the applicant), only `viewer/editor/admin` |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/organizations/org-00000001/join-requests/jr-00000001/review' \
@@ -766,12 +766,12 @@ curl --location --request PUT 'http://localhost:8080/api/v1/organizations/org-00
 --header 'Content-Type: application/json' \
 --data '{
     "approved": true,
-    "message": "欢迎加入",
+    "message": "Welcome aboard",
     "role": "editor"
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true, "message": "Review completed" }
@@ -779,20 +779,20 @@ curl --location --request PUT 'http://localhost:8080/api/v1/organizations/org-00
 
 ---
 
-## 知识库共享
+## Knowledge base sharing
 
-### POST `/knowledge-bases/:id/shares` - 共享知识库到组织
+### POST `/knowledge-bases/:id/shares` - Share a knowledge base to an organization
 
-**路径参数**: `id` = 知识库 ID
+**Path parameters**: `id` = knowledge base ID
 
-**请求体**:
+**Request body**:
 
-| 字段             | 类型   | 必填 | 说明                            |
-| ---------------- | ------ | ---- | ------------------------------- |
-| organization_id  | string | 是   | 目标组织 ID                     |
-| permission       | string | 是   | 共享权限：`viewer` / `editor`   |
+| Field             | Type   | Required | Description                            |
+| ---------------- | ------ | ---- | -------------------------------- |
+| organization_id  | string | Yes   | Target organization ID                     |
+| permission       | string | Yes   | Share permission: `viewer` / `editor`   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares' \
@@ -804,7 +804,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares
 }'
 ```
 
-**响应**（`201 Created`）：
+**Response** (`201 Created`):
 
 ```json
 {
@@ -821,18 +821,18 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares
 }
 ```
 
-### GET `/knowledge-bases/:id/shares` - 获取知识库共享列表
+### GET `/knowledge-bases/:id/shares` - Get the knowledge base share list
 
-返回该知识库被共享到的所有组织。
+Returns all organizations this knowledge base has been shared to.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -841,12 +841,12 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares
             {
                 "id": "kbs-00000001",
                 "knowledge_base_id": "kb-00000001",
-                "knowledge_base_name": "技术文档库",
+                "knowledge_base_name": "Technical Documentation Library",
                 "knowledge_base_type": "document",
                 "knowledge_count": 12,
                 "chunk_count": 0,
                 "organization_id": "org-00000001",
-                "organization_name": "AI 技术团队",
+                "organization_name": "AI Tech Team",
                 "shared_by_user_id": "user-00000001",
                 "shared_by_username": "admin",
                 "source_tenant_id": 1,
@@ -862,22 +862,22 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares
 }
 ```
 
-### PUT `/knowledge-bases/:id/shares/:share_id` - 更新共享权限
+### PUT `/knowledge-bases/:id/shares/:share_id` - Update the share permission
 
-**路径参数**:
+**Path parameters**:
 
-| 字段     | 类型   | 说明           |
+| Field     | Type   | Description           |
 | -------- | ------ | -------------- |
-| id       | string | 知识库 ID      |
-| share_id | string | 共享记录 ID    |
+| id       | string | Knowledge base ID      |
+| share_id | string | Share record ID    |
 
-**请求体**:
+**Request body**:
 
-| 字段       | 类型   | 必填 | 说明                          |
+| Field       | Type   | Required | Description                          |
 | ---------- | ------ | ---- | ----------------------------- |
-| permission | string | 是   | 新权限：`viewer` / `editor`   |
+| permission | string | Yes   | New permission: `viewer` / `editor`   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares/kbs-00000001' \
@@ -886,56 +886,56 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 --data '{ "permission": "editor" }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-### DELETE `/knowledge-bases/:id/shares/:share_id` - 取消知识库共享
+### DELETE `/knowledge-bases/:id/shares/:share_id` - Unshare a knowledge base
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/shares/kbs-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true }
 ```
 
-### GET `/organizations/:id/shares` - 获取组织下被共享进来的知识库
+### GET `/organizations/:id/shares` - Get knowledge bases shared into an organization
 
-仅本组织成员可查看。`my_permission = min(permission, my_role_in_org)`，即当前用户的有效权限。
+Only visible to members of this organization. `my_permission = min(permission, my_role_in_org)`, i.e. the current user's effective permission.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shares' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: 结构同 `GET /knowledge-bases/:id/shares`。
+**Response**: Same structure as `GET /knowledge-bases/:id/shares`.
 
-### GET `/organizations/:id/shared-knowledge-bases` - 组织内知识库空间视图
+### GET `/organizations/:id/shared-knowledge-bases` - Organization knowledge base space view
 
-供"切换到某个空间后"的知识库列表页使用。返回该组织中所有当前用户可见的知识库，包含：
+Used by the knowledge base list page after "switching to a space." Returns all knowledge bases visible to the current user within this organization, including:
 
-1. 通过 `POST /knowledge-bases/:id/shares` 直接共享进来的知识库
-2. 通过共享智能体（`agents/:id/shares`）携带进来的知识库（只读，`source_from_agent` 字段标识来源）
-3. 当前用户自己共享出去的知识库（`is_mine: true`）
+1. Knowledge bases shared directly via `POST /knowledge-bases/:id/shares`
+2. Knowledge bases brought in via a shared agent (`agents/:id/shares`) (read-only; the `source_from_agent` field identifies the origin)
+3. Knowledge bases the current user has shared themselves (`is_mine: true`)
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shared-knowledge-bases' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -943,19 +943,19 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shared-
         {
             "knowledge_base": {
                 "id": "kb-00000001",
-                "name": "技术文档库",
+                "name": "Technical Documentation Library",
                 "type": "document"
             },
             "share_id": "kbs-00000001",
             "organization_id": "org-00000001",
-            "org_name": "AI 技术团队",
+            "org_name": "AI Tech Team",
             "permission": "viewer",
             "source_tenant_id": 1,
             "shared_at": "2025-08-15T10:00:00+08:00",
             "is_mine": false,
             "source_from_agent": {
                 "agent_id": "agent-00000005",
-                "agent_name": "智能客服助手",
+                "agent_name": "Smart Customer Service Assistant",
                 "kb_selection_mode": "selected"
             }
         }
@@ -965,26 +965,26 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shared-
 }
 ```
 
-`source_from_agent` 仅在该 KB 是通过共享智能体引入时出现；直接共享的 KB 不含该字段。
+`source_from_agent` only appears when the KB was introduced via a shared agent; directly shared KBs do not include this field.
 
 ---
 
-## 智能体共享
+## Agent sharing
 
-### POST `/agents/:id/shares` - 共享智能体到组织
+### POST `/agents/:id/shares` - Share an agent to an organization
 
-仅当前用户在目标组织中具有 editor 或 admin 角色时允许；智能体必须已完成配置（必填的对话模型、若启用了 knowledge_search 工具需配置重排模型等）。
+Only allowed when the current user has the editor or admin role in the target organization; the agent must already be fully configured (a required chat model, and if the knowledge_search tool is enabled, a configured rerank model, etc.).
 
-**路径参数**: `id` = 智能体 ID
+**Path parameters**: `id` = agent ID
 
-**请求体**:
+**Request body**:
 
-| 字段             | 类型   | 必填 | 说明                            |
-| ---------------- | ------ | ---- | ------------------------------- |
-| organization_id  | string | 是   | 目标组织 ID                     |
-| permission       | string | 是   | 共享权限：`viewer` / `editor`   |
+| Field             | Type   | Required | Description                            |
+| ---------------- | ------ | ---- | -------------------------------- |
+| organization_id  | string | Yes   | Target organization ID                     |
+| permission       | string | Yes   | Share permission: `viewer` / `editor`   |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agents/agent-00000001/shares' \
@@ -996,7 +996,7 @@ curl --location 'http://localhost:8080/api/v1/agents/agent-00000001/shares' \
 }'
 ```
 
-**响应**（`201 Created`）：
+**Response** (`201 Created`):
 
 ```json
 {
@@ -1013,16 +1013,16 @@ curl --location 'http://localhost:8080/api/v1/agents/agent-00000001/shares' \
 }
 ```
 
-### GET `/agents/:id/shares` - 获取智能体共享列表
+### GET `/agents/:id/shares` - Get the agent share list
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/agents/agent-00000001/shares' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1032,7 +1032,7 @@ curl --location 'http://localhost:8080/api/v1/agents/agent-00000001/shares' \
                 "id": "as-00000001",
                 "agent_id": "agent-00000001",
                 "organization_id": "org-00000001",
-                "organization_name": "AI 技术团队",
+                "organization_name": "AI Tech Team",
                 "shared_by_user_id": "user-00000001",
                 "source_tenant_id": 1,
                 "permission": "viewer",
@@ -1045,35 +1045,35 @@ curl --location 'http://localhost:8080/api/v1/agents/agent-00000001/shares' \
 }
 ```
 
-### DELETE `/agents/:id/shares/:share_id` - 取消智能体共享
+### DELETE `/agents/:id/shares/:share_id` - Unshare an agent
 
-只有共享者本人或拥有相应权限的管理员可以取消。
+Only the sharer themselves or an admin with the relevant permissions can unshare.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/agents/agent-00000001/shares/as-00000001' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 { "success": true, "message": "Share removed successfully" }
 ```
 
-### GET `/organizations/:id/agent-shares` - 获取组织下被共享进来的智能体
+### GET `/organizations/:id/agent-shares` - Get agents shared into an organization
 
-仅本组织成员可查看。返回结构在 `AgentShareResponse` 基础上额外补充 `my_role_in_org` / `my_permission`，并附带智能体的能力范围摘要（`scope_kb` / `scope_web_search` / `scope_mcp` 等）。
+Only visible to members of this organization. The response structure adds `my_role_in_org` / `my_permission` on top of `AgentShareResponse`, along with a summary of the agent's capability scope (`scope_kb` / `scope_web_search` / `scope_mcp`, etc.).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/agent-shares' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1082,10 +1082,10 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/agent-s
             {
                 "id": "as-00000001",
                 "agent_id": "agent-00000001",
-                "agent_name": "智能客服助手",
+                "agent_name": "Smart Customer Service Assistant",
                 "agent_avatar": "🤖",
                 "organization_id": "org-00000001",
-                "organization_name": "AI 技术团队",
+                "organization_name": "AI Tech Team",
                 "shared_by_user_id": "user-00000001",
                 "shared_by_username": "admin",
                 "source_tenant_id": 1,
@@ -1105,18 +1105,18 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/agent-s
 }
 ```
 
-### GET `/organizations/:id/shared-agents` - 组织内智能体空间视图
+### GET `/organizations/:id/shared-agents` - Organization agent space view
 
-供"切换到某个空间后"的智能体列表页使用。返回该组织中所有当前用户可见的智能体，包含他人共享与本人共享（`is_mine: true`）。
+Used by the agent list page after "switching to a space." Returns all agents visible to the current user within this organization, including both those shared by others and shared by the current user (`is_mine: true`).
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shared-agents' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1124,11 +1124,11 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shared-
         {
             "agent": {
                 "id": "agent-00000001",
-                "name": "智能客服助手"
+                "name": "Smart Customer Service Assistant"
             },
             "share_id": "as-00000001",
             "organization_id": "org-00000001",
-            "org_name": "AI 技术团队",
+            "org_name": "AI Tech Team",
             "permission": "viewer",
             "source_tenant_id": 1,
             "shared_at": "2025-08-15T11:00:00+08:00",
@@ -1145,20 +1145,20 @@ curl --location 'http://localhost:8080/api/v1/organizations/org-00000001/shared-
 
 ---
 
-## 我的共享视图
+## My shared view
 
-### GET `/shared-knowledge-bases` - 获取共享给我的知识库（跨组织）
+### GET `/shared-knowledge-bases` - Get knowledge bases shared with me (cross-organization)
 
-返回当前用户通过所有组织（不限制 `:id`）共享获得的知识库列表，供"全部知识库"视图使用。
+Returns the list of knowledge bases the current user has been granted via sharing across all organizations (not restricted to a specific `:id`), for use by the "All knowledge bases" view.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/shared-knowledge-bases' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1166,11 +1166,11 @@ curl --location 'http://localhost:8080/api/v1/shared-knowledge-bases' \
         {
             "knowledge_base": {
                 "id": "kb-00000001",
-                "name": "技术文档库"
+                "name": "Technical Documentation Library"
             },
             "share_id": "kbs-00000001",
             "organization_id": "org-00000001",
-            "org_name": "AI 技术团队",
+            "org_name": "AI Tech Team",
             "permission": "viewer",
             "source_tenant_id": 1,
             "shared_at": "2025-08-15T10:00:00+08:00"
@@ -1181,18 +1181,18 @@ curl --location 'http://localhost:8080/api/v1/shared-knowledge-bases' \
 }
 ```
 
-### GET `/shared-agents` - 获取共享给我的智能体（跨组织）
+### GET `/shared-agents` - Get agents shared with me (cross-organization)
 
-返回当前用户通过所有组织共享获得的智能体列表，供"全部智能体"视图使用。`disabled_by_me: true` 表示当前空间已在对话下拉中隐藏该智能体。
+Returns the list of agents the current user has been granted via sharing across all organizations, for use by the "All agents" view. `disabled_by_me: true` indicates that in the current space, this agent has already been hidden from the chat dropdown.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/shared-agents' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -1200,11 +1200,11 @@ curl --location 'http://localhost:8080/api/v1/shared-agents' \
         {
             "agent": {
                 "id": "agent-00000001",
-                "name": "智能客服助手"
+                "name": "Smart Customer Service Assistant"
             },
             "share_id": "as-00000001",
             "organization_id": "org-00000001",
-            "org_name": "AI 技术团队",
+            "org_name": "AI Tech Team",
             "permission": "viewer",
             "source_tenant_id": 1,
             "shared_at": "2025-08-15T11:00:00+08:00",
@@ -1217,4 +1217,3 @@ curl --location 'http://localhost:8080/api/v1/shared-agents' \
     "success": true
 }
 ```
-

@@ -1,19 +1,19 @@
-# WeKnora 本地 MCP Demo
+# WeKnora Local MCP Demo
 
-最小外部 MCP 服务，用来测试 WeKnora **作为 MCP 客户端**接入第三方工具。
+Minimal external MCP server for testing WeKnora **as an MCP client** connecting to third-party tools.
 
-提供 6 个演示工具：
+Provides 6 demo tools:
 
-| 工具 | 作用 |
+| Tool | Purpose |
 | --- | --- |
-| `echo` | 连通性自检 |
-| `add` | 两数相加 |
-| `server_time` | 返回服务器 UTC 时间 |
-| `lookup_policy` | 查询演示政策（保修、报销、POC 等，与 `website-docs/sample-data/` 一致） |
-| `list_team_contacts` | 列出演示项目团队成员 |
-| `send_demo_alert` | 模拟外发通知（适合测工具人工审批） |
+| `echo` | Connectivity self-check |
+| `add` | Add two numbers |
+| `server_time` | Return server UTC time |
+| `lookup_policy` | Query demo policies (warranty, reimbursement, POC, etc., consistent with `website-docs/sample-data/`) |
+| `list_team_contacts` | List demo project team members |
+| `send_demo_alert` | Simulate an outbound notification (suitable for testing manual approval) |
 
-## 1. 启动
+## 1. Startup
 
 ```bash
 cd examples/mcp-demo
@@ -21,9 +21,9 @@ chmod +x start.sh
 ./start.sh
 ```
 
-`start.sh` 会自动创建 `.venv` 并安装依赖。默认监听 `http://127.0.0.1:8010/mcp`，鉴权令牌 `weknora-demo-token`。
+`start.sh` automatically creates a `.venv` and installs dependencies. By default it listens on `http://127.0.0.1:8010/mcp`, with auth token `weknora-demo-token`.
 
-自定义：
+Customization:
 
 ```bash
 export MCP_SERVER_AUTH_TOKEN=my-secret
@@ -31,9 +31,9 @@ export MCP_PORT=9000
 ./start.sh
 ```
 
-## 2. 自检
+## 2. Self-check
 
-另开终端：
+In a separate terminal:
 
 ```bash
 cd examples/mcp-demo
@@ -41,45 +41,45 @@ source .venv/bin/activate
 python test_tools.py
 ```
 
-应列出 6 个工具。
+This should list the 6 tools.
 
-## 3. 接入 WeKnora
+## 3. Connecting to WeKnora
 
-1. 打开 **设置 → MCP 服务 → 新建**
-2. 填写：
+1. Open **Settings → MCP Services → New**
+2. Fill in:
 
-| 字段 | 值 |
+| Field | Value |
 | --- | --- |
-| 名称 | `本地 MCP Demo` |
-| 传输 | **HTTP Streamable** |
+| Name | `Local MCP Demo` |
+| Transport | **HTTP Streamable** |
 | URL | `http://127.0.0.1:8010/mcp` |
-| 认证 | **Bearer** |
-| 令牌 | `weknora-demo-token`（与 `MCP_SERVER_AUTH_TOKEN` 一致） |
+| Auth | **Bearer** |
+| Token | `weknora-demo-token` (must match `MCP_SERVER_AUTH_TOKEN`) |
 
-3. 保存后点 **测试连接**，应发现 6 个工具。
-4. 在 **智能体** 配置里勾选该 MCP 服务（或选全部工具）。
-5. （可选）对 `send_demo_alert` 开启**人工审批**，对话时 Agent 调用前会弹出确认。
+3. After saving, click **Test Connection** — it should discover 6 tools.
+4. In the **Agent** configuration, check this MCP service (or select all tools).
+5. (Optional) Enable **manual approval** for `send_demo_alert` — during a conversation, the Agent will prompt for confirmation before invoking it.
 
-## 4. 建议试的问题
+## 4. Suggested questions to try
 
-在 Agent 对话里问：
+Ask in the Agent conversation:
 
-- 「调用 MCP 工具查一下智能家居中控保修多久」→ 应触发 `lookup_policy`
-- 「研发部 POC 负责人是谁」→ `lookup_policy` 或 `list_team_contacts`
-- 「现在 MCP Demo 服务器几点」→ `server_time`
+- "Use the MCP tool to check how long the smart home hub's warranty lasts" → should trigger `lookup_policy`
+- "Who is the POC owner in the R&D department" → `lookup_policy` or `list_team_contacts`
+- "What time is it on the MCP Demo server right now" → `server_time`
 
-若同时导入了 `website-docs/sample-data/` 里的文档，可以对比 **知识库检索答案** 与 **MCP 工具返回** 是否一致。
+If you've also imported the documents from `website-docs/sample-data/`, you can compare whether the **knowledge base retrieval answer** and the **MCP tool response** are consistent.
 
-## 5. 注意事项
+## 5. Notes
 
-- WeKnora UI **不支持 stdio** 传输；必须用 **HTTP Streamable** 或 **SSE**。
-- Demo 只绑定 `127.0.0.1`，不要暴露到公网。
-- `send_demo_alert` 不会真正发送消息，仅返回模拟结果。
+- The WeKnora UI **does not support stdio** transport; you must use **HTTP Streamable** or **SSE**.
+- The demo only binds to `127.0.0.1` — do not expose it to the public internet.
+- `send_demo_alert` does not actually send a message; it only returns a simulated result.
 
-## 6. SSE 模式（可选）
+## 6. SSE mode (optional)
 
 ```bash
 MCP_TRANSPORT=sse MCP_PORT=8011 ./start.sh
 ```
 
-WeKnora 里传输选 **SSE**，URL 填 `http://127.0.0.1:8011/sse`。
+In WeKnora, select **SSE** as the transport and enter `http://127.0.0.1:8011/sse` as the URL.

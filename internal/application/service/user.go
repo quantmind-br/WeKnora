@@ -345,7 +345,7 @@ func (s *userService) buildMembershipsForUser(
 	if len(rows) == 0 {
 		return []types.Membership{}
 	}
-	// 收集需要批量查询名称的 tenant id（跳过 activeTenant 因为它已经在手）。
+	// Collect tenant ids that need a batch name lookup (skip activeTenant since it's already on hand).
 	needsLookup := make([]uint64, 0, len(rows))
 	for _, m := range rows {
 		if m == nil || m.Status != types.TenantMemberStatusActive {
@@ -532,8 +532,8 @@ func (s *userService) LoginWithOIDC(
 		return nil, fmt.Errorf("failed to generate local tokens: %w", err)
 	}
 
-	// 拉取 tenant + memberships，让 OIDC 登录的返回结构与本地登录一致，
-	// 前端无须为 OIDC 单独走一次 /auth/me 才能拿到角色。
+	// Fetch tenant + memberships so the OIDC login response structure matches local login,
+	// so the frontend doesn't need a separate /auth/me call for OIDC to get the role.
 	var tenant *types.Tenant
 	if resolvedTenantID > 0 {
 		if t, terr := s.tenantService.GetTenantByID(ctx, resolvedTenantID); terr == nil {
@@ -547,7 +547,7 @@ func (s *userService) LoginWithOIDC(
 
 	return &types.OIDCCallbackResponse{
 		Success:      true,
-		Message:      "登录成功",
+		Message:      "Login successful",
 		User:         user,
 		Tenant:       tenant,
 		Memberships:  memberships,

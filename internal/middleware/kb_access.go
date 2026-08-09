@@ -316,7 +316,7 @@ func RequireKBAccess(
 // specific agent_id is validated against THAT agent's KB scope (mode =
 // all / selected / none), not against "any shared agent". Falling
 // back to "any shared agent" when agent_id is empty preserves the
-// "通过智能体可见" KB list entry point.
+// "Visible via agent" KB list entry point.
 func resolveKBAccessOnce(
 	ctx context.Context,
 	c *gin.Context,
@@ -396,7 +396,7 @@ func resolveKBAccessOnce(
 //     explicitly named one (typically from a @-mention or a deep link
 //     scoped to that agent).
 //   - If ?agent_id is empty, allow when any shared agent reachable by
-//     the caller can access this KB ("通过智能体可见" KB list entry).
+// the caller can access this KB ("Visible via agent" KB list entry).
 func resolveSharedAgentAccess(
 	ctx context.Context,
 	c *gin.Context,

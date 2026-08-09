@@ -11,13 +11,24 @@ const messages = {
   'ko-KR': koKR
 }
 
-// Получаем сохраненный язык из localStorage или используем китайский по умолчанию
-const savedLocale = localStorage.getItem('locale') || 'zh-CN'
+// Migration: honor the English-default rollout. If a stale zh-CN was saved
+// before this release, default to English on first load. Users can still switch
+// languages in Settings; the choice is saved going forward.
+const savedLocale = localStorage.getItem('locale')
+const MIGRATED_KEY = 'weknora-locale-migrated-v2'
+let resolvedLocale: string
+if (localStorage.getItem(MIGRATED_KEY)) {
+  resolvedLocale = savedLocale || 'en-US'
+} else {
+  localStorage.setItem(MIGRATED_KEY, '1')
+  resolvedLocale = 'en-US'
+  if (savedLocale) localStorage.setItem('locale', 'en-US')
+}
 
 const i18n = createI18n({
   legacy: false,
-  locale: savedLocale,
-  fallbackLocale: 'zh-CN',
+  locale: resolvedLocale,
+  fallbackLocale: 'en-US',
   globalInjection: true,
   // Some translations intentionally embed `<strong>` markup (e.g. agent step summaries).
   // We render them via v-html with our own sanitization, so silence vue-i18n's HTML warning

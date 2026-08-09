@@ -6,7 +6,7 @@
     </div>
 
     <div class="settings-group">
-      <!-- 语言选择 -->
+      <!-- Language selection -->
       <div class="setting-row">
         <div class="setting-info">
           <label>{{ $t('language.language') }}</label>
@@ -27,7 +27,7 @@
         </div>
       </div>
 
-      <!-- 主题设置 -->
+      <!-- Theme settings -->
       <div class="setting-row">
         <div class="setting-info">
           <label>{{ $t('theme.theme') }}</label>
@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <!-- 界面字体 -->
+      <!-- Interface font -->
       <div class="setting-row">
         <div class="setting-info">
           <label>{{ $t('font.uiFont') }}</label>
@@ -75,7 +75,7 @@
         </div>
       </div>
 
-      <!-- 代码字体 -->
+      <!-- Code font -->
       <div class="setting-row">
         <div class="setting-info">
           <label>{{ $t('font.monoFont') }}</label>
@@ -103,7 +103,7 @@
         </div>
       </div>
 
-      <!-- 字体大小 -->
+      <!-- Font size -->
       <div class="setting-row">
         <div class="setting-info">
           <label>{{ $t('font.fontSize') }}</label>
@@ -121,7 +121,7 @@
         </div>
       </div>
 
-      <!-- 自动下载更新开关 (Lite edition only) -->
+      <!-- Auto-download update toggle (Lite edition only) -->
       <div class="setting-row" v-if="authStore.isLiteMode">
         <div class="setting-info">
           <label>{{ $t('settings.autoCheckUpdate') }}</label>
@@ -168,8 +168,8 @@ const {
   setFontSize,
 } = useFont()
 
-// 本地状态
-const localLanguage = ref('zh-CN')
+// Local state
+const localLanguage = ref('en-US')
 const localTheme = ref<ThemeMode>(currentTheme.value)
 const localSansFont = ref<FontKey>(currentSans.value)
 const localMonoFont = ref<MonoFontKey>(currentMono.value)
@@ -203,7 +203,7 @@ const monoFontOptions = computed<{ value: MonoFontKey; label: string; preview: s
 const currentSansStack = computed(() => SANS_STACKS[localSansFont.value] ?? SANS_STACKS.system)
 const currentMonoStack = computed(() => MONO_STACKS[localMonoFont.value] ?? MONO_STACKS.system)
 
-// 自动检查更新状态
+// Auto-check update status
 const isAutoCheckUpdateEnabled = computed({
   get: () => settingsStore.isAutoCheckUpdateEnabled,
   set: (val) => {
@@ -218,9 +218,9 @@ const isAutoCheckUpdateEnabled = computed({
   }
 })
 
-// 初始化加载
+// Initial load
 onMounted(() => {
-  // 从 localStorage 加载语言设置
+  // Load language setting from localStorage
   const savedLocale = localStorage.getItem('locale')
   if (savedLocale) {
     localLanguage.value = savedLocale
@@ -230,14 +230,14 @@ onMounted(() => {
   }
 })
 
-// 处理语言变化
+// Handle language change
 const handleLanguageChange = () => {
   locale.value = localLanguage.value
   localStorage.setItem('locale', localLanguage.value)
   MessagePlugin.success(t('language.languageSaved'))
     }
 
-// 处理主题变化
+// Handle theme change
 const handleThemeChange = (val: ThemeMode) => {
   if (!setTheme(val)) {
     // Setter rejected the value (validation guard); roll the form back to
@@ -248,7 +248,7 @@ const handleThemeChange = (val: ThemeMode) => {
   MessagePlugin.success(t('common.success'))
 }
 
-// 处理字体变化
+// Handle font change
 const handleSansFontChange = (val: FontKey) => {
   if (!setSansFont(val)) {
     localSansFont.value = currentSans.value

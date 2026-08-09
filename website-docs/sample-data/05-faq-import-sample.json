@@ -1,0 +1,122 @@
+[
+ {
+  "tag_name": "After-sales",
+  "standard_question": "How long is the smart-home hub warranty?",
+  "similar_questions": [
+   "How many years of warranty",
+   "How long is the warranty period"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Full device warranty 24 months, battery accessories 12 months. Damage from disassembly or water ingress is not covered."
+  ]
+ },
+ {
+  "tag_name": "Product",
+  "standard_question": "Does voice control still work after losing internet?",
+  "similar_questions": [
+   "Can I control by voice without internet",
+   "Does voice work offline"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "If voice recognition runs in the cloud, only the app and local touchscreen work after losing internet; basic commands keep working once a local voice pack is installed."
+  ]
+ },
+ {
+  "tag_name": "Product",
+  "standard_question": "How many hubs can one account bind?",
+  "similar_questions": [
+   "Maximum number of hubs",
+   "Account device limit"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Personal edition: up to 3 hubs; Enterprise edition: per contract, 50 by default."
+  ]
+ },
+ {
+  "tag_name": "HR",
+  "standard_question": "What is the hotel reimbursement cap for first-tier cities?",
+  "similar_questions": [
+   "Hotel reimbursement limit in Beijing/Shanghai/Guangzhou/Shenzhen",
+   "Accommodation standard"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "First-tier cities (Beijing/Shanghai/Guangzhou/Shenzhen): up to 600 CNY/night (tax incl.); any excess is paid personally."
+  ]
+ },
+ {
+  "tag_name": "HR",
+  "standard_question": "How do I claim meal expenses on business trips?",
+  "similar_questions": [
+   "Can meal costs be reimbursed",
+   "Meal expenses"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Meals during business trips are not reimbursed separately; you receive a per-day travel allowance of 150 CNY/day in first-tier cities and 120 CNY/day elsewhere."
+  ]
+ },
+ {
+  "tag_name": "Project",
+  "standard_question": "When will the Q1 knowledge-base POC go live?",
+  "similar_questions": [
+   "When is the after-sales KB accepted",
+   "POC delivery date"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Target: internal demo by 2024-03-01, technical delivery led by Zhang Ming."
+  ]
+ },
+ {
+  "tag_name": "Project",
+  "standard_question": "Who is responsible for the after-sales KB POC?",
+  "similar_questions": [
+   "Who leads the KB project",
+   "POC technical lead"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Technical lead: Zhang Ming (R&D); product contact: Li Wei; QA lead: Zhao Lei."
+  ]
+ },
+ {
+  "tag_name": "Product",
+  "standard_question": "Which protocols does Hub Pro support?",
+  "similar_questions": [
+   "Which smart-device protocols can it connect",
+   "Does it support Matter"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Supports Matter, Zigbee 3.0, Wi-Fi and Bluetooth Mesh; firmware 3.5 is planned to complete Matter 1.2 certification."
+  ]
+ },
+ {
+  "tag_name": "HR",
+  "standard_question": "How many annual-leave days does 10 years of service get?",
+  "similar_questions": [
+   "Annual leave after ten years of service",
+   "Leave days by years of service"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "1-10 years of service: 10 days; over 10 years: 15 days; calculated from the hire date."
+  ]
+ },
+ {
+  "tag_name": "Project",
+  "standard_question": "When will Matter certification be completed?",
+  "similar_questions": [
+   "When does Matter 1.2 pass certification",
+   "Firmware 3.5 release date"
+  ],
+  "negative_questions": [],
+  "answers": [
+   "Planned to release firmware 3.5 as a gray rollout by end of March 2024 and complete Matter 1.2 certification."
+  ]
+ }
+]

@@ -903,8 +903,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="less">
-/* 复用模型管理同款 SettingDrawer：分组 section / header 图标 / footer 按钮 / 拖拽调宽。
-   这里只负责本编辑器特有的内容样式。内容内联渲染（无 teleport），scoped 生效。 */
+/* Reuses the same SettingDrawer as model management: grouped sections / header icon / footer buttons / drag-to-resize.
+   Only handles content styling specific to this editor. Content is rendered inline (no teleport), scoped styles apply. */
 .manual-editor {
   display: flex;
   flex-direction: column;
@@ -985,7 +985,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* 内容分组：让编辑区占满，无需依赖父级 flex 链路，直接用视口高度，稳健 */
+/* Content grouping: let the edit area fill the space, using viewport height directly instead of depending on the parent flex chain, for robustness */
 .editor-section {
   flex: 1;
   min-height: 0;
@@ -1125,8 +1125,8 @@ onBeforeUnmount(() => {
 }
 
 .editor-area {
-  /* 抽屉为整屏高，减去 header/footer/基本信息分组的大致高度，
-     让编辑区占据剩余空间且不必撑满父级 flex 链路。 */
+  /* The drawer is full-screen height, minus the approximate height of the header/footer/basic info group,
+     letting the edit area take up the remaining space without needing to fill the parent flex chain. */
   height: calc(100vh - 360px);
   min-height: 280px;
   display: flex;

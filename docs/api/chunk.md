@@ -1,32 +1,32 @@
-# 分块管理 API
+# Chunk Management API
 
-[返回目录](./README.md)
+[Back to index](./README.md)
 
-| 方法   | 路径                              | 描述                       |
-| ------ | --------------------------------- | -------------------------- |
-| GET    | `/chunks/:knowledge_id`           | 获取知识的分块列表         |
-| PUT    | `/chunks/:knowledge_id/:id`       | 更新分块                   |
-| DELETE | `/chunks/:knowledge_id/:id`       | 删除单个分块               |
-| DELETE | `/chunks/:knowledge_id`           | 删除知识下的所有分块       |
-| GET    | `/chunks/by-id/:id`               | 根据分块 ID 直接获取分块    |
-| DELETE | `/chunks/by-id/:id/questions`     | 删除分块下的某个生成问题   |
+| Method | Path                              | Description                          |
+| ------ | --------------------------------- | ------------------------------------- |
+| GET    | `/chunks/:knowledge_id`           | Get the list of chunks for a knowledge item |
+| PUT    | `/chunks/:knowledge_id/:id`       | Update a chunk                        |
+| DELETE | `/chunks/:knowledge_id/:id`       | Delete a single chunk                 |
+| DELETE | `/chunks/:knowledge_id`           | Delete all chunks under a knowledge item |
+| GET    | `/chunks/by-id/:id`               | Get a chunk directly by chunk ID      |
+| DELETE | `/chunks/by-id/:id/questions`     | Delete a generated question under a chunk |
 
-## GET `/chunks/:knowledge_id` - 获取知识的分块列表
+## GET `/chunks/:knowledge_id` - Get the list of chunks for a knowledge item
 
-**路径参数**:
+**Path parameters**:
 
-| 字段          | 类型   | 说明        |
-| ------------- | ------ | ----------- |
-| knowledge_id  | string | 知识 ID     |
+| Field         | Type   | Description     |
+| ------------- | ------ | --------------- |
+| knowledge_id  | string | Knowledge ID    |
 
-**查询参数**:
+**Query parameters**:
 
-| 字段       | 类型 | 默认 | 说明       |
-| ---------- | ---- | ---- | ---------- |
-| page       | int  | 1    | 页码       |
-| page_size  | int  | 20   | 每页条数   |
+| Field      | Type | Default | Description        |
+| ---------- | ---- | ------- | ------------------- |
+| page       | int  | 1       | Page number          |
+| page_size  | int  | 20      | Items per page        |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5?page=1&page_size=1' \
@@ -34,7 +34,7 @@ curl --location 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b
 --header 'Content-Type: application/json'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -45,7 +45,7 @@ curl --location 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b
             "knowledge_id": "4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5",
             "knowledge_base_id": "kb-00000001",
             "tag_id": "",
-            "content": "彗星xxxx",
+            "content": "Comet xxxx",
             "chunk_index": 0,
             "is_enabled": true,
             "status": 2,
@@ -72,66 +72,66 @@ curl --location 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b
 }
 ```
 
-## PUT `/chunks/:knowledge_id/:id` - 更新分块
+## PUT `/chunks/:knowledge_id/:id` - Update a chunk
 
-更新指定分块的内容和属性。所有字段均可选，未传则保留原值。
+Updates the content and properties of the specified chunk. All fields are optional; any field not provided keeps its original value.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段          | 类型   | 说明        |
-| ------------- | ------ | ----------- |
-| knowledge_id  | string | 知识 ID     |
-| id            | string | 分块 ID     |
+| Field         | Type   | Description     |
+| ------------- | ------ | --------------- |
+| knowledge_id  | string | Knowledge ID    |
+| id            | string | Chunk ID        |
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段         | 类型    | 必填 | 说明                  |
-| ------------ | ------- | ---- | --------------------- |
-| content      | string  | 否   | 分块内容               |
-| chunk_index  | int     | 否   | 分块在知识中的序号     |
-| is_enabled   | boolean | 否   | 是否启用               |
-| start_at     | int     | 否   | 起始位置（字符偏移）   |
-| end_at       | int     | 否   | 结束位置（字符偏移）   |
-| image_info   | string  | 否   | 图像分块的元信息（JSON 字符串） |
+| Field        | Type    | Required | Description                          |
+| ------------ | ------- | -------- | -------------------------------------- |
+| content      | string  | No       | Chunk content                          |
+| chunk_index  | int     | No       | The chunk's sequence number within the knowledge item |
+| is_enabled   | boolean | No       | Whether it is enabled                  |
+| start_at     | int     | No       | Start position (character offset)      |
+| end_at       | int     | No       | End position (character offset)        |
+| image_info   | string  | No       | Metadata for an image chunk (JSON string) |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request PUT 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/df10b37d-cd05-4b14-ba8a-e1bd0eb3bbd7' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "content": "更新后的分块内容",
+    "content": "Updated chunk content",
     "is_enabled": true
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
     "data": {
         "id": "df10b37d-cd05-4b14-ba8a-e1bd0eb3bbd7",
-        "content": "更新后的分块内容",
+        "content": "Updated chunk content",
         "is_enabled": true,
-        "...": "其他字段同 GET 响应"
+        "...": "Other fields are the same as the GET response"
     },
     "success": true
 }
 ```
 
-## DELETE `/chunks/:knowledge_id/:id` - 删除单个分块
+## DELETE `/chunks/:knowledge_id/:id` - Delete a single chunk
 
-**路径参数**: 同 PUT。
+**Path parameters**: Same as PUT.
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5/df10b37d-cd05-4b14-ba8a-e1bd0eb3bbd7' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -140,22 +140,22 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/4c4e7c1a-0
 }
 ```
 
-## DELETE `/chunks/:knowledge_id` - 删除知识下的所有分块
+## DELETE `/chunks/:knowledge_id` - Delete all chunks under a knowledge item
 
-**路径参数**:
+**Path parameters**:
 
-| 字段          | 类型   | 说明        |
-| ------------- | ------ | ----------- |
-| knowledge_id  | string | 知识 ID     |
+| Field         | Type   | Description     |
+| ------------- | ------ | --------------- |
+| knowledge_id  | string | Knowledge ID    |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -164,42 +164,42 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/4c4e7c1a-0
 }
 ```
 
-## GET `/chunks/by-id/:id` - 根据 ID 直接获取分块
+## GET `/chunks/by-id/:id` - Get a chunk directly by ID
 
-无需提供 `knowledge_id` 即可获取分块。常用于跨知识库的引用展示。
+Retrieves a chunk without needing to provide `knowledge_id`. Commonly used for displaying references across knowledge bases.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明    |
-| ---- | ------ | ------- |
-| id   | string | 分块 ID |
+| Field | Type   | Description  |
+| ---- | ------ | ------------- |
+| id   | string | Chunk ID      |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location 'http://localhost:8080/api/v1/chunks/by-id/df10b37d-cd05-4b14-ba8a-e1bd0eb3bbd7' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
-**响应**: 同 `GET /chunks/:knowledge_id` 列表中的单条 data。
+**Response**: Same as a single data entry in the `GET /chunks/:knowledge_id` list.
 
-## DELETE `/chunks/by-id/:id/questions` - 删除分块下的某个生成问题
+## DELETE `/chunks/by-id/:id/questions` - Delete a generated question under a chunk
 
-删除指定分块关联的某条生成问题。
+Deletes a specific generated question associated with the specified chunk.
 
-**路径参数**:
+**Path parameters**:
 
-| 字段 | 类型   | 说明    |
-| ---- | ------ | ------- |
-| id   | string | 分块 ID |
+| Field | Type   | Description  |
+| ---- | ------ | ------------- |
+| id   | string | Chunk ID      |
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段        | 类型   | 必填 | 说明        |
+| Field        | Type   | Required | Description   |
 | ----------- | ------ | ---- | ----------- |
-| question_id | string | 是   | 问题 ID     |
+| question_id | string | Yes  | Question ID |
 
-**请求**:
+**Request**:
 
 ```curl
 curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/by-id/df10b37d-cd05-4b14-ba8a-e1bd0eb3bbd7/questions' \
@@ -210,7 +210,7 @@ curl --location --request DELETE 'http://localhost:8080/api/v1/chunks/by-id/df10
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {

@@ -46,7 +46,7 @@ onMounted(async () => {
     return
   }
 
-  // 后端 POST /organizations/join 要求当前空间角色 ≥ admin，先在前端拦截以给出友好提示
+  // the backend POST /organizations/join requires the current space role to be ≥ admin; intercept on the frontend first to show a friendly message
   if (!authStore.hasRole('admin') && !authStore.canAccessAllTenants) {
     error.value = t('organization.rbac.cannotJoin')
     loading.value = false

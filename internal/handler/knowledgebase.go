@@ -32,8 +32,8 @@ type KnowledgeBaseHandler struct {
 	agentShareService  interfaces.AgentShareService
 	asynqClient        interfaces.TaskEnqueuer
 	vectorStoreService interfaces.VectorStoreService // enriches KB responses with bound store display
-	// userService 仅在 list 类接口里用于批量回填 creator_name；
-	// 真正的鉴权由 RBAC 中间件 + Lookup 完成，这里不参与决策。
+	// userService is only used in list-type endpoints to batch backfill creator_name;
+	// actual authentication is handled by the RBAC middleware + Lookup, and is not part of the decision here.
 	userService interfaces.UserService
 }
 
@@ -270,15 +270,15 @@ func (h *KnowledgeBaseHandler) resolveKBStoreView(
 }
 
 // HybridSearch godoc
-// @Summary      混合搜索
-// @Description  在知识库中执行向量和关键词混合搜索。推荐使用 POST；GET 携带 JSON 请求体仍受支持（兼容旧客户端）。
-// @Tags         知识库
+// @Summary      Hybrid search
+// @Description  Run hybrid vector + keyword search in a knowledge base. POST is recommended; GET with a JSON body is still supported for legacy clients.
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string             true  "知识库ID"
-// @Param        request  body      types.SearchParams true  "搜索参数"
-// @Success      200      {object}  map[string]interface{}  "搜索结果"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        id       path      string             true  "Knowledge Base ID"
+// @Param        request  body      types.SearchParams true  "Search parameters"
+// @Success      200      {object}  map[string]interface{}  "Search results"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/hybrid-search [post]
@@ -338,14 +338,14 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 }
 
 // CreateKnowledgeBase godoc
-// @Summary      创建知识库
-// @Description  创建新的知识库
-// @Tags         知识库
+// @Summary      Create knowledge base
+// @Description  Create a new knowledge base
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        request  body      types.KnowledgeBase  true  "知识库信息"
-// @Success      201      {object}  map[string]interface{}  "创建的知识库"
-// @Failure      400      {object}  errors.AppError         "请求参数错误"
+// @Param        request  body      types.KnowledgeBase  true  "Knowledge base info"
+// @Success      201      {object}  map[string]interface{}  "Created knowledge base"
+// @Failure      400      {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases [post]
@@ -469,7 +469,7 @@ func (h *KnowledgeBaseHandler) validateAndGetKnowledgeBase(c *gin.Context) (*typ
 		}
 	}
 
-	// Check 3: Shared agent — allow if request has agent_id (and agent can access this KB) OR caller's tenant has any shared agent that can access this KB (e.g. opened from "通过智能体可见" list without agent_id)
+	// Check 3: Shared agent — allow if request has agent_id (and agent can access this KB) OR caller's tenant has any shared agent that can access this KB (e.g. opened from "Visible via agent" list without agent_id)
 	if h.agentShareService != nil {
 		currentTenantID := tenantID.(uint64)
 		agentID := c.Query("agent_id")
@@ -500,7 +500,7 @@ func (h *KnowledgeBaseHandler) validateAndGetKnowledgeBase(c *gin.Context) (*typ
 				}
 			}
 		} else {
-			// No agent_id in query: allow if caller's tenant has any shared agent that can access this KB (e.g. from space list "通过智能体可见")
+			// No agent_id in query: allow if caller's tenant has any shared agent that can access this KB (e.g. from space list "Visible via agent")
 			can, err := h.agentShareService.TenantCanAccessKBViaSomeSharedAgent(ctx, currentTenantID, callerTenantRole, kb)
 			if err == nil && can {
 				logger.Infof(ctx, "Tenant %d accessing KB %s via some shared agent (no agent_id in query)", currentTenantID, id)
@@ -522,16 +522,16 @@ func (h *KnowledgeBaseHandler) validateAndGetKnowledgeBase(c *gin.Context) (*typ
 }
 
 // GetKnowledgeBase godoc
-// @Summary      获取知识库详情
-// @Description  根据ID获取知识库详情。当使用共享智能体时，可传 agent_id 以校验该智能体是否有权访问该知识库。
-// @Tags         知识库
+// @Summary      Get knowledge base details
+// @Description  Get knowledge base details by ID. When using a shared agent, pass agent_id to verify the agent is allowed to access this KB.
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        id         path      string  true   "知识库ID"
-// @Param        agent_id   query     string  false  "共享智能体 ID（用于校验智能体是否有权访问该知识库）"
-// @Success      200  {object}  map[string]interface{}  "知识库详情"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      404  {object}  errors.AppError         "知识库不存在"
+// @Param        id         path      string  true   "Knowledge Base ID"
+// @Param        agent_id   query     string  false  "Shared agent ID (to verify the agent is allowed to access this KB)"
+// @Success      200  {object}  map[string]interface{}  "Knowledge base details"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404  {object}  errors.AppError         "Knowledge base not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id} [get]
@@ -550,21 +550,21 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBase(c *gin.Context) {
 	storeView := h.resolveKBStoreView(c.Request.Context(), kb, tenantID)
 	var extras map[string]interface{}
 	if kb.TenantID != tenantID && permission != "" {
-		// Include my_permission in data so frontend can show role (e.g. "只读") instead of "--" for agent-visible KBs
+		// Include my_permission in data so frontend can show role (e.g. "Read-only") instead of "--" for agent-visible KBs
 		extras = map[string]interface{}{"my_permission": permission}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": buildKBResponse(kb, storeView, extras)})
 }
 
 // ListKnowledgeBases godoc
-// @Summary      获取知识库列表
-// @Description  获取当前空间的所有知识库；或当传入 agent_id（共享智能体）时，校验权限后返回该智能体配置的知识库范围（用于 @ 提及）
-// @Tags         知识库
+// @Summary      Get knowledge base list
+// @Description  Get all knowledge bases in the current workspace; or with agent_id (shared agent), return the KB scope configured for that agent (for @ mentions)
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        agent_id  query     string  false  "共享智能体 ID（传入时返回该智能体可用的知识库）"
-// @Success      200  {object}  map[string]interface{}  "知识库列表"
-// @Failure      500  {object}  errors.AppError         "服务器错误"
+// @Param        agent_id  query     string  false  "Shared agent ID (returns the KBs available to that agent when provided)"
+// @Success      200  {object}  map[string]interface{}  "Knowledge base list"
+// @Failure      500  {object}  errors.AppError         "Internal server error"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases [get]
@@ -714,9 +714,9 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 		}
 	}
 
-	// 批量回填 creator_name，让前端列表能区分「我创建」与「同空间其他成员创建」。
-	// 仅在 list 接口里回填，详情 / 编辑场景不依赖这个字段；解析失败（用户已删除、
-	// CreatorID 为空的老数据）就让字段为空，前端按 fallback 渲染。
+	// Batch backfill creator_name so the frontend list can distinguish "created by me" from "created by other members of the same space".
+	// Only backfilled in the list endpoint; the detail/edit scenarios don't rely on this field; on parse failure (user deleted,
+	// Old data where CreatorID is empty — leave the field blank; the frontend renders a fallback.
 	enrichKBCreatorNames(ctx, h.userService, kbs)
 
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
@@ -740,9 +740,9 @@ func filterKnowledgeBasesForAPIKeyScope(ctx context.Context, kbs []*types.Knowle
 	return filtered
 }
 
-// enrichKBCreatorNames 把 KB 列表里的 CreatorID 批量解析成展示名（username
-// 优先，退化到 email）。任意一步失败都吞掉错误：creator_name 缺失只会影响
-// 卡片右下角的徽章展示，不该影响列表本身可用。
+// enrichKBCreatorNames batch-resolves CreatorIDs in the KB list into display names (username
+// preferred, falling back to email). Any failure along the way is swallowed: a missing creator_name only affects
+// the badge shown in the bottom-right corner of the card and shouldn't affect the list's usability.
 func enrichKBCreatorNames(ctx context.Context, userSvc interfaces.UserService, kbs []*types.KnowledgeBase) {
 	if userSvc == nil || len(kbs) == 0 {
 		return
@@ -791,14 +791,14 @@ func pickUserDisplayName(u *types.User) string {
 }
 
 // TogglePinKnowledgeBase godoc
-// @Summary      置顶/取消置顶知识库
-// @Description  切换知识库的置顶状态
-// @Tags         知识库
+// @Summary      Pin/unpin knowledge base
+// @Description  Toggle the pinned state of a knowledge base
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        id  path      string  true  "知识库ID"
-// @Success      200  {object}  map[string]interface{}  "更新后的知识库"
-// @Failure      404  {object}  errors.AppError         "知识库不存在"
+// @Param        id  path      string  true  "Knowledge Base ID"
+// @Success      200  {object}  map[string]interface{}  "Updated knowledge base"
+// @Failure      404  {object}  errors.AppError         "Knowledge base not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/pin [put]
@@ -836,15 +836,15 @@ type UpdateKnowledgeBaseRequest struct {
 }
 
 // UpdateKnowledgeBase godoc
-// @Summary      更新知识库
-// @Description  更新知识库的名称、描述和配置
-// @Tags         知识库
+// @Summary      Update knowledge base
+// @Description  Update a knowledge base's name, description and configuration
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                     true  "知识库ID"
-// @Param        request  body      UpdateKnowledgeBaseRequest true  "更新请求"
-// @Success      200      {object}  map[string]interface{}     "更新后的知识库"
-// @Failure      400      {object}  errors.AppError            "请求参数错误"
+// @Param        id       path      string                     true  "Knowledge Base ID"
+// @Param        request  body      UpdateKnowledgeBaseRequest true  "Update request"
+// @Success      200      {object}  map[string]interface{}     "Updated knowledge base"
+// @Failure      400      {object}  errors.AppError            "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id} [put]
@@ -905,14 +905,14 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 }
 
 // DeleteKnowledgeBase godoc
-// @Summary      删除知识库
-// @Description  删除指定的知识库及其所有内容
-// @Tags         知识库
+// @Summary      Delete knowledge base
+// @Description  Delete the given knowledge base and all its content
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "知识库ID"
-// @Success      200  {object}  map[string]interface{}  "删除成功"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
+// @Param        id   path      string  true  "Knowledge Base ID"
+// @Success      200  {object}  map[string]interface{}  "Deleted successfully"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id} [delete]
@@ -974,14 +974,14 @@ type DuplicateKnowledgeBaseResponse struct {
 }
 
 // CopyKnowledgeBase godoc
-// @Summary      复制知识库
-// @Description  将一个知识库的内容复制到另一个知识库（异步任务）
-// @Tags         知识库
+// @Summary      Copy knowledge base
+// @Description  Copy the contents of one knowledge base to another (async task)
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        request  body      CopyKnowledgeBaseRequest   true  "复制请求"
-// @Success      200      {object}  map[string]interface{}     "任务ID"
-// @Failure      400      {object}  errors.AppError            "请求参数错误"
+// @Param        request  body      CopyKnowledgeBaseRequest   true  "Copy request"
+// @Success      200      {object}  map[string]interface{}     "Task ID"
+// @Failure      400      {object}  errors.AppError            "Invalid request parameters"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/copy [post]
@@ -1152,14 +1152,14 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 }
 
 // DuplicateKnowledgeBase godoc
-// @Summary      创建知识库副本
-// @Description  创建一个只包含设置的新知识库副本，不复制知识、FAQ 内容、分块、索引、Wiki 页面、分享或置顶状态
-// @Tags         知识库
+// @Summary      Create knowledge base copy
+// @Description  Create a new KB copy containing only settings; does not copy knowledge, FAQ content, chunks, indexes, wiki pages, shares or pinned state
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        id       path      string                  true  "源知识库 ID"
-// @Success      201      {object}  map[string]interface{}  "创建后的知识库副本"
-// @Failure      400      {object}  errors.AppError                 "请求参数错误"
+// @Param        id       path      string                  true  "Source knowledge base ID"
+// @Success      201      {object}  map[string]interface{}  "Created knowledge base copy"
+// @Failure      400      {object}  errors.AppError                 "Invalid request parameters"
 // @Security     Bearer
 // @Router       /knowledge-bases/{id}/duplicate [post]
 func (h *KnowledgeBaseHandler) DuplicateKnowledgeBase(c *gin.Context) {
@@ -1218,14 +1218,14 @@ func (h *KnowledgeBaseHandler) DuplicateKnowledgeBase(c *gin.Context) {
 }
 
 // GetKBCloneProgress godoc
-// @Summary      获取知识库复制进度
-// @Description  获取知识库复制任务的进度
-// @Tags         知识库
+// @Summary      Get knowledge base copy progress
+// @Description  Get the progress of a knowledge base copy task
+// @Tags         Knowledge Base
 // @Accept       json
 // @Produce      json
-// @Param        task_id  path      string  true  "任务ID"
-// @Success      200      {object}  map[string]interface{}  "进度信息"
-// @Failure      404      {object}  errors.AppError         "任务不存在"
+// @Param        task_id  path      string  true  "Task ID"
+// @Success      200      {object}  map[string]interface{}  "Progress info"
+// @Failure      404      {object}  errors.AppError         "Task does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/copy/progress/{task_id} [get]
@@ -1333,14 +1333,14 @@ func validateKnowledgeBasePromptInstructions(kb *types.KnowledgeBase) error {
 // Filters: same Type, same EmbeddingModelID, different ID, not temporary.
 //
 // ListMoveTargets godoc
-// @Summary      获取可移动目标知识库列表
-// @Description  返回与源知识库 Type 一致、EmbeddingModelID 一致、非临时且不是自身的目标知识库列表
-// @Tags         知识库
+// @Summary      Get movable target KB list
+// @Description  Return target KBs matching the source's Type and EmbeddingModelID, non-temporary and not itself
+// @Tags         Knowledge Base
 // @Produce      json
-// @Param        id   path      string                  true  "源知识库 ID"
-// @Success      200  {object}  map[string]interface{}  "可移动目标列表"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      404  {object}  errors.AppError         "知识库不存在"
+// @Param        id   path      string                  true  "Source knowledge base ID"
+// @Success      200  {object}  map[string]interface{}  "Movable target list"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      404  {object}  errors.AppError         "Knowledge base not found"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/move-targets [get]

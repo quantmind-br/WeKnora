@@ -183,7 +183,7 @@ func (s *agentShareService) ShareAgent(ctx context.Context, agentID string, orgI
 		return nil, ErrOrgRoleCannotShareAgent
 	}
 
-	// 智能体共享仅支持只读
+	// Agent sharing only supports read-only
 	permission = types.OrgRoleViewer
 
 	share := &types.AgentShare{

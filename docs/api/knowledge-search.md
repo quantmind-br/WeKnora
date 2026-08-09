@@ -1,34 +1,34 @@
-# 知识搜索 API
+# Knowledge Search API
 
-[返回目录](./README.md)
+[Back to index](./README.md)
 
-| 方法 | 路径               | 描述     |
-| ---- | ------------------ | -------- |
-| POST | `/knowledge-search` | 知识搜索 |
+| Method | Path                | Description     |
+| ------ | ------------------- | ---------------- |
+| POST   | `/knowledge-search` | Knowledge search |
 
-## POST `/knowledge-search` - 知识搜索
+## POST `/knowledge-search` - Knowledge Search
 
-在知识库中搜索相关内容（不使用 LLM 总结），直接返回检索结果。
+Search for relevant content in the knowledge base (without using an LLM summary), returning retrieval results directly.
 
-**参数说明（请求体）**:
+**Parameters (request body)**:
 
-| 字段                | 类型     | 必填 | 说明                                                       |
-| ------------------- | -------- | ---- | ---------------------------------------------------------- |
-| query               | string   | 是   | 搜索查询文本                                              |
-| knowledge_base_id   | string   | 否   | 单个知识库 ID（向后兼容）；与 `knowledge_base_ids` 互斥    |
-| knowledge_base_ids  | string[] | 否   | 多个知识库 ID 列表，跨知识库搜索                          |
-| knowledge_ids       | string[] | 否   | 进一步限定到指定知识（文件）；不传则在整库范围内搜索       |
+| Field               | Type     | Required | Description                                                       |
+| ------------------- | -------- | -------- | ------------------------------------------------------------------ |
+| query               | string   | Yes      | Search query text                                                  |
+| knowledge_base_id   | string   | No       | Single knowledge base ID (for backward compatibility); mutually exclusive with `knowledge_base_ids` |
+| knowledge_base_ids  | string[] | No       | List of multiple knowledge base IDs, for cross-knowledge-base search |
+| knowledge_ids       | string[] | No       | Further restrict to specific knowledge (files); if omitted, searches across the entire knowledge base |
 
-> 必须指定 `knowledge_base_id` 或 `knowledge_base_ids` 中的至少一个。
+> At least one of `knowledge_base_id` or `knowledge_base_ids` must be specified.
 
-**查询参数**:
+**Query parameters**:
 
-- `resource_urls`: `handle`（默认）或 `public`。`public` 把检索结果 `content` / `image_info` 里的 `resource://` 引用换成可加载的 http(s) 链接，详见[文件与图片引用](./README.md#文件与图片引用resource-与直链)
+- `resource_urls`: `handle` (default) or `public`. `public` replaces the `resource://` references in the retrieval results' `content` / `image_info` with loadable http(s) links. See [Files and Image References](./README.md#文件与图片引用resource-与直链) for details
 
-**请求**:
+**Request**:
 
 ```curl
-# 搜索单个知识库
+# Search a single knowledge base
 curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
@@ -37,7 +37,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
     "knowledge_base_id": "kb-00000001"
 }'
 
-# 搜索多个知识库
+# Search multiple knowledge bases
 curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
@@ -46,7 +46,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
     "knowledge_base_ids": ["kb-00000001", "kb-00000002"]
 }'
 
-# 搜索指定文件
+# Search a specific file
 curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
@@ -56,7 +56,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 }'
 ```
 
-**响应**:
+**Response**:
 
 ```json
 {
@@ -82,20 +82,20 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 }
 ```
 
-**响应字段说明（data[]）**:
+**Response field descriptions (data[])**:
 
-| 字段               | 类型    | 说明                                  |
-| ------------------ | ------- | ------------------------------------- |
-| id                 | string  | 分块 ID                              |
-| content            | string  | 命中的分块文本                       |
-| knowledge_id       | string  | 该分块所属的知识 ID                  |
-| chunk_index        | int     | 分块在知识中的序号                   |
-| knowledge_title    | string  | 来源知识标题                         |
-| start_at / end_at  | int     | 分块在源文档中的字符偏移             |
-| seq                | int     | 命中排序号                           |
-| score              | number  | 相似度（rerank 后归一化后的最终得分） |
-| chunk_type         | string  | 分块类型（`text` / `image` / ...）   |
-| image_info         | string  | 图像分块的额外信息（JSON 字符串）    |
-| metadata           | object  | 自定义元数据                         |
-| knowledge_filename | string  | 来源文件名                           |
-| knowledge_source   | string  | 来源类型（`file` / `url` / `manual`） |
+| Field               | Type    | Description                                    |
+| ------------------- | ------- | ----------------------------------------------- |
+| id                  | string  | Chunk ID                                        |
+| content             | string  | The matched chunk text                          |
+| knowledge_id        | string  | ID of the knowledge item this chunk belongs to  |
+| chunk_index         | int     | The chunk's sequence number within the knowledge item |
+| knowledge_title     | string  | Title of the source knowledge item              |
+| start_at / end_at   | int     | Character offset of the chunk in the source document |
+| seq                 | int     | Match ranking number                            |
+| score               | number  | Similarity (final score after rerank normalization) |
+| chunk_type          | string  | Chunk type (`text` / `image` / ...)             |
+| image_info          | string  | Additional info for image chunks (JSON string)  |
+| metadata            | object  | Custom metadata                                 |
+| knowledge_filename  | string  | Source file name                                |
+| knowledge_source    | string  | Source type (`file` / `url` / `manual`)         |

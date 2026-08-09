@@ -1,80 +1,80 @@
 ---
-name: 文档分析器
-description: 深度分析文档结构和内容。当用户需要分析文档结构、提取关键信息、识别文档类型、进行内容质量评估、或理解文档组织方式时使用此技能。
+name: Document Analyzer
+description: Performs deep analysis of document structure and content. Use this skill when the user needs to analyze document structure, extract key information, identify document types, assess content quality, or understand how a document is organized.
 ---
 
 # Document Analyzer
 
-对知识库中的文档进行深度结构分析和内容理解。
+Performs deep structural analysis and content understanding of documents in the knowledge base.
 
-## 核心能力
+## Core Capabilities
 
-1. **结构分析**: 识别文档的章节层级、组织架构
-2. **关键信息提取**: 提取核心论点、关键数据、重要结论
-3. **文档类型识别**: 判断文档类型（报告、手册、论文、合同等）
-4. **内容质量评估**: 评估文档的完整性、一致性、可读性
+1. **Structure analysis**: identify the document's heading hierarchy and organization
+2. **Key information extraction**: extract core arguments, key data, and important conclusions
+3. **Document type identification**: determine the document type (report, manual, paper, contract, etc.)
+4. **Content quality assessment**: evaluate the document's completeness, consistency, and readability
 
-## 分析流程
+## Analysis Process
 
-### 1. 文档概览
+### 1. Document Overview
 
-首先获取文档的整体信息：
-- 文档名称和类型
-- 总页数/分块数
-- 创建/更新时间
-- 主要章节/标题
+Start by gathering the document's overall information:
+- Document name and type
+- Total pages / chunks
+- Creation / update time
+- Main sections / headings
 
-### 2. 结构分析
+### 2. Structure Analysis
 
-识别并描述：
-- 标题层级结构
-- 章节组织方式
-- 逻辑流程（时间顺序、因果关系、并列结构）
+Identify and describe:
+- Heading hierarchy
+- Section organization
+- Logical flow (chronological, causal, parallel structures)
 
-### 3. 内容提取
+### 3. Content Extraction
 
-重点关注：
-- **核心主题**: 文档的中心议题
-- **关键论点**: 主要观点和论述
-- **支撑数据**: 重要的数据、统计、事实
-- **结论建议**: 文档的结论或建议
+Focus on:
+- **Core topic**: the document's central subject
+- **Key arguments**: the main points and reasoning
+- **Supporting data**: important data, statistics, and facts
+- **Conclusions & recommendations**: the document's conclusions or suggestions
 
-### 4. 质量评估
+### 4. Quality Assessment
 
-评估维度：
-- 完整性：是否涵盖必要内容
-- 一致性：前后是否逻辑一致
-- 清晰度：表达是否清晰易懂
+Evaluation dimensions:
+- Completeness: whether all necessary content is covered
+- Consistency: whether the content is logically consistent
+- Clarity: whether the expression is clear and easy to understand
 
-## 输出格式
+## Output Format
 
 ```markdown
-## 文档分析报告
+## Document Analysis Report
 
-### 基本信息
-- 文档名称：XXX
-- 文档类型：XXX
-- 结构层级：X级
+### Basic Info
+- Document name: XXX
+- Document type: XXX
+- Structure depth: X levels
 
-### 文档结构
-1. 第一章：XXX
+### Document Structure
+1. Chapter 1: XXX
    1.1 ...
    1.2 ...
-2. 第二章：XXX
+2. Chapter 2: XXX
 
-### 核心内容
-- 主题：XXX
-- 关键论点：
+### Core Content
+- Topic: XXX
+- Key arguments:
   1. ...
   2. ...
-- 重要数据：XXX
+- Important data: XXX
 
-### 分析结论
+### Analysis Conclusions
 XXX
 ```
 
-## 注意事项
+## Notes
 
-- 保持客观中立，忠于原文
-- 区分事实陈述和观点表达
-- 标注信息来源位置
+- Stay objective and neutral, faithful to the original text
+- Distinguish factual statements from opinions
+- Mark the source location of the information

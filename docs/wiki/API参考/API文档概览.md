@@ -1,91 +1,91 @@
 ---
-title: API文档概览
-tags: [API参考, REST, 认证, 接口]
-aliases: [API概览, API文档, API参考]
+title: API Documentation Overview
+tags: [API Reference, REST, Authentication, Endpoints]
+aliases: [API Overview, API Documentation, API Reference]
 source: api/README.md
 ---
 
-# API 文档概览
+# API Documentation Overview
 
-WeKnora 提供了一系列 RESTful API，用于创建和管理知识库、检索知识，以及进行基于知识的问答。
+WeKnora provides a set of RESTful APIs for creating and managing knowledge bases, retrieving knowledge, and performing knowledge-based question answering.
 
-## 基础信息
+## Basic Information
 
-- **基础 URL**: `/api/v1`
-- **响应格式**: JSON
-- **认证方式**: API Key
+- **Base URL**: `/api/v1`
+- **Response Format**: JSON
+- **Authentication Method**: API Key
 
-> API 认证使用 WeKnora 本地 JWT，OIDC 认证流程参见 [OIDC认证调用流程](../安全认证/OIDC认证调用流程.md)
+> API authentication uses WeKnora's local JWT; for the OIDC authentication flow, see [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md)
 
-## 认证机制
+## Authentication Mechanism
 
-所有 API 请求需要在 HTTP 请求头中包含 `X-API-Key`：
+All API requests must include `X-API-Key` in the HTTP request header:
 
 ```
 X-API-Key: your_api_key
-X-Request-ID: unique_request_id  # 建议，便于追踪
+X-Request-ID: unique_request_id  # Recommended, for tracing purposes
 ```
 
-API Key 在 Web 页面完成账户注册后，前往账户信息页面获取。
+The API Key can be obtained from the account information page after completing account registration on the web page.
 
-## 错误处理
+## Error Handling
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "错误代码",
-    "message": "错误信息",
-    "details": "错误详情"
+    "code": "error code",
+    "message": "error message",
+    "details": "error details"
   }
 }
 ```
 
-## API 分类
+## API Categories
 
-| 分类 | 描述 | 详细文档 |
+| Category | Description | Detailed Documentation |
 |------|------|----------|
-| 认证管理 | 用户注册、登录、令牌管理；OIDC 流程 | [auth.md](../../api/auth.md) · [OIDC认证调用流程.md](../安全认证/OIDC认证调用流程.md) |
-| 空间管理 | 创建和管理空间账户 | [tenant.md](../../api/tenant.md) |
-| 知识库管理 | 创建、查询和管理知识库 | [knowledge-base.md](../../api/knowledge-base.md) |
-| 知识管理 | 上传、检索和管理知识内容 | [knowledge.md](../../api/knowledge.md) |
-| 模型管理 | 配置和管理各种AI模型 | [model.md](../../api/model.md) |
-| 分块管理 | 管理知识的分块内容 | [chunk.md](../../api/chunk.md) |
-| 标签管理 | 管理知识库的标签分类 | [tag.md](../../api/tag.md) |
-| FAQ管理 | 管理FAQ问答对 | [faq.md](../../api/faq.md) |
-| 智能体管理 | 创建和管理自定义智能体 | [agent.md](../../api/agent.md) |
-| 会话管理 | 创建和管理对话会话 | [session.md](../../api/session.md) |
-| 知识搜索 | 在知识库中搜索内容 | [knowledge-search.md](../../api/knowledge-search.md) |
-| 聊天功能 | 基于知识库和 Agent 进行问答 | [chat.md](../../api/chat.md) |
-| 消息管理 | 获取和管理对话消息 | [message.md](../../api/message.md) |
-| 评估功能 | 评估模型性能 | [evaluation.md](../../api/evaluation.md) |
-| 初始化管理 | 知识库模型配置与 Ollama 管理 | [initialization.md](../../api/initialization.md) |
-| 系统管理 | 系统信息、解析引擎、存储引擎 | [system.md](../../api/system.md) |
-| MCP 服务 | MCP 工具服务管理 | [mcp-service.md](../../api/mcp-service.md) |
-| 组织管理 | 组织、成员、知识库/智能体共享 | [organization.md](../../api/organization.md) |
-| Skills | 预装智能体技能 | [skill.md](../../api/skill.md) |
-| 网络搜索 | 网络搜索服务商 | [web-search.md](../../api/web-search.md) |
-| 向量存储 | 向量数据库连接管理 | [vector-store.md](../../api/vector-store.md) |
+| Authentication Management | User registration, login, token management; OIDC flow | [auth.md](../../api/auth.md) · [OIDC认证调用流程.md](../安全认证/OIDC认证调用流程.md) |
+| Space Management | Create and manage space accounts | [tenant.md](../../api/tenant.md) |
+| Knowledge Base Management | Create, query, and manage knowledge bases | [knowledge-base.md](../../api/knowledge-base.md) |
+| Knowledge Management | Upload, retrieve, and manage knowledge content | [knowledge.md](../../api/knowledge.md) |
+| Model Management | Configure and manage various AI models | [model.md](../../api/model.md) |
+| Chunk Management | Manage chunked content of knowledge | [chunk.md](../../api/chunk.md) |
+| Tag Management | Manage knowledge base tag categories | [tag.md](../../api/tag.md) |
+| FAQ Management | Manage FAQ question-answer pairs | [faq.md](../../api/faq.md) |
+| Agent Management | Create and manage custom agents | [agent.md](../../api/agent.md) |
+| Session Management | Create and manage conversation sessions | [session.md](../../api/session.md) |
+| Knowledge Search | Search content within knowledge bases | [knowledge-search.md](../../api/knowledge-search.md) |
+| Chat Feature | Question answering based on knowledge bases and Agents | [chat.md](../../api/chat.md) |
+| Message Management | Retrieve and manage conversation messages | [message.md](../../api/message.md) |
+| Evaluation Feature | Evaluate model performance | [evaluation.md](../../api/evaluation.md) |
+| Initialization Management | Knowledge base model configuration and Ollama management | [initialization.md](../../api/initialization.md) |
+| System Management | System information, parsing engine, storage engine | [system.md](../../api/system.md) |
+| MCP Service | MCP tool service management | [mcp-service.md](../../api/mcp-service.md) |
+| Organization Management | Organization, members, knowledge base/agent sharing | [organization.md](../../api/organization.md) |
+| Skills | Pre-installed agent skills | [skill.md](../../api/skill.md) |
+| Web Search | Web search providers | [web-search.md](../../api/web-search.md) |
+| Vector Store | Vector database connection management | [vector-store.md](../../api/vector-store.md) |
 
-> 各 API 的详细说明参见 `docs/api/` 目录下的对应文档
+> For detailed information on each API, see the corresponding documents in the `docs/api/` directory
 
-## 相关主题
+## Related Topics
 
-- [OIDC认证调用流程](../安全认证/OIDC认证调用流程.md) — API 认证的 OIDC 流程
-- [内置模型管理](../核心功能/内置模型管理.md) — 模型管理 API 的配置参考
-- [MCP功能使用说明](../核心功能/MCP功能使用说明.md) — MCP 服务管理 API 的使用
-- [共享空间说明](../安全认证/共享空间说明.md) — 组织管理 API 的业务逻辑
-- [IM集成开发](../集成扩展/IM集成开发.md) — IM 渠道管理 API
-- [数据源导入开发](../集成扩展/数据源导入开发.md) — 数据源管理 API
+- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — The OIDC flow for API authentication
+- [Built-in Model Management](../核心功能/内置模型管理.md) — Configuration reference for the model management API
+- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — Usage of the MCP service management API
+- [Shared Space Guide](../安全认证/共享空间说明.md) — Business logic of the organization management API
+- [IM Integration Development](../集成扩展/IM集成开发.md) — IM channel management API
+- [Data Source Import Development](../集成扩展/数据源导入开发.md) — Data source management API
 
 ---
 
-## 反向链接
+## Backlinks
 
-- [Home](../Home.md) — Wiki 首页导航
-- [OIDC认证调用流程](../安全认证/OIDC认证调用流程.md) — API 认证机制与 OIDC 相关
-- [内置模型管理](../核心功能/内置模型管理.md) — 模型管理 API 的底层配置
-- [MCP功能使用说明](../核心功能/MCP功能使用说明.md) — MCP 服务 API 的使用场景
-- [共享空间说明](../安全认证/共享空间说明.md) — 组织管理 API 的业务逻辑
-- [IM集成开发](../集成扩展/IM集成开发.md) — IM 渠道 API 的使用场景
-- [数据源导入开发](../集成扩展/数据源导入开发.md) — 数据源 API 的使用场景
+- [Home](../Home.md) — Wiki homepage navigation
+- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — API authentication mechanism and OIDC-related
+- [Built-in Model Management](../核心功能/内置模型管理.md) — Underlying configuration for the model management API
+- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — Usage scenarios for the MCP service API
+- [Shared Space Guide](../安全认证/共享空间说明.md) — Business logic of the organization management API
+- [IM Integration Development](../集成扩展/IM集成开发.md) — Usage scenarios for the IM channel API
+- [Data Source Import Development](../集成扩展/数据源导入开发.md) — Usage scenarios for the data source API
