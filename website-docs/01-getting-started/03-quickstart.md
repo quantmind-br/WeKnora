@@ -112,7 +112,7 @@ AUTH="Authorization: Bearer $TOKEN"
 
 # 3) Create a knowledge base
 KB_ID=$(curl -s -X POST $BASE/knowledge-bases -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"name":"我的知识库","description":"demo","type":"document"}' | jq -r '.data.id')
+  -d '{"name":"My knowledge base","description":"demo","type":"document"}' | jq -r '.data.id')
 
 # 4) Initialize the knowledge base (using local Ollama as an example; change source/baseUrl/apiKey for a remote model)
 curl -s -X POST $BASE/initialization/initialize/$KB_ID -H "$AUTH" -H "Content-Type: application/json" -d '{
@@ -131,19 +131,19 @@ curl -s -X POST $BASE/knowledge-bases/$KB_ID/knowledge/file -H "$AUTH" \
 
 # 6) Create a session
 SESSION_ID=$(curl -s -X POST $BASE/sessions -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"title":"第一次对话"}' | jq -r '.data.id')
+  -d '{"title":"First conversation"}' | jq -r '.data.id')
 
 # 7) Knowledge Q&A (SSE streaming output)
 curl -N -X POST $BASE/knowledge-chat/$SESSION_ID -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"query":"这份文档讲了什么？","knowledge_base_ids":["'$KB_ID'"]}'
+  -d '{"query":"What does this document cover?","knowledge_base_ids":["'$KB_ID'"]}'
 
 # 7b) Agent chat (also SSE; agent_id can be the built-in builtin-smart-reasoning)
 curl -N -X POST $BASE/agent-chat/$SESSION_ID -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"query":"总结文档要点并列出依据","agent_enabled":true,"agent_id":"builtin-smart-reasoning","knowledge_base_ids":["'$KB_ID'"]}'
+  -d '{"query":"Summarize the document's key points and list the evidence","agent_enabled":true,"agent_id":"builtin-smart-reasoning","knowledge_base_ids":["'$KB_ID'"]}'
 
 # 8) Retrieval only, no generation (structured JSON result)
 curl -s -X POST $BASE/knowledge-search -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"query":"关键字","knowledge_base_ids":["'$KB_ID'"]}'
+  -d '{"query":"keyword","knowledge_base_ids":["'$KB_ID'"]}'
 ```
 
 The chat request body also supports fields like `knowledge_ids` (restrict to a single document), `web_search_enabled`, `summary_model_id`, `mcp_service_ids`, `skill_names`, and `images` / `attachment_uploads` (multimodal attachments) — see [API Reference: Sessions & Chat](../04-api/02-api-chat.md) for the full details.

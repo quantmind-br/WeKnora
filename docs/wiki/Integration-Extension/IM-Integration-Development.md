@@ -49,7 +49,7 @@ Lark is the international version of Feishu. The IM interfaces are identical and
 - Lark: <https://open.larksuite.com/>
 
 > **The permission manifest cannot be reused from Feishu**: the Feishu manifest mixes in permissions used by the data source connector (Wiki sync), some of which don't exist on Lark, causing the entire import to fail. Lark only needs the 6 IM-related permissions; see
-> [IM Integration Development Documentation — Lark Permission Configuration](../../IM-Integration-Development.md#lark-权限配置).
+> [IM Integration Development Documentation — Lark Permission Configuration](../../IM-Integration-Development.md#lark-integration).
 
 > Apps on the two clouds are not interchangeable — credentials are only valid on the cloud where they were created.
 

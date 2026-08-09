@@ -59,12 +59,12 @@ curl --location 'http://localhost:8080/api/v1/agents' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "我的智能体",
-    "description": "自定义智能体描述",
+    "name": "My Agent",
+    "description": "Custom agent description",
     "avatar": "🤖",
     "config": {
         "agent_mode": "smart-reasoning",
-        "system_prompt": "你是一个专业的助手...",
+        "system_prompt": "You are a professional assistant...",
         "temperature": 0.7,
         "max_iterations": 10,
         "kb_selection_mode": "all",
@@ -82,15 +82,15 @@ curl --location 'http://localhost:8080/api/v1/agents' \
     "success": true,
     "data": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
-        "name": "我的智能体",
-        "description": "自定义智能体描述",
+        "name": "My Agent",
+        "description": "Custom agent description",
         "avatar": "🤖",
         "is_builtin": false,
         "tenant_id": 1,
         "created_by": "user-123",
         "config": {
             "agent_mode": "smart-reasoning",
-            "system_prompt": "你是一个专业的助手...",
+            "system_prompt": "You are a professional assistant...",
             "temperature": 0.7,
             "max_iterations": 10
         },
@@ -128,8 +128,8 @@ curl --location 'http://localhost:8080/api/v1/agents' \
     "data": [
         {
             "id": "builtin-quick-answer",
-            "name": "快速问答",
-            "description": "基于知识库的 RAG 问答，快速准确地回答问题",
+            "name": "Quick Answer",
+            "description": "Knowledge-base RAG Q&A for fast, accurate answers",
             "avatar": "💬",
             "is_builtin": true,
             "tenant_id": 10000,
@@ -149,7 +149,7 @@ curl --location 'http://localhost:8080/api/v1/agents' \
         },
         {
             "id": "550e8400-e29b-41d4-a716-446655440000",
-            "name": "我的智能体",
+            "name": "My Agent",
             "is_builtin": false,
             "config": {
                 "agent_mode": "smart-reasoning"
@@ -193,14 +193,14 @@ curl --location 'http://localhost:8080/api/v1/agents/builtin-quick-answer' \
     "success": true,
     "data": {
         "id": "builtin-quick-answer",
-        "name": "快速问答",
-        "description": "基于知识库的 RAG 问答，快速准确地回答问题",
+        "name": "Quick Answer",
+        "description": "Knowledge-base RAG Q&A for fast, accurate answers",
         "is_builtin": true,
         "tenant_id": 1,
         "config": {
             "agent_mode": "quick-answer",
             "system_prompt": "",
-            "context_template": "请根据以下参考资料回答用户问题...",
+            "context_template": "Answer the user's question based on the following reference material...",
             "temperature": 0.7,
             "max_completion_tokens": 2048,
             "kb_selection_mode": "all",
@@ -250,8 +250,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/agents/550e8400-e29b
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "更新后的智能体",
-    "description": "更新后的描述",
+    "name": "Updated Agent",
+    "description": "Updated description",
     "config": {
         "agent_mode": "smart-reasoning",
         "temperature": 0.8,
@@ -267,8 +267,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/agents/550e8400-e29b
     "success": true,
     "data": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
-        "name": "更新后的智能体",
-        "description": "更新后的描述",
+        "name": "Updated Agent",
+        "description": "Updated description",
         "config": {
             "agent_mode": "smart-reasoning",
             "temperature": 0.8,
@@ -351,8 +351,8 @@ curl --location --request POST 'http://localhost:8080/api/v1/agents/builtin-smar
     "success": true,
     "data": {
         "id": "660e8400-e29b-41d4-a716-446655440001",
-        "name": "智能推理 (副本)",
-        "description": "ReAct 推理框架，支持多步思考和工具调用",
+        "name": "Smart Reasoning (copy)",
+        "description": "ReAct reasoning framework supporting multi-step thinking and tool calls",
         "is_builtin": false,
         "config": {
             "agent_mode": "smart-reasoning",
@@ -540,7 +540,7 @@ curl --location 'http://localhost:8080/api/v1/agent-chat/session-123' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "帮我分析一下这份数据",
+    "query": "Help me analyze this data",
     "agent_enabled": true,
     "agent_id": "builtin-data-analyst"
 }'

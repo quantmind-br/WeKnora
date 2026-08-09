@@ -30,7 +30,7 @@ Response: 201 `{"success":true,"data":{KnowledgeBase}}`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"产品文档","type":"document"}'
+  -H 'Content-Type: application/json' -d '{"name":"Product documentation","type":"document"}'
 ```
 
 ### GET /api/v1/knowledge-bases
@@ -73,7 +73,7 @@ Response: 200 `{"success":true,"data":{KnowledgeBase}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledge-bases/kb-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"产品文档 v2"}'
+  -H 'Content-Type: application/json' -d '{"name":"Product documentation v2"}'
 ```
 
 ### DELETE /api/v1/knowledge-bases/:id
@@ -118,7 +118,7 @@ Response: 200 `{"success":true,"data":[SearchResult]}`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/hybrid-search -H "X-API-Key: $API_KEY" \
-  -H 'Content-Type: application/json' -d '{"query_text":"退款流程","match_count":5}'
+  -H 'Content-Type: application/json' -d '{"query_text":"refund process","match_count":5}'
 ```
 
 ### POST /api/v1/knowledge-bases/copy
@@ -245,7 +245,7 @@ Response: 200 `{"success":true,"data":{Knowledge}}`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/knowledge/manual -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"title":"FAQ 汇总","content":"# 内容","status":"publish"}'
+  -H 'Content-Type: application/json' -d '{"title":"FAQ Summary","content":"# Content","status":"publish"}'
 ```
 
 ### GET /api/v1/knowledge-bases/:id/knowledge
@@ -291,7 +291,7 @@ Response: 200 `{"success":true}`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/knowledge/folders -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"from":"设计文档/旧版","to":"归档/设计文档"}'
+  -H 'Content-Type: application/json' -d '{"from":"Design Documents/legacy","to":"Archive/Design Documents"}'
 ```
 
 ### DELETE /api/v1/knowledge-bases/:id/knowledge
@@ -371,7 +371,7 @@ Response: 200 `{"success":true,"message":"Knowledge updated successfully","data"
 ```bash
 curl -X PUT $BASE/api/v1/knowledge/k-1 -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"title":"新标题","custom_metadata":{"部门":"研发中心","密级":"内部","版本":3}}'
+  -d '{"title":"New title","custom_metadata":{"department":"R&D Center","classification":"Internal","version":3}}'
 ```
 
 ### POST /api/v1/knowledge/:id/regenerate-summary
@@ -394,7 +394,7 @@ Response: 200 `{"success":true,"data":{Knowledge}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledge/manual/k-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"content":"# 更新内容","status":"publish"}'
+  -H 'Content-Type: application/json' -d '{"content":"# Updated content","status":"publish"}'
 ```
 
 ### POST /api/v1/knowledge/:id/reparse
@@ -445,7 +445,7 @@ Response: 200 `{"success":true,...}`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledge/image/k-1/c-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"caption":"架构图"}'
+  -H 'Content-Type: application/json' -d '{"caption":"Architecture diagram"}'
 ```
 
 ### GET /api/v1/knowledge/search
@@ -464,7 +464,7 @@ Purpose: cross-KB file search (used by the conversation @file picker). Permissio
 Response: 200 `{"success":true,"data":[Knowledge]}`
 
 ```bash
-curl "$BASE/api/v1/knowledge/search?q=报告&recent=false" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledge/search?q=report&recent=false" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### GET /api/v1/knowledge/move/progress/:task_id
@@ -541,7 +541,7 @@ Response: 200 `{"success":true}`
 ```bash
 curl -X POST $BASE/api/v1/knowledge/folder -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"kb_id":"kb-1","knowledge_ids":["k-1","k-2"],"folder_path":"设计文档"}'
+  -d '{"kb_id":"kb-1","knowledge_ids":["k-1","k-2"],"folder_path":"Design Documents"}'
 ```
 
 ### POST /api/v1/knowledge/move

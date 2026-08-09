@@ -43,7 +43,7 @@ The parsing path for Feishu's new-generation cloud documents (docx) is controlle
 - **export**: Exports .docx for docreader to parse, with images inlined into the parent document (consistent with a regular docx upload), establishing a parent-child association within the same knowledge entry via `parent_chunk_id`, so image content can be associated in all three scenarios; the trade-off is slower sync (async export + docx parsing), loss of attachments within the docx, and image OCR/captioning depends on multimodal configuration.
 - **blocks**: Image blocks render as empty `![Image]()` placeholders, with images downloaded separately as standalone knowledge entries — retrieval / Wiki / agents cannot associate the image content back to the document; however, sync is fast and file block attachments within the docx are preserved.
 
-Configuration: export is the default, so no setting is needed; to use blocks mode, set `FEISHU_DOCX_PARSE_MODE=blocks` in the app service environment variables in `.env` or `docker-compose.yml`, then restart the app service for it to take effect. See [Feishu Drive Data Source Integration Guide](Feishu-Drive-DataSource-Integration.md#6-docx-解析模式与环境变量) for details.
+Configuration: export is the default, so no setting is needed; to use blocks mode, set `FEISHU_DOCX_PARSE_MODE=blocks` in the app service environment variables in `.env` or `docker-compose.yml`, then restart the app service for it to take effect. See [Feishu Drive Data Source Integration Guide](Feishu-Drive-DataSource-Integration.md#6-docx-parsing-modes-and-environment-variables) for details.
 
 ## Architecture Design
 

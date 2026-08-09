@@ -25,7 +25,7 @@ Response: 201 `{"success":true,"data":{OrganizationResponse}}`
 
 ```bash
 curl -X POST $BASE/api/v1/organizations -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"研发组织"}'
+  -H 'Content-Type: application/json' -d '{"name":"R&D Organization"}'
 ```
 
 ### GET /api/v1/organizations
@@ -73,7 +73,7 @@ Response: 200 `{"success":true,"data":{JoinRequest}}`
 
 ```bash
 curl -X POST $BASE/api/v1/organizations/join-request -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"invite_code":"ABC123","message":"申请加入"}'
+  -H 'Content-Type: application/json' -d '{"invite_code":"ABC123","message":"Request to join"}'
 ```
 
 ### GET /api/v1/organizations/search
@@ -88,7 +88,7 @@ Purpose: Search for discoverable (searchable) organizations. Permission: Viewer+
 Response: 200 `{"success":true,"data":[SearchableOrganization],"total":N}`
 
 ```bash
-curl "$BASE/api/v1/organizations/search?q=研发" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/organizations/search?q=R&D" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### POST /api/v1/organizations/join-by-id
@@ -126,7 +126,7 @@ Response: 200 `{"success":true,"data":{OrganizationResponse}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/organizations/org-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"description":"更新描述"}'
+  -H 'Content-Type: application/json' -d '{"description":"Updated description"}'
 ```
 
 ### DELETE /api/v1/organizations/:id

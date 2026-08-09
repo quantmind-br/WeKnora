@@ -37,7 +37,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags?p
                 "id": "tag-00000001",
                 "tenant_id": 1,
                 "knowledge_base_id": "kb-00000001",
-                "name": "技术文档",
+                "name": "Technical documentation",
                 "color": "#1890ff",
                 "sort_order": 1,
                 "created_at": "2025-08-12T10:00:00+08:00",
@@ -49,7 +49,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags?p
                 "id": "tag-00000002",
                 "tenant_id": 1,
                 "knowledge_base_id": "kb-00000001",
-                "name": "常见问题",
+                "name": "FAQ",
                 "color": "#52c41a",
                 "sort_order": 2,
                 "created_at": "2025-08-12T10:00:00+08:00",
@@ -86,7 +86,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags' 
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "产品手册",
+    "name": "Product manual",
     "color": "#faad14",
     "sort_order": 3
 }'
@@ -100,7 +100,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/tags' 
         "id": "tag-00000003",
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
-        "name": "产品手册",
+        "name": "Product manual",
         "color": "#faad14",
         "sort_order": 3,
         "created_at": "2025-08-12T11:00:00+08:00",
@@ -128,7 +128,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "产品手册更新",
+    "name": "Product manual update",
     "color": "#ff4d4f"
 }'
 ```
@@ -141,7 +141,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
         "id": "tag-00000003",
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
-        "name": "产品手册更新",
+        "name": "Product manual update",
         "color": "#ff4d4f",
         "sort_order": 3,
         "created_at": "2025-08-12T11:00:00+08:00",

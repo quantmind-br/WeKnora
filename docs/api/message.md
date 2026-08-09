@@ -28,7 +28,7 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "彗尾的形状"
+    "query": "Shape of a comet tail"
 }'
 ```
 
@@ -41,15 +41,15 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
             "id": "b8b90eeb-7dd5-4cf9-81c6-5ebcbd759451",
             "session_id": "ceb9babb-1e30-41d7-817d-fd584954304b",
             "request_id": "hCA8SDjxcAvv",
-            "content": "<think>\n好的",
+            "content": "<think>\nOK",
             "role": "assistant",
             "knowledge_references": [
                 {
                     "id": "c8347bef-127f-4a22-b962-edf5a75386ec",
-                    "content": "彗星xxx",
+                    "content": "Comet xxx",
                     "knowledge_id": "a6790b93-4700-4676-bd48-0d4804e1456b",
                     "chunk_index": 0,
-                    "knowledge_title": "彗星.txt",
+                    "knowledge_title": "Comet.txt",
                     "start_at": 0,
                     "end_at": 2760,
                     "seq": 0,
@@ -64,15 +64,15 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
                     "chunk_type": "text",
                     "parent_chunk_id": "",
                     "image_info": "",
-                    "knowledge_filename": "彗星.txt",
+                    "knowledge_filename": "Comet.txt",
                     "knowledge_source": ""
                 },
                 {
                     "id": "fa3aadee-cadb-4a84-9941-c839edc3e626",
-                    "content": "# 文档名称\n彗星.txt\n\n# 摘要\n彗星是由冰和尘埃构成的太阳系小天体，接近太阳时会释放气体形成彗发和彗尾。其轨道周期差异大，来源包括柯伊伯带和奥尔特云。彗星与小行星的区别逐渐模糊，部分彗星已失去挥发物质，类似小行星。目前已知彗星数量众多，且存在系外彗星。彗星在古代被视为凶兆，现代研究揭示其复杂结构与起源。",
+                    "content": "# Document Name\nComet.txt\n\n# Summary\nA comet is a small solar-system body made of ice and dust that releases gas to form a coma and tail as it approaches the Sun. Its orbital periods vary widely, with sources including the Kuiper Belt and the Oort Cloud. The distinction between comets and asteroids is blurring, as some comets have lost their volatiles and resemble asteroids. Many comets are known, and extrasolar comets also exist. Comets were once seen as omens; modern research reveals their complex structure and origin.",
                     "knowledge_id": "a6790b93-4700-4676-bd48-0d4804e1456b",
                     "chunk_index": 6,
-                    "knowledge_title": "彗星.txt",
+                    "knowledge_title": "Comet.txt",
                     "start_at": 0,
                     "end_at": 0,
                     "seq": 6,
@@ -83,7 +83,7 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
                     "chunk_type": "summary",
                     "parent_chunk_id": "c8347bef-127f-4a22-b962-edf5a75386ec",
                     "image_info": "",
-                    "knowledge_filename": "彗星.txt",
+                    "knowledge_filename": "Comet.txt",
                     "knowledge_source": ""
                 }
             ],
@@ -100,7 +100,7 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
             "id": "7fa136ae-a045-424e-baac-52113d92ae94",
             "session_id": "ceb9babb-1e30-41d7-817d-fd584954304b",
             "request_id": "3475c004-0ada-4306-9d30-d7f5efce50d2",
-            "content": "彗尾的形状",
+            "content": "Shape of a comet tail",
             "role": "user",
             "knowledge_references": [],
             "agent_steps": [],
@@ -116,15 +116,15 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
             "id": "9bcafbcf-a758-40af-a9a3-c4d8e0f49439",
             "session_id": "ceb9babb-1e30-41d7-817d-fd584954304b",
             "request_id": "3475c004-0ada-4306-9d30-d7f5efce50d2",
-            "content": "<think>\n好的",
+            "content": "<think>\nOK",
             "role": "assistant",
             "knowledge_references": [
                 {
                     "id": "c8347bef-127f-4a22-b962-edf5a75386ec",
-                    "content": "彗星xxx",
+                    "content": "Comet xxx",
                     "knowledge_id": "a6790b93-4700-4676-bd48-0d4804e1456b",
                     "chunk_index": 0,
-                    "knowledge_title": "彗星.txt",
+                    "knowledge_title": "Comet.txt",
                     "start_at": 0,
                     "end_at": 2760,
                     "seq": 0,
@@ -139,15 +139,15 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
                     "chunk_type": "text",
                     "parent_chunk_id": "",
                     "image_info": "",
-                    "knowledge_filename": "彗星.txt",
+                    "knowledge_filename": "Comet.txt",
                     "knowledge_source": ""
                 },
                 {
                     "id": "fa3aadee-cadb-4a84-9941-c839edc3e626",
-                    "content": "# 文档名称\n彗星.txt\n\n# 摘要\n彗星是由冰和尘埃构成的太阳系小天体，接近太阳时会释放气体形成彗发和彗尾。其轨道周期差异大，来源包括柯伊伯带和奥尔特云。彗星与小行星的区别逐渐模糊，部分彗星已失去挥发物质，类似小行星。目前已知彗星数量众多，且存在系外彗星。彗星在古代被视为凶兆，现代研究揭示其复杂结构与起源。",
+                    "content": "# Document Name\nComet.txt\n\n# Summary\nA comet is a small solar-system body made of ice and dust that releases gas to form a coma and tail as it approaches the Sun. Its orbital periods vary widely, with sources including the Kuiper Belt and the Oort Cloud. The distinction between comets and asteroids is blurring, as some comets have lost their volatiles and resemble asteroids. Many comets are known, and extrasolar comets also exist. Comets were once seen as omens; modern research reveals their complex structure and origin.",
                     "knowledge_id": "a6790b93-4700-4676-bd48-0d4804e1456b",
                     "chunk_index": 6,
-                    "knowledge_title": "彗星.txt",
+                    "knowledge_title": "Comet.txt",
                     "start_at": 0,
                     "end_at": 0,
                     "seq": 6,
@@ -158,7 +158,7 @@ curl --location --request GET 'http://localhost:8080/api/v1/messages/ceb9babb-1e
                     "chunk_type": "summary",
                     "parent_chunk_id": "c8347bef-127f-4a22-b962-edf5a75386ec",
                     "image_info": "",
-                    "knowledge_filename": "彗星.txt",
+                    "knowledge_filename": "Comet.txt",
                     "knowledge_source": ""
                 }
             ],
@@ -212,7 +212,7 @@ curl --location 'http://localhost:8080/api/v1/messages/search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "彗星的结构",
+    "query": "Structure of a comet",
     "mode": "hybrid",
     "limit": 20,
     "session_ids": []
@@ -228,9 +228,9 @@ curl --location 'http://localhost:8080/api/v1/messages/search' \
             {
                 "request_id": "3475c004-0ada-4306-9d30-d7f5efce50d2",
                 "session_id": "ceb9babb-1e30-41d7-817d-fd584954304b",
-                "session_title": "彗星知识问答",
-                "query_content": "彗尾的形状",
-                "answer_content": "彗尾的形状主要取决于...",
+                "session_title": "Comet Q&A",
+                "query_content": "Shape of a comet tail",
+                "answer_content": "The shape of a comet tail mainly depends on...",
                 "score": 0.85,
                 "match_type": "hybrid",
                 "created_at": "2025-08-12T14:30:39.732246+08:00"
@@ -262,7 +262,7 @@ curl --location 'http://localhost:8080/api/v1/messages/chat-history-stats' \
         "enabled": true,
         "embedding_model_id": "dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3",
         "knowledge_base_id": "kb-chat-00000001",
-        "knowledge_base_name": "聊天历史知识库",
+        "knowledge_base_name": "Chat History Knowledge Base",
         "indexed_message_count": 1024,
         "has_indexed_messages": true
     },

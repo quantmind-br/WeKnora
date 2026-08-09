@@ -69,29 +69,29 @@ The concepts below make up WeKnora's data model — understanding them will make
 
 ```mermaid
 flowchart TB
-    subgraph identity["身份与租户"]
-        U["User (用户)"]
-        T["Tenant (租户 / 工作空间)"]
-        TM["TenantMember (角色: owner/admin/contributor/viewer)"]
+    subgraph identity["Identity & Tenancy"]
+        U["User"]
+        T["Tenant (workspace)"]
+        TM["TenantMember (roles: owner/admin/contributor/viewer)"]
         AK["TenantAPIKey (X-API-Key)"]
-        ORG["Organization (跨租户组织)"]
+        ORG["Organization (cross-tenant)"]
     end
-    subgraph knowledge["知识域"]
+    subgraph knowledge["Knowledge Domain"]
         KB["KnowledgeBase (document/faq/wiki)"]
-        K["Knowledge (文档/网页/手写条目)"]
+        K["Knowledge (docs/web/manual entries)"]
         C["Chunk (text/faq/image/table/entity...)"]
         W["WikiPage"]
-        G["Entity / Relationship (知识图谱)"]
-        DS["DataSource (飞书/Notion/RSS...)"]
+        G["Entity / Relationship (knowledge graph)"]
+        DS["DataSource (Feishu/Notion/RSS...)"]
     end
-    subgraph chat["对话与智能体"]
-        S["Session (会话)"]
-        MSG["Message (消息)"]
+    subgraph chat["Chat & Agents"]
+        S["Session"]
+        MSG["Message"]
         AG["CustomAgent (quick-answer / smart-reasoning)"]
         M["Model (LLM/Embedding/Rerank/VLM/ASR)"]
-        MCP["MCPService (外部工具)"]
+        MCP["MCPService (external tools)"]
     end
-    U -- "成员关系" --> TM --> T
+    U -- "membership" --> TM --> T
     T --> AK
     T --> ORG
     T --> KB
@@ -100,11 +100,11 @@ flowchart TB
     KB --> K --> C
     KB --> W
     C --> G
-    DS -- "定时同步" --> KB
+    DS -- "scheduled sync" --> KB
     T --> S --> MSG
-    AG -- "检索" --> KB
-    AG -- "调用" --> M
-    AG -- "工具" --> MCP
+    AG -- "retrieval" --> KB
+    AG -- "calls" --> M
+    AG -- "tools" --> MCP
 ```
 
 ## Feature List
@@ -140,19 +140,19 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    Browser["浏览器 / SDK / CLI"] --> FE["frontend (Nginx :80)"]
-    FE -- "/api 反向代理" --> APP["app 后端 (Go :8080)"]
-    Browser -. "直连 API + X-API-Key" .-> APP
-    APP -- "gRPC :50051" --> DR["docreader (Python 文档解析)"]
-    APP --> PG[("ParadeDB / PostgreSQL :5432 元数据 + 混合检索")]
-    APP --> RD[("Redis :6379 流管理 + Asynq 队列")]
-    APP -. "docker run 按需" .-> SB["sandbox (Skills 沙箱)"]
-    APP -. "可选" .-> VDB[("Qdrant / Milvus / ES / OpenSearch / Doris ...")]
-    APP -. "可选" .-> NEO[("Neo4j 知识图谱")]
-    APP -. "可选" .-> OSS[("MinIO / COS / S3 / OSS / OBS / TOS 对象存储")]
-    APP -. "可选" .-> SX["SearXNG Web 搜索 :8888"]
-    APP -. "可选" .-> LF["Langfuse 可观测 :3000"]
-    APP --> LLM["Ollama 本地模型 / OpenAI 兼容远程模型"]
+    Browser["Browser / SDK / CLI"] --> FE["frontend (Nginx :80)"]
+    FE -- "/api reverse proxy" --> APP["app backend (Go :8080)"]
+    Browser -. "direct API + X-API-Key" .-> APP
+    APP -- "gRPC :50051" --> DR["docreader (Python document parsing)"]
+    APP --> PG[("ParadeDB / PostgreSQL :5432 metadata + hybrid retrieval")]
+    APP --> RD[("Redis :6379 stream management + Asynq queue")]
+    APP -. "docker run on-demand" .-> SB["sandbox (Skills sandbox)"]
+    APP -. "optional" .-> VDB[("Qdrant / Milvus / ES / OpenSearch / Doris ...")]
+    APP -. "optional" .-> NEO[("Neo4j knowledge graph")]
+    APP -. "optional" .-> OSS[("MinIO / COS / S3 / OSS / OBS / TOS object storage")]
+    APP -. "optional" .-> SX["SearXNG web search :8888"]
+    APP -. "optional" .-> LF["Langfuse observability :3000"]
+    APP --> LLM["Ollama local models / OpenAI-compatible remote models"]
     MCPS["mcp-server :8082"] -- "REST" --> APP
 ```
 

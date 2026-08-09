@@ -78,7 +78,7 @@ The project already provides a sample Dex configuration: `misc/dex-config.yaml`.
 ## Related Topics
 
 - [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — User and organization management in multi-space scenarios
-- [Lite与标准版区别](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite Edition does not require OIDC (single space)
+- [Lite vs Standard Edition](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite Edition does not require OIDC (single space)
 - [API Documentation Overview](../API-Reference/API-Documentation-Overview.md) — API authentication mechanism
 
 ---
@@ -87,5 +87,5 @@ The project already provides a sample Dex configuration: `misc/dex-config.yaml`.
 
 - [Home](../Home.md) — Wiki homepage navigation
 - [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — Users and spaces created by OIDC can be used for shared spaces
-- [Lite与标准版区别](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite does not require OIDC (single space, no registration needed)
+- [Lite vs Standard Edition](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite does not require OIDC (single space, no registration needed)
 - [API Documentation Overview](../API-Reference/API-Documentation-Overview.md) — API authentication mechanism related to OIDC JWT

@@ -78,7 +78,7 @@ curl --location 'http://localhost:8080/api/v1/models/providers?model_type=embedd
     "data": [
         {
             "value": "aliyun",
-            "label": "阿里云 DashScope",
+            "label": "Alibaba Cloud DashScope",
             "description": "qwen-plus, tongyi-embedding-vision-plus, qwen3-rerank, etc.",
             "defaultUrls": {
                 "chat": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -89,7 +89,7 @@ curl --location 'http://localhost:8080/api/v1/models/providers?model_type=embedd
         },
         {
             "value": "zhipu",
-            "label": "智谱 BigModel",
+            "label": "Zhipu BigModel",
             "description": "glm-4.7, embedding-3, rerank, etc.",
             "defaultUrls": {
                 "chat": "https://open.bigmodel.cn/api/paas/v4",
@@ -148,7 +148,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "qwen-plus",
     "type": "KnowledgeQA",
     "source": "remote",
-    "description": "阿里云 Qwen 大模型",
+    "description": "Alibaba Cloud Qwen LLM",
     "parameters": {
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "api_key": "sk-your-dashscope-api-key",
@@ -191,7 +191,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "text-embedding-v3",
     "type": "Embedding",
     "source": "remote",
-    "description": "阿里云通义千问 Embedding 模型",
+    "description": "Alibaba Cloud Tongyi Qianwen Embedding model",
     "parameters": {
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "api_key": "sk-your-dashscope-api-key",
@@ -214,7 +214,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "jina-embeddings-v3",
     "type": "Embedding",
     "source": "remote",
-    "description": "Jina AI Embedding 模型",
+    "description": "Jina AI Embedding model",
     "parameters": {
         "base_url": "https://api.jina.ai/v1",
         "api_key": "jina_your_api_key",
@@ -239,7 +239,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "gte-rerank",
     "type": "Rerank",
     "source": "remote",
-    "description": "阿里云 GTE Rerank 模型",
+    "description": "Alibaba Cloud GTE Rerank model",
     "parameters": {
         "base_url": "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
         "api_key": "sk-your-dashscope-api-key",
@@ -258,7 +258,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "jina-reranker-v2-base-multilingual",
     "type": "Rerank",
     "source": "remote",
-    "description": "Jina AI Rerank 模型",
+    "description": "Jina AI Rerank model",
     "parameters": {
         "base_url": "https://api.jina.ai/v1",
         "api_key": "jina_your_api_key",
@@ -280,7 +280,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "doubao-seed-rerank",
     "type": "Rerank",
     "source": "remote",
-    "description": "火山引擎托管 Rerank 模型",
+    "description": "Volcengine hosted Rerank model",
     "parameters": {
         "base_url": "https://api-knowledgebase.mlp.cn-beijing.volces.com",
         "api_key": "your-volcengine-access-key-id",
@@ -300,7 +300,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
     "name": "qwen-vl-plus",
     "type": "VLLM",
     "source": "remote",
-    "description": "阿里云通义千问视觉模型",
+    "description": "Alibaba Cloud Tongyi Qianwen vision model",
     "parameters": {
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "api_key": "sk-your-dashscope-api-key",
@@ -320,7 +320,7 @@ curl --location 'http://localhost:8080/api/v1/models' \
         "name": "text-embedding-v3",
         "type": "Embedding",
         "source": "remote",
-        "description": "阿里云通义千问 Embedding 模型",
+        "description": "Alibaba Cloud Tongyi Qianwen Embedding model",
         "parameters": {
             "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "api_key": "sk-***",
@@ -401,7 +401,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/models/8fdc464d-8eaa
     "name": "gte-rerank-v2",
     "type": "Rerank",
     "source": "remote",
-    "description": "阿里云 GTE Rerank 模型 V2",
+    "description": "Alibaba Cloud GTE Rerank model V2",
     "parameters": {
         "base_url": "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
         "api_key": "sk-your-new-api-key",

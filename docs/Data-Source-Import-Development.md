@@ -115,12 +115,12 @@ The permission identifiers are the same as Feishu's; enable them in **Permission
 | `drive:drive:readonly` | Read basic cloud document information, download files | ✅ Verified |
 | `docx:document:readonly` | Read new-version document content | ⚠️ Could not be verified (Lark's documentation page rendering is limited); carried over from the Feishu-side identifier |
 
-> **Do not reuse the permission JSON from the [IM Integration Documentation](./IM-Integration-Development.md#飞书接入)**: that list mixes in permissions such as
+> **Do not reuse the permission JSON from the [IM Integration Documentation](./IM-Integration-Development.md#feishu-integration)**: that list mixes in permissions such as
 > `aily:file:*` and `corehr:file:download`, which don't exist on Lark (importing the whole set will fail),
 > and it's **missing** the `drive:*` / `docx:*` permissions the data source actually needs, as shown in the table above.
 >
 > If the same Lark app serves both as an IM bot and for knowledge base syncing, use the merged list from
-> [IM Integration Documentation — Lark Permission Configuration](./IM-Integration-Development.md#lark-权限配置).
+> [IM Integration Documentation — Lark Permission Configuration](./IM-Integration-Development.md#lark-integration).
 
 #### Apps Are Not Interchangeable
 
@@ -169,10 +169,10 @@ Each data source has a history of sync logs, including:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│                          数据源导入架构                                     │
+│                          Data Source Import Architecture                                     │
 │                                                                           │
 │   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│   │   飞书    │  │  Notion  │  │Confluence│  │  GitHub  │  │  其他...  │   │
+│   │  Feishu   │  │  Notion  │  │Confluence│  │  GitHub  │  │ Others... │   │
 │   │  (Wiki)  │  │          │  │          │  │          │  │          │   │
 │   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
 │        │ API         │ API         │ API         │ API         │          │
@@ -182,47 +182,47 @@ Each data source has a history of sync logs, including:
 │   │  Feishu  │  │  Notion  │  │Confluence│  │  GitHub  │  │   ...    │  │
 │   │Connector │  │Connector │  │Connector │  │Connector │  │Connector │  │
 │   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-│        │             │             │              │             │   连接  │
-│   ─────┴─────────────┴─────────────┴──────────────┴─────────────┘   器层  │
+│        │             │             │              │             │   Connec-  │
+│   ─────┴─────────────┴─────────────┴──────────────┴─────────────┘   tor  │
 │                      │                                                    │
 │                      ▼                                                    │
 │   ┌──────────────────────────────────────────────┐                        │
-│   │         ConnectorRegistry                    │   连接器注册表          │
-│   │   · 按类型查找连接器实例                        │                       │
-│   │   · 连接器元数据（名称、认证方式、能力）          │                       │
+│   │         ConnectorRegistry                    │   Connector Registry          │
+│   │   · Find connector instances by type                        │                       │
+│   │   · Connector metadata (name, auth method, capabilities)          │                       │
 │   └──────────────────┬───────────────────────────┘                        │
 │                      │                                                    │
 │   ───────────────────┼────────────────────────────────────────────────    │
 │                      ▼                                                    │
 │   ┌──────────────────────────────────────────────┐                        │
-│   │       DataSourceService (业务逻辑层)          │                        │
+│   │       DataSourceService (business logic layer)          │                        │
 │   │                                              │                        │
 │   │  ┌────────────────────────────────────────┐  │                        │
-│   │  │ · 数据源 CRUD                          │  │                        │
-│   │  │ · 连接验证 (ValidateConnection)        │  │                        │
-│   │  │ · 资源发现 (ListAvailableResources)    │  │                        │
-│   │  │ · 手动同步 (ManualSync)                │  │                        │
-│   │  │ · 暂停/恢复                            │  │                        │
-│   │  │ · 同步执行 (ProcessSync)               │  │                        │
-│   │  │ · 内容入库 (ingestItem)                │  │                        │
+│   │  │ · Data source CRUD                          │  │                        │
+│   │  │ · Connection validation (ValidateConnection)        │  │                        │
+│   │  │ · Resource discovery (ListAvailableResources)    │  │                        │
+│   │  │ · Manual sync (ManualSync)                │  │                        │
+│   │  │ · Pause / resume                            │  │                        │
+│   │  │ · Sync execution (ProcessSync)               │  │                        │
+│   │  │ · Content ingestion (ingestItem)                │  │                        │
 │   │  └────────────────────────────────────────┘  │                        │
 │   └──────────────────┬───────────────────────────┘                        │
 │                      │                                                    │
 │   ───────────────────┼────────────────────────────────────────────────    │
 │                      ▼                                                    │
 │   ┌──────────────────────────────────┐  ┌────────────────────────────┐    │
-│   │      Scheduler (Cron 调度器)     │  │    Task Queue (asynq)     │    │
-│   │  · robfig/cron（含秒）           │  │  · 异步同步任务            │    │
-│   │  · DB 加载活跃数据源             │  │  · Redis / Lite 模式      │    │
-│   │  · 任务去重 (TaskID + Running)   │  │  · TypeDataSourceSync     │    │
+│   │      Scheduler (Cron scheduler)     │  │    Task Queue (asynq)     │    │
+│   │  · robfig/cron (with seconds)           │  │  · Async sync tasks            │    │
+│   │  · DB loads active data sources             │  │  · Redis / Lite mode      │    │
+│   │  · Task dedup (TaskID + Running)   │  │  · TypeDataSourceSync     │    │
 │   └──────────────────────────────────┘  └────────────────────────────┘    │
 │                      │                                                    │
 │   ───────────────────┼────────────────────────────────────────────────    │
 │                      ▼                                                    │
 │   ┌──────────────────────────────────────────────────────┐                │
-│   │            WeKnora Core (知识入库管道)                │                │
+│   │            WeKnora Core (knowledge ingestion pipeline)                │                │
 │   │  KnowledgeService · KnowledgeBaseService             │                │
-│   │  文档解析 → 分块 → 向量化 → 索引                      │                │
+│   │  document parsing → chunking → embedding → indexing                      │                │
 │   └──────────────────────────────────────────────────────┘                │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
@@ -251,9 +251,9 @@ CREATE TABLE data_sources (
     tenant_id               BIGINT NOT NULL,
     knowledge_base_id       VARCHAR(36) NOT NULL,
     name                    VARCHAR(255) NOT NULL DEFAULT '',
-    type                    VARCHAR(50) NOT NULL,          -- 连接器类型
-    config                  JSONB NOT NULL DEFAULT '{}',   -- 加密的凭证和配置
-    sync_schedule           VARCHAR(100) DEFAULT '',       -- Cron 表达式（6 段，含秒）
+    type                    VARCHAR(50) NOT NULL,          -- Connector type
+    config                  JSONB NOT NULL DEFAULT '{}',   -- encrypted credentials and config
+    sync_schedule           VARCHAR(100) DEFAULT '',       -- Cron expression (6 fields, with seconds)
     sync_mode               VARCHAR(20) DEFAULT 'incremental',  -- 'incremental' | 'full'
     status                  VARCHAR(20) DEFAULT 'active',  -- 'active' | 'paused' | 'error' | 'deleted'
     conflict_strategy       VARCHAR(20) DEFAULT 'overwrite',    -- 'overwrite' | 'skip'
@@ -308,7 +308,7 @@ CREATE TABLE sync_logs (
     items_skipped   INTEGER DEFAULT 0,
     items_failed    INTEGER DEFAULT 0,
     error_message   TEXT DEFAULT '',
-    result          JSONB,                   -- 详细同步结果
+    result          JSONB,                   -- detailed sync result
     created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -332,7 +332,7 @@ All endpoints are under the `/api/v1/datasource` path and require authentication
 [
   {
     "type": "feishu",
-    "name": "飞书",
+    "name": "Feishu",
     "description": "Import documents from Feishu/Lark Wiki spaces",
     "icon": "feishu",
     "priority": 1,
@@ -423,9 +423,9 @@ A state marker for incremental sync, recording the position of the last sync. Th
 
 ```go
 type SyncCursor struct {
-    LastSyncTime    *time.Time             // 上次同步时间
-    ConnectorCursor map[string]interface{} // 连接器自定义状态
-    LastSchemaHash  string                 // Schema 变更检测
+    LastSyncTime    *time.Time             // last sync time
+    ConnectorCursor map[string]interface{} // Connector custom state
+    LastSchemaHash  string                 // schema change detection
 }
 ```
 
@@ -435,16 +435,16 @@ After a connector fetches a document from an external platform, it is wrapped un
 
 ```go
 type FetchedItem struct {
-    ExternalID       string            // 外部平台的文档唯一标识
-    Title            string            // 文档标题
-    Content          []byte            // 文档内容（二进制）
-    ContentType      string            // MIME 类型
-    FileName         string            // 文件名（含扩展名）
-    URL              string            // 原始 URL
-    UpdatedAt        *time.Time        // 最后更新时间
-    Metadata         map[string]string // 元数据（来源、作者等）
-    IsDeleted        bool              // 标记为已删除（增量同步）
-    SourceResourceID string            // 所属资源 ID
+    ExternalID       string            // unique document ID on the external platform
+    Title            string            // document title
+    Content          []byte            // document content (binary)
+    ContentType      string            // MIME type
+    FileName         string            // file name (with extension)
+    URL              string            // original URL
+    UpdatedAt        *time.Time        // last update time
+    Metadata         map[string]string // metadata (source, author, etc.)
+    IsDeleted        bool              // marked as deleted (incremental sync)
+    SourceResourceID string            // owning resource ID
 }
 ```
 
@@ -454,14 +454,14 @@ A resource node in the external system that can be selected for syncing, support
 
 ```go
 type Resource struct {
-    ExternalID  string            // 外部 ID
-    Name        string            // 名称
-    Type        string            // 类型（如 wiki_space）
-    Description string            // 描述
-    URL         string            // 外部链接
-    ModifiedAt  *time.Time        // 最后修改时间
-    ParentID    string            // 父节点 ID（支持树形结构）
-    Metadata    map[string]string // 附加信息
+    ExternalID  string            // external ID
+    Name        string            // name
+    Type        string            // type (e.g. wiki_space)
+    Description string            // description
+    URL         string            // external link
+    ModifiedAt  *time.Time        // last modified time
+    ParentID    string            // parent node ID (supports tree structures)
+    Metadata    map[string]string // additional info
 }
 ```
 
@@ -472,29 +472,29 @@ type Resource struct {
 ### Complete Sync Flow
 
 ```
-手动触发 / Cron 定时触发
+Manual trigger / Cron scheduled trigger
         │
         ▼
-┌─ 创建 SyncLog (status: running) ──────────────────┐
-│  入队异步任务 (asynq: TypeDataSourceSync)           │
-│  · 手动同步 → 队列: default                        │
-│  · 定时同步 → 队列: low, TaskID 去重               │
+┌─ Create SyncLog (status: running) ──────────────────┐
+│  Enqueue async task (asynq: TypeDataSourceSync)           │
+│  · Manual sync → queue: default                        │
+│  · Scheduled sync → queue: low, TaskID dedup               │
 └──────────────────────────┬────────────────────────┘
                            │
                            ▼
-┌─ ProcessSync (Worker 异步执行) ───────────────────┐
-│  1. 解析任务体 (DataSourceSyncPayload)             │
-│  2. 加载数据源配置                                  │
-│  3. 解密凭证 → 获取 Connector                      │
-│  4. 设置空间上下文                                  │
-│  5. 创建/获取自动标签 (连接器名·数据源名)            │
-│  6. 判断同步模式:                                   │
-│     ├─ ForceFull 或 SyncModeFull → FetchAll        │
+┌─ ProcessSync (async worker) ───────────────────┐
+│  1. Parse the task body (DataSourceSyncPayload)             │
+│  2. Load the data source config                                  │
+│  3. Decrypt credentials → get the Connector                      │
+│  4. Set the workspace context                                  │
+│  5. Create/get the auto label (Connector name · data source name)            │
+│  6. Determine the sync mode:                                   │
+│     ├─ ForceFull or SyncModeFull → FetchAll        │
 │     └─ SyncModeIncremental → FetchIncremental      │
-│  7. 遍历 FetchedItem 列表:                         │
+│  7. Iterate over the FetchedItem list:                         │
 │     └─ ingestItem → KnowledgeService               │
-│  8. 更新 SyncLog (计数、状态、耗时)                 │
-│  9. 更新 DataSource (游标、最后同步时间、结果)       │
+│  8. Update SyncLog (count, status, duration)                 │
+│  9. Update DataSource (cursor, last sync time, result)       │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -504,48 +504,48 @@ type Resource struct {
 FetchedItem
     │
     ├─ IsDeleted = true?
-    │     └─ 按 external_id 查找已有知识 → 软删除
+    │     └─ Look up existing knowledge by external_id → soft delete
     │
-    ├─ 有文件内容 (Content)?
+    ├─ Has file content (Content)?
     │     └─ CreateKnowledgeFromFile
-    │        · 按 external_id 查找已有知识
-    │        · 已存在 → 删除旧版本 → 重建
-    │        · 不存在 → 新建
+    │        · Look up existing knowledge by external_id
+    │        · Exists → delete old version → rebuild
+    │        · Does not exist → create new
     │        · metadata: external_id, source_resource_id, datasource_id
-    │        · channel: 连接器类型 (如 "feishu")
-    │        · 自动关联标签
+    │        · channel: Connector type (e.g. "feishu")
+    │        · Auto-associate the label
     │
-    └─ 仅有 URL (无 Content)?
+    └─ Only URL (no Content)?
           └─ CreateKnowledgeFromURL
-             · 同上查重逻辑
+             · Same dedup logic as above
 ```
 
 ### Data Source Lifecycle
 
 ```
-创建数据源 (前端向导)
+Create data source (frontend wizard)
         │
         ▼
 ┌─ DataSourceService.Create ────────────────────┐
-│  1. 验证知识库存在                              │
-│  2. 获取对应 Connector                         │
-│  3. 验证配置和凭证 (connector.Validate)         │
-│  4. 加密凭证写库                               │
-│  5. 若有 SyncSchedule → 注册 Cron 任务         │
+│  1. Verify the knowledge base exists                              │
+│  2. Get the corresponding Connector                         │
+│  3. Validate config and credentials (connector.Validate)         │
+│  4. Encrypt credentials and persist                               │
+│  5. If SyncSchedule exists → register Cron job         │
 └───────────────────────────────────────────────┘
 
-暂停数据源:
-  status → paused, 移除 Cron 任务
+Pause data source:
+  status → paused, remove Cron job
 
-恢复数据源:
-  status → active, 重新注册 Cron 任务
+Resume data source:
+  status → active, re-register Cron job
 
-删除数据源:
-  deleted_at = NOW(), 移除 Cron 任务, 级联删除 sync_logs
+Delete data source:
+  deleted_at = NOW(), remove Cron job, cascade-delete sync_logs
 
-连接错误:
-  ValidateConnection 失败 → status → error, 记录 error_message
-  ValidateConnection 成功且原为 error → status → active, 清空 error_message
+Connector errors:
+  ValidateConnection fails → status → error, record error_message
+  ValidateConnection succeeds and was error → status → active, clear error_message
 ```
 
 ---
@@ -610,7 +610,7 @@ type ConnectorMetadata struct {
 | Field | Description |
 |------|------|
 | `Type` | Connector type identifier (e.g. `feishu`) |
-| `Name` | Display name (e.g. `飞书`) |
+| `Name` | Display name (e.g. `Feishu`) |
 | `Priority` | Sort priority; lower values come first |
 | `AuthType` | Auth method: `oauth2` / `api_key` / `token` / `password` / `none` |
 | `Capabilities` | Supported capabilities: `incremental` (incremental sync), `webhook`, `deletion_sync` (deletion sync) |
@@ -632,10 +632,10 @@ App ID + App Secret
   POST /open-apis/auth/v3/tenant_access_token/internal
         │
         ▼
-  获取 Tenant Access Token（有效期 2 小时）
+  Get Tenant Access Token (valid for 2 hours)
         │
         ▼
-  Token 缓存，提前 5 分钟刷新
+  Cache the token, refresh 5 minutes before expiry
 ```
 
 - **Auth Type**: Custom enterprise app, Tenant Access Token
@@ -647,7 +647,7 @@ App ID + App Secret
 `ListResources` calls the Feishu Wiki Space API to list all knowledge base spaces:
 
 ```
-GET /open-apis/wiki/v2/spaces (分页, page_size=50)
+GET /open-apis/wiki/v2/spaces (paginated, page_size=50)
 ```
 
 Each knowledge base space is mapped to a `Resource`:
@@ -662,12 +662,12 @@ Each knowledge base space is mapped to a `Resource`:
 #### Full Sync (FetchAll)
 
 ```
-对每个选中的 Wiki Space:
-  1. 递归列举空间下所有节点 (ListAllWikiNodesRecursive)
-     └─ GET /open-apis/wiki/v2/spaces/{space_id}/nodes (parent 为空 → 顶层)
-     └─ 对 has_child=true 的节点递归
-  2. 对每个节点:
-     └─ fetchNodeContent → 判断文档类型 → 导出/下载
+For each selected Wiki Space:
+  1. Recursively list all nodes in the space (ListAllWikiNodesRecursive)
+     └─ GET /open-apis/wiki/v2/spaces/{space_id}/nodes (empty parent → top level)
+     └─ Recurse into nodes with has_child=true
+  2. For each node:
+     └─ fetchNodeContent → determine document type → export/download
 ```
 
 #### Incremental Sync (FetchIncremental)
@@ -675,18 +675,18 @@ Each knowledge base space is mapped to a `Resource`:
 Incremental sync is based on comparing node edit times, rather than Feishu event subscriptions:
 
 ```
-1. 加载上次游标 (feishuCursor)
-   └─ SpaceNodeTimes[space_id][node_token] = 上次记录的编辑时间
+1. Load the last cursor (feishuCursor)
+   └─ SpaceNodeTimes[space_id][node_token] = last recorded edit time
 
-2. 对每个 Space 递归列举所有节点（全树遍历）
+2. Recursively list all nodes for each Space (full-tree traversal)
 
-3. 对比变更:
-   ├─ 新节点（游标中不存在）→ 拉取内容
-   ├─ obj_edit_time 变更（优先）或 node_edit_time 变更 → 拉取内容
-   ├─ 编辑时间未变 → 跳过
-   └─ 游标中存在但本次遍历不存在 → 标记为 IsDeleted
+3. Compare changes:
+   ├─ New node (not in cursor) → fetch content
+   ├─ obj_edit_time changed (preferred) or node_edit_time changed → fetch content
+   ├─ Edit time unchanged → skip
+   └─ In the cursor but absent this pass → mark as IsDeleted
 
-4. 返回新游标（含本轮每个节点的最新编辑时间）
+4. Return the new cursor (with the latest edit time of each node this round)
 ```
 
 > **Note**: The API call volume for incremental sync scales with the size of the knowledge base space's node tree, since the full node tree must be traversed to detect changes. For large spaces, it's recommended to lower the sync frequency accordingly.
@@ -709,19 +709,19 @@ Incremental sync is based on comparing node edit times, rather than Feishu event
 
 - **export mode (default, empty or `export`)**: uses the asynchronous export API
   ```
-  1. CreateExportTask -> 创建导出任务
-  2. 轮询 GetExportTaskStatus（间隔 2 秒，最长约 60 秒）
-  3. DownloadExportFile -> 下载 .docx 二进制
-  4. .docx 交 docreader 解析（图片 inline 进父文档，与普通 docx 上传一致）
+  1. CreateExportTask -> create the export task
+  2. Poll GetExportTaskStatus (every 2 seconds, up to ~60 seconds)
+  3. DownloadExportFile -> download the .docx binary
+  4. Hand the .docx to docreader for parsing (images inline into the parent document, same as a regular docx upload)
   ```
 - **blocks mode (`FEISHU_DOCX_PARSE_MODE=blocks`)**: uses the blocks API
   ```
-  1. GET /open-apis/docx/v1/documents/{obj_token}/blocks (分页 500)
-  2. blocksToMarkdown -> 转换为 Markdown 正文
-     ├─ 文本/标题/列表/表格/代码块 -> Markdown
-     ├─ image block -> ![图片]() 空占位符（图片单独下载为独立知识条目）
-     └─ file block -> 附件，作为独立知识条目
-  3. blocks API 失败或渲染空 -> 回退 export
+  1. GET /open-apis/docx/v1/documents/{obj_token}/blocks (paginated, 500 per page)
+  2. blocksToMarkdown -> convert to Markdown body
+     ├─ text/heading/list/table/code block -> Markdown
+     ├─ image block -> ![image]() empty placeholder (image downloaded separately as an independent knowledge item)
+     └─ file block -> attachment, kept as an independent knowledge item
+  3. blocks API fails or renders empty -> fall back to export
   ```
 
 **doc / sheet / bitable:** uses the asynchronous export API (same flow as export mode), exported to .docx / .xlsx and then parsed by docreader.
@@ -771,7 +771,7 @@ DownloadDriveFile -> GET /drive/v1/files/{token}/download
 Data source sync scheduling is based on `robfig/cron/v3`, using a **6-field Cron expression (including seconds)**:
 
 ```
-秒 分 时 日 月 星期
+sec min hour day month weekday
 ```
 
 **Common Presets:**
@@ -787,27 +787,27 @@ Data source sync scheduling is based on `robfig/cron/v3`, using a **6-field Cron
 ### Scheduling Lifecycle
 
 ```
-服务启动
+Service startup
     │
     ▼
 Scheduler.Start(ctx)
     │
-    ├─ 1. 从 DB 加载所有活跃数据源 (FindActive)
-    │     条件: status = active, sync_schedule != '', deleted_at IS NULL
+    ├─ 1. Load all active data sources from DB (FindActive)
+    │     Condition: status = active, sync_schedule != '', deleted_at IS NULL
     │
-    ├─ 2. 为每个数据源注册 Cron Entry
+    ├─ 2. Register a Cron Entry for each data source
     │
-    └─ 3. 启动 Cron Runner
+    └─ 3. Start the Cron Runner
 
-Cron 触发时:
-    ├─ 检查是否有运行中的同步 (HasRunningSync)
-    │     是 → 跳过本次触发
+When Cron fires:
+    ├─ Check whether a sync is running (HasRunningSync)
+    │     Yes → skip this trigger
     │
-    ├─ 创建 SyncLog (status: running)
+    ├─ Create SyncLog (status: running)
     │
-    └─ 入队 asynq 任务
-          队列: low
-          TaskID: dssync:<dsID>:<UTC minute>（去重）
+    └─ Enqueue an asynq task
+          Queue: low
+          TaskID: dssync:<dsID>:<UTC minute> (dedup)
 ```
 
 ### Task Deduplication (Two-Layer Protection)
@@ -877,7 +877,7 @@ Create the connector under `internal/datasource/connector/<type>/`:
 package myplatform
 
 type Connector struct {
-    // 连接器配置
+    // Connector configuration
 }
 
 func NewConnector() *Connector {
@@ -889,19 +889,19 @@ func (c *Connector) Type() string {
 }
 
 func (c *Connector) Validate(ctx context.Context, config *types.DataSourceConfig) error {
-    // 验证凭证：尝试获取 Token 或调用 API
+    // Validate credentials: try to get a token or call the API
 }
 
 func (c *Connector) ListResources(ctx context.Context, config *types.DataSourceConfig) ([]types.Resource, error) {
-    // 列出可选资源（工作区、空间、文件夹等）
+    // List selectable resources (workspace, spaces, folders, etc.)
 }
 
 func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error) {
-    // 全量拉取所有文档
+    // Fetch all documents
 }
 
 func (c *Connector) FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error) {
-    // 增量拉取变更（可复用 FetchAll 逻辑 + 编辑时间对比）
+    // Incrementally fetch changes (can reuse FetchAll logic + edit-time comparison)
 }
 ```
 
@@ -909,9 +909,9 @@ Recommended file structure:
 
 ```
 internal/datasource/connector/myplatform/
-├── types.go        # 平台 API 类型定义
-├── client.go       # API 客户端（Token 管理、HTTP 调用）
-└── connector.go    # Connector 接口实现
+├── types.go        # platform API type definitions
+├── client.go       # API client (token management, HTTP calls)
+└── connector.go    # Connector interface implementation
 ```
 
 ### 2. Register the Connector
@@ -922,7 +922,7 @@ Register it in `initConnectorRegistry` inside `internal/container/container.go`:
 func initConnectorRegistry() *datasource.ConnectorRegistry {
     registry := datasource.NewConnectorRegistry()
     registry.Register(feishuConnector.NewConnector())
-    registry.Register(myplatform.NewConnector()) // 新增
+    registry.Register(myplatform.NewConnector()) // add
     return registry
 }
 ```

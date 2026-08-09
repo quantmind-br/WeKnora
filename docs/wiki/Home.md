@@ -79,31 +79,31 @@ graph TB
     Home --> Operations-Troubleshooting
     Home --> API-Reference
 
-    Project-Overview --> ROADMAP[版本路线图]
-    Project-Overview --> LITE[Lite与标准版区别]
+    Project-Overview --> ROADMAP[Roadmap]
+    Project-Overview --> LITE[Lite vs Standard Edition]
 
-    Core-Features --> KG[知识图谱]
-    Core-Features --> KGSetup[开启知识图谱功能]
-    Core-Features --> MCP[MCP功能使用说明]
-    Core-Features --> BuiltinMCP[内置MCP服务管理]
-    Core-Features --> BuiltinModel[内置模型管理]
-    Core-Features --> Skills[Agent技能系统]
+    Core-Features --> KG[Knowledge Graph]
+    Core-Features --> KGSetup[Enable Knowledge Graph]
+    Core-Features --> MCP[MCP Usage]
+    Core-Features --> BuiltinMCP[Built-in MCP Services]
+    Core-Features --> BuiltinModel[Built-in Model Management]
+    Core-Features --> Skills[Agent Skills System]
 
-    Integration-Extension --> IM[IM集成开发]
-    Integration-Extension --> DS[数据源导入开发]
-    Integration-Extension --> WebSearch[添加网络搜索引擎]
-    Integration-Extension --> VecDB[集成向量数据库]
+    Integration-Extension --> IM[IM Integration Development]
+    Integration-Extension --> DS[Data Source Import Development]
+    Integration-Extension --> WebSearch[Add Web Search Engine]
+    Integration-Extension --> VecDB[Vector Database Integration]
 
-    Security-Authentication --> OIDC[OIDC认证调用流程]
-    Security-Authentication --> RBAC[空间RBAC说明]
-    Security-Authentication --> SharedSpace[共享空间说明]
+    Security-Authentication --> OIDC[OIDC Auth Flow]
+    Security-Authentication --> RBAC[Workspace RBAC]
+    Security-Authentication --> SharedSpace[Shared Spaces]
 
-    Development-Deployment --> DevGuide[开发指南]
-    Development-Deployment --> QuickDev[快速开发模式]
+    Development-Deployment --> DevGuide[Development Guide]
+    Development-Deployment --> QuickDev[Quick Dev Mode]
 
-    Operations-Troubleshooting --> FAQ[常见问题]
+    Operations-Troubleshooting --> FAQ[FAQ]
 
-    API-Reference --> APIOverview[API文档概览]
+    API-Reference --> APIOverview[API Overview]
 
     KG -.-> KGSetup
     MCP -.-> BuiltinMCP

@@ -41,7 +41,7 @@ INSERT INTO models (
     is_default, status, is_builtin
 ) VALUES (
     'builtin-llm-001', 10000, 'GPT-4', 'KnowledgeQA', 'remote',
-    '内置 LLM 模型',
+    'Built-in LLM Model',
     '{"base_url": "https://api.openai.com/v1", "api_key": "sk-xxx", "provider": "openai"}'::jsonb,
     false, 'active', true
 ) ON CONFLICT (id) DO NOTHING;

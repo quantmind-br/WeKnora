@@ -64,7 +64,7 @@ INSERT INTO mcp_services (
     'builtin-mcp-001',                                -- Use a fixed ID; the builtin-mcp- prefix is recommended
     10000,                                             -- Space ID (use the first space)
     'Web Search',                                      -- Service name
-    '内置 Web 搜索 MCP 服务',                            -- Description
+    'Built-in Web Search MCP Service',                            -- Description
     true,                                              -- Enabled status
     'sse',                                             -- Transport type
     'https://mcp.example.com/sse',                     -- Service URL
@@ -90,7 +90,7 @@ INSERT INTO mcp_services (
     'builtin-mcp-002',
     10000,
     'Code Interpreter',
-    '内置代码解释器 MCP 服务',
+    'Built-in Code Interpreter MCP Service',
     true,
     'http-streamable',
     'https://mcp.example.com/stream',
@@ -128,7 +128,7 @@ If you already have an MCP service and want to set it as a built-in service, you
 ```sql
 UPDATE mcp_services
 SET is_builtin = true
-WHERE id = '服务ID' AND name = '服务名称';
+WHERE id = 'service-id' AND name = 'service-name';
 ```
 
 ## Removing a Built-in MCP Service
@@ -138,7 +138,7 @@ If you need to remove the built-in flag (restoring it to a regular MCP service),
 ```sql
 UPDATE mcp_services
 SET is_builtin = false
-WHERE id = '服务ID';
+WHERE id = 'service-id';
 ```
 
 Note: After removing the built-in flag, the MCP service will revert to a regular service and can be edited and deleted.

@@ -23,7 +23,7 @@ Search for relevant content in the knowledge base (without using an LLM summary)
 
 **Query parameters**:
 
-- `resource_urls`: `handle` (default) or `public`. `public` replaces the `resource://` references in the retrieval results' `content` / `image_info` with loadable http(s) links. See [Files and Image References](./README.md#文件与图片引用resource-与直链) for details
+- `resource_urls`: `handle` (default) or `public`. `public` replaces the `resource://` references in the retrieval results' `content` / `image_info` with loadable http(s) links. See [Files and Image References](./README.md#file-and-image-references-resource-and-direct-links) for details
 
 **Request**:
 
@@ -33,7 +33,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "如何使用知识库",
+    "query": "How to use the knowledge base",
     "knowledge_base_id": "kb-00000001"
 }'
 
@@ -42,7 +42,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "如何使用知识库",
+    "query": "How to use the knowledge base",
     "knowledge_base_ids": ["kb-00000001", "kb-00000002"]
 }'
 
@@ -51,7 +51,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "如何使用知识库",
+    "query": "How to use the knowledge base",
     "knowledge_ids": ["4c4e7c1a-09cf-485b-a7b5-24b8cdc5acf5"]
 }'
 ```
@@ -63,10 +63,10 @@ curl --location 'http://localhost:8080/api/v1/knowledge-search' \
     "data": [
         {
             "id": "chunk-00000001",
-            "content": "知识库是用于存储和检索知识的系统...",
+            "content": "A knowledge base is a system for storing and retrieving knowledge...",
             "knowledge_id": "knowledge-00000001",
             "chunk_index": 0,
-            "knowledge_title": "知识库使用指南",
+            "knowledge_title": "Knowledge Base Usage Guide",
             "start_at": 0,
             "end_at": 500,
             "seq": 1,

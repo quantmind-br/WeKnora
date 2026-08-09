@@ -44,11 +44,11 @@ Supports pagination, filtering by tag, keyword search, and sorting.
 
 ```curl
 # Search all fields
-curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries?page=1&page_size=10&keyword=密码' \
+curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries?page=1&page_size=10&keyword=password' \
 --header 'X-API-Key: sk-xxxxx'
 
 # Search only the standard question
-curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries?keyword=密码&search_field=standard_question' \
+curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/entries?keyword=password&search_field=standard_question' \
 --header 'X-API-Key: sk-xxxxx'
 ```
 
@@ -67,13 +67,13 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
                 "knowledge_id": "knowledge-00000001",
                 "knowledge_base_id": "kb-00000001",
                 "tag_id": 12,
-                "tag_name": "账户",
+                "tag_name": "Account",
                 "is_enabled": true,
                 "is_recommended": false,
-                "standard_question": "如何重置密码？",
-                "similar_questions": ["忘记密码怎么办", "密码找回"],
-                "negative_questions": ["如何修改用户名"],
-                "answers": ["您可以通过点击登录页面的'忘记密码'链接来重置密码。"],
+                "standard_question": "How do I reset my password?",
+                "similar_questions": ["What if I forgot my password", "Password recovery"],
+                "negative_questions": ["How do I change my username"],
+                "answers": ["You can reset your password by clicking the 'Forgot password' link on the login page."],
                 "answer_strategy": "all",
                 "index_mode": "hybrid",
                 "chunk_type": "faq",
@@ -121,13 +121,13 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
         "knowledge_id": "knowledge-00000001",
         "knowledge_base_id": "kb-00000001",
         "tag_id": 12,
-        "tag_name": "账户",
+        "tag_name": "Account",
         "is_enabled": true,
         "is_recommended": false,
-        "standard_question": "如何重置密码？",
-        "similar_questions": ["忘记密码怎么办", "密码找回"],
+        "standard_question": "How do I reset my password?",
+        "similar_questions": ["What if I forgot my password", "Password recovery"],
         "negative_questions": [],
-        "answers": ["您可以通过点击登录页面的'忘记密码'链接来重置密码。"],
+        "answers": ["You can reset your password by clicking the 'Forgot password' link on the login page."],
         "answer_strategy": "all",
         "index_mode": "hybrid",
         "chunk_type": "faq",
@@ -179,14 +179,14 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
     "mode": "append",
     "entries": [
         {
-            "standard_question": "如何联系客服？",
-            "similar_questions": ["客服电话", "在线客服"],
-            "answers": ["您可以通过拨打400-xxx-xxxx联系我们的客服。"],
+            "standard_question": "How do I contact support?",
+            "similar_questions": ["Support phone", "Online support"],
+            "answers": ["You can reach support by calling 400-xxx-xxxx."],
             "tag_id": 1
         },
         {
-            "standard_question": "退款政策是什么？",
-            "answers": ["我们提供7天无理由退款服务。"]
+            "standard_question": "What is the refund policy?",
+            "answers": ["We offer a 7-day no-questions-asked refund."]
         }
     ]
 }'
@@ -216,9 +216,9 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "standard_question": "如何联系客服？",
-    "similar_questions": ["客服电话", "在线客服"],
-    "answers": ["您可以通过拨打400-xxx-xxxx联系我们的客服。"],
+    "standard_question": "How do I contact support?",
+    "similar_questions": ["Support phone", "Online support"],
+    "answers": ["You can reach support by calling 400-xxx-xxxx."],
     "tag_id": 1,
     "is_enabled": true
 }'
@@ -234,13 +234,13 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
         "knowledge_id": "knowledge-00000001",
         "knowledge_base_id": "kb-00000001",
         "tag_id": 1,
-        "tag_name": "客服",
+        "tag_name": "Support",
         "is_enabled": true,
         "is_recommended": false,
-        "standard_question": "如何联系客服？",
-        "similar_questions": ["客服电话", "在线客服"],
+        "standard_question": "How do I contact support?",
+        "similar_questions": ["Support phone", "Online support"],
         "negative_questions": [],
-        "answers": ["您可以通过拨打400-xxx-xxxx联系我们的客服。"],
+        "answers": ["You can reach support by calling 400-xxx-xxxx."],
         "answer_strategy": "all",
         "index_mode": "hybrid",
         "chunk_type": "faq",
@@ -258,7 +258,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
     "success": false,
     "error": {
         "code": "BAD_REQUEST",
-        "message": "标准问与已有FAQ重复"
+        "message": "The standard question duplicates an existing FAQ"
     }
 }
 ```
@@ -274,9 +274,9 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge-bases/kb-0
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "standard_question": "如何重置账户密码？",
-    "similar_questions": ["忘记密码怎么办", "密码找回", "重置密码"],
-    "answers": ["您可以通过以下步骤重置密码：1. 点击登录页面的\"忘记密码\" 2. 输入注册邮箱 3. 查收重置邮件"],
+    "standard_question": "How do I reset my account password?",
+    "similar_questions": ["What if I forgot my password", "Password recovery", "Reset password"],
+    "answers": ["You can reset your password as follows: 1. Click \"Forgot password\" on the login page 2. Enter your registered email 3. Check for the reset email"],
     "is_enabled": true
 }'
 ```
@@ -300,7 +300,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/en
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "similar_questions": ["怎样修改密码", "密码重置方法"]
+    "similar_questions": ["How to change password", "Password reset methods"]
 }'
 ```
 
@@ -433,7 +433,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/se
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query_text": "如何重置密码",
+    "query_text": "How to reset password",
     "vector_threshold": 0.5,
     "match_count": 10,
     "first_priority_tag_ids": [12],
@@ -452,17 +452,17 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/faq/se
             "knowledge_id": "knowledge-00000001",
             "knowledge_base_id": "kb-00000001",
             "tag_id": 12,
-            "tag_name": "账户",
+            "tag_name": "Account",
             "is_enabled": true,
             "is_recommended": false,
-            "standard_question": "如何重置密码？",
-            "similar_questions": ["忘记密码怎么办", "密码找回"],
-            "answers": ["您可以通过点击登录页面的'忘记密码'链接来重置密码。"],
+            "standard_question": "How do I reset my password?",
+            "similar_questions": ["What if I forgot my password", "Password recovery"],
+            "answers": ["You can reset your password by clicking the 'Forgot password' link on the login page."],
             "answer_strategy": "all",
             "chunk_type": "faq",
             "score": 0.95,
             "match_type": "vector",
-            "matched_question": "忘记密码怎么办",
+            "matched_question": "What if I forgot my password",
             "created_at": "2025-08-12T10:00:00+08:00",
             "updated_at": "2025-08-12T10:00:00+08:00"
         }
@@ -534,12 +534,12 @@ curl --location 'http://localhost:8080/api/v1/faq/import/progress/task-00000001'
         "failed_entries": [
             {
                 "index": 5,
-                "reason": "标准问与已有FAQ重复",
-                "standard_question": "重复的问题"
+                "reason": "duplicates an existing FAQ",
+                "standard_question": "Duplicated question"
             }
         ],
         "success_entries": [
-            { "index": 0, "seq_id": 101, "standard_question": "如何联系客服？" }
+            { "index": 0, "seq_id": 101, "standard_question": "How do I contact support?" }
         ],
         "message": "",
         "error": "",

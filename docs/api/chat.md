@@ -19,7 +19,7 @@ RAG-based Q&A over the knowledge base, supporting SSE streaming responses.
 
 | Parameter | Values | Description |
 |------|------|------|
-| `resource_urls` | `handle` (default) / `public` | `public` makes the answer and the images in citations return directly loadable http(s) links, saving you from having to call the `/files` proxy one by one. See [Files and Image References](./README.md#文件与图片引用resource-与直链) for details |
+| `resource_urls` | `handle` (default) / `public` | `public` makes the answer and the images in citations return directly loadable http(s) links, saving you from having to call the `/files` proxy one by one. See [Files and Image References](./README.md#file-and-image-references-resource-and-direct-links) for details |
 
 This also applies to `/agent-chat/:session_id`, `/knowledge-search`, and `/sessions/continue-stream/:session_id` below.
 
@@ -45,7 +45,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-chat/ceb9babb-1e30-41d7-
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "彗尾的形状",
+    "query": "Shape of a comet tail",
     "knowledge_base_ids": ["kb-00000001"],
     "agent_id": "builtin-quick-answer"
 }'
@@ -58,10 +58,10 @@ Server-Sent Events (Content-Type: text/event-stream)
 
 ```
 event: message
-data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"references","content":"","done":false,"knowledge_references":[{"id":"c8347bef-...","content":"彗星xxx。","knowledge_id":"a6790b93-...","chunk_index":0,"knowledge_title":"彗星.txt","score":4.04,"match_type":3,"chunk_type":"text","knowledge_filename":"彗星.txt"}]}
+data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"references","content":"","done":false,"knowledge_references":[{"id":"c8347bef-...","content":"Comet xxx.","knowledge_id":"a6790b93-...","chunk_index":0,"knowledge_title":"Comet.txt","score":4.04,"match_type":3,"chunk_type":"text","knowledge_filename":"Comet.txt"}]}
 
 event: message
-data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"answer","content":"彗尾的形状主要表现为...","done":false,"knowledge_references":null}
+data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"answer","content":"The shape of a comet tail mainly depends on...","done":false,"knowledge_references":null}
 
 event: message
 data: {"id":"3475c004-0ada-4306-9d30-d7f5efce50d2","response_type":"answer","content":"","done":true,"knowledge_references":null}
@@ -136,7 +136,7 @@ curl --location 'http://localhost:8080/api/v1/agent-chat/ceb9babb-1e30-41d7-817d
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query": "帮我查询今天的天气",
+    "query": "Check today's weather",
     "agent_enabled": true,
     "web_search_enabled": true,
     "knowledge_base_ids": ["kb-00000001"],
@@ -144,7 +144,7 @@ curl --location 'http://localhost:8080/api/v1/agent-chat/ceb9babb-1e30-41d7-817d
     "mentioned_items": [
         {
             "id": "kb-00000001",
-            "name": "天气知识库",
+            "name": "Weather Knowledge Base",
             "type": "kb",
             "kb_type": "document"
         }
@@ -173,16 +173,16 @@ Server-Sent Events (Content-Type: text/event-stream)
 
 ```
 event: message
-data: {"id":"req-001","response_type":"thinking","content":"用户想查询天气，我需要使用网络搜索工具...","done":false}
+data: {"id":"req-001","response_type":"thinking","content":"The user wants the weather, so I need to use the web search tool...","done":false}
 
 event: message
-data: {"id":"req-001","response_type":"tool_call","content":"","done":false,"data":{"tool_name":"web_search","arguments":{"query":"今天天气"}}}
+data: {"id":"req-001","response_type":"tool_call","content":"","done":false,"data":{"tool_name":"web_search","arguments":{"query":"today's weather"}}}
 
 event: message
-data: {"id":"req-001","response_type":"tool_result","content":"搜索结果：今天晴，气温25°C...","done":false}
+data: {"id":"req-001","response_type":"tool_result","content":"Search results: sunny today, 25°C...","done":false}
 
 event: message
-data: {"id":"req-001","response_type":"answer","content":"根据查询结果，今天天气晴朗，气温约25°C。","done":false}
+data: {"id":"req-001","response_type":"answer","content":"According to the results, today is sunny with a temperature around 25°C.","done":false}
 
 event: message
 data: {"id":"req-001","response_type":"answer","content":"","done":true}

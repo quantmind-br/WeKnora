@@ -427,7 +427,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge-bases/kb-
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "query_text": "如何使用知识库",
+    "query_text": "How to use the knowledge base",
     "vector_threshold": 0.5,
     "match_count": 10
 }'
@@ -440,10 +440,10 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge-bases/kb-
     "data": [
         {
             "id": "chunk-00000001",
-            "content": "知识库是用于存储和检索知识的系统...",
+            "content": "A knowledge base is a system for storing and retrieving knowledge...",
             "knowledge_id": "knowledge-00000001",
             "chunk_index": 0,
-            "knowledge_title": "知识库使用指南",
+            "knowledge_title": "Knowledge Base Usage Guide",
             "start_at": 0,
             "end_at": 500,
             "seq": 1,
@@ -604,7 +604,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/duplic
         "message": "Knowledge base duplicate created",
         "knowledge_base": {
             "id": "kb-00000002",
-            "name": "产品文档 副本",
+            "name": "Product documentation copy",
             "type": "document",
             "description": "…",
             "embedding_model_id": "embed-1",
@@ -664,8 +664,8 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/move-t
     "data": [
         {
             "id": "kb-00000002",
-            "name": "技术文档知识库",
-            "description": "技术文档相关知识",
+            "name": "Technical Documentation Knowledge Base",
+            "description": "Knowledge related to technical documentation",
             "type": "document",
             "is_temporary": false,
             "tenant_id": 1,

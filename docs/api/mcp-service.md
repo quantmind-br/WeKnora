@@ -42,8 +42,8 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "天气查询服务",
-    "description": "提供全球天气信息查询",
+    "name": "Weather Query Service",
+    "description": "Provides global weather queries",
     "transport_type": "sse",
     "url": "https://mcp.example.com/weather/sse",
     "headers": {
@@ -67,8 +67,8 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
     "data": {
         "id": "mcp-00000001",
         "tenant_id": 1,
-        "name": "天气查询服务",
-        "description": "提供全球天气信息查询",
+        "name": "Weather Query Service",
+        "description": "Provides global weather queries",
         "enabled": true,
         "transport_type": "sse",
         "url": "https://mcp.example.com/weather/sse",
@@ -98,8 +98,8 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "本地文件服务",
-    "description": "通过 stdio 访问本地文件系统",
+    "name": "Local File Service",
+    "description": "Accesses the local filesystem via stdio",
     "transport_type": "stdio",
     "stdio_config": {
         "command": "/usr/local/bin/mcp-file-server",
@@ -131,8 +131,8 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
         {
             "id": "mcp-00000001",
             "tenant_id": 1,
-            "name": "天气查询服务",
-            "description": "提供全球天气信息查询",
+            "name": "Weather Query Service",
+            "description": "Provides global weather queries",
             "enabled": true,
             "transport_type": "sse",
             "url": "https://mcp.example.com/weather/sse",
@@ -152,8 +152,8 @@ curl --location 'http://localhost:8080/api/v1/mcp-services' \
         {
             "id": "mcp-00000002",
             "tenant_id": 1,
-            "name": "本地文件服务",
-            "description": "通过 stdio 访问本地文件系统",
+            "name": "Local File Service",
+            "description": "Accesses the local filesystem via stdio",
             "enabled": true,
             "transport_type": "stdio",
             "headers": {},
@@ -200,8 +200,8 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001' \
     "data": {
         "id": "mcp-00000001",
         "tenant_id": 1,
-        "name": "天气查询服务",
-        "description": "提供全球天气信息查询",
+        "name": "Weather Query Service",
+        "description": "Provides global weather queries",
         "enabled": true,
         "transport_type": "sse",
         "url": "https://mcp.example.com/weather/sse",
@@ -233,8 +233,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-000
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "name": "天气查询服务（更新）",
-    "description": "提供全球天气信息查询，支持实时数据",
+    "name": "Weather Query Service (updated)",
+    "description": "Provides global weather queries with real-time data",
     "enabled": false
 }'
 ```
@@ -246,8 +246,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/mcp-services/mcp-000
     "data": {
         "id": "mcp-00000001",
         "tenant_id": 1,
-        "name": "天气查询服务（更新）",
-        "description": "提供全球天气信息查询，支持实时数据",
+        "name": "Weather Query Service (updated)",
+        "description": "Provides global weather queries with real-time data",
         "enabled": false,
         "transport_type": "sse",
         "url": "https://mcp.example.com/weather/sse",
@@ -305,18 +305,18 @@ curl --location --request POST 'http://localhost:8080/api/v1/mcp-services/mcp-00
 {
     "data": {
         "success": true,
-        "message": "连接成功",
-        "description": "提供全球天气信息查询",
+        "message": "Connected successfully",
+        "description": "Provides global weather queries",
         "tools": [
             {
                 "name": "get_weather",
-                "description": "获取指定城市的天气信息",
+                "description": "Gets the weather for a given city",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "city": {
                             "type": "string",
-                            "description": "城市名称"
+                            "description": "City name"
                         }
                     },
                     "required": ["city"]
@@ -326,8 +326,8 @@ curl --location --request POST 'http://localhost:8080/api/v1/mcp-services/mcp-00
         "resources": [
             {
                 "uri": "weather://cities",
-                "name": "城市列表",
-                "description": "支持查询的城市列表",
+                "name": "City list",
+                "description": "List of supported cities",
                 "mimeType": "application/json"
             }
         ]
@@ -353,13 +353,13 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tools' \
     "data": [
         {
             "name": "get_weather",
-            "description": "获取指定城市的天气信息",
+            "description": "Gets the weather for a given city",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "城市名称"
+                        "description": "City name"
                     }
                 },
                 "required": ["city"]
@@ -367,17 +367,17 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/tools' \
         },
         {
             "name": "get_forecast",
-            "description": "获取未来天气预报",
+            "description": "Gets the future weather forecast",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "城市名称"
+                        "description": "City name"
                     },
                     "days": {
                         "type": "integer",
-                        "description": "预报天数"
+                        "description": "Number of forecast days"
                     }
                 },
                 "required": ["city"]
@@ -405,14 +405,14 @@ curl --location 'http://localhost:8080/api/v1/mcp-services/mcp-00000001/resource
     "data": [
         {
             "uri": "weather://cities",
-            "name": "城市列表",
-            "description": "支持查询的城市列表",
+            "name": "City list",
+            "description": "List of supported cities",
             "mimeType": "application/json"
         },
         {
             "uri": "weather://config",
-            "name": "服务配置",
-            "description": "当前服务配置信息",
+            "name": "Service configuration",
+            "description": "Current service configuration",
             "mimeType": "application/json"
         }
     ],
@@ -524,7 +524,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approval
     "modified_args": {
         "path": "/tmp/safe-target.txt"
     },
-    "reason": "已确认目标路径安全"
+    "reason": "Target path confirmed safe"
 }'
 ```
 
@@ -536,7 +536,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/agent/tool-approval
 --header 'Content-Type: application/json' \
 --data '{
     "decision": "reject",
-    "reason": "目标路径在受保护目录"
+    "reason": "Target path is in a protected directory"
 }'
 ```
 

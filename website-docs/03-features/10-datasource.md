@@ -22,18 +22,18 @@ All connectors must implement the `Connector` interface in `internal/datasource/
 
 ```go
 type Connector interface {
-    // Type 返回连接器类型标识（如 "feishu"、"notion"）
+    // Type returns the connector type identifier (e.g. "feishu", "notion")
     Type() string
-    // Validate 通过实际调用外部 API 验证配置与凭据有效性
+    // Validate verifies the config and credentials by actually calling the external API
     Validate(ctx context.Context, config *types.DataSourceConfig) error
-    // ListResources 列出可同步的资源（文档、空间、文件夹等）。
-    // parentID 支持层级资源的懒加载：""=顶层；非空=该资源的直接子节点
+    // ListResources lists synchronizable resources (documents, spaces, folders, etc.).
+    // parentID enables lazy loading of hierarchical resources: "" = top level; non-empty = direct children of that resource
     ListResources(ctx context.Context, config *types.DataSourceConfig, parentID string) ([]types.Resource, error)
-    // ResolveResourceAncestors 解析已选资源的祖先链，用于懒加载选择器回显深层选中项
+    // ResolveResourceAncestors resolves the ancestor chain of selected resources for deep-selection echo in the lazy-loaded picker
     ResolveResourceAncestors(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]string, error)
-    // FetchAll 全量同步指定资源
+    // FetchAll performs a full sync of the given resources
     FetchAll(ctx context.Context, config *types.DataSourceConfig, resourceIDs []string) ([]types.FetchedItem, error)
-    // FetchIncremental 基于游标增量同步，返回变更项与下一次同步的新游标
+    // FetchIncremental performs cursor-based incremental sync, returning changed items and the new cursor for the next sync
     FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error)
 }
 ```
@@ -44,9 +44,9 @@ For large-scale syncs (e.g., a Feishu Wiki with thousands of documents), `connec
 
 ```go
 type StreamHandler interface {
-    // Emit 逐条入库一个抓取项；返回错误则中止整个流
+    // Emit stores one fetched item; returning an error aborts the whole stream
     Emit(ctx context.Context, item types.FetchedItem) error
-    // Checkpoint 同步持久化游标快照（必须是完整可恢复的快照，而非增量）
+    // Checkpoint persists a cursor snapshot (must be a fully restorable snapshot, not an incremental one)
     Checkpoint(ctx context.Context, cursor *types.SyncCursor) error
 }
 
@@ -65,7 +65,7 @@ Value (see source code comments, corresponding to issue Tencent/WeKnora#2136): w
 
 ```go
 registry.Register(feishuConnector.NewConnector(feishuConnector.RegionFeishu))  // feishu
-registry.Register(feishuConnector.NewConnector(feishuConnector.RegionLark))    // lark（国际版，同一实现不同 Region）
+registry.Register(feishuConnector.NewConnector(feishuConnector.RegionLark))    // lark (international edition, same implementation with a different Region)
 registry.Register(notionConnector.NewConnector())                              // notion
 registry.Register(yuqueConnector.NewConnector())                               // yuque
 registry.Register(rssConnector.NewConnector())                                 // rss
@@ -94,9 +94,9 @@ Credential security is a key design focus of this module, implemented across thr
 **1. Encryption on write — `DataSourceConfig.ToJSON()`** (`internal/types/datasource.go`):
 
 ```go
-// 当配置了 SYSTEM_AES_KEY 时，Credentials 中的每个字符串值在序列化前
-// 都会做 AES-256-GCM 加密。这是凭据进入 DB 的唯一写路径（GORM 的 JSON
-// 类型本身是字节透传），因此在这里加密即可保证 DataSource.Config 落库全程密文。
+// When SYSTEM_AES_KEY is configured, every string value in Credentials is
+// AES-256-GCM encrypted before serialization. This is the only write path for
+// credentials into the DB (GORM's JSON type is a byte passthrough), so encrypting
 if key := utils.GetAESKey(); key != nil && len(out.Credentials) > 0 {
     ...
     if enc, err := utils.EncryptAESGCM(s, key); err == nil { encCreds[k] = enc }
@@ -141,15 +141,15 @@ Lifecycle state transitions:
 
 ```mermaid
 flowchart LR
-    A["创建<br/>POST /datasource"] --> B["授权<br/>PUT /:id/credentials<br/>(AES-256-GCM 加密落库 + 在线 Validate)"]
-    B --> C["选择资源<br/>GET /:id/resources<br/>(ResourceIDs 写入 Config)"]
-    C --> D["active<br/>(cron 调度 / 手动同步)"]
-    D -- "同步失败" --> E["error"]
-    E -- "validate 通过 / 同步成功" --> D
+    A["Create<br/>POST /datasource"] --> B["Authorize<br/>PUT /:id/credentials<br/>(AES-256-GCM encrypted persistence + online Validate)"]
+    B --> C["Select resources<br/>GET /:id/resources<br/>(ResourceIDs written to Config)"]
+    C --> D["active<br/>(cron schedule / manual sync)"]
+    D -- "sync failed" --> E["error"]
+    E -- "validate passed / sync succeeded" --> D
     D -- "POST /:id/pause" --> F["paused"]
     F -- "POST /:id/resume" --> D
-    F -- "手动同步仍允许" --> D
-    D -- "DELETE /:id" --> G["软删除<br/>(移除 cron + 取消未完成 SyncLog)"]
+    F -- "manual sync still allowed" --> D
+    D -- "DELETE /:id" --> G["soft delete<br/>(remove cron + cancel unfinished SyncLog)"]
 ```
 
 ## Sync Scheduling (internal/datasource/scheduler.go)
@@ -183,44 +183,44 @@ Enqueue parameters: queue `types.QueueSync`, `MaxRetry(5)`, `Timeout(2*time.Hour
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as "用户 / Cron Scheduler"
+    participant U as "User / Cron Scheduler"
     participant H as "DataSourceHandler"
     participant S as "DataSourceService"
     participant Q as "Asynq (QueueSync)"
-    participant C as "Connector (如 Feishu)"
-    participant EXT as "外部系统 API"
+    participant C as "Connector (e.g. Feishu)"
+    participant EXT as "External System API"
     participant K as "KnowledgeService"
     participant DB as "PostgreSQL"
 
-    U->>H: POST /datasource/:id/sync (或 cron 触发)
+    U->>H: POST /datasource/:id/sync (or cron-triggered)
     H->>S: ManualSync(dsID)
-    S->>DB: 创建 SyncLog(status=running)
+    S->>DB: create SyncLog (status=running)
     S->>Q: Enqueue(datasource:sync, MaxRetry=5, Timeout=2h)
     Q-->>S: ProcessSync(payload)
-    S->>DB: 加载 DataSource / SyncLog / 校验 KB 存在
-    S->>S: ParseConfig() 解密凭据
+    S->>DB: load DataSource / SyncLog / verify KB exists
+    S->>S: ParseConfig() decrypts credentials
     alt "StreamingConnector（Feishu/Lark）"
         S->>C: FetchStream(config, cursor, handler)
-        loop "遍历 Wiki 节点"
+        loop "iterate Wiki nodes"
             C->>EXT: ListWikiNodesRecursive / ExportAndDownload
-            EXT-->>C: 文档内容 (.docx/.xlsx/原文件)
+            EXT-->>C: document content (.docx/.xlsx/raw file)
             C->>S: handler.Emit(item)
-            S->>K: CreateKnowledgeFromFile (先删后建=更新)
-            C->>S: handler.Checkpoint(cursor) 每 50 节点或 30s
-            S->>DB: 持久化 LastSyncCursor + SyncLog 进度
+            S->>K: CreateKnowledgeFromFile (delete-then-create = update)
+            C->>S: handler.Checkpoint(cursor) every 50 nodes or 30s
+            S->>DB: persist LastSyncCursor + SyncLog progress
         end
-        C-->>S: 最终 cursor
-    else "批量连接器（Notion/Yuque/RSS）"
-        S->>C: FetchAll 或 FetchIncremental(cursor)
-        C->>EXT: 列表 + 拉取变更内容
-        EXT-->>C: 文档 / Markdown
+        C-->>S: final cursor
+    else "batch connectors (Notion/Yuque/RSS)"
+        S->>C: FetchAll or FetchIncremental(cursor)
+        C->>EXT: list + fetch changed content
+        EXT-->>C: document / Markdown
         C-->>S: []FetchedItem + nextCursor
-        loop "每个条目"
+        loop "each item"
             S->>K: applyFetchedItem → ingestItem
         end
     end
-    S->>DB: 更新 SyncLog(success/partial/failed) + DataSource(LastSyncAt/Cursor/Result)
-    S->>DB: 记录审计日志 (recordKBActivity)
+    S->>DB: update SyncLog (success/partial/failed) + DataSource (LastSyncAt/Cursor/Result)
+    S->>DB: write audit log (recordKBActivity)
 ```
 
 ## Connector Implementation Details
@@ -283,13 +283,13 @@ Feishu and Lark (the international version, open.larksuite.com) are the same pro
 `httpclient.go` provides two SSRF protection entry points shared by all connectors:
 
 ```go
-// ValidateConnectorBaseURL 对连接器 base_url 做 SSRF 策略校验（空值放行，由调用方套默认值）
+// ValidateConnectorBaseURL applies SSRF policy validation to the connector base_url (empty passes through; the caller applies defaults)
 func ValidateConnectorBaseURL(rawURL string) error {
     ...
     if err := utils.ValidateURLForSSRF(url); err != nil { ... }
 }
 
-// NewConnectorHTTPClient 返回带重定向与拨号期 SSRF 防护的 HTTP 客户端
+// NewConnectorHTTPClient returns an HTTP client with redirect- and dial-time SSRF protection
 func NewConnectorHTTPClient(timeout time.Duration) *http.Client {
     cfg := utils.DefaultSSRFSafeHTTPClientConfig()
     cfg.Timeout = timeout

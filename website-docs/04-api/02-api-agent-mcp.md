@@ -43,7 +43,7 @@ Response: 201 `{"success":true,"data":{id,name,description,avatar,is_builtin,cre
 
 ```bash
 curl -X POST $BASE/api/v1/agents -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"售后助手","config":{"agent_mode":"quick-answer","kb_selection_mode":"selected","knowledge_bases":["kb-1"]}}'
+  -d '{"name":"Support Assistant","config":{"agent_mode":"quick-answer","kb_selection_mode":"selected","knowledge_bases":["kb-1"]}}'
 ```
 
 ### GET /api/v1/agents
@@ -74,7 +74,7 @@ Response: 200 `{"success":true,"data":{Agent}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/agents/agent-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"description":"更新描述"}'
+  -H 'Content-Type: application/json' -d '{"description":"Updated description"}'
 ```
 
 ### DELETE /api/v1/agents/:id

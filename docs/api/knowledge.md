@@ -67,7 +67,7 @@ Optional fields in `process_config` include: `parser_engine_rules`, `chunking_co
 ```curl
 curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowledge/file' \
 --header 'X-API-Key: sk-xxxxx' \
---form 'file=@"/Users/xxxx/tests/彗星.txt"' \
+--form 'file=@"/Users/xxxx/tests/Comet.txt"' \
 --form 'enable_multimodel="true"' \
 --form 'tag_id="tag-00000001"' \
 --form 'metadata="{\"source\":\"manual_upload\"}"'
@@ -84,7 +84,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "type": "file",
-        "title": "彗星.txt",
+        "title": "Comet.txt",
         "description": "",
         "source": "",
         "channel": "web",
@@ -93,7 +93,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
         "parse_status": "processing",
         "enable_status": "disabled",
         "embedding_model_id": "dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3",
-        "file_name": "彗星.txt",
+        "file_name": "Comet.txt",
         "file_type": "txt",
         "file_size": 7710,
         "file_hash": "d69476ddbba45223a5e97e786539952c",
@@ -214,8 +214,8 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "产品使用指南",
-    "content": "# 产品使用指南\n\n## 快速入门\n\n这是一份产品使用指南...",
+    "title": "Product Usage Guide",
+    "content": "# Product Usage Guide\n\n## Quick Start\n\nThis is a Product Usage Guide...",
     "status": "published",
     "tag_id": "tag-00000001"
 }'
@@ -230,7 +230,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge-bases/kb-00000001/knowle
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "type": "manual",
-        "title": "产品使用指南",
+        "title": "Product Usage Guide",
         "description": "",
         "source": "",
         "channel": "web",
@@ -486,8 +486,8 @@ curl --location 'http://localhost:8080/api/v1/knowledge/batch?ids=9c8af585-ae15-
             "tenant_id": 1,
             "knowledge_base_id": "kb-00000001",
             "type": "file",
-            "title": "彗星.txt",
-            "file_name": "彗星.txt",
+            "title": "Comet.txt",
+            "file_name": "Comet.txt",
             "file_type": "txt",
             "file_size": 7710,
             "parse_status": "completed",
@@ -520,8 +520,8 @@ curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "type": "file",
-        "title": "彗星.txt",
-        "description": "彗星是由冰和尘埃构成的太阳系小天体，接近太阳时会形成彗发和彗尾。",
+        "title": "Comet.txt",
+        "description": "A comet is a small solar-system body made of ice and dust that forms a coma and tail near the Sun.",
         "source": "",
         "channel": "web",
         "tag_id": "tag-00000001",
@@ -529,7 +529,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-
         "parse_status": "completed",
         "enable_status": "enabled",
         "embedding_model_id": "dff7bc94-7885-4dd1-bfd5-bd96e4df2fc3",
-        "file_name": "彗星.txt",
+        "file_name": "Comet.txt",
         "file_type": "txt",
         "file_size": 7710,
         "file_hash": "d69476ddbba45223a5e97e786539952c",
@@ -557,8 +557,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-0
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "彗星 - 天文百科",
-    "description": "彗星条目，已校对",
+    "title": "Comet - Astronomy Encyclopedia",
+    "description": "Comet entry, proofread",
     "tag_id": "tag-00000001",
     "enable_status": "enabled"
 }'
@@ -602,8 +602,8 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/manual/5a3
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "产品使用指南 V2",
-    "content": "# 产品使用指南 V2\n\n## 更新内容\n\n..."
+    "title": "Product Usage Guide V2",
+    "content": "# Product Usage Guide V2\n\n## What's New\n\n..."
 }'
 ```
 
@@ -616,7 +616,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/manual/5a3
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "type": "manual",
-        "title": "产品使用指南 V2",
+        "title": "Product Usage Guide V2",
         "parse_status": "processing",
         "enable_status": "enabled",
         "created_at": "2025-08-12T12:00:00.000000+08:00",
@@ -648,7 +648,7 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "type": "file",
-        "title": "彗星.txt",
+        "title": "Comet.txt",
         "parse_status": "pending",
         "enable_status": "enabled",
         "created_at": "2025-08-12T11:52:36.168632+08:00",
@@ -690,9 +690,9 @@ curl --location --request POST 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-
         "tenant_id": 1,
         "knowledge_base_id": "kb-00000001",
         "type": "file",
-        "title": "彗星.txt",
+        "title": "Comet.txt",
         "parse_status": "cancelled",
-        "error_message": "用户已取消解析",
+        "error_message": "User canceled the parse",
         "enable_status": "disabled",
         "created_at": "2025-08-12T11:52:36.168632+08:00",
         "updated_at": "2025-08-12T13:05:00.000000+08:00"
@@ -708,7 +708,7 @@ Downloads the original file corresponding to a knowledge entry as an `attachment
 
 ```
 Content-Type: application/octet-stream
-Content-Disposition: attachment; filename="彗星.txt"
+Content-Disposition: attachment; filename="Comet.txt"
 ```
 
 **Request**:
@@ -741,7 +741,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/4c4e7c1a-09cf-485b-a7b5-
 ```
 HTTP/1.1 200 OK
 Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline; filename="彗星.txt"
+Content-Disposition: inline; filename="Comet.txt"
 Cache-Control: private, max-age=3600
 ```
 
@@ -771,7 +771,7 @@ curl --location --request PUT 'http://localhost:8080/api/v1/knowledge/image/4c4e
 --header 'X-API-Key: sk-xxxxx' \
 --header 'Content-Type: application/json' \
 --data '{
-    "image_info": "{\"description\":\"产品架构图\",\"alt_text\":\"WeKnora 系统架构\"}"
+    "image_info": "{\"description\":\"Product architecture diagram\",\"alt_text\":\"WeKnora system architecture\"}"
 }'
 ```
 
@@ -837,7 +837,7 @@ Searches knowledge by keyword within the current space (including entries shared
 ```curl
 curl --location --get 'http://localhost:8080/api/v1/knowledge/search' \
 --header 'X-API-Key: sk-xxxxx' \
---data-urlencode 'keyword=彗星' \
+--data-urlencode 'keyword=Comet' \
 --data-urlencode 'offset=0' \
 --data-urlencode 'limit=10' \
 --data-urlencode 'file_types=txt,pdf'
@@ -854,9 +854,9 @@ curl --location --get 'http://localhost:8080/api/v1/knowledge/search' \
             "tenant_id": 1,
             "knowledge_base_id": "kb-00000001",
             "type": "file",
-            "title": "彗星.txt",
-            "description": "彗星是由冰和尘埃构成的太阳系小天体...",
-            "file_name": "彗星.txt",
+            "title": "Comet.txt",
+            "description": "A comet is a small solar-system body made of ice and dust...",
+            "file_name": "Comet.txt",
             "file_type": "txt",
             "file_size": 7710,
             "parse_status": "completed",
@@ -1030,7 +1030,7 @@ curl --location 'http://localhost:8080/api/v1/knowledge/move/progress/kg_move_1_
         "total": 1,
         "processed": 1,
         "failed": 0,
-        "message": "迁移完成",
+        "message": "Migration complete",
         "error": "",
         "created_at": 1731312000,
         "updated_at": 1731312045

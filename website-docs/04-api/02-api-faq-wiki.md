@@ -62,7 +62,7 @@ Response: 200 `{"success":true,"data":{"task_id"}}`
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entries -H "X-API-Key: $API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"mode":"append","entries":[{"standard_question":"如何退款?","answers":["联系客服"]}]}'
+  -d '{"mode":"append","entries":[{"standard_question":"How can I get a refund?","answers":["Contact support"]}]}'
 ```
 
 ### POST /api/v1/knowledge-bases/:id/faq/entry
@@ -84,7 +84,7 @@ Response: 200 `{"success":true,"data":{FAQEntry}}`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entry -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"standard_question":"如何退款?","answers":["7 天内可退"]}'
+  -H 'Content-Type: application/json' -d '{"standard_question":"How can I get a refund?","answers":["Refundable within 7 days"]}'
 ```
 
 ### PUT /api/v1/knowledge-bases/:id/faq/entries/:entry_id
@@ -95,7 +95,7 @@ Response: 200 `{"success":true,"data":{FAQEntry}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/faq/entries/12 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"standard_question":"如何退款?","answers":["30 天内可退"]}'
+  -H 'Content-Type: application/json' -d '{"standard_question":"How can I get a refund?","answers":["Refundable within 30 days"]}'
 ```
 
 ### POST /api/v1/knowledge-bases/:id/faq/entries/:entry_id/similar-questions
@@ -107,7 +107,7 @@ Response: 200 `{"success":true,"data":{FAQEntry}}`
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/entries/12/similar-questions \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"similar_questions":["退款怎么操作"]}'
+  -d '{"similar_questions":["How do I request a refund?"]}'
 ```
 
 ### PUT /api/v1/knowledge-bases/:id/faq/entries/fields
@@ -165,7 +165,7 @@ Response: 200 `{"success":true,"data":[FAQEntry(includes match_type/score)]}`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/faq/search -H "X-API-Key: $API_KEY" \
-  -H 'Content-Type: application/json' -d '{"query_text":"退款"}'
+  -H 'Content-Type: application/json' -d '{"query_text":"refund"}'
 ```
 
 ### PUT /api/v1/knowledge-bases/:id/faq/import/last-result/display
@@ -222,7 +222,7 @@ Response: 201 `WikiPage`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/pages -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"title":"架构概览","content":"# 概览"}'
+  -H 'Content-Type: application/json' -d '{"title":"Architecture Overview","content":"# Overview"}'
 ```
 
 ### PUT /api/v1/knowledgebase/:kb_id/wiki/move-page
@@ -254,7 +254,7 @@ Response: 200 `WikiPage`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/pages/overview -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"content":"# 更新后的概览"}'
+  -H 'Content-Type: application/json' -d '{"content":"# Updated Overview"}'
 ```
 
 ### GET /api/v1/knowledgebase/:kb_id/wiki/revisions/*slug
@@ -329,7 +329,7 @@ Response: 201 `WikiFolder`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledgebase/kb-1/wiki/folders -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"设计文档"}'
+  -H 'Content-Type: application/json' -d '{"name":"Design Documents"}'
 ```
 
 ### PUT /api/v1/knowledgebase/:kb_id/wiki/folders/:folder_id
@@ -340,7 +340,7 @@ Response: 200 `WikiFolder`
 
 ```bash
 curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/folders/f-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"架构设计"}'
+  -H 'Content-Type: application/json' -d '{"name":"Architecture Design"}'
 ```
 
 ### DELETE /api/v1/knowledgebase/:kb_id/wiki/folders/:folder_id
@@ -402,7 +402,7 @@ Purpose: Page search. Query parameters: `q` (required), `limit` (default 10).
 Response: 200 `{"pages":[WikiPage]}`
 
 ```bash
-curl "$BASE/api/v1/knowledgebase/kb-1/wiki/search?q=部署" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledgebase/kb-1/wiki/search?q=deploy" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### POST /api/v1/knowledgebase/:kb_id/wiki/rebuild-links

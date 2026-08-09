@@ -21,7 +21,7 @@ Response: 201 `{"success":true,"data":{Tenant}}` (may include `api_key` if confi
 
 ```bash
 curl -X POST $BASE/api/v1/tenants -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"我的空间"}'
+  -H 'Content-Type: application/json' -d '{"name":"My Space"}'
 ```
 
 ### GET /api/v1/tenants
@@ -83,7 +83,7 @@ Response: 200 `{"success":true,"data":{TenantResponse}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/tenants/1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"name":"新名字"}'
+  -H 'Content-Type: application/json' -d '{"name":"New name"}'
 ```
 
 ### DELETE /api/v1/tenants/:id

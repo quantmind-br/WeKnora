@@ -21,7 +21,7 @@ Response: 201 `{"success":true,"data":{Session}}` (`id,title,description,tenant_
 
 ```bash
 curl -X POST $BASE/api/v1/sessions -H "X-API-Key: $API_KEY" \
-  -H 'Content-Type: application/json' -d '{"title":"新对话"}'
+  -H 'Content-Type: application/json' -d '{"title":"New chat"}'
 ```
 
 ### GET /api/v1/sessions
@@ -59,7 +59,7 @@ Response: 200 `{"success":true,"data":{Session}}`
 
 ```bash
 curl -X PUT $BASE/api/v1/sessions/s-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"title":"重命名"}'
+  -H 'Content-Type: application/json' -d '{"title":"Rename"}'
 ```
 
 ### DELETE /api/v1/sessions/:id
@@ -101,11 +101,11 @@ Purpose: generate a session title based on context messages. Handler: `internal/
 | --- | --- | --- | --- |
 | `messages` | []Message | Yes (`binding:"required"`) | Messages to use as context |
 
-Response: 200 `{"success":true,"data":"生成的标题"}`
+Response: 200 `{"success":true,"data":"Generated title"}`
 
 ```bash
 curl -X POST $BASE/api/v1/sessions/s-1/generate_title -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"介绍下产品"}]}'
+  -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"Introduce the product"}]}'
 ```
 
 ### POST /api/v1/sessions/:session_id/stop
@@ -279,7 +279,7 @@ Response: 200 SSE stream, `event: message` + `data: StreamResponse` (see overvie
 ```bash
 curl -N -X POST $BASE/api/v1/knowledge-chat/s-1 -H "X-API-Key: $API_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"query":"退款政策是什么?","knowledge_base_ids":["kb-1"]}'
+  -d '{"query":"What is the refund policy?","knowledge_base_ids":["kb-1"]}'
 ```
 
 ### POST /api/v1/agent-chat/:session_id
@@ -288,7 +288,7 @@ Purpose: Agent Q&A (SSE streaming, including `thinking/tool_call/tool_result/too
 
 ```bash
 curl -N -X POST $BASE/api/v1/agent-chat/s-1 -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"query":"分析上季度数据","agent_id":"agent-1"}'
+  -H 'Content-Type: application/json' -d '{"query":"Analyze last quarter data","agent_id":"agent-1"}'
 ```
 
 ### POST /api/v1/knowledge-search
@@ -308,7 +308,7 @@ Response: 200 `{"success":true,"data":[SearchResult]}` (`id,content,knowledge_id
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-search -H "X-API-Key: $API_KEY" \
-  -H 'Content-Type: application/json' -d '{"query":"部署要求","knowledge_base_ids":["kb-1"]}'
+  -H 'Content-Type: application/json' -d '{"query":"Deployment requirements","knowledge_base_ids":["kb-1"]}'
 ```
 
 ## Messages (/api/v1/messages)
@@ -330,7 +330,7 @@ Response: 200 `{"success":true,"data":{"total":N,"results":[{session_id,message_
 
 ```bash
 curl -X POST $BASE/api/v1/messages/search -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"query":"报价"}'
+  -H 'Content-Type: application/json' -d '{"query":"Quote"}'
 ```
 
 ### GET /api/v1/messages/chat-history-stats

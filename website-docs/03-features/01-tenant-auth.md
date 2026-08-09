@@ -25,17 +25,17 @@ Technically, authentication supports three kinds of principals — password logi
 
 ```mermaid
 graph TB
-    subgraph identity["身份层"]
-        U["User (登录主体, email 唯一)"]
+    subgraph identity["Identity Layer"]
+        U["User (login principal, unique email)"]
     end
-    subgraph tenants["租户层 (资源隔离边界)"]
-        T1["Tenant A (个人空间)"]
-        T2["Tenant B (团队空间)"]
+    subgraph tenants["Tenant Layer (resource isolation boundary)"]
+        T1["Tenant A (personal space)"]
+        T2["Tenant B (team space)"]
     end
-    subgraph org["协作层"]
-        O["Organization (组织 / 共享空间)"]
-        KBS["KnowledgeBaseShare (KB 共享记录)"]
-        AGS["AgentShare (Agent 共享记录)"]
+    subgraph org["Collaboration Layer"]
+        O["Organization (org / shared space)"]
+        KBS["KnowledgeBaseShare (KB sharing record)"]
+        AGS["AgentShare (Agent sharing record)"]
     end
     U -- "TenantMember (owner)" --> T1
     U -- "TenantMember (contributor)" --> T2
@@ -43,7 +43,7 @@ graph TB
     T2 -- "OrganizationTenantMember" --> O
     O --- KBS
     O --- AGS
-    K["TenantAPIKey (机器主体, capabilities + KB allow-list)"] --> T2
+    K["TenantAPIKey (machine principal, capabilities + KB allow-list)"] --> T2
 ```
 
 Key points:
@@ -66,7 +66,7 @@ type Tenant struct {
     Status                  string               `json:"status" gorm:"default:'active'"`
     RetrieverEngines        RetrieverEngines     `json:"retriever_engines" gorm:"type:json"`
     Business                string               `json:"business"`
-    StorageQuota            int64                `json:"storage_quota" gorm:"default:10737418240"` // 默认 10GB
+    StorageQuota            int64                `json:"storage_quota" gorm:"default:10737418240"` // default 10GB
     StorageUsed             int64                `json:"storage_used"  gorm:"default:0"`
     ContextConfig           *ContextConfig       `json:"context_config" gorm:"type:jsonb"`
     WebSearchConfig         *WebSearchConfig     `json:"web_search_config" gorm:"type:jsonb"`
@@ -77,7 +77,7 @@ type Tenant struct {
     ChatHistoryConfig       *ChatHistoryConfig   `json:"chat_history_config" gorm:"type:jsonb"`
     RetrievalConfig         *RetrievalConfig     `json:"retrieval_config" gorm:"type:jsonb"`
     APIPrincipalConfig      *APIPrincipalConfig  `json:"-" gorm:"type:jsonb"`
-    // CreatedAt / UpdatedAt / DeletedAt（软删除）
+    // CreatedAt / UpdatedAt / DeletedAt (soft delete)
 }
 ```
 
@@ -94,15 +94,15 @@ type User struct {
     Email               string          `json:"email" gorm:"uniqueIndex;not null"`
     PasswordHash        string          `json:"-" gorm:"not null"`
     Avatar              string          `json:"avatar"`
-    TenantID            uint64          `json:"tenant_id" gorm:"index"` // 首选/默认租户
+    TenantID            uint64          `json:"tenant_id" gorm:"index"` // primary/default tenant
     IsActive            bool            `json:"is_active" gorm:"default:true"`
-    CanAccessAllTenants bool            `json:"can_access_all_tenants" gorm:"default:false"` // 跨租户超级用户
-    IsSystemAdmin       bool            `json:"is_system_admin" gorm:"default:false;index"`  // 平台管理员
+    CanAccessAllTenants bool            `json:"can_access_all_tenants" gorm:"default:false"` // cross-tenant superuser
+    IsSystemAdmin       bool            `json:"is_system_admin" gorm:"default:false;index"`  // platform administrator
     Preferences         UserPreferences `json:"preferences" gorm:"type:jsonb"`
 }
 
 type UserPreferences struct {
-    // 上次活跃的租户 ID，登录时用于恢复上下文
+    // ID of the last active tenant, used to restore context on login
     LastActiveTenantID *uint64 `json:"last_active_tenant_id,omitempty"`
 }
 ```
@@ -120,10 +120,10 @@ Two special flags:
 type TenantRole string
 
 const (
-    TenantRoleOwner       TenantRole = "owner"       // 完全控制：删除租户、转移所有权、管理 API Key、成员
-    TenantRoleAdmin       TenantRole = "admin"       // 管理成员、模型、向量库、MCP、IM 等租户基础设施
-    TenantRoleContributor TenantRole = "contributor" // 创建 KB / Agent，编辑自己创建的资源
-    TenantRoleViewer      TenantRole = "viewer"      // 只读
+    TenantRoleOwner       TenantRole = "owner"       // full control: delete tenant, transfer ownership, manage API keys and members
+    TenantRoleAdmin       TenantRole = "admin"       // manage members, models, vector DBs, MCP, IM and other tenant infrastructure
+    TenantRoleContributor TenantRole = "contributor" // create KBs / Agents, edit your own resources
+    TenantRoleViewer      TenantRole = "viewer"      // read-only
 )
 
 var tenantRoleLevel = map[TenantRole]int{
@@ -141,7 +141,7 @@ type TenantMember struct {
     ID        uint64
     UserID    string
     TenantID  uint64
-    Role      TenantRole         // 默认 contributor
+    Role      TenantRole         // defaults to contributor
     Status    TenantMemberStatus // active / invited / suspended
     InvitedBy *string
     JoinedAt  time.Time
@@ -157,14 +157,14 @@ The login response returns a `Membership{TenantID, TenantName, Role}` projection
 ```go
 type TenantAPIKey struct {
     ID               uint64
-    TenantID         *uint64         // platform key 为 NULL
+    TenantID         *uint64         // NULL for platform keys
     ScopeType        APIKeyScopeType // "tenant" | "platform"
     Name             string
-    KeyHash          string      `json:"-" gorm:"uniqueIndex"` // 查表用哈希
-    APIKey           string      // 明文（落库前 AES-256-GCM 加密，见 BeforeSave/AfterFind）
-    FullAccess       bool        // 全量访问（不受 capabilities 限制）
-    KnowledgeBaseIDs StringArray // KB allow-list（空 = 不限制）
-    Capabilities     StringArray // 能力列表
+    KeyHash          string      `json:"-" gorm:"uniqueIndex"` // lookup hash
+    APIKey           string      // plaintext (AES-256-GCM encrypted before persisting; see BeforeSave/AfterFind)
+    FullAccess       bool        // full access (not limited by capabilities)
+    KnowledgeBaseIDs StringArray // KB allow-list (empty = unrestricted)
+    Capabilities     StringArray // capability list
     LastUsedAt / ExpiresAt / RevokedAt *time.Time
 }
 ```
@@ -180,27 +180,27 @@ type TenantAPIKey struct {
 type Organization struct {
     ID                     string
     Name / Description / Avatar string
-    OwnerID                string  // 创建者用户
-    OwnerTenantID          uint64  // 拥有组织的租户
-    InviteCode             string  `gorm:"uniqueIndex"` // 组织邀请码
+    OwnerID                string  // creating user
+    OwnerTenantID          uint64  // tenant owning the org
+    InviteCode             string  `gorm:"uniqueIndex"` // organization invite code
     InviteCodeExpiresAt    *time.Time
-    InviteCodeValidityDays int     // 允许 0(永久)/1/7/30，默认 7
-    RequireApproval        bool    // 加入需审批
-    Searchable             bool    // 是否可被搜索发现
-    MemberLimit            int     // 默认 50
+    InviteCodeValidityDays int     // allows 0 (permanent) / 1 / 7 / 30, defaults to 7
+    RequireApproval        bool    // joining requires approval
+    Searchable             bool    // whether it is discoverable via search
+    MemberLimit            int     // default 50
 }
 
-type OrganizationTenantMember struct { // 成员单位是"租户"
+type OrganizationTenantMember struct { // member unit is a "tenant"
     OrganizationID       string
     TenantID             uint64
-    Role                 OrgMemberRole // admin / editor / viewer，默认 viewer
-    RepresentativeUserID string        // 代表用户（信息性字段）
+    Role                 OrgMemberRole // admin / editor / viewer; defaults to viewer
+    RepresentativeUserID string        // representative user (informational field)
 }
 
 const (
-    OrgRoleAdmin  OrgMemberRole = "admin"  // 完全控制组织与共享资源
-    OrgRoleEditor OrgMemberRole = "editor" // 可编辑共享 KB 内容，不能改组织设置
-    OrgRoleViewer OrgMemberRole = "viewer" // 只读
+    OrgRoleAdmin  OrgMemberRole = "admin"  // full control over the org and shared resources
+    OrgRoleEditor OrgMemberRole = "editor" // can edit shared KB content but cannot change org settings
+    OrgRoleViewer OrgMemberRole = "viewer" // read-only
 )
 ```
 
@@ -212,8 +212,8 @@ const (
 
 ```go
 type AuthConfig struct {
-    RegistrationMode  string // "self_serve"（默认，公开注册） | "invite_only"（仅邀请）
-    DefaultTenantMode string // "create_personal"（默认，自动建个人租户） | "tenantless"（无租户等待邀请）
+    RegistrationMode  string // "self_serve" (default, public registration) | "invite_only" (invite only)
+    DefaultTenantMode string // "create_personal" (default, auto-create a personal tenant) | "tenantless" (no tenant until invited)
 }
 
 func (c *AuthConfig) IsInviteOnly() bool {
@@ -253,7 +253,7 @@ In `invite_only` mode, `POST /auth/register` returns 403, but that only blocks *
 // POST /auth/register-by-invite
 type registerByInviteRequest struct {
     Token    string `binding:"required"`
-    Email    string `binding:"required,email"` // 注册者自填，与 token 不绑定
+    Email    string `binding:"required,email"` // filled in by the registrant; not bound to the token
     Username string `binding:"required"`
     Password string `binding:"required,min=6"`
 }
@@ -271,8 +271,8 @@ Implemented in `internal/application/service/user.go`, using `github.com/golang-
 
 ```go
 func getJwtSecret() string {
-    // 1) 环境变量 JWT_SECRET
-    // 2) 否则启动时生成 32 字节安全随机密钥（Base64），进程重启后旧 token 失效
+    // 1) JWT_SECRET environment variable
+    // 2) otherwise generate a 32-byte secure random key (Base64) at startup; old tokens expire after restart
 }
 ```
 
@@ -282,7 +282,7 @@ func getJwtSecret() string {
 accessClaims := jwt.MapClaims{
     "user_id":   user.ID,
     "email":     user.Email,
-    "tenant_id": activeTenantID, // 请求的租户作用域写死在 token 里
+    "tenant_id": activeTenantID, // requested tenant scope is baked into the token
     "exp":       time.Now().Add(24 * time.Hour).Unix(),
     "iat":       time.Now().Unix(),
     "type":      "access",
@@ -348,10 +348,10 @@ The `ValidateToken` check chain:
 In `internal/router/rbac.go`, every route accessible via API Key is explicitly registered with an `APIKeyRoutePolicy` through `apiKeyGroup` / `apiKeyRoute` (`middleware.APIKeyRouteAuthorizer` is the single source of truth):
 
 ```go
-// 策略构造器
-apiKeyAny()                    // 任何有效 key
-apiKeyFullAccess()             // 仅 FullAccess key
-apiKeyPlatform(caps...)        // 仅 platform key + 指定能力
+// policy constructors
+apiKeyAny()                    // any valid key
+apiKeyFullAccess()             // FullAccess keys only
+apiKeyPlatform(caps...)        // platform keys only + given capabilities
 apiKeyRetrieve(base) / apiKeyChat(base) / apiKeyIngest(base) / ...
 ```
 
@@ -372,9 +372,9 @@ At startup, `assertAPIKeyPoliciesMatchRoutes` validates that every declared poli
 When `KnowledgeBaseIDs` is non-empty, the key can only reach the KBs on the list (evidenced by `knowledge_api_key_scope_test.go`):
 
 ```go
-// 越界单个 KB → 403
-requireTenantAPIKeyKnowledgeBase(ctx, "kb-2") // scope 只含 kb-1 → forbidden
-// 批量操作中任一 KB 越界 → 整体 403（拒绝部分重叠）
+// single out-of-scope KB → 403
+requireTenantAPIKeyKnowledgeBase(ctx, "kb-2") // scope only contains kb-1 → forbidden
+// any KB out of scope in batch → whole request 403 (partial overlap rejected)
 requireTenantAPIKeyKnowledgeBases(ctx, "kb-1", "kb-2") // → forbidden
 ```
 
@@ -402,9 +402,9 @@ Endpoint resolution order: if both `authorization_endpoint` and `token_endpoint`
 Routes (`internal/router/router.go`):
 
 ```go
-r.GET("/auth/oidc/config",   handler.GetOIDCConfig)           // 前端探测是否启用
-r.GET("/auth/oidc/url",      handler.GetOIDCAuthorizationURL) // 获取授权 URL
-r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)    // 授权码回调
+r.GET("/auth/oidc/config",   handler.GetOIDCConfig)           // frontend probe of whether OIDC is enabled
+r.GET("/auth/oidc/url",      handler.GetOIDCAuthorizationURL) // get authorization URL
+r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)    // authorization code callback
 ```
 
 ### 5.2 Flow and Security Design
@@ -423,23 +423,23 @@ Auto-provisioning details:
 
 ```mermaid
 sequenceDiagram
-    participant B as "浏览器 (SPA)"
-    participant W as "WeKnora 后端"
+    participant B as "Browser (SPA)"
+    participant W as "WeKnora backend"
     participant IdP as "OIDC Provider"
     B->>W: GET /auth/oidc/url?redirect_uri=...
-    W->>W: 生成 nonce(24B), 签名 state={nonce, redirect_uri}
-    W-->>B: authorization_url + state (nonce 走 HttpOnly cookie)
+    W->>W: generate nonce (24B), sign state={nonce, redirect_uri}
+    W-->>B: authorization_url + state (nonce via HttpOnly cookie)
     B->>IdP: 302 authorization_endpoint?response_type=code&client_id&scope&state
-    IdP->>IdP: 用户在 IdP 完成认证
+    IdP->>IdP: user completes authentication at IdP
     IdP-->>B: 302 redirect_uri?code=...&state=...
     B->>W: GET /auth/oidc/callback?code&state
-    W->>W: 验证 state 签名与 nonce
+    W->>W: verify state signature and nonce
     W->>IdP: POST token_endpoint (code + client_secret)
     IdP-->>W: access_token / id_token
     W->>IdP: GET user_info_endpoint
     IdP-->>W: claims (email, name)
-    W->>W: 按 email 查用户，不存在则自动开户 provisionOIDCUser
-    W->>W: 签发本地 JWT (access 24h + refresh 7d)
+    W->>W: look up user by email, auto-provision if missing (provisionOIDCUser)
+    W->>W: issue local JWT (access 24h + refresh 7d)
     W-->>B: LoginResponse {user, memberships, token, refresh_token, is_new_user}
 ```
 
@@ -514,9 +514,9 @@ The enforcement switch `TenantConfig.EnableRBAC`: `nil` or `true` = enforced (cu
 `middleware/kb_access.go` (wrapped by the `KBAccess*` family in `rbac.go`) unifies three access paths:
 
 ```text
-1. 自有 KB                    → 等效 Admin 级完全访问
-2. 组织共享 KB (Plan 3)       → 受共享权限封顶
-3. 经共享 Agent 可见          → 仅只读（只在 KBAccessRead 层激活）
+1. Own KB → full access equivalent to Admin
+2. Org-shared KB (Plan 3) → capped by the shared permission
+3. Visible via a shared Agent → read-only (activated only at the KBAccessRead layer)
 ```
 
 On success, the guard stores `(KB, effective tenant ID, permission)` in the context and **rewrites the request's tenant ID to the effective tenant**, so downstream handlers don't need to be aware of whether the KB is owned or shared. Variants `KBAccessReadFromKnowledgeIDParam` / `...FromChunkIDParam` support reverse-looking-up the KB from a knowledge / chunk ID. Read routes require at least `OrgRoleViewer`; write routes require at least `OrgRoleEditor`.
@@ -567,10 +567,10 @@ After Plan 3, the unit of membership is the tenant, and a single user may belong
 
 ```go
 // SearchTenantsForInvite：
-// 1. 校验调用者租户是组织 admin
-// 2. 排除已在组织内的租户 (existingTenantIDs)
-// 3. tenantService.SearchTenants 按名称搜索（pageSize = limit*2，limit 上限 50）
-// 4. 插入序去重，丢弃解析不到名称的 defunct 租户，截断到 limit
+// 1. verify the caller's tenant is an org admin
+// 2. exclude tenants already in the org (existingTenantIDs)
+// 3. tenantService.SearchTenants searches by name (pageSize = limit*2, limit capped at 50)
+// 4. dedupe on insertion order, drop defunct tenants whose names cannot be resolved, truncate to limit
 ```
 
 The old endpoint `GET /organizations/:id/search-users` is kept as a backward-compatible shim, delegating directly to `SearchTenantsForInvite` (the response is already in the new tenant-candidate shape, marked `@Deprecated`).
@@ -587,10 +587,10 @@ type KnowledgeBaseShare struct {
     KnowledgeBaseID string
     OrganizationID  string
     SharedByUserID  string
-    SourceTenantID  uint64        // 共享来源租户
-    Permission      OrgMemberRole // 共享授予的最高权限（viewer/editor/admin）
+    SourceTenantID  uint64        // source tenant of the share
+    Permission      OrgMemberRole // highest permission granted by the share (viewer/editor/admin)
 }
-// AgentShare 结构同形，面向 Agent。
+// AgentShare is shaped the same way, for Agents.
 ```
 
 **Prerequisite for sharing** (`ShareKnowledgeBase`): the caller's tenant must **own** the KB (`kb.TenantID == tenantID`), and must hold at least **editor** role in the target organization. Sharing again just updates the permission.
@@ -604,10 +604,10 @@ type KnowledgeBaseShare struct {
 **Effective permission = intersection across multiple layers (take the minimum)**:
 
 ```go
-// 最终权限 = Min(共享记录的 Permission, 调用者租户在组织中的 OrgMemberRole)
-// 再叠加租户角色封顶：
+// final permission = Min(share.Permission, caller tenant's OrgMemberRole in the org)
+// then capped by the tenant role:
 func applyTenantRoleCap(p types.OrgMemberRole, callerTenantRole types.TenantRole) types.OrgMemberRole {
-    // 租户内只是 Viewer 的用户，即使共享侧给到 editor+，也被压到 viewer
+    // a user who is only a Viewer inside the tenant is lowered to viewer even if the share gives editor+
     if callerTenantRole == types.TenantRoleViewer && p.HasPermission(types.OrgRoleEditor) {
         return types.OrgRoleViewer
     }
@@ -619,19 +619,19 @@ Sharing-related operations are written to the KB activity feed: `kb.share_added`
 
 ```mermaid
 flowchart LR
-    subgraph srcT["来源租户 (SourceTenant)"]
-        KB["KnowledgeBase (TenantID = 来源租户)"]
+    subgraph srcT["Source Tenant"]
+        KB["KnowledgeBase (TenantID = source tenant)"]
     end
     subgraph orgS["Organization"]
         SH["KnowledgeBaseShare (Permission: editor)"]
     end
-    subgraph dstT["消费租户"]
+    subgraph dstT["Consumer Tenant"]
         M["OrganizationTenantMember (Role: viewer)"]
-        UV["用户 (租户角色: Viewer)"]
+        UV["User (tenant role: Viewer)"]
     end
-    KB -- "ShareKnowledgeBase (须 editor+ in org)" --> SH
+    KB -- "ShareKnowledgeBase (requires editor+ in org)" --> SH
     SH --> M
-    M --> EP["有效权限 = Min(share.Permission, org role) 再经 applyTenantRoleCap 封顶 = viewer"]
+    M --> EP["effective permission = Min(share.Permission, org role), then capped by applyTenantRoleCap = viewer"]
     UV --> EP
 ```
 
