@@ -820,7 +820,7 @@ onMounted(() => {
   gap: 8px;
 }
 
-/* Read-only description: multi-line wrap allowed; an empty description shows placeholder-colored text hinting the user can click to edit.
+/* Read-only description: multi-line wrap allowed; an empty description shows placeholder-colored text hinting the user can click to edit. */
 .description-value {
   white-space: pre-wrap;
   word-break: break-word;

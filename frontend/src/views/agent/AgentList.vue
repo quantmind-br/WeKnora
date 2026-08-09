@@ -2517,7 +2517,7 @@ defineExpose({
 </style>
 
 <style lang="less">
-/* Dropdown menu styles already unified in @/assets/dropdown-menu.less
+/* Dropdown menu styles already unified in @/assets/dropdown-menu.less */
 
 // Shared agent detail sidebar
 .shared-detail-drawer-overlay {

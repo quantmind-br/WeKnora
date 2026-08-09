@@ -749,7 +749,7 @@
                       </div>
                     </div>
 
-                    <!-- Max OCR pages for scanned documents (when attachment image understanding is enabled)
+                    <!-- Max OCR pages for scanned documents (when attachment image understanding is enabled) -->
                     <div v-if="formData.config.image_upload_enabled && formData.config.attachment_image_understanding"
                       class="setting-row">
                       <div class="setting-info">
@@ -763,7 +763,7 @@
                       </div>
                     </div>
 
-                    <!-- Image storage provider (when image upload is enabled)
+                    <!-- Image storage provider (when image upload is enabled) -->
                     <div v-if="formData.config.image_upload_enabled" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.imageUpload.storageProvider') }}</label>
@@ -789,7 +789,7 @@
                       </div>
                     </div>
 
-                    <!-- Audio upload toggle
+                    <!-- Audio upload toggle -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.audioUpload.label') }}</label>
@@ -800,7 +800,7 @@
                       </div>
                     </div>
 
-                    <!-- ASR model (when audio upload is enabled)
+                    <!-- ASR model (when audio upload is enabled) -->
                     <div v-if="formData.config.audio_upload_enabled" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.audioUpload.asrModel') }}</label>
@@ -815,7 +815,7 @@
                       </div>
                     </div>
 
-                    <!-- Single-turn wait timeout for attachment parsing (seconds)
+                    <!-- Single-turn wait timeout for attachment parsing (seconds) -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.chatParser.waitTimeoutLabel') }}</label>
@@ -828,7 +828,7 @@
                       </div>
                     </div>
 
-                    <!-- Chat attachment parsing strategy
+                    <!-- Chat attachment parsing strategy -->
                     <div class="parser-policy-block">
                       <div class="parser-policy-block__header">
                         <label>{{ $t('agentEditor.chatParser.label') }}</label>
@@ -845,7 +845,7 @@
                   </div>
                 </div>
 
-                <!-- Multi-turn conversation (shown only in normal mode; controlled automatically in Agent mode)
+                <!-- Multi-turn conversation (shown only in normal mode; controlled automatically in Agent mode) -->
                 <div v-show="currentSection === 'conversation' && !isAgentMode" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.conversationSettings') }}</h2>
@@ -853,7 +853,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- Multi-turn conversation
+                    <!-- Multi-turn conversation -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.multiTurn') }}</label>
@@ -864,7 +864,7 @@
                       </div>
                     </div>
 
-                    <!-- Number of retained turns
+                    <!-- Number of retained turns -->
                     <div v-if="formData.config.multi_turn_enabled" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.historyTurns') }}</label>
@@ -875,7 +875,7 @@
                       </div>
                     </div>
 
-                    <!-- Query rewriting (shown only when multi-turn conversation is enabled and in normal mode)
+                    <!-- Query rewriting (shown only when multi-turn conversation is enabled and in normal mode) -->
                     <div v-if="formData.config.multi_turn_enabled && !isAgentMode" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.enableRewrite') }}</label>
@@ -888,7 +888,7 @@
                   </div>
                 </div>
 
-                <!-- Conversation question suggestions
+                <!-- Conversation question suggestions -->
                 <div v-show="currentSection === 'suggestions'" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agentEditor.questionSuggestions.title') }}</h2>
@@ -1070,14 +1070,14 @@
                   </div>
                 </div>
 
-                <!-- Tool configuration (Agent mode only)
+                <!-- Tool configuration (Agent mode only) -->
                 <div v-show="currentSection === 'tools' && isAgentMode" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.toolsConfig') }}</h2>
                     <p class="section-description">{{ $t('agent.editor.toolsConfigDesc') }}</p>
                   </div>
 
-                  <!-- Combined panel: capability status + preset switching
+                  <!-- Combined panel: capability status + preset switching -->
                   <div class="tools-overview">
                     <div class="tools-overview-row">
                       <div class="tools-status-chip">
@@ -1103,7 +1103,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- Allowed tools (rendered by group, unified grid)
+                    <!-- Allowed tools (rendered by group, unified grid) -->
                     <div
                       class="setting-row setting-row-vertical"
                       data-agent-field="allowed_tools"
@@ -1149,7 +1149,7 @@
                       </div>
                     </div>
 
-                    <!-- Effective tools preview: WYSIWYG
+                    <!-- Effective tools preview: WYSIWYG -->
                     <div class="setting-row setting-row-vertical">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.tools.effectiveLabel') }}</label>
@@ -1176,7 +1176,7 @@
                   </div>
                 </div>
 
-                <!-- MCP service configuration (Agent mode only)
+                <!-- MCP service configuration (Agent mode only) -->
                 <div v-show="currentSection === 'mcp' && isAgentMode" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agentEditor.mcp.label') }}</h2>
@@ -1184,7 +1184,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- MCP service selection
+                    <!-- MCP service selection -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.mcp.label') }}</label>
@@ -1199,7 +1199,7 @@
                       </div>
                     </div>
 
-                    <!-- Select specific MCP services
+                    <!-- Select specific MCP services -->
                     <div v-if="mcpSelectionMode === 'selected' && showMcpServiceSelect" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.mcp.selectLabel') }}</label>
@@ -1214,7 +1214,7 @@
                       </div>
                     </div>
 
-                    <!-- Authorization wait timeout: wait time in seconds when OAuth authorization is triggered mid-conversation
+                    <!-- Authorization wait timeout: wait time in seconds when OAuth authorization is triggered mid-conversation -->
                     <div v-if="mcpSelectionMode !== 'none'" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.mcp.authWaitTimeout') }}</label>
@@ -1228,7 +1228,7 @@
                   </div>
                 </div>
 
-                <!-- Skills configuration (Agent mode only)
+                <!-- Skills configuration (Agent mode only) -->
                 <div v-show="currentSection === 'skills' && isAgentMode" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.skillsConfig') }}</h2>
@@ -1236,7 +1236,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- Skills selection mode
+                    <!-- Skills selection mode -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.skillsSelection') }}</label>
@@ -1251,7 +1251,7 @@
                       </div>
                     </div>
 
-                    <!-- Select specific Skills
+                    <!-- Select specific Skills -->
                     <div v-if="skillsSelectionMode === 'selected' && skillOptions.length > 0"
                       class="setting-row setting-row-vertical">
                       <div class="setting-info">
@@ -1271,14 +1271,14 @@
                       </div>
                     </div>
 
-                    <!-- No Skills available notice
+                    <!-- No Skills available notice -->
                     <div v-if="skillOptions.length === 0" class="setting-row">
                       <div class="setting-info">
                         <p class="desc empty-hint">{{ $t('agent.editor.noSkillsAvailable') }}</p>
                       </div>
                     </div>
 
-                    <!-- Skills description
+                    <!-- Skills description -->
                     <div class="skill-info-box">
                       <t-icon name="lightbulb" class="info-icon" />
                       <div class="info-content">
@@ -1289,7 +1289,7 @@
                   </div>
                 </div>
 
-                <!-- Knowledge base configuration
+                <!-- Knowledge base configuration -->
                 <div v-show="currentSection === 'knowledge'" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.knowledgeConfig') }}</h2>
@@ -1297,7 +1297,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- Linked knowledge base
+                    <!-- Linked knowledge base -->
                     <div class="setting-row" data-guide="agent-create-knowledge">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.knowledgeBases') }}</label>
@@ -1313,7 +1313,7 @@
                       </div>
                     </div>
 
-                    <!-- Select specific knowledge base (shown only when "specific knowledge base" is selected)
+                    <!-- Select specific knowledge base (shown only when "specific knowledge base" is selected) -->
                     <div v-if="kbSelectionMode === 'selected'" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.selectKnowledgeBases') }}</label>
@@ -1359,7 +1359,7 @@
                       </div>
                     </div>
 
-                    <!-- Supported file types (restricts the file types users can select)
+                    <!-- Supported file types (restricts the file types users can select) -->
                     <div v-if="hasKnowledgeBase" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.fileTypes.label') }}</label>
@@ -1374,7 +1374,7 @@
                       </div>
                     </div>
 
-                    <!-- Only retrieve knowledge base when mentioned (shown when a knowledge base is configured)
+                    <!-- Only retrieve knowledge base when mentioned (shown when a knowledge base is configured) -->
                     <div v-if="hasKnowledgeBase" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.retrieveKBOnlyWhenMentioned') }}</label>
@@ -1388,7 +1388,7 @@
                   </div>
                 </div>
 
-                <!-- Web search configuration
+                <!-- Web search configuration -->
                 <div v-show="currentSection === 'websearch'" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.webSearchConfig') }}</h2>
@@ -1396,7 +1396,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- Web search
+                    <!-- Web search -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.webSearch') }}</label>
@@ -1407,7 +1407,7 @@
                       </div>
                     </div>
 
-                    <!-- Max web search results
+                    <!-- Max web search results -->
                     <div v-if="formData.config.web_search_enabled" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.webSearchProvider') }}</label>
@@ -1426,7 +1426,7 @@
                       </div>
                     </div>
 
-                    <!-- Max web search results
+                    <!-- Max web search results -->
                     <div v-if="formData.config.web_search_enabled" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.webSearchMaxResults') }}</label>
@@ -1440,7 +1440,7 @@
                       </div>
                     </div>
 
-                    <!-- Auto-fetch page content
+                    <!-- Auto-fetch page content -->
                     <div v-if="formData.config.web_search_enabled" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.webFetchEnabled') }}</label>
@@ -1451,7 +1451,7 @@
                       </div>
                     </div>
 
-                    <!-- Number of pages to fetch
+                    <!-- Number of pages to fetch -->
                     <div v-if="formData.config.web_search_enabled && formData.config.web_fetch_enabled"
                       class="setting-row">
                       <div class="setting-info">
@@ -1468,7 +1468,7 @@
                   </div>
                 </div>
 
-                <!-- Retrieval strategy (shown only when knowledge base capability is present)
+                <!-- Retrieval strategy (shown only when knowledge base capability is present) -->
                 <div v-show="currentSection === 'retrieval' && hasKnowledgeBase" class="section">
                   <div class="section-header">
                     <h2>{{ $t('agent.editor.retrievalStrategy') }}</h2>
@@ -1476,7 +1476,7 @@
                   </div>
 
                   <div class="settings-group">
-                    <!-- Query expansion (normal mode only)
+                    <!-- Query expansion (normal mode only) -->
                     <div v-if="!isAgentMode" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.enableQueryExpansion') }}</label>
@@ -1487,7 +1487,7 @@
                       </div>
                     </div>
 
-                    <!-- Vector recall TopK
+                    <!-- Vector recall TopK -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.embeddingTopK') }}</label>
@@ -1498,7 +1498,7 @@
                       </div>
                     </div>
 
-                    <!-- Keyword threshold
+                    <!-- Keyword threshold -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.keywordThreshold') }}</label>
@@ -1512,7 +1512,7 @@
                       </div>
                     </div>
 
-                    <!-- Vector threshold
+                    <!-- Vector threshold -->
                     <div class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.vectorThreshold') }}</label>
@@ -1526,7 +1526,7 @@
                       </div>
                     </div>
 
-                    <!-- Rerank TopK (only shown when a Rerank model is configured)
+                    <!-- Rerank TopK (only shown when a Rerank model is configured) -->
                     <div v-if="formData.config.rerank_model_id" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.rerankTopK') }}</label>
@@ -1537,7 +1537,7 @@
                       </div>
                     </div>
 
-                    <!-- Rerank threshold (only shown when a Rerank model is configured)
+                    <!-- Rerank threshold (only shown when a Rerank model is configured) -->
                     <div v-if="formData.config.rerank_model_id" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agent.editor.rerankThreshold') }}</label>
@@ -1551,7 +1551,7 @@
                       </div>
                     </div>
 
-                    <!-- FAQ priority strategy (shown when linked to a FAQ-type knowledge base)
+                    <!-- FAQ priority strategy (shown when linked to a FAQ-type knowledge base) -->
                     <div v-if="hasFaqKnowledgeBase" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.faq.enableLabel') }}</label>
@@ -1590,7 +1590,7 @@
                       </div>
                     </div>
 
-                    <!-- Table data analysis (normal mode only; hitting CSV/Excel triggers an extra LLM call to generate SQL)
+                    <!-- Table data analysis (normal mode only; hitting CSV/Excel triggers an extra LLM call to generate SQL) -->
                     <div v-if="!isAgentMode" class="setting-row">
                       <div class="setting-info">
                         <label>{{ $t('agentEditor.dataAnalysis.enableLabel') }}</label>
@@ -1603,14 +1603,14 @@
                   </div>
                 </div>
 
-                <!-- Sharing management (edit mode only, and not for built-in agents)
+                <!-- Sharing management (edit mode only, and not for built-in agents) -->
                 <div v-if="editorMode === 'edit' && editorAgent?.id && !editorAgent?.is_builtin"
                   v-show="currentSection === 'share'" class="section">
                   <AgentShareSettings :agent-id="editorAgent.id" :agent="editorAgent" />
                 </div>
               </div>
 
-              <!-- Bottom action bar
+              <!-- Bottom action bar -->
               <div class="settings-footer">
                 <p v-if="isPostCreateSession" class="settings-footer-note">
                   <t-icon name="check-circle-filled" class="settings-footer-note__icon" />
@@ -1719,7 +1719,7 @@ const emit = defineEmits<{
   (e: 'success', agent?: CustomAgent): void;
 }>();
 
-/** After the first save succeeds, stay in the dialog and use local state to switch to edit mode to show entries like IM / embedding
+/** After the first save succeeds, stay in the dialog and use local state to switch to edit mode to show entries like IM / embedding */
 const savedAgent = ref<CustomAgent | null>(null);
 const editorMode = computed(() => (savedAgent.value ? 'edit' : props.mode));
 const editorAgent = computed(() => savedAgent.value ?? props.agent ?? null);
