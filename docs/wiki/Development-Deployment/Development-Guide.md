@@ -2,7 +2,7 @@
 title: Development Guide
 tags: [Development & Deployment, Development, Local Development, Environment Setup]
 aliases: [Development Environment, DevGuide, Development Guide]
-source: 开发指南.md
+source: Development-Guide.md
 ---
 
 # Development Guide
@@ -11,7 +11,7 @@ source: 开发指南.md
 
 If you need to frequently modify the `app` or `frontend` code, you don't need to rebuild the Docker image every time — you can use local development mode instead.
 
-> For detailed information on development mode, see [Quick Development Mode](../开发部署/快速开发模式.md)
+> For detailed information on development mode, see [Quick Development Mode](../Development-Deployment/Quick-Development-Mode.md)
 
 ### Option 1: Using Make Commands (Recommended)
 
@@ -45,7 +45,7 @@ make dev-frontend
 | MinIO Console | http://localhost:9001 |
 | Neo4j Browser | http://localhost:7474 |
 
-> For information on using Neo4j, see [Knowledge Graph](../核心功能/知识图谱.md) and [Enabling the Knowledge Graph Feature](../核心功能/开启知识图谱功能.md)
+> For information on using Neo4j, see [Knowledge Graph](../Core-Features/Knowledge-Graph.md) and [Enabling the Knowledge Graph Feature](../Core-Features/Enabling-Knowledge-Graph.md)
 
 ## Backend Hot Reload with Air
 
@@ -74,20 +74,20 @@ sh scripts/start_all.sh       # Start the production environment
 - **Frontend CORS errors**: Check the proxy configuration in `vite.config.ts`
 - **DocReader needs to be rebuilt**: `sh scripts/build_images.sh -d`
 
-> For more troubleshooting tips, see [FAQ](../运维排障/常见问题.md)
+> For more troubleshooting tips, see [FAQ](../Operations-Troubleshooting/FAQ.md)
 
 ## Related Topics
 
-- [Quick Development Mode](../开发部署/快速开发模式.md) — Architecture explanation of development mode
-- [Knowledge Graph](../核心功能/知识图谱.md) — Neo4j configuration in the development environment
-- [Agent Skills System](../核心功能/Agent技能系统.md) — Building the sandbox image
+- [Quick Development Mode](../Development-Deployment/Quick-Development-Mode.md) — Architecture explanation of development mode
+- [Knowledge Graph](../Core-Features/Knowledge-Graph.md) — Neo4j configuration in the development environment
+- [Agent Skills System](../Core-Features/Agent-Skills-System.md) — Building the sandbox image
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Quick Development Mode](../开发部署/快速开发模式.md) — Architecture comparison for development mode
-- [Knowledge Graph](../核心功能/知识图谱.md) — Starting Neo4j in the development environment
-- [Enabling the Knowledge Graph Feature](../核心功能/开启知识图谱功能.md) — Enabling the graph feature in the development environment
-- [FAQ](../运维排障/常见问题.md) — Development-related troubleshooting
+- [Quick Development Mode](../Development-Deployment/Quick-Development-Mode.md) — Architecture comparison for development mode
+- [Knowledge Graph](../Core-Features/Knowledge-Graph.md) — Starting Neo4j in the development environment
+- [Enabling the Knowledge Graph Feature](../Core-Features/Enabling-Knowledge-Graph.md) — Enabling the graph feature in the development environment
+- [FAQ](../Operations-Troubleshooting/FAQ.md) — Development-related troubleshooting

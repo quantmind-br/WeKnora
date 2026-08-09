@@ -9,7 +9,7 @@ source: Using Other Vector Databases.md
 
 This document provides a complete guide for adding support for a new vector database to the WeKnora project. By implementing standardized interfaces and following a structured process, developers can efficiently integrate a custom vector database.
 
-> For a similar extension development pattern, see [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md)
+> For a similar extension development pattern, see [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md)
 
 ## Integration Process
 
@@ -109,15 +109,15 @@ Keyword retrieval depends on the Tencent VectorDB sparse vector index. Newly cre
 
 ## Related Topics
 
-- [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md) — a similar extension development pattern (interface implementation + registration + DI)
-- [Knowledge Graph](../核心功能/知识图谱.md) — the knowledge graph feature depends on Neo4j rather than a vector database
-- [FAQ](../运维排障/常见问题.md) — Embedding model configuration and vector dimension related topics
+- [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md) — a similar extension development pattern (interface implementation + registration + DI)
+- [Knowledge Graph](../Core-Features/Knowledge-Graph.md) — the knowledge graph feature depends on Neo4j rather than a vector database
+- [FAQ](../Operations-Troubleshooting/FAQ.md) — Embedding model configuration and vector dimension related topics
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md) — a similar extension development pattern
-- [Knowledge Graph](../核心功能/知识图谱.md) — another knowledge retrieval approach (graph-based rather than vector-based)
-- [Roadmap](../项目概述/版本路线图.md) — retrieval capability extension directions in the roadmap
+- [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md) — a similar extension development pattern
+- [Knowledge Graph](../Core-Features/Knowledge-Graph.md) — another knowledge retrieval approach (graph-based rather than vector-based)
+- [Roadmap](../Project-Overview/Version-Roadmap.md) — retrieval capability extension directions in the roadmap

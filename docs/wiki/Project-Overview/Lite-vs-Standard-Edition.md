@@ -15,16 +15,16 @@ Lite targets scenarios where quick local use and minimal deployment complexity a
 
 ## Related Topics
 
-- For details on the shared workspace, see [Shared Workspace Guide](../安全认证/共享空间说明.md) — a Standard Edition–only feature
-- For the authentication system, see [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — multi-workspace OIDC login for the Standard Edition
-- For setting up a development environment, see [Development Guide](../开发部署/开发指南.md)
-- For deployment-related FAQ, see [FAQ](../运维排障/常见问题.md)
+- For details on the shared workspace, see [Shared Workspace Guide](../Security-Authentication/Shared-Spaces-Guide.md) — a Standard Edition–only feature
+- For the authentication system, see [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md) — multi-workspace OIDC login for the Standard Edition
+- For setting up a development environment, see [Development Guide](../Development-Deployment/Development-Guide.md)
+- For deployment-related FAQ, see [FAQ](../Operations-Troubleshooting/FAQ.md)
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Roadmap](版本路线图.md) — the lightweight deployment direction in the roadmap
-- [Shared Workspace Guide](../安全认证/共享空间说明.md) — details on the shared workspace feature not supported by Lite
-- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — the authentication method for multi-workspace scenarios in the Standard Edition
+- [Roadmap](Version-Roadmap.md) — the lightweight deployment direction in the roadmap
+- [Shared Workspace Guide](../Security-Authentication/Shared-Spaces-Guide.md) — details on the shared workspace feature not supported by Lite
+- [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md) — the authentication method for multi-workspace scenarios in the Standard Edition

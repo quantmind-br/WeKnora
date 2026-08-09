@@ -21,7 +21,7 @@ docker compose logs -f app docreader postgres
 ./scripts/start_all.sh --stop && make clean-db  # Clear the database
 ```
 
-> For starting/stopping in development mode, see the [Development Guide](../开发部署/开发指南.md)
+> For starting/stopping in development mode, see the [Development Guide](../Development-Deployment/Development-Guide.md)
 
 ## 3. Documents can't be uploaded after the service starts?
 
@@ -42,7 +42,7 @@ INIT_EMBEDDING_MODEL_ID=your_embedding_model_id
 3. If you need the reranking feature, configure a Rerank model as well
 4. Check the main service logs for any `ERROR` output
 
-> For model management, see [Built-in Model Management](../核心功能/内置模型管理.md)
+> For model management, see [Built-in Model Management](../Core-Features/Builtin-Model-Management.md)
 
 ## 4. No images, or broken image links are shown?
 
@@ -85,22 +85,22 @@ The `SSRF_WHITELIST` setting is used to bypass the standard SSRF restrictions. I
 # SSRF_WHITELIST=internal.service,*.corp.example,172.16.0.0/12
 ```
 
-> Please configure this carefully in production. For the hardcoded API endpoint policy for search engines, see [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md)
+> Please configure this carefully in production. For the hardcoded API endpoint policy for search engines, see [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md)
 
 ## Related Topics
 
-- [Development Guide](../开发部署/开发指南.md) — Troubleshooting development environment issues
-- [Enabling the Knowledge Graph Feature](../核心功能/开启知识图谱功能.md) — Troubleshooting the knowledge graph feature
-- [Built-in Model Management](../核心功能/内置模型管理.md) — Model configuration issues
-- [IM Integration Development](../集成扩展/IM集成开发.md) — IM integration issues
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Troubleshooting development environment issues
+- [Enabling the Knowledge Graph Feature](../Core-Features/Enabling-Knowledge-Graph.md) — Troubleshooting the knowledge graph feature
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — Model configuration issues
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — IM integration issues
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Development Guide](../开发部署/开发指南.md) — Development environment setup and troubleshooting
-- [Enabling the Knowledge Graph Feature](../核心功能/开启知识图谱功能.md) — Troubleshooting related to the knowledge graph feature
-- [Built-in Model Management](../核心功能/内置模型管理.md) — Model configuration-related issues
-- [Quick Development Mode](../开发部署/快速开发模式.md) — Development mode-related issues
-- [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md) — SSRF whitelist and search API security policy
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Development environment setup and troubleshooting
+- [Enabling the Knowledge Graph Feature](../Core-Features/Enabling-Knowledge-Graph.md) — Troubleshooting related to the knowledge graph feature
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — Model configuration-related issues
+- [Quick Development Mode](../Development-Deployment/Quick-Development-Mode.md) — Development mode-related issues
+- [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md) — SSRF whitelist and search API security policy

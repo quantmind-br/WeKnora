@@ -22,7 +22,7 @@ docker-compose --profile neo4j up -d
 
 - On the knowledge base settings page, enable entity and relationship extraction, and configure the related settings as prompted
 
-> For detailed setup steps, see [Enabling the Knowledge Graph Feature](开启知识图谱功能.md)
+> For detailed setup steps, see [Enabling the Knowledge Graph Feature](Enabling-Knowledge-Graph.md)
 
 ## Generating the Graph
 
@@ -38,13 +38,13 @@ During conversations, the system automatically queries the knowledge graph to re
 
 ## Related Topics
 
-- [Enabling the Knowledge Graph Feature](../核心功能/开启知识图谱功能.md) — Complete guide to enabling the knowledge graph feature
-- [FAQ](../运维排障/常见问题.md) — Troubleshooting related to the knowledge graph
+- [Enabling the Knowledge Graph Feature](../Core-Features/Enabling-Knowledge-Graph.md) — Complete guide to enabling the knowledge graph feature
+- [FAQ](../Operations-Troubleshooting/FAQ.md) — Troubleshooting related to the knowledge graph
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Enabling the Knowledge Graph Feature](开启知识图谱功能.md) — The detailed version of this page, including the full setup process
-- [Development Guide](../开发部署/开发指南.md) — Configuring and starting Neo4j in a development environment
+- [Enabling the Knowledge Graph Feature](Enabling-Knowledge-Graph.md) — The detailed version of this page, including the full setup process
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Configuring and starting Neo4j in a development environment

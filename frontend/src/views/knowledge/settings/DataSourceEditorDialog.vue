@@ -199,7 +199,7 @@ const treeFullyLoaded = ref(false)
 // Drive (cloud drive) root input: the Drive connectors have no "list spaces" API, so
 // the user must supply a root folder_token. We collect it here, write it into
 // form.config.resource_ids as the single root, then loadResources lists its
-// children. See 飞书云盘数据源设计.md §5.2 / ADR-0004.
+// children. See the Feishu Drive data source design doc §5.2 / ADR-0004.
 const driveFolderToken = ref('')
 // Inline error copy for required-field validation: input shows error state when non-empty + tip below,
 // replaces the global MessagePlugin, consistent with the form field's inline validation style.

@@ -20,7 +20,7 @@ Agent Skills is an extension mechanism that lets an Agent learn new capabilities
 - **Sandboxed execution**: Scripts run safely in an isolated environment
 - **Flexible configuration**: Supports multiple directories and whitelist filtering
 
-> Skills and [MCP](../核心功能/MCP功能使用说明.md) are two different Agent extension mechanisms: Skills work through prompt injection, while MCP works through protocol calls to external tools.
+> Skills and [MCP](../Core-Features/MCP-Usage-Guide.md) are two different Agent extension mechanisms: Skills work through prompt injection, while MCP works through protocol calls to external tools.
 
 ## Design Philosophy
 
@@ -98,18 +98,18 @@ Configured via the `WEKNORA_SANDBOX_MODE` environment variable.
 
 ## Related Topics
 
-- [MCP Feature Usage Guide](MCP功能使用说明.md) — Another Agent extension mechanism
-- [IM Integration Development](../集成扩展/IM集成开发.md) — Agents can use skills through IM channels
-- [Development Guide](../开发部署/开发指南.md) — Building the sandbox image
+- [MCP Feature Usage Guide](MCP-Usage-Guide.md) — Another Agent extension mechanism
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — Agents can use skills through IM channels
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Building the sandbox image
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [MCP Feature Usage Guide](MCP功能使用说明.md) — Agent extension mechanism alongside Skills
-- [IM Integration Development](../集成扩展/IM集成开发.md) — Agents can use skills in IM channels
-- [Version Roadmap](../项目概述/版本路线图.md) — Skills community extension direction in the roadmap
+- [MCP Feature Usage Guide](MCP-Usage-Guide.md) — Agent extension mechanism alongside Skills
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — Agents can use skills in IM channels
+- [Version Roadmap](../Project-Overview/Version-Roadmap.md) — Skills community extension direction in the roadmap
 
 ---
 

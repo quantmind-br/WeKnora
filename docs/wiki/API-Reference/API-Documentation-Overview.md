@@ -15,7 +15,7 @@ WeKnora provides a set of RESTful APIs for creating and managing knowledge bases
 - **Response Format**: JSON
 - **Authentication Method**: API Key
 
-> API authentication uses WeKnora's local JWT; for the OIDC authentication flow, see [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md)
+> API authentication uses WeKnora's local JWT; for the OIDC authentication flow, see [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md)
 
 ## Authentication Mechanism
 
@@ -45,7 +45,7 @@ The API Key can be obtained from the account information page after completing a
 
 | Category | Description | Detailed Documentation |
 |------|------|----------|
-| Authentication Management | User registration, login, token management; OIDC flow | [auth.md](../../api/auth.md) · [OIDC认证调用流程.md](../安全认证/OIDC认证调用流程.md) |
+| Authentication Management | User registration, login, token management; OIDC flow | [auth.md](../../api/auth.md) · [OIDC-Authentication-Flow.md](../Security-Authentication/OIDC-Authentication-Flow.md) |
 | Space Management | Create and manage space accounts | [tenant.md](../../api/tenant.md) |
 | Knowledge Base Management | Create, query, and manage knowledge bases | [knowledge-base.md](../../api/knowledge-base.md) |
 | Knowledge Management | Upload, retrieve, and manage knowledge content | [knowledge.md](../../api/knowledge.md) |
@@ -71,21 +71,21 @@ The API Key can be obtained from the account information page after completing a
 
 ## Related Topics
 
-- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — The OIDC flow for API authentication
-- [Built-in Model Management](../核心功能/内置模型管理.md) — Configuration reference for the model management API
-- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — Usage of the MCP service management API
-- [Shared Space Guide](../安全认证/共享空间说明.md) — Business logic of the organization management API
-- [IM Integration Development](../集成扩展/IM集成开发.md) — IM channel management API
-- [Data Source Import Development](../集成扩展/数据源导入开发.md) — Data source management API
+- [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md) — The OIDC flow for API authentication
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — Configuration reference for the model management API
+- [MCP Feature Usage Guide](../Core-Features/MCP-Usage-Guide.md) — Usage of the MCP service management API
+- [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — Business logic of the organization management API
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — IM channel management API
+- [Data Source Import Development](../Integration-Extension/Data-Source-Import-Development.md) — Data source management API
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki homepage navigation
-- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — API authentication mechanism and OIDC-related
-- [Built-in Model Management](../核心功能/内置模型管理.md) — Underlying configuration for the model management API
-- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — Usage scenarios for the MCP service API
-- [Shared Space Guide](../安全认证/共享空间说明.md) — Business logic of the organization management API
-- [IM Integration Development](../集成扩展/IM集成开发.md) — Usage scenarios for the IM channel API
-- [Data Source Import Development](../集成扩展/数据源导入开发.md) — Usage scenarios for the data source API
+- [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md) — API authentication mechanism and OIDC-related
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — Underlying configuration for the model management API
+- [MCP Feature Usage Guide](../Core-Features/MCP-Usage-Guide.md) — Usage scenarios for the MCP service API
+- [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — Business logic of the organization management API
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — Usage scenarios for the IM channel API
+- [Data Source Import Development](../Integration-Extension/Data-Source-Import-Development.md) — Usage scenarios for the data source API

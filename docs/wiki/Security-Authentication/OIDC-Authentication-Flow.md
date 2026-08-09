@@ -2,14 +2,14 @@
 title: OIDC Authentication Flow
 tags: [Security Authentication, OIDC, Authentication, Login, SSO]
 aliases: [OIDC, OIDC Authentication, SSO Login, Third-Party Login]
-source: OIDC认证调用流程.md
+source: OIDC-Authentication-Flow.md
 ---
 
 # OIDC Authentication Flow
 
 This document explains WeKnora's current OIDC login capability and its actual invocation process, covering the complete front-end and back-end chain.
 
-> OIDC authentication is the login method for multi-space scenarios in the Standard Edition; the [Lite Edition](../项目概述/Lite与标准版区别.md) does not require it
+> OIDC authentication is the login method for multi-space scenarios in the Standard Edition; the [Lite Edition](../Project-Overview/Lite-vs-Standard-Edition.md) does not require it
 
 ## Overall Design
 
@@ -22,7 +22,7 @@ Core characteristics:
 3. After the backend obtains the OIDC user information, it looks up the local user; if one does not exist, it automatically creates a local account and default space
 4. Ultimately, WeKnora's own local JWT is issued — the OIDC token is only used by the backend to exchange for user identity
 
-> The logic for automatically creating users and spaces is related to the multi-space model described in [Shared Space Guide](../安全认证/共享空间说明.md)
+> The logic for automatically creating users and spaces is related to the multi-space model described in [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md)
 
 ## Related Endpoints
 
@@ -77,15 +77,15 @@ The project already provides a sample Dex configuration: `misc/dex-config.yaml`.
 
 ## Related Topics
 
-- [Shared Space Guide](../安全认证/共享空间说明.md) — User and organization management in multi-space scenarios
-- [Lite与标准版区别](../项目概述/Lite与标准版区别.md) — Lite Edition does not require OIDC (single space)
-- [API Documentation Overview](../API参考/API文档概览.md) — API authentication mechanism
+- [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — User and organization management in multi-space scenarios
+- [Lite与标准版区别](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite Edition does not require OIDC (single space)
+- [API Documentation Overview](../API-Reference/API-Documentation-Overview.md) — API authentication mechanism
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki homepage navigation
-- [Shared Space Guide](../安全认证/共享空间说明.md) — Users and spaces created by OIDC can be used for shared spaces
-- [Lite与标准版区别](../项目概述/Lite与标准版区别.md) — Lite does not require OIDC (single space, no registration needed)
-- [API Documentation Overview](../API参考/API文档概览.md) — API authentication mechanism related to OIDC JWT
+- [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — Users and spaces created by OIDC can be used for shared spaces
+- [Lite与标准版区别](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite does not require OIDC (single space, no registration needed)
+- [API Documentation Overview](../API-Reference/API-Documentation-Overview.md) — API authentication mechanism related to OIDC JWT

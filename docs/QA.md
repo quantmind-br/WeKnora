@@ -212,7 +212,7 @@ Wiki mode allows the Agent to automatically generate and maintain a structured, 
 - **API Key calls**: `X-API-Key` synthesizes a virtual user that's fixed as `Admin` of the space it belongs to (only deleting the space requires `Owner`) — scripts generally don't need any migration.
 - **Cross-space super admin**: Requires `User.CanAccessAllTenants=true` and `enable_cross_tenant_access=true`, and switching spaces via `X-Tenant-ID`.
 
-If you need to temporarily roll back to an "audit only, no enforcement" grayscale window, you can set `tenant.enable_rbac=false` in the configuration (or the environment variable `WEKNORA_TENANT_ENABLE_RBAC=false`). For the complete role matrix and ownership chain, see [`docs/RBAC说明.md`](./RBAC说明.md).
+If you need to temporarily roll back to an "audit only, no enforcement" grayscale window, you can set `tenant.enable_rbac=false` in the configuration (or the environment variable `WEKNORA_TENANT_ENABLE_RBAC=false`). For the complete role matrix and ownership chain, see [`docs/RBAC-Guide.md`](./RBAC-Guide.md).
 
 ## 12. Why doesn't the system automatically return to my last workspace after login?
 
@@ -224,7 +224,7 @@ After upgrading to 0.6.0, the system remembers your "last active workspace" and 
 
 ## 13. How do I correctly assign permissions for multi-person collaboration?
 
-Following the role matrix in [`docs/RBAC说明.md`](./RBAC说明.md):
+Following the role matrix in [`docs/RBAC-Guide.md`](./RBAC-Guide.md):
 
 - Read-only users → `Viewer`
 - Regular members (upload documents, maintain "their own" KBs / Agents) → `Contributor`

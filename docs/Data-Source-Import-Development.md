@@ -115,12 +115,12 @@ The permission identifiers are the same as Feishu's; enable them in **Permission
 | `drive:drive:readonly` | Read basic cloud document information, download files | ✅ Verified |
 | `docx:document:readonly` | Read new-version document content | ⚠️ Could not be verified (Lark's documentation page rendering is limited); carried over from the Feishu-side identifier |
 
-> **Do not reuse the permission JSON from the [IM Integration Documentation](./IM集成开发文档.md#飞书接入)**: that list mixes in permissions such as
+> **Do not reuse the permission JSON from the [IM Integration Documentation](./IM-Integration-Development.md#飞书接入)**: that list mixes in permissions such as
 > `aily:file:*` and `corehr:file:download`, which don't exist on Lark (importing the whole set will fail),
 > and it's **missing** the `drive:*` / `docx:*` permissions the data source actually needs, as shown in the table above.
 >
 > If the same Lark app serves both as an IM bot and for knowledge base syncing, use the merged list from
-> [IM Integration Documentation — Lark Permission Configuration](./IM集成开发文档.md#lark-权限配置).
+> [IM Integration Documentation — Lark Permission Configuration](./IM-Integration-Development.md#lark-权限配置).
 
 #### Apps Are Not Interchangeable
 

@@ -3,7 +3,7 @@
 title: Adding a Web Search Engine
 tags: [Integration Extensions, Search, Web Search, Provider]
 aliases: [Web Search, WebSearch, Search Engine Extension]
-source: 添加新的网络搜索引擎.md
+source: Adding-a-New-Search-Engine.md
 ---
 
 # Adding a New Web Search Engine
@@ -21,7 +21,7 @@ internal/container/container.go              # DI registration
 internal/types/interfaces/web_search.go      # WebSearchProvider interface
 ```
 
-> For a similar extension development pattern, see [Integrating a Vector Database](../集成扩展/集成向量数据库.md)
+> For a similar extension development pattern, see [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md)
 
 ## Steps
 
@@ -89,17 +89,17 @@ If the new engine requires parameters beyond an API key:
 
 ## Related Topics
 
-- [Integrating a Vector Database](../集成扩展/集成向量数据库.md) — Similar extension development pattern (interface implementation + registration + DI)
-- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — MCP can also integrate search tools
-- [FAQ](../运维排障/常见问题.md) — SSRF whitelist configuration
+- [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md) — Similar extension development pattern (interface implementation + registration + DI)
+- [MCP Feature Usage Guide](../Core-Features/MCP-Usage-Guide.md) — MCP can also integrate search tools
+- [FAQ](../Operations-Troubleshooting/FAQ.md) — SSRF whitelist configuration
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Integrating a Vector Database](../集成扩展/集成向量数据库.md) — Similar extension development pattern
-- [MCP Feature Usage Guide](../核心功能/MCP功能使用说明.md) — MCP search tools complement web search engines
-- [Roadmap](../项目概述/版本路线图.md) — Community component extension direction in the roadmap
+- [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md) — Similar extension development pattern
+- [MCP Feature Usage Guide](../Core-Features/MCP-Usage-Guide.md) — MCP search tools complement web search engines
+- [Roadmap](../Project-Overview/Version-Roadmap.md) — Community component extension direction in the roadmap
 
 --- DOCUMENT END ---

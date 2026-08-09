@@ -2,14 +2,14 @@
 title: Shared Space Guide
 tags: [Security & Authentication, Shared Space, Collaboration, Multi-Space, Permissions]
 aliases: [Shared Space, SharedSpace, Organization, Org]
-source: 共享空间说明.md
+source: Shared-Spaces-Guide.md
 ---
 
 # Shared Space Guide
 
 This document explains the **Shared Space** feature in WeKnora, including space creation and joining, member roles and permissions, and knowledge base and agent sharing rules.
 
-> Shared Space is a Standard Edition feature — the [Lite Edition](../项目概述/Lite与标准版区别.md) does not provide it
+> Shared Space is a Standard Edition feature — the [Lite Edition](../Project-Overview/Lite-vs-Standard-Edition.md) does not provide it
 
 ## Shared Space Overview
 
@@ -50,7 +50,7 @@ A shared space is a vehicle for cross-space collaboration. Users can belong to d
 - When an agent is shared to a space, **only read-only access is supported**
 - The same agent can be shared to multiple spaces
 
-> An agent must be fully configured (e.g., a model selected, and if it uses a knowledge base, a rerank model selected) before it can be shared. For model configuration, see [Built-in Model Management](../核心功能/内置模型管理.md)
+> An agent must be fully configured (e.g., a model selected, and if it uses a knowledge base, a rerank model selected) before it can be shared. For model configuration, see [Built-in Model Management](../Core-Features/Builtin-Model-Management.md)
 
 ## Agent Deactivation Mechanism
 
@@ -60,19 +60,19 @@ A shared space is a vehicle for cross-space collaboration. Users can belong to d
 
 ## Related Topics
 
-- [Space RBAC Guide](./RBAC说明.md) — roles and resource ownership within a single space; cross-space write operations must satisfy both sides
-- [Lite vs. Standard Edition Differences](../项目概述/Lite与标准版区别.md) — Lite does not support shared spaces
-- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — user authentication in multi-space scenarios
-- [Data Source Import Development](../集成扩展/数据源导入开发.md) — knowledge bases from data source imports can be shared
-- [Built-in Model Management](../核心功能/内置模型管理.md) — models must be configured before an agent can be shared
+- [Space RBAC Guide](./RBAC-Guide.md) — roles and resource ownership within a single space; cross-space write operations must satisfy both sides
+- [Lite vs. Standard Edition Differences](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite does not support shared spaces
+- [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md) — user authentication in multi-space scenarios
+- [Data Source Import Development](../Integration-Extension/Data-Source-Import-Development.md) — knowledge bases from data source imports can be shared
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — models must be configured before an agent can be shared
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Space RBAC Guide](./RBAC说明.md) — shared space access ultimately resolves to space RBAC validation
-- [Lite vs. Standard Edition Differences](../项目概述/Lite与标准版区别.md) — Lite does not support shared spaces
-- [OIDC Authentication Flow](../安全认证/OIDC认证调用流程.md) — the multi-space user system underpins shared spaces
-- [Data Source Import Development](../集成扩展/数据源导入开发.md) — imported knowledge bases can be shared via shared spaces
-- [Built-in Model Management](../核心功能/内置模型管理.md) — model configuration requirements before agent sharing
+- [Space RBAC Guide](./RBAC-Guide.md) — shared space access ultimately resolves to space RBAC validation
+- [Lite vs. Standard Edition Differences](../Project-Overview/Lite-vs-Standard-Edition.md) — Lite does not support shared spaces
+- [OIDC Authentication Flow](../Security-Authentication/OIDC-Authentication-Flow.md) — the multi-space user system underpins shared spaces
+- [Data Source Import Development](../Integration-Extension/Data-Source-Import-Development.md) — imported knowledge bases can be shared via shared spaces
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — model configuration requirements before agent sharing

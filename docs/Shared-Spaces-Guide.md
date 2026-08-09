@@ -2,7 +2,7 @@
 
 This document describes the **Shared Space** feature in WeKnora, including space creation and joining, member roles and permissions, knowledge base and agent sharing rules, the agent deactivation mechanism, and how a user's final access permission to a knowledge base is calculated.
 
-> Shared Spaces solve "cross-space collaboration" and are orthogonal to the role permissions within a single space ([Space RBAC Documentation](./RBAC说明.md)): a cross-space write operation must pass through both gates simultaneously. See the "Relationship with Shared Spaces" section in the RBAC documentation for details.
+> Shared Spaces solve "cross-space collaboration" and are orthogonal to the role permissions within a single space ([Space RBAC Documentation](./RBAC-Guide.md)): a cross-space write operation must pass through both gates simultaneously. See the "Relationship with Shared Spaces" section in the RBAC documentation for details.
 
 ---
 

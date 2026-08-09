@@ -11,7 +11,7 @@ source: BUILTIN_MCP_SERVICES.md
 
 Built-in MCP services are system-level MCP (Model Context Protocol) service configurations that are visible to all spaces, but with sensitive information hidden, and cannot be edited or deleted. Built-in MCP services are typically used to provide default system access to external tools and resources, ensuring that all spaces can use a unified set of MCP services.
 
-> For MCP service operations from the user's perspective, see [MCP Feature Usage Guide](MCP功能使用说明.md)
+> For MCP service operations from the user's perspective, see [MCP Feature Usage Guide](MCP-Usage-Guide.md)
 
 ## Built-in MCP Service Characteristics
 
@@ -31,7 +31,7 @@ Built-in MCP services are system-level MCP (Model Context Protocol) service conf
 | Frontend label | Displays "Built-in" label | Displays "Built-in" label |
 | Enable/disable control | — | Disable toggle (always enabled) |
 
-> For detailed management of built-in models, see [Built-in Model Management](内置模型管理.md)
+> For detailed management of built-in models, see [Built-in Model Management](Builtin-Model-Management.md)
 
 ## How to Add a Built-in MCP Service
 
@@ -101,5 +101,5 @@ UPDATE mcp_services SET is_builtin = false WHERE id = 'service ID';
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [MCP Feature Usage Guide](MCP功能使用说明.md) — MCP service operations from the user's perspective
-- [Built-in Model Management](内置模型管理.md) — Same built-in system configuration pattern, similar approach
+- [MCP Feature Usage Guide](MCP-Usage-Guide.md) — MCP service operations from the user's perspective
+- [Built-in Model Management](Builtin-Model-Management.md) — Same built-in system configuration pattern, similar approach

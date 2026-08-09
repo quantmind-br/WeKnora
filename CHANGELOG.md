@@ -62,7 +62,7 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 
 - **DOC**: `website-docs/` official documentation site added (six sections, ~50 pages, ~360 documented endpoints), with quickstart sample data and a local MCP demo under `examples/mcp-demo/`.
-- **DOC**: `docs/api/README.md` and `docs/api/chat.md` document `resource_urls` and `RESOURCE_URL_MODE`; Feishu Drive data source guide added under `docs/wiki/集成扩展/`.
+- **DOC**: `docs/api/README.md` and `docs/api/chat.md` document `resource_urls` and `RESOURCE_URL_MODE`; Feishu Drive data source guide added under `docs/wiki/Integration-Extension/`.
 - **DOC**: `docs/QA.md` extended for the documentation site, folder tree, chunk editing, wiki revisions, and public resource URLs.
 - **DOC**: Architecture diagram updated for the folder tree, chunk editing, wiki revision history, and public file URLs.
 
@@ -370,7 +370,7 @@ All notable changes to this project will be documented in this file.
 
 ### Documentation
 
-- **DOC**: New `docs/日志配置.md` (logging configuration guide).
+- **DOC**: New `docs/Logging-Configuration.md` (logging configuration guide).
 - **DOC**: OpenSearch integration-test guide (`docs/dev/opensearch-integration-test.md`).
 - **DOC**: CLI — `AGENTS.md`, `README.md`, and `CHANGELOG.md` brought in sync with the v0.7 / v0.8 surface.
 - **DOC**: Clarified cached-token semantics for explicit-cache providers in chat docs.
@@ -384,7 +384,7 @@ All notable changes to this project will be documented in this file.
   - **Per-KB resource ownership**: `chunk → knowledge → kb → creator_id`; same chain applies to FAQ entries, generated questions, KB tags and wiki pages. `custom_agents.creator_id` + `custom_agents.runnable_by_viewer` (default true) control agent ownership and viewer-callability.
   - **Two guard families**: role guards (`Viewer()` / `Contributor()` / `Admin()` / `Owner()`) for tenant-level infra (models, vector stores, IM channels, …) and ownership guards (`OwnedKBOrAdmin()`, `OwnedAgentOrAdmin()`, `OwnedChunkKBOrAdmin()`, …) for resource writes. KB-access guard wired at the route layer for chunk / knowledge / knowledgebase routes (no per-handler helpers).
   - **Tenant members**: invite / remove / role-change endpoints; new `/leave` endpoint; per-tenant audit log with daily retention sweep (default 90 days, `audit_logs.created_at` indexed); `tenant_members` table now drives membership (lifted from per-user to per-tenant in Plan 3); cross-tenant share managed by source-tenant Admin+.
-  - **Configurable**: `tenant.enable_rbac` (default `true`); `false` enters an "audit-only" grace window. New env knobs `WEKNORA_TENANT_ENABLE_RBAC`, `WEKNORA_TENANT_MAX_PER_USER`. RBAC state logged at startup. See [`docs/RBAC说明.md`](./docs/RBAC说明.md).
+  - **Configurable**: `tenant.enable_rbac` (default `true`); `false` enters an "audit-only" grace window. New env knobs `WEKNORA_TENANT_ENABLE_RBAC`, `WEKNORA_TENANT_MAX_PER_USER`. RBAC state logged at startup. See [`docs/RBAC-Guide.md`](./docs/RBAC-Guide.md).
 - **NEW**: **Tenant Member Management & Multi-Workspace UX** — invite-only gate, member listing UI with role chips, tenant identity surfaces reworked; tenant switcher in the user menu; tenant switch always redirects to KB list and clears tenant-scoped client state; last-active workspace persisted across logins; pending invitations dialog with polling + global invitation bell; rich workspace-aware notifications on login / tenant switch (raw-message handling, styled chips, survives page reload); QuickNav entry for members; "leave workspace" surfaced in i18n.
 - **NEW**: **Self-Service Workspaces** — any user can create their own tenant (capped per user via env knob); creation dialog with i18n; tenant name + description editable inline; cross-tenant superuser mirrored as Admin role chip in the UI.
 - **NEW**: **`weknora` CLI v0.3 / v0.4 (GA)** — graduates from preview to GA with comprehensive verb-noun subtree coverage:
@@ -479,7 +479,7 @@ All notable changes to this project will be documented in this file.
 
 ### Documentation
 
-- **DOC**: New `docs/RBAC说明.md` (Chinese RBAC guide) and `docs/wiki/安全认证/RBAC说明.md`, linked with shared space docs.
+- **DOC**: New `docs/RBAC-Guide.md` (Chinese RBAC guide) and `docs/wiki/Security-Authentication/RBAC-Guide.md`, linked with shared space docs.
 - **DOC**: `docs/RBAC` documents Contributor vs `OwnedXxxOrAdmin` selection rule.
 - **DOC**: Issue templates require concrete app/UI versions (not "latest").
 - **DOC**: CLI — `cli/README.md`, `cli/AGENTS.md` + `cli/CHANGELOG.md` brought in sync with v0.3 / v0.4 surface; stale e2e refs cleared; CI parity test added.

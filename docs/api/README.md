@@ -113,7 +113,7 @@ The WeKnora API is organized into the following categories by function:
 
 | Category | Description | Documentation Link |
 |------|------|----------|
-| Authentication management | User registration, login, token management; OIDC flow | [auth.md](./auth.md) · [OIDC认证调用流程.md](../OIDC认证调用流程.md) |
+| Authentication management | User registration, login, token management; OIDC flow | [auth.md](./auth.md) · [OIDC-Authentication-Flow.md](../OIDC-Authentication-Flow.md) |
 | Space management | Create and manage space accounts | [tenant.md](./tenant.md) |
 | Knowledge base management | Create, query, and manage knowledge bases | [knowledge-base.md](./knowledge-base.md) |
 | Knowledge management | Upload, retrieve, and manage knowledge content | [knowledge.md](./knowledge.md) |
@@ -135,5 +135,5 @@ The WeKnora API is organized into the following categories by function:
 | Web search | Web search providers | [web-search.md](./web-search.md) |
 | Vector store | Vector database connection management | [vector-store.md](./vector-store.md) |
 | Storage backend | Object/file storage instance (multi-instance) management | [storage-backend.md](./storage-backend.md) |
-| IM channels | Integration with WeCom / Feishu / Slack and other IM platforms, including channel CRUD and callbacks | [../IM集成开发文档.md](../IM集成开发文档.md) |
-| Data source import | Integration and sync of external data sources such as Feishu / WeCom / Notion / Confluence | [../数据源导入开发文档.md](../数据源导入开发文档.md) |
+| IM channels | Integration with WeCom / Feishu / Slack and other IM platforms, including channel CRUD and callbacks | [../IM-Integration-Development.md](../IM-Integration-Development.md) |
+| Data source import | Integration and sync of external data sources such as Feishu / WeCom / Notion / Confluence | [../Data-Source-Import-Development.md](../Data-Source-Import-Development.md) |

@@ -2,7 +2,7 @@
 
 [Back to table of contents](./README.md)
 
-For the full OIDC call flow, see [../OIDC认证调用流程.md](../OIDC认证调用流程.md). This document serves as the endpoint reference.
+For the full OIDC call flow, see [../OIDC-Authentication-Flow.md](../OIDC-Authentication-Flow.md). This document serves as the endpoint reference.
 
 ## Description
 

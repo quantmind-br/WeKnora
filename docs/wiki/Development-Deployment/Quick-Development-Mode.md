@@ -2,14 +2,14 @@
 title: Quick Development Mode
 tags: [Development & Deployment, Development, Hot Reload, Air]
 aliases: [Quick Dev, QuickDev, dev mode]
-source: 快速开发模式说明.md
+source: Quick-Development-Mode.md
 ---
 
 # Quick Development Mode
 
 Solves the problem where every change to the `app` (backend) or `frontend` (frontend) code during development requires rebuilding the Docker image, by enabling hot reload for both modules.
 
-> This page supplements the [Development Guide](../开发部署/开发指南.md), providing more detailed architectural explanations
+> This page supplements the [Development Guide](../Development-Deployment/Development-Guide.md), providing more detailed architectural explanations
 
 ## Usage
 
@@ -72,13 +72,13 @@ Containerized Backend App (:8080) ← Containerized Frontend UI (:80) → Infras
 
 ## Related Topics
 
-- [Development Guide](../开发部署/开发指南.md) — Complete guide to setting up the development environment
-- [Frequently Asked Questions](../运维排障/常见问题.md) — Troubleshooting for development mode-related issues
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Complete guide to setting up the development environment
+- [Frequently Asked Questions](../Operations-Troubleshooting/FAQ.md) — Troubleshooting for development mode-related issues
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Development Guide](../开发部署/开发指南.md) — Complete development guide (this page's supplementary explanation)
-- [Frequently Asked Questions](../运维排障/常见问题.md) — Troubleshooting for development mode
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Complete development guide (this page's supplementary explanation)
+- [Frequently Asked Questions](../Operations-Troubleshooting/FAQ.md) — Troubleshooting for development mode

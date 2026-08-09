@@ -15,7 +15,7 @@ This document describes WeKnora's product planning and intended direction, and w
 - [ ] WeKnora officially provides a complete cloud service, allowing users to experience WeKnora's capabilities directly on the platform
 - [ ] Launch a WeKnora Lite version for users without strong private deployment needs to quickly experience the product's capabilities
 
-> For detailed differences regarding the Lite version, see [Differences Between Lite and Standard Editions](Lite与标准版区别.md)
+> For detailed differences regarding the Lite version, see [Differences Between Lite and Standard Editions](Lite-vs-Standard-Edition.md)
 
 ## Knowledge Understanding
 
@@ -24,7 +24,7 @@ This document describes WeKnora's product planning and intended direction, and w
 - [ ] Document structure visualization: display the parsed document's section structure, graph relationships, etc.
 - [ ] Support more document formats such as audio and video, enhancing multimodal understanding capabilities
 
-> For knowledge graph-related features, see [Knowledge Graph](../核心功能/知识图谱.md) and [Enabling the Knowledge Graph Feature](../核心功能/开启知识图谱功能.md)
+> For knowledge graph-related features, see [Knowledge Graph](../Core-Features/Knowledge-Graph.md) and [Enabling the Knowledge Graph Feature](../Core-Features/Enabling-Knowledge-Graph.md)
 
 ## Retrieval and Summarization
 
@@ -33,14 +33,14 @@ This document describes WeKnora's product planning and intended direction, and w
     - [x] Support uploading images in the dialog box
     - [ ] Support uploading attachments in the dialog box
 
-> For retrieval engine extensions, see [Integrating a Vector Database](../集成扩展/集成向量数据库.md)
+> For retrieval engine extensions, see [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md)
 
 ## Knowledge Base-Related Model Training
 
 - [ ] Train models related to retrieval recall (Embedding, ReRank, LLM, etc.)
 - [ ] Continue exploring document parsing and document understanding, advancing self-developed related models
 
-> For model management, see [Built-in Model Management](../核心功能/内置模型管理.md)
+> For model management, see [Built-in Model Management](../Core-Features/Builtin-Model-Management.md)
 
 ## Knowledge Base Forms
 
@@ -51,14 +51,14 @@ This document describes WeKnora's product planning and intended direction, and w
 
 - [x] Support integration with IM systems such as WeCom and Feishu, enabling the use of WeKnora's capabilities within IM
 
-> For details on IM integration development, see [IM Integration Development](../集成扩展/IM集成开发.md)
+> For details on IM integration development, see [IM Integration Development](../Integration-Extension/IM-Integration-Development.md)
 
 ## Components and Extensions
 
 - [ ] Encourage the community to maintain components such as various vendors' model services and web search services
 - [ ] Encourage the community to provide more knowledge base-related Skills
 
-> For extension development, see [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md), [Integrating a Vector Database](../集成扩展/集成向量数据库.md), [Agent Skills System](../核心功能/Agent技能系统.md)
+> For extension development, see [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md), [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md), [Agent Skills System](../Core-Features/Agent-Skills-System.md)
 
 ## Surrounding Ecosystem Building
 
@@ -78,6 +78,6 @@ This document describes WeKnora's product planning and intended direction, and w
 ## Backlinks
 
 - [Home](../Home.md) — Wiki homepage navigation
-- [Differences Between Lite and Standard Editions](Lite与标准版区别.md) — The Lite version's positioning corresponds to the lightweight deployment direction in the roadmap
-- [Built-in Model Management](../核心功能/内置模型管理.md) — The model training direction in the roadmap relates to built-in model management
-- [IM Integration Development](../集成扩展/IM集成开发.md) — The IM integration milestone completed in the roadmap
+- [Differences Between Lite and Standard Editions](Lite-vs-Standard-Edition.md) — The Lite version's positioning corresponds to the lightweight deployment direction in the roadmap
+- [Built-in Model Management](../Core-Features/Builtin-Model-Management.md) — The model training direction in the roadmap relates to built-in model management
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — The IM integration milestone completed in the roadmap

@@ -2,7 +2,7 @@
 title: MCP Feature Usage Guide
 tags: [Core Features, MCP, Tool Integration]
 aliases: [MCP Usage, MCP Features]
-source: MCP功能使用说明.md
+source: MCP-Usage-Guide.md
 ---
 
 # MCP Feature Usage Guide
@@ -13,7 +13,7 @@ source: MCP功能使用说明.md
 - All services are centrally managed from `Settings > MCP Services` (`frontend/src/views/settings/McpSettings.vue`) in the frontend, with no need to manually edit configuration files.
 - Each service includes a name, transport method (SSE / HTTP Streamable / Stdio), connection address or command, authentication information, and advanced timeout and retry policies.
 
-> For system-level management of built-in MCP services, see [Built-in MCP Service Management](内置MCP服务管理.md)
+> For system-level management of built-in MCP services, see [Built-in MCP Service Management](Builtin-MCP-Service-Management.md)
 
 ## Entry Point and Interface
 
@@ -51,16 +51,16 @@ source: MCP功能使用说明.md
 
 ## Related Topics
 
-- [Built-in MCP Service Management](../核心功能/内置MCP服务管理.md) — Built-in MCP service configuration from a system administrator's perspective
-- [Agent Skills System](Agent技能系统.md) — Another Agent extension mechanism
-- [IM Integration Development](../集成扩展/IM集成开发.md) — Using MCP tools with the Agent in IM channels
-- [Add Web Search Engine](../集成扩展/添加网络搜索引擎.md) — Another way to extend search capabilities
+- [Built-in MCP Service Management](../Core-Features/Builtin-MCP-Service-Management.md) — Built-in MCP service configuration from a system administrator's perspective
+- [Agent Skills System](Agent-Skills-System.md) — Another Agent extension mechanism
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — Using MCP tools with the Agent in IM channels
+- [Add Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md) — Another way to extend search capabilities
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Built-in MCP Service Management](内置MCP服务管理.md) — System-level management of MCP (administrator's perspective)
-- [Agent Skills System](Agent技能系统.md) — An Agent extension mechanism parallel to MCP
-- [IM Integration Development](../集成扩展/IM集成开发.md) — The Agent can invoke MCP tools in IM channels
+- [Built-in MCP Service Management](Builtin-MCP-Service-Management.md) — System-level management of MCP (administrator's perspective)
+- [Agent Skills System](Agent-Skills-System.md) — An Agent extension mechanism parallel to MCP
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — The Agent can invoke MCP tools in IM channels

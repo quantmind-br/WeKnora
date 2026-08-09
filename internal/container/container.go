@@ -1609,7 +1609,7 @@ func initConnectorRegistry() (*datasource.ConnectorRegistry, error) {
 	}
 	// Feishu/Lark Drive (cloud drive) mode: different connector type so the registry
 	// dispatches to the Drive connector. Shares core.Client/Region/export logic
-	// works together with the wiki connector. See 飞书云盘数据源设计.md / ADR-0001.
+	// works together with the wiki connector. See the Feishu Drive data source design doc / ADR-0001.
 	if err := registry.Register(drive.NewDriveConnector(core.RegionFeishuDrive)); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("register feishu_drive connector: %w", err))
 	}

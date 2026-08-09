@@ -2,7 +2,7 @@
 title: Enabling the Knowledge Graph Feature
 tags: [Core Features, Knowledge Graph, Neo4j, Configuration]
 aliases: [Knowledge Graph Configuration, KnowledgeGraphSetup]
-source: 开启知识图谱功能.md
+source: Enabling-Knowledge-Graph.md
 ---
 
 # Enabling the Knowledge Graph Feature
@@ -15,7 +15,7 @@ This document explains how to enable and verify the Knowledge Graph (Neo4j) feat
 - A working Docker/Docker Compose runtime environment is available
 - A local or remote accessible Neo4j service (the Docker Compose setup bundled with the project is recommended)
 
-> For a quick start, see [Knowledge Graph](知识图谱.md)
+> For a quick start, see [Knowledge Graph](Knowledge-Graph.md)
 
 ## Step 1: Configure Environment Variables
 
@@ -49,7 +49,7 @@ Common verification command:
 docker ps | grep neo4j
 ```
 
-> For how to start Neo4j in a development environment, see the [Development Guide](../开发部署/开发指南.md)
+> For how to start Neo4j in a development environment, see the [Development Guide](../Development-Deployment/Development-Guide.md)
 
 ## Step 3: Restart the WeKnora Services
 
@@ -90,7 +90,7 @@ After uploading a document in the knowledge base or chat page, the frontend shou
 - **No nodes generated**: Confirm that entity/relationship extraction is enabled for the knowledge base and that the uploaded document has finished parsing; check the backend logs for any extraction task errors
 - **No query results**: Try running `CALL db.schema.visualization;` in the Neo4j console to check whether a schema exists, and re-import the document if necessary
 
-> For more troubleshooting tips, see [Troubleshooting](../运维排障/常见问题.md)
+> For more troubleshooting tips, see [Troubleshooting](../Operations-Troubleshooting/FAQ.md)
 
 Once you've completed the steps above, the Knowledge Graph feature will be successfully enabled, and you can combine it with RAG and Agent workflows to improve answer quality.
 
@@ -99,6 +99,6 @@ Once you've completed the steps above, the Knowledge Graph feature will be succe
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Knowledge Graph](知识图谱.md) — Knowledge Graph quick start (a condensed version of this page)
-- [Development Guide](../开发部署/开发指南.md) — Starting and configuring Neo4j in a development environment
-- [Troubleshooting](../运维排障/常见问题.md) — Troubleshooting related to the graph feature
+- [Knowledge Graph](Knowledge-Graph.md) — Knowledge Graph quick start (a condensed version of this page)
+- [Development Guide](../Development-Deployment/Development-Guide.md) — Starting and configuring Neo4j in a development environment
+- [Troubleshooting](../Operations-Troubleshooting/FAQ.md) — Troubleshooting related to the graph feature

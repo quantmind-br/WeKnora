@@ -11,7 +11,7 @@ source: BUILTIN_MODELS.md
 
 Built-in models are system-level model configurations that are visible to all spaces, but sensitive information is hidden, and they cannot be edited or deleted. Built-in models are typically used to provide the system's default model configuration, ensuring that all spaces can use a unified model service.
 
-> Also part of the built-in system configuration: [Built-in MCP Service Management](内置MCP服务管理.md)
+> Also part of the built-in system configuration: [Built-in MCP Service Management](Builtin-MCP-Service-Management.md)
 
 ## Built-in Model Features
 
@@ -70,7 +70,7 @@ FROM models WHERE is_builtin = true ORDER BY type, created_at;
 
 ## Model Configuration and FAQ
 
-- If the Embedding model is not configured correctly, document uploads will fail. See [FAQ](../运维排障/常见问题.md) for troubleshooting steps
+- If the Embedding model is not configured correctly, document uploads will fail. See [FAQ](../Operations-Troubleshooting/FAQ.md) for troubleshooting steps
 - The `provider` in the model parameters determines the API call format and authentication method
 
 ---
@@ -78,6 +78,6 @@ FROM models WHERE is_builtin = true ORDER BY type, created_at;
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Built-in MCP Service Management](../核心功能/内置MCP服务管理.md) — Also part of the built-in system configuration, similar pattern
-- [FAQ](../运维排障/常见问题.md) — Troubleshooting related to model configuration
-- [Roadmap](../项目概述/版本路线图.md) — Model training direction in the roadmap
+- [Built-in MCP Service Management](../Core-Features/Builtin-MCP-Service-Management.md) — Also part of the built-in system configuration, similar pattern
+- [FAQ](../Operations-Troubleshooting/FAQ.md) — Troubleshooting related to model configuration
+- [Roadmap](../Project-Overview/Version-Roadmap.md) — Model training direction in the roadmap

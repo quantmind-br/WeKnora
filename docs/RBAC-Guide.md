@@ -1,6 +1,6 @@
 # Workspace RBAC Guide
 
-This document describes the design of WeKnora's **in-workspace permission control (Workspace RBAC)**, the role matrix, the resource-ownership model, configuration options, and its relationship with [Shared Workspaces](./共享空间说明.md).
+This document describes the design of WeKnora's **in-workspace permission control (Workspace RBAC)**, the role matrix, the resource-ownership model, configuration options, and its relationship with [Shared Workspaces](./Shared-Spaces-Guide.md).
 
 > Status: shipped with #1303, controlled by the config item `tenant.enable_rbac`, default `true` (enforced authorization). Can be temporarily switched to `false` to enter a "log only, don't block" rollout window.
 
@@ -60,7 +60,7 @@ This naturally makes it so that "a Contributor behaves like an Owner in their ow
 
 ## 4. Relationship with Shared Workspaces (Key Section)
 
-[Shared Workspaces](./共享空间说明.md) (Organization) and Workspace RBAC solve **different dimensions** of the problem, and both must be satisfied to complete a cross-workspace operation:
+[Shared Workspaces](./Shared-Spaces-Guide.md) (Organization) and Workspace RBAC solve **different dimensions** of the problem, and both must be satisfied to complete a cross-workspace operation:
 
 | Dimension | What It Solves | Primary Key Model | Role Set |
 |------|---------|---------|---------|
@@ -259,6 +259,6 @@ Not in v1. This matrix deliberately keeps to a small fixed grid (Viewer < Contri
 
 ## Related Documents
 
-- Cross-workspace collaboration: [`共享空间说明.md`](./共享空间说明.md)
-- Multi-workspace authentication background: [`OIDC认证调用流程.md`](./OIDC认证调用流程.md)
+- Cross-workspace collaboration: [`Shared-Spaces-Guide.md`](./Shared-Spaces-Guide.md)
+- Multi-workspace authentication background: [`OIDC-Authentication-Flow.md`](./OIDC-Authentication-Flow.md)
 - Configuration items and environment variables: [`.env.example`](../.env.example)

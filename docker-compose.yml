@@ -128,7 +128,7 @@ services:
       # - DB_PATH=${DB_PATH:-}
       # ========== Langfuse (optional observability) ==========
       # Enabled automatically when LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY are set.
-      # See docs/Langfuse集成.md for the full list of tuning knobs.
+      # See docs/Langfuse-Integration.md for the full list of tuning knobs.
       - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
@@ -321,7 +321,7 @@ services:
       - WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT=${WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT:-}
       # Whether to allow through when MCP tool manual approval fails (true to allow / default fail-close deny)
       - WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN=${WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN:-}
-      # Tenant / RBAC (see docs/RBAC说明.md and .env.example comments for details)
+      # Tenant / RBAC (see docs/RBAC-Guide.md and .env.example comments for details)
       # - WEKNORA_TENANT_ENABLE_RBAC: whether to enforce space role authorization (true / false), default true
       # - WEKNORA_TENANT_MAX_OWNED_PER_USER: cap on self-service spaces a single non-admin user can create
       # >0 enforces the limit; =0 uses the handler default; <0 disables the limit (not recommended for shared deployments)

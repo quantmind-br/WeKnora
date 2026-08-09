@@ -2,7 +2,7 @@
 title: Data Source Import Development
 tags: [Integration & Extensions, Data Source, Feishu, Sync, Connector]
 aliases: [Data Source Import, DataSource, Data Sync]
-source: 数据源导入开发文档.md
+source: Data-Source-Import-Development.md
 ---
 
 # Data Source Import Development
@@ -11,7 +11,7 @@ WeKnora's data source import module supports automatically importing and syncing
 
 Data sources are bound to a knowledge base, and one knowledge base can connect to multiple data sources. Credentials are stored encrypted using AES-256-GCM.
 
-> Data source import and [IM Integration Development](../集成扩展/IM集成开发.md) both involve Feishu integration, so consider sharing Feishu app credentials
+> Data source import and [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) both involve Feishu integration, so consider sharing Feishu app credentials
 
 ## Currently Supported Connectors
 
@@ -43,7 +43,7 @@ The parsing path for Feishu's new-generation cloud documents (docx) is controlle
 - **export**: Exports .docx for docreader to parse, with images inlined into the parent document (consistent with a regular docx upload), establishing a parent-child association within the same knowledge entry via `parent_chunk_id`, so image content can be associated in all three scenarios; the trade-off is slower sync (async export + docx parsing), loss of attachments within the docx, and image OCR/captioning depends on multimodal configuration.
 - **blocks**: Image blocks render as empty `![Image]()` placeholders, with images downloaded separately as standalone knowledge entries — retrieval / Wiki / agents cannot associate the image content back to the document; however, sync is fast and file block attachments within the docx are preserved.
 
-Configuration: export is the default, so no setting is needed; to use blocks mode, set `FEISHU_DOCX_PARSE_MODE=blocks` in the app service environment variables in `.env` or `docker-compose.yml`, then restart the app service for it to take effect. See [Feishu Drive Data Source Integration Guide](飞书云盘数据源接入说明.md#6-docx-解析模式与环境变量) for details.
+Configuration: export is the default, so no setting is needed; to use blocks mode, set `FEISHU_DOCX_PARSE_MODE=blocks` in the app service environment variables in `.env` or `docker-compose.yml`, then restart the app service for it to take effect. See [Feishu Drive Data Source Integration Guide](Feishu-Drive-DataSource-Integration.md#6-docx-解析模式与环境变量) for details.
 
 ## Architecture Design
 
@@ -85,19 +85,19 @@ Core design patterns:
 2. Register the connector with `ConnectorRegistry`
 3. Add frontend configuration
 
-> The extension development pattern is similar to [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md) and [Integrating a Vector Database](../集成扩展/集成向量数据库.md)
+> The extension development pattern is similar to [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md) and [Integrating a Vector Database](../Integration-Extension/Integrating-a-Vector-Database.md)
 
 ## Related Topics
 
-- [IM Integration Development](../集成扩展/IM集成开发.md) — Feishu integration within IM channels
-- [Shared Space Guide](../安全认证/共享空间说明.md) — Knowledge base sharing mechanism
-- [FAQ](../运维排障/常见问题.md) — Troubleshooting data source sync issues
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — Feishu integration within IM channels
+- [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — Knowledge base sharing mechanism
+- [FAQ](../Operations-Troubleshooting/FAQ.md) — Troubleshooting data source sync issues
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [IM Integration Development](../集成扩展/IM集成开发.md) — Also involves Feishu integration, can share app credentials
-- [Shared Space Guide](../安全认证/共享空间说明.md) — Knowledge base sharing complements data source import
-- [Adding a Web Search Engine](../集成扩展/添加网络搜索引擎.md) — Similar extension development pattern
+- [IM Integration Development](../Integration-Extension/IM-Integration-Development.md) — Also involves Feishu integration, can share app credentials
+- [Shared Space Guide](../Security-Authentication/Shared-Spaces-Guide.md) — Knowledge base sharing complements data source import
+- [Adding a Web Search Engine](../Integration-Extension/Adding-a-New-Search-Engine.md) — Similar extension development pattern

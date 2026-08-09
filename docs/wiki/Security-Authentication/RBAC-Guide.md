@@ -2,15 +2,15 @@
 title: Workspace RBAC Guide
 tags: [security authentication, RBAC, permissions, multi-workspace, roles]
 aliases: [RBAC, role permissions, workspace roles, TenantRBAC]
-source: RBAC说明.md
+source: RBAC-Guide.md
 ---
 
 # Workspace RBAC Guide
 
-This document describes WeKnora's **Workspace RBAC (in-workspace access control)**, including the role matrix, the resource-ownership model, and how it relates to [Shared Workspaces](./共享空间说明.md).
+This document describes WeKnora's **Workspace RBAC (in-workspace access control)**, including the role matrix, the resource-ownership model, and how it relates to [Shared Workspaces](./Shared-Spaces-Guide.md).
 
 > Status: released; controlled by the `tenant.enable_rbac` config option, `true` by default (enforced authorization).
-> For the full description, rollout plan, schema, route guards, and more, see [`docs/RBAC说明.md`](../../RBAC说明.md).
+> For the full description, rollout plan, schema, route guards, and more, see [`docs/RBAC-Guide.md`](../../RBAC-Guide.md).
 
 ## The problem it solves
 
@@ -101,14 +101,14 @@ A daily background goroutine cleans up rows older than `audit.retention_days`.
 
 ## Related topics
 
-- [Shared Workspaces Guide](./共享空间说明.md) — cross-workspace collaboration and sharing, orthogonal to RBAC
-- [OIDC Authentication Flow](./OIDC认证调用流程.md) — the authentication entry point for the multi-workspace user system
-- [Lite vs. Standard Edition Differences](../项目概述/Lite与标准版区别.md) — in Lite's single-user scenario, RBAC has no practical effect
+- [Shared Workspaces Guide](./Shared-Spaces-Guide.md) — cross-workspace collaboration and sharing, orthogonal to RBAC
+- [OIDC Authentication Flow](./OIDC-Authentication-Flow.md) — the authentication entry point for the multi-workspace user system
+- [Lite vs. Standard Edition Differences](../Project-Overview/Lite-vs-Standard-Edition.md) — in Lite's single-user scenario, RBAC has no practical effect
 
 ---
 
 ## Backlinks
 
 - [Home](../Home.md) — Wiki home navigation
-- [Shared Workspaces Guide](./共享空间说明.md) — shared-workspace access ultimately resolves to workspace RBAC checks
-- [OIDC Authentication Flow](./OIDC认证调用流程.md) — after JWT parsing, control flow proceeds to RBAC role matching
+- [Shared Workspaces Guide](./Shared-Spaces-Guide.md) — shared-workspace access ultimately resolves to workspace RBAC checks
+- [OIDC Authentication Flow](./OIDC-Authentication-Flow.md) — after JWT parsing, control flow proceeds to RBAC role matching
