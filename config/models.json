@@ -1,0 +1,719 @@
+{
+  "providers": {
+    "quantforge-openai": {
+      "name": "QuantForge (OpenAI)",
+      "description": "QuantForge gateway, OpenAI Chat Completions surface (GPT, GLM, Grok, Kimi, DeepSeek, Qwen, MiMo, Muse, MoA)",
+      "website": "https://api.quantforge.com.br",
+      "api": "openai-completions",
+      "base_urls": {
+        "chat": "https://api.quantforge.com.br/v1",
+        "vlm": "https://api.quantforge.com.br/v1"
+      },
+      "api_key": "${QUANTFORGE_API_KEY}",
+      "auth": "bearer",
+      "model_types": [
+        "chat",
+        "vlm"
+      ],
+      "compat": {
+        "max_tokens_field": "max_tokens",
+        "supports_usage_in_streaming": false,
+        "thinking_format": "openai",
+        "supports_reasoning_effort": true
+      },
+      "models": [
+        {
+          "id": "mimo-v2.6-flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "audio",
+            "video"
+          ],
+          "context_window": 1048576,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 0.14,
+            "output": 0.28,
+            "cache_read": 0.0028
+          },
+          "thinking_levels": {
+            "off": "none",
+            "minimal": null,
+            "low": null,
+            "medium": null
+          }
+        },
+        {
+          "id": "mimo-v2.6-pro",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "audio",
+            "video"
+          ],
+          "context_window": 1048576,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 0.435,
+            "output": 0.87,
+            "cache_read": 0.0036
+          },
+          "thinking_levels": {
+            "off": "none",
+            "minimal": null,
+            "low": null,
+            "medium": null
+          }
+        },
+        {
+          "id": "qwen3.8-max",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "video"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 2,
+            "output": 6,
+            "cache_read": 0.25
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "high": null,
+            "xhigh": "xhigh"
+          }
+        },
+        {
+          "id": "qwen3.8-flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "video"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cache_read": 0
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "high": null,
+            "xhigh": "xhigh"
+          }
+        },
+        {
+          "id": "moa",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "context_window": 256000,
+          "max_output_tokens": 8192,
+          "cost": {
+            "input": 0,
+            "output": 0
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-5.5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 272000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 5,
+            "output": 30,
+            "cache_read": 0.5
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-5.6-sol",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 872000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 5,
+            "output": 30,
+            "cache_read": 0.5
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-5.6-terra",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 872000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 2.5,
+            "output": 15,
+            "cache_read": 0.25
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 872000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 1,
+            "output": 6,
+            "cache_read": 0.1
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-6-astra",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 872000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 10,
+            "output": 50,
+            "cache_read": 1
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-6-sol",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 872000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cache_read": 0.2
+          },
+          "thinking_levels": {
+            "off": "none",
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "gpt-6-luna",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 872000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 0.1,
+            "output": 0.5,
+            "cache_read": 0.01
+          },
+          "thinking_levels": {
+            "off": "none",
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        },
+        {
+          "id": "grok-4.6",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 500000,
+          "max_output_tokens": 500000,
+          "cost": {
+            "input": 2,
+            "output": 6,
+            "cache_read": 0.5
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh"
+          }
+        },
+        {
+          "id": "grok-4.7",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 500000,
+          "max_output_tokens": 500000,
+          "cost": {
+            "input": 2,
+            "output": 6,
+            "cache_read": 0.5
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh"
+          }
+        },
+        {
+          "id": "glm-5.3",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 1.4,
+            "output": 4.4,
+            "cache_read": 0.26
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "medium": null,
+            "max": "max"
+          },
+          "compat": {
+            "thinking_format": "thinking-type"
+          }
+        },
+        {
+          "id": "glm-5.3-free",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 1.4,
+            "output": 4.4,
+            "cache_read": 0.26
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "medium": null,
+            "max": "max"
+          },
+          "compat": {
+            "thinking_format": "thinking-type"
+          }
+        },
+        {
+          "id": "glm-5.3-flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "video"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 0.075,
+            "output": 0.25,
+            "cache_read": 0.015
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "medium": null,
+            "max": "max"
+          },
+          "compat": {
+            "thinking_format": "thinking-type"
+          }
+        },
+        {
+          "id": "deepseek-v4.1-flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 384000,
+          "cost": {
+            "input": 0.15,
+            "output": 0.6,
+            "cache_read": 0.003
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "medium": null,
+            "max": "max"
+          }
+        },
+        {
+          "id": "kimi-k3",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "context_window": 1048576,
+          "max_output_tokens": 131072,
+          "cost": {
+            "input": 3,
+            "output": 15,
+            "cache_read": 0.3
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "medium": null,
+            "max": "max"
+          }
+        },
+        {
+          "id": "muse-spark-1.3",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "video",
+            "audio"
+          ],
+          "context_window": 1048576,
+          "max_output_tokens": 943718,
+          "cost": {
+            "input": 1.25,
+            "output": 4.25,
+            "cache_read": 0.15
+          },
+          "thinking_levels": {
+            "xhigh": "xhigh",
+            "max": "max"
+          }
+        },
+        {
+          "id": "muse-spark-1.3-contributor",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "video",
+            "audio"
+          ],
+          "context_window": 1048576,
+          "max_output_tokens": 943718,
+          "cost": {
+            "input": 1.25,
+            "output": 4.25,
+            "cache_read": 0.15
+          },
+          "thinking_levels": {
+            "xhigh": "xhigh"
+          }
+        },
+        {
+          "id": "Atria-Dawn-Preview",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "context_window": 256000,
+          "max_output_tokens": 65536,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cache_read": 0
+          },
+          "thinking_levels": {
+            "minimal": null,
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "supports_temperature": false
+          }
+        }
+      ]
+    },
+    "quantforge-anthropic": {
+      "name": "QuantForge (Anthropic)",
+      "description": "QuantForge gateway, Anthropic Messages surface (Claude)",
+      "website": "https://api.quantforge.com.br",
+      "api": "anthropic-messages",
+      "base_urls": {
+        "chat": "https://api.quantforge.com.br/v1",
+        "vlm": "https://api.quantforge.com.br/v1"
+      },
+      "api_key": "${QUANTFORGE_API_KEY}",
+      "auth": "x-api-key",
+      "model_types": [
+        "chat",
+        "vlm"
+      ],
+      "models": [
+        {
+          "id": "claude-fable-5-1",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 10,
+            "output": 50,
+            "cache_read": 1
+          },
+          "thinking_levels": {
+            "off": null,
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "thinking_mode": "adaptive",
+            "supports_effort": true
+          }
+        },
+        {
+          "id": "claude-fable-5-1-pxpipe",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 10,
+            "output": 50,
+            "cache_read": 1
+          },
+          "thinking_levels": {
+            "off": null,
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "thinking_mode": "adaptive",
+            "supports_effort": true
+          }
+        },
+        {
+          "id": "claude-haiku-4-5-20251001",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 200000,
+          "max_output_tokens": 64000,
+          "cost": {
+            "input": 1,
+            "output": 5,
+            "cache_read": 0.1
+          }
+        },
+        {
+          "id": "claude-opus-5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 5,
+            "output": 25,
+            "cache_read": 0.5
+          },
+          "thinking_levels": {
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "thinking_mode": "adaptive",
+            "supports_effort": true
+          }
+        },
+        {
+          "id": "claude-opus-5-5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 4,
+            "output": 20,
+            "cache_read": 0.2
+          },
+          "thinking_levels": {
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "thinking_mode": "adaptive",
+            "supports_effort": true
+          }
+        },
+        {
+          "id": "claude-sonnet-5",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "context_window": 1000000,
+          "max_output_tokens": 128000,
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cache_read": 0.2
+          },
+          "thinking_levels": {
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max"
+          },
+          "compat": {
+            "thinking_mode": "adaptive",
+            "supports_effort": true
+          }
+        }
+      ]
+    },
+    "quantforge-google": {
+      "name": "QuantForge (Gemini)",
+      "description": "QuantForge gateway, Google generateContent surface (Gemini)",
+      "website": "https://api.quantforge.com.br",
+      "api": "google-generative-ai",
+      "base_urls": {
+        "chat": "https://api.quantforge.com.br/v1beta",
+        "vlm": "https://api.quantforge.com.br/v1beta"
+      },
+      "api_key": "${QUANTFORGE_API_KEY}",
+      "auth": "x-goog-api-key",
+      "model_types": [
+        "chat",
+        "vlm"
+      ],
+      "models": [
+        {
+          "id": "gemini-3.8-flash-high",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image",
+            "video",
+            "audio"
+          ],
+          "context_window": 1048576,
+          "max_output_tokens": 65536,
+          "cost": {
+            "input": 0.75,
+            "output": 3.75,
+            "cache_read": 0.075
+          },
+          "thinking_levels": {
+            "off": null,
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "high",
+            "max": "high"
+          },
+          "compat": {
+            "thinking_mode": "level"
+          }
+        }
+      ]
+    }
+  }
+}
