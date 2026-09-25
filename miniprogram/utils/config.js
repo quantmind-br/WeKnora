@@ -9,7 +9,7 @@ function normalizeBaseUrl(baseUrl) {
 }
 
 function normalizeLocale(locale) {
-  return locale === "en" ? "en" : "zh";
+  return locale === "zh" ? "zh" : "en";
 }
 
 function getSettings() {
@@ -18,7 +18,7 @@ function getSettings() {
     baseUrl: normalizeBaseUrl(stored.baseUrl || ""),
     apiKey: stored.apiKey || "",
     selectedKnowledgeBaseId: stored.selectedKnowledgeBaseId || "",
-    locale: normalizeLocale(stored.locale || "zh")
+    locale: normalizeLocale(stored.locale || "en")
   };
 }
 

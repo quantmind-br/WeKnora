@@ -43,10 +43,10 @@ test("normalizeBaseUrl trims trailing slashes", () => {
   assert.equal(normalizeBaseUrl(" https://example.com/// "), "https://example.com");
 });
 
-test("i18n defaults to Chinese and supports English", () => {
+test("i18n defaults to English and supports Chinese", () => {
   assert.equal(normalizeLocale("zh"), "zh");
   assert.equal(normalizeLocale("en"), "en");
-  assert.equal(normalizeLocale("fr"), "zh");
+  assert.equal(normalizeLocale("fr"), "en");
   assert.equal(t("tabKnowledge", {}, "zh"), "知识库");
   assert.equal(t("tabKnowledge", {}, "en"), "Knowledge");
   assert.equal(t("loadedKnowledgeBases", { count: 2 }, "zh"), "已加载 2 个知识库。");

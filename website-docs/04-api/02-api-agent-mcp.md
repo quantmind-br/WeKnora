@@ -182,7 +182,7 @@ curl -X PUT $BASE/api/v1/mcp-services/mcp-1 -H "Authorization: Bearer $TOKEN" \
 
 Purpose: generate concise usage instructions from the synced, non-stale MCP tool catalog. Permission: Admin+; API key needs `manage_mcp_services` or full.
 
-Request: `{"language":"en-US"}`. Supports `zh-CN`, `en-US`, `ja-JP`, `ko-KR`, `ru-RU`; defaults to Simplified Chinese.
+Request: `{"language":"en-US"}`. Supports `zh-CN`, `en-US`, `ja-JP`, `ko-KR`, `ru-RU`; defaults to English.
 
 Uses the space's default chat model if available, otherwise the first available chat model. The input includes the service name, the server-side description, and the names and descriptions of enabled tools; OAuth catalogs follow the current user's authorization scope. It does not connect to the MCP service, call tools, or save the generated result automatically.
 

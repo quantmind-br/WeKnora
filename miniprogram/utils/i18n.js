@@ -92,7 +92,7 @@ const MESSAGES = {
 };
 
 function normalizeLocale(locale) {
-  return locale === "en" ? "en" : "zh";
+  return locale === "zh" ? "zh" : "en";
 }
 
 function getLocale() {
@@ -106,7 +106,7 @@ function setLocale(locale) {
 }
 
 function t(key, vars = {}, locale = getLocale()) {
-  const table = MESSAGES[normalizeLocale(locale)] || MESSAGES.zh;
+  const table = MESSAGES[normalizeLocale(locale)] || MESSAGES.en;
   let text = table[key] || MESSAGES.en[key] || key;
   Object.keys(vars).forEach((name) => {
     text = text.replace(new RegExp(`\\{${name}\\}`, "g"), String(vars[name]));
@@ -115,7 +115,7 @@ function t(key, vars = {}, locale = getLocale()) {
 }
 
 function getMessages(locale = getLocale()) {
-  return MESSAGES[normalizeLocale(locale)] || MESSAGES.zh;
+  return MESSAGES[normalizeLocale(locale)] || MESSAGES.en;
 }
 
 function applyTabBar(locale = getLocale()) {
