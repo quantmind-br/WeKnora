@@ -36,30 +36,7 @@ func (h *KnowledgeBaseHandler) KBCreatorLookup(c *gin.Context) (string, error) {
 	if id == "" {
 		return "", errors.New("missing :id param for KB creator lookup")
 	}
-	ctx := c.Request.Context()
-	tenantID, ok := types.TenantIDFromContext(ctx)
-	if !ok {
-		// no space context means the auth middleware didn't complete; treat it as a lookup failure and let the upper layer return 503,
-		// rather than silently failing open and granting access it shouldn't have.
-		return "", errors.New("workspace context missing")
-	}
-	kb, err := h.service.GetKnowledgeBaseByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
-			return "", middleware.ErrResourceNotFound
-		}
-		return "", err
-	}
-	if kb == nil {
-		return "", middleware.ErrResourceNotFound
-	}
-	// explicitly re-verify the space: repo.GetKnowledgeBaseByID doesn't filter by tenant,
-	// so if :id is ever probed by an attacker using another space's UUID,
-	// it won't pass the middleware via an "ownership match."
-	if kb.TenantID != tenantID {
-		return "", middleware.ErrResourceNotFound
-	}
-	return kb.CreatorID, nil
+	return resolveKBCreatorByKBID(c, h.service, id)
 }
 
 // KBCreatorLookupFromKbIDParam is the same lookup as KBCreatorLookup
@@ -74,25 +51,7 @@ func (h *KnowledgeBaseHandler) KBCreatorLookupFromKbIDParam(c *gin.Context) (str
 	if id == "" {
 		return "", errors.New("missing :kbId param for KB creator lookup")
 	}
-	ctx := c.Request.Context()
-	tenantID, ok := types.TenantIDFromContext(ctx)
-	if !ok {
-		return "", errors.New("workspace context missing")
-	}
-	kb, err := h.service.GetKnowledgeBaseByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
-			return "", middleware.ErrResourceNotFound
-		}
-		return "", err
-	}
-	if kb == nil {
-		return "", middleware.ErrResourceNotFound
-	}
-	if kb.TenantID != tenantID {
-		return "", middleware.ErrResourceNotFound
-	}
-	return kb.CreatorID, nil
+	return resolveKBCreatorByKBID(c, h.service, id)
 }
 
 // AgentCreatorLookup resolves :id -> CustomAgent.CreatedBy. Built-in
@@ -226,30 +185,12 @@ func (h *WikiPageHandler) KBCreatorLookupFromKBPath(c *gin.Context) (string, err
 	if kbID == "" {
 		return "", errors.New("missing :kb_id param for wiki owner lookup")
 	}
-	ctx := c.Request.Context()
-	tenantID, ok := types.TenantIDFromContext(ctx)
-	if !ok {
-		return "", errors.New("workspace context missing")
-	}
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbID)
-	if err != nil {
-		if errors.Is(err, apprepo.ErrKnowledgeBaseNotFound) {
-			return "", middleware.ErrResourceNotFound
-		}
-		return "", err
-	}
-	if kb == nil {
-		return "", middleware.ErrResourceNotFound
-	}
-	if kb.TenantID != tenantID {
-		return "", middleware.ErrResourceNotFound
-	}
-	return kb.CreatorID, nil
+	return resolveKBCreatorByKBID(c, h.kbService, kbID)
 }
 
 // resolveKBCreatorByKBID resolves a KB id to CreatorID, scoped to the
-// caller's tenant. Used by cross-KB handlers whose body carries kb_id
-// instead of a URL param (batch-delete, move, etc.).
+// caller's tenant. Shared by KB, initialization and Wiki route lookups and
+// cross-KB handlers whose body carries kb_id (batch-delete, move, etc.).
 func resolveKBCreatorByKBID(
 	c *gin.Context,
 	kbService interfaces.KnowledgeBaseService,

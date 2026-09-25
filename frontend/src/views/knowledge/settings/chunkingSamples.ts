@@ -104,10 +104,10 @@ Every step is streamed to the frontend over SSE and written to Langfuse traces f
 
 ## Further Reading
 
-- API docs: \`docs/api/README.md\`
+- API docs: \`website-docs/04-api/01-api-overview.md\`
 - Config reference: \`config/config.yaml\` and \`.env.example\`
-- Troubleshooting: \`docs/QA.md\`
-- Roadmap: \`docs/ROADMAP.md\``
+- Troubleshooting: \`website-docs/01-getting-started/05-troubleshooting.md\`
+- Product introduction: \`website-docs/01-getting-started/01-introduction.md\``
 
 const FAQ_SAMPLE = `# WeKnora Deployment & Usage FAQ
 

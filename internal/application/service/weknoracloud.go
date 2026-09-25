@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/provider"
+	"github.com/Tencent/WeKnora/internal/models/providers"
 	modelsutils "github.com/Tencent/WeKnora/internal/models/utils"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -30,7 +30,8 @@ func NewWeKnoraCloudService(
 }
 
 func IsWeKnoraCloudDocReaderAddr(addr string) bool {
-	return strings.TrimSuffix(strings.TrimSpace(addr), "/") == strings.TrimRight(provider.WeKnoraCloudBaseURL, "/")+"/api/v1/doc/reader"
+	readerURL := strings.TrimRight(providers.WeKnoraCloudBaseURL, "/") + "/api/v1/doc/reader"
+	return strings.TrimSuffix(strings.TrimSpace(addr), "/") == readerURL
 }
 
 // SaveCredentials only saves the APPID/APPSECRET credentials, without automatically creating a model
@@ -55,7 +56,7 @@ func (s *weKnoraCloudService) SaveCredentials(ctx context.Context, appID, appSec
 // Note: health is generally a liveness-check endpoint; the remote side often doesn't validate APPID/SECRET or the signature — an HTTP 200 usually only means
 // the "gateway/service is reachable," not strict proof that the credentials are valid. For strict validation, call a business endpoint that requires auth instead.
 func (s *weKnoraCloudService) verifyCredentials(ctx context.Context, appID, appSecret string) error {
-	baseURL := strings.TrimRight(provider.WeKnoraCloudBaseURL, "/")
+	baseURL := strings.TrimRight(providers.WeKnoraCloudBaseURL, "/")
 	healthURL := baseURL + "/api/v1/health"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
@@ -72,7 +73,9 @@ func (s *weKnoraCloudService) verifyCredentials(ctx context.Context, appID, appS
 	logger.Infof(ctx, "credential verification request: method=GET url=%s app_id=%s request_id=%s ",
 		healthURL, appID, requestID)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	clientCfg := utils.DefaultSSRFSafeHTTPClientConfig()
+	clientCfg.Timeout = 10 * time.Second
+	client := utils.NewSSRFSafeHTTPClient(clientCfg)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Warnf(ctx, "credential verification HTTP failed: url=%s err=%v", healthURL, err)

@@ -18,6 +18,8 @@ type LoginRequest struct {
 // Token is the JWT access token; RefreshToken renews it via Auth.Refresh.
 // ActiveTenant is the tenant whose ID is encoded in the JWT — every
 // subsequent request is scoped to it until /auth/switch-tenant is called.
+// A successful switch also records that tenant as the user's last-active
+// preference, so the next login and refresh land in the same workspace.
 // Memberships lists every tenant the user can access along with their
 // role in each, so callers can build a tenant switcher UI without a
 // follow-up request.
@@ -82,12 +84,21 @@ type AuthTenant struct {
 	Name string `json:"name"`
 }
 
+// AuthCapabilities mirrors GET /auth/me capabilities for SPA feature gates.
+type AuthCapabilities struct {
+	CanCreateTenant      bool `json:"can_create_tenant"`
+	AutoAcceptInvitation bool `json:"auto_accept_invitation"`
+}
+
 // CurrentUserResponse is the body of GET /api/v1/auth/me.
 type CurrentUserResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
-		User   *AuthUser   `json:"user,omitempty"`
-		Tenant *AuthTenant `json:"tenant,omitempty"`
+		User           *AuthUser         `json:"user,omitempty"`
+		Tenant         *AuthTenant       `json:"tenant,omitempty"`
+		Memberships    []AuthMembership  `json:"memberships,omitempty"`
+		TenantRequired bool              `json:"tenant_required,omitempty"`
+		Capabilities   *AuthCapabilities `json:"capabilities,omitempty"`
 	} `json:"data"`
 }
 
@@ -95,8 +106,9 @@ type CurrentUserResponse struct {
 // HTTP middleware (e.g. the CLI's 401-retry transport) can classify
 // requests without re-hardcoding the literals.
 const (
-	PathAuthLogin   = "/api/v1/auth/login"
-	PathAuthRefresh = "/api/v1/auth/refresh"
+	PathAuthLogin        = "/api/v1/auth/login"
+	PathAuthRefresh      = "/api/v1/auth/refresh"
+	PathAuthSwitchTenant = "/api/v1/auth/switch-tenant"
 )
 
 // RefreshTokenResponse is the body of POST /api/v1/auth/refresh.
@@ -122,6 +134,29 @@ func (c *Client) Login(ctx context.Context, req LoginRequest) (*LoginResponse, e
 	}
 	// The backend has renamed the tenant field to active_tenant; to accommodate downstream
 	// callers that still read the old field name, mirror a copy onto Tenant after deserialization. Both always point to the same pointer.
+	out.Tenant = out.ActiveTenant
+	return &out, nil
+}
+
+// SwitchTenantRequest is the body for POST /api/v1/auth/switch-tenant.
+type SwitchTenantRequest struct {
+	TenantID     uint64 `json:"tenant_id"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+}
+
+// SwitchTenant re-issues a token pair scoped to TenantID and records that
+// tenant as the user's last-active preference (next login and refresh land
+// there). A preference-write failure fails the whole call — no new tokens
+// are issued. Maps to POST /api/v1/auth/switch-tenant.
+func (c *Client) SwitchTenant(ctx context.Context, req SwitchTenantRequest) (*LoginResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodPost, PathAuthSwitchTenant, req, nil)
+	if err != nil {
+		return nil, fmt.Errorf("switch tenant: %w", err)
+	}
+	var out LoginResponse
+	if err := parseResponse(resp, &out); err != nil {
+		return nil, err
+	}
 	out.Tenant = out.ActiveTenant
 	return &out, nil
 }
@@ -185,6 +220,29 @@ func (c *Client) ChangePassword(ctx context.Context, req ChangePasswordRequest) 
 		return nil, fmt.Errorf("change password: %w", err)
 	}
 	var out ChangePasswordResponse
+	if err := parseResponse(resp, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// AuthConfigResponse is returned by GET /api/v1/auth/config.
+// The endpoint is unauthenticated so the SPA can decide whether to show
+// the register tab and which password complexity rules to apply.
+type AuthConfigResponse struct {
+	Success                bool   `json:"success"`
+	RegistrationMode       string `json:"registration_mode"`
+	ComplexPasswordEnabled bool   `json:"complex_password_enabled"`
+}
+
+// GetAuthConfig fetches public authentication settings.
+// Maps to GET /api/v1/auth/config.
+func (c *Client) GetAuthConfig(ctx context.Context) (*AuthConfigResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, "/api/v1/auth/config", nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get auth config: %w", err)
+	}
+	var out AuthConfigResponse
 	if err := parseResponse(resp, &out); err != nil {
 		return nil, err
 	}

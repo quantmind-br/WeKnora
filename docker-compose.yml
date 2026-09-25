@@ -1,14 +1,23 @@
 services:
   frontend:
     image: wechatopenai/weknora-ui:${WEKNORA_VERSION:-latest}
-    # Requires frontend/dist — run ./scripts/build_frontend_dist.sh before --build
+    # Multi-stage Dockerfile builds dist inside the image (no host npm required).
+    # Optional: NPM_REGISTRY=https://registry.npmmirror.com docker compose build frontend
+    # VITE_FRONTEND_COMMIT: start_all.sh / make docker-build-frontend inject git;
+    # otherwise pass it explicitly or the system-info page shows "unknown".
     build:
       context: ./frontend
+      args:
+        VITE_FRONTEND_COMMIT: ${VITE_FRONTEND_COMMIT:-unknown}
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
+        NODE_MAX_OLD_SPACE_SIZE: ${NODE_MAX_OLD_SPACE_SIZE:-4096}
     container_name: WeKnora-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"
     environment:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
+      - DEFAULT_LOCALE=${DEFAULT_LOCALE:-}
       - APP_HOST=${APP_HOST:-app}
       # APP_BACKEND_PORT: the port NGINX proxies to (default 8080).
       # For local deployment this is the App container's listening port, independent of host-mapped APP_PORT.
@@ -31,6 +40,7 @@ services:
       dockerfile: docker/Dockerfile.app
       args:
         - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
+        - WITH_ANYDOC=${WITH_ANYDOC:-1}
     container_name: WeKnora-app
     ports:
       - "${APP_PORT:-8080}:8080"
@@ -38,12 +48,17 @@ services:
       - data-files:/data/files
       - docreader-tmp:/tmp/docreader:ro
       - ./config/config.yaml:/app/config/config.yaml
-      # Optional: mount custom skills directory (allows adding skills without rebuilding image)
-      - ./skills/preloaded:/app/skills/preloaded
+      # Docker 沙箱默认关闭（见 WEKNORA_SANDBOX_DOCKER_ENABLED）。需要本机 daemon 时
+      # 同时设 true 并挂载实际 socket——这等同宿主机 root，仅私有化单机。
+      # 入口脚本会按 socket GID 把 appuser 加入对应组（compose group_add 在 gosu 后无效）。
+      # - /var/run/docker.sock:/var/run/docker.sock
       # Optional: declarative built-in models. Copy config/builtin_models.yaml.example
       # to config/builtin_models.yaml, edit it for your deployment, then
-      # uncomment the line below. See docs/BUILTIN_MODELS.md.
+      # uncomment the line below. See website-docs/03-features/06-models.md.
       # - ./config/builtin_models.yaml:/app/config/builtin_models.yaml:ro
+      # Optional: model catalog overlay (extra vendors / model overrides).
+      # Copy config/models.json.example to config/models.json, then
+      # - ./config/models.json:/app/config/models.json:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -81,6 +96,9 @@ services:
       # Document processing language (question/summary generation). Priority: this env var (deployment-level override, effective if non-empty)
       # > Accept-Language request header > built-in default (zh-CN). Leave empty to follow the requester's Accept-Language.
       - WEKNORA_LANGUAGE=${WEKNORA_LANGUAGE:-}
+      # Docker sandbox is disabled by default: the local docker.sock is equivalent to host root.
+      # System admins can also enable it under "Settings → System Settings" (takes effect immediately). This variable is read when no value is persisted.
+      - WEKNORA_SANDBOX_DOCKER_ENABLED=${WEKNORA_SANDBOX_DOCKER_ENABLED:-false}
       # gin trusted proxy CIDRs (comma-separated); explicitly set to an empty string to disable proxy trust.
       # Trusts loopback + private network segments by default (covered by nginx within the container network)
       # - WEKNORA_TRUSTED_PROXIES=${WEKNORA_TRUSTED_PROXIES:-}
@@ -105,6 +123,8 @@ services:
       # Authentication / Tenants / RBAC / Audit
       # Disable new user registration (recommended true in production)
       - DISABLE_REGISTRATION=${DISABLE_REGISTRATION:-false}
+      # When enabled, passwords must contain uppercase and lowercase letters, digits, and special characters; allowed special characters: !@#$%^&*()_+-=[]{}|;:,.<>?
+      - WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED=${WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED:-false}
       # Default tenant policy after public registration: create_personal (default, automatically creates a personal tenant) / tenantless
       - WEKNORA_AUTH_DEFAULT_TENANT_MODE=${WEKNORA_AUTH_DEFAULT_TENANT_MODE:-create_personal}
       # Whether regular users can create tenants on their own after logging in (default true; false means they can only join via invitation — super admins are unaffected)
@@ -128,7 +148,7 @@ services:
       # - DB_PATH=${DB_PATH:-}
       # ========== Langfuse (optional observability) ==========
       # Enabled automatically when LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY are set.
-      # See docs/Langfuse-Integration.md for the full list of tuning knobs.
+      # See website-docs/03-features/16-observability.md for the full list of tuning knobs.
       - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
@@ -282,51 +302,53 @@ services:
       # (TENANT_AES_KEY / CRYPTO_MASTER_KEY / CRYPTO_SALT are deprecated: since v0.4.0 encryption
       # uses SYSTEM_AES_KEY uniformly; the Go main app no longer reads these three variables.)
       - SYSTEM_AES_KEY=${SYSTEM_AES_KEY:-}
+      - SYSTEM_SIGNING_KEY=${SYSTEM_SIGNING_KEY:-}
       - SSRF_WHITELIST=${SSRF_WHITELIST:-}
       # Image domain whitelist for preserving original URLs (comma-separated, not replaced with provider://)
       - IMAGE_HOST_KEEP_URL=${IMAGE_HOST_KEEP_URL:-}
-      # Always allow the optional searxng sidecar and the bundled vector-store
-      # service hostnames (compose service names). Vector-store create/test now
-      # runs SSRF validation on user-supplied addresses, which would otherwise
-      # reject these private docker-network hosts; whitelisting them keeps the
+      # Always allow the optional searxng sidecar, bundled vector stores, and
+      # the default MinIO storage host (compose service names). User-controlled
+      # endpoints are SSRF-validated and these private docker-network hosts
+      # would otherwise be rejected; whitelisting them keeps the
       # out-of-box experience. Merged on top of SSRF_WHITELIST so user
       # overrides don't clobber it. (postgres is intentionally NOT listed: it
       # is not a user-registerable vector store, and whitelisting the app's own
       # DB host would skip the 5432 port block.)
       # doris-be: Stream Load follows FE→BE redirects that must receive Basic
       # credentials on whitelisted BE hosts.
-      - SSRF_WHITELIST_EXTRA=${SSRF_WHITELIST_EXTRA:-searxng,qdrant,milvus,weaviate,doris-fe,doris-be}
+      - SSRF_WHITELIST_EXTRA=${SSRF_WHITELIST_EXTRA:-searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio}
+      # 仅允许白名单出站（默认关闭）。开启前请把所有需要访问的地址加入白名单，
+      # 见 website-docs/01-getting-started/04-configuration.md「开启 SSRF_DNS_WHITELIST_ONLY 之前」。
+      - SSRF_DNS_WHITELIST_ONLY=${SSRF_DNS_WHITELIST_ONLY:-}
       - CONCURRENCY_POOL_SIZE=${CONCURRENCY_POOL_SIZE:-5}
       - JWT_SECRET=${JWT_SECRET:-}
       # File size limit (in MB)
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      # Skill zip / GitHub source download cap (in MB); the GitHub zipball is the whole repo, not the skill subtree
+      - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
       # Total timeout for document processing tasks (Go duration, default 2h)
       - WEKNORA_DOCUMENT_PROCESS_TIMEOUT=${WEKNORA_DOCUMENT_PROCESS_TIMEOUT:-}
       # Single DocReader RPC timeout (default 30m, must be less than the above)
       - WEKNORA_DOCREADER_CALL_TIMEOUT=${WEKNORA_DOCREADER_CALL_TIMEOUT:-}
+      # Self-hosted PaddleOCR-VL HTTP request timeout (Go duration, default 1000s)
+      - WEKNORA_PADDLEOCR_VL_TIMEOUT=${WEKNORA_PADDLEOCR_VL_TIMEOUT:-}
       # Knowledge base inspection recovery (reclaims dirty data stuck in processing; false disables, not recommended)
       - WEKNORA_HOUSEKEEPING_ENABLED=${WEKNORA_HOUSEKEEPING_ENABLED:-}
-      # Custom Skills directory (specify after mounting, no image rebuild needed)
-      - WEKNORA_SKILLS_DIR=${WEKNORA_SKILLS_DIR:-}
       - WEKNORA_CHAT_ATTACHMENT_TTL_HOURS=${WEKNORA_CHAT_ATTACHMENT_TTL_HOURS:-24}
       - WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC=${WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC:-60}
       - WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY=${WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY:-8}
       - WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES=${WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES:-8}
-      # Agent Skills Sandbox
-      - WEKNORA_SANDBOX_MODE=${WEKNORA_SANDBOX_MODE:-docker}
-      - WEKNORA_SANDBOX_TIMEOUT=${WEKNORA_SANDBOX_TIMEOUT:-60}
-      - WEKNORA_SANDBOX_DOCKER_IMAGE=${WEKNORA_SANDBOX_DOCKER_IMAGE:-wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}}
       # Agent LLM call timeout
       - WEKNORA_AGENT_LLM_TIMEOUT=${WEKNORA_AGENT_LLM_TIMEOUT:-}
       - WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT=${WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT:-}
       # Whether to allow through when MCP tool manual approval fails (true to allow / default fail-close deny)
       - WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN=${WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN:-}
-      # Tenant / RBAC (see docs/RBAC-Guide.md and .env.example comments for details)
+      # Tenant / RBAC (see website-docs/03-features/01-tenant-auth.md and .env.example comments for details)
       # - WEKNORA_TENANT_ENABLE_RBAC: whether to enforce space role authorization (true / false), default true
       # - WEKNORA_TENANT_MAX_OWNED_PER_USER: cap on self-service spaces a single non-admin user can create
-      # >0 enforces the limit; =0 uses the handler default; <0 disables the limit (not recommended for shared deployments)
+      #   >0 enforces the limit; =0 uses the handler default; <0 disables the limit (not recommended for shared deployments)
       # - WEKNORA_TENANT_AUTO_CREATE_API_KEY: automatically generate a full_access API Key when creating a space and return the token in the response
-      # (compatibility switch for the old default API Key issuance behavior, a breaking-change rollback toggle; true / false, default false)
+      #   (compatibility switch for the old default API Key issuance behavior, a breaking-change rollback toggle; true / false, default false)
       - WEKNORA_TENANT_ENABLE_RBAC=${WEKNORA_TENANT_ENABLE_RBAC:-}
       - WEKNORA_TENANT_MAX_OWNED_PER_USER=${WEKNORA_TENANT_MAX_OWNED_PER_USER:-}
       - WEKNORA_TENANT_AUTO_CREATE_API_KEY=${WEKNORA_TENANT_AUTO_CREATE_API_KEY:-}
@@ -349,6 +371,7 @@ services:
       - OIDC_AUTH_AUTHORIZATION_ENDPOINT=${OIDC_AUTH_AUTHORIZATION_ENDPOINT:-}
       - OIDC_AUTH_TOKEN_ENDPOINT=${OIDC_AUTH_TOKEN_ENDPOINT:-}
       - OIDC_AUTH_USER_INFO_ENDPOINT=${OIDC_AUTH_USER_INFO_ENDPOINT:-}
+      - OIDC_AUTH_JWKS_URI=${OIDC_AUTH_JWKS_URI:-}
       - OIDC_AUTH_SCOPES=${OIDC_AUTH_SCOPES:-}
       - OIDC_USER_INFO_MAPPING_USER_NAME=${OIDC_USER_INFO_MAPPING_USER_NAME:-}
       - OIDC_USER_INFO_MAPPING_EMAIL=${OIDC_USER_INFO_MAPPING_EMAIL:-}
@@ -367,13 +390,15 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # Sandbox image: build/pull only, not a long-running service; the app runs this image on demand via docker run when executing Skills, and releases it after use
+  # Sandbox image: build/pull only, not a long-running service. The Docker sandbox is disabled by default; the app only creates
+  # per-session containers after WEKNORA_SANDBOX_DOCKER_ENABLED=true is set and docker.sock is mounted.
   sandbox:
     image: wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}
     container_name: WeKnora-sandbox
     build:
       context: .
       dockerfile: docker/Dockerfile.sandbox
+      target: sandbox
     profiles:
       - full
     command: ["true"]
@@ -406,6 +431,7 @@ services:
       # SSRF whitelist for docreader's outbound HTTP fetches (comma-separated; shares the same variable name with app)
       - SSRF_WHITELIST=${SSRF_WHITELIST:-}
       - SSRF_WHITELIST_EXTRA=${SSRF_WHITELIST_EXTRA:-}
+      - SSRF_DNS_WHITELIST_ONLY=${SSRF_DNS_WHITELIST_ONLY:-}
       # ========== gRPC Server TLS / Authentication ==========
       - GRPC_TLS_ENABLED=${GRPC_TLS_ENABLED:-false}
       - GRPC_TLS_CERT=${GRPC_TLS_CERT:-}
@@ -503,7 +529,7 @@ services:
 
   # Modified PostgreSQL configuration
   postgres:
-    image: paradedb/paradedb:v0.22.2-pg17
+    image: paradedb/paradedb:v0.22.6-pg17
     container_name: WeKnora-postgres
     environment:
       - POSTGRES_USER=${DB_USER}
@@ -514,7 +540,7 @@ services:
     networks:
       - WeKnora-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s # increase the interval
       timeout: 10s # increase the timeout
       retries: 3 # reduce retries so failures surface faster
@@ -584,7 +610,7 @@ services:
       - full
 
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: WeKnora-minio
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -781,7 +807,7 @@ services:
   # One-time init script: creates the langfuse database in the existing WeKnora-postgres (idempotent, skips if the database already exists)
   # Reuses the WeKnora-postgres ParadeDB image, avoiding pulling an extra postgres image
   langfuse-db-init:
-    image: paradedb/paradedb:v0.22.2-pg17
+    image: paradedb/paradedb:v0.22.6-pg17
     container_name: WeKnora-langfuse-db-init
     depends_on:
       postgres:
@@ -838,7 +864,7 @@ services:
       - full
 
   langfuse-minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: WeKnora-langfuse-minio
     restart: unless-stopped
     entrypoint: sh

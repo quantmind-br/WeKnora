@@ -33,7 +33,9 @@ export function getFileIcon(input: string | { type?: string; file_type?: string;
   if (['ppt', 'pptx'].includes(ext)) return 'file-powerpoint';
   // When TDesign lacks a stable `file-text` glyph, it renders blank, so plain-text types uniformly use `file`
   if (['txt', 'md', 'markdown', 'json', 'log', 'yaml', 'yml', 'xml'].includes(ext)) return 'file';
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext)) return 'image';
+  if (['py', 'pyc', 'pyo', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'go', 'rs', 'java', 'c', 'cc', 'cpp', 'h', 'hpp', 'sh', 'bash', 'rb', 'php', 'sql', 'html', 'htm'].includes(ext)) return 'code';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'image';
   if (['mp3', 'wav', 'm4a', 'flac', 'ogg', 'aac'].includes(ext)) return 'sound';
+  if (['mp4', 'mov', 'webm', 'mkv', 'avi'].includes(ext)) return 'video';
   return 'file';
 }

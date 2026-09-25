@@ -20,7 +20,8 @@ func DefaultLanguage() string {
 	return "en-US"
 }
 
-// TenantIDFromContext extracts the tenant ID from ctx.
+// TenantIDFromContext extracts the execution tenant ID from ctx.
+// Authorization should use CallerFromContext instead.
 // Returns (0, false) when the key is absent or the value is not uint64.
 func TenantIDFromContext(ctx context.Context) (uint64, bool) {
 	v, ok := ctx.Value(TenantIDContextKey).(uint64)
@@ -68,35 +69,91 @@ func WikiEditSourceFromContext(ctx context.Context) string {
 	return NormalizeWikiEditSource(v)
 }
 
+// WithEmbedQuery marks ctx as embedding a search query rather than content
+// being indexed. Asymmetric retrieval models encode the two sides differently
+// and lose accuracy when a query is embedded as a passage; the embedding
+// layer turns the mark into the vendor's own parameter where it has one.
+func WithEmbedQuery(ctx context.Context) context.Context {
+	return context.WithValue(ctx, EmbedQueryContextKey, true)
+}
+
+// IsEmbedQuery reports whether ctx was marked with WithEmbedQuery.
+func IsEmbedQuery(ctx context.Context) bool {
+	v, _ := ctx.Value(EmbedQueryContextKey).(bool)
+	return v
+}
+
 // TaskInitiator is the authenticated caller that submitted an asynchronous
 // task. Workers restore it into their context so audit entries describe who
 // initiated the operation, while tasks created by schedulers remain
 // attributable to the system.
 type TaskInitiator struct {
-	UserID string     `json:"user_id,omitempty"`
-	Role   TenantRole `json:"role,omitempty"`
+	UserID     string     `json:"user_id,omitempty"`
+	Role       TenantRole `json:"role,omitempty"`
+	APIKeyID   uint64     `json:"api_key_id,omitempty"`
+	APIKeyName string     `json:"api_key_name,omitempty"`
+}
+
+// AuditAPIKey is the display identity of the API key that initiated work.
+// It is not an authorization grant and must not be confused with
+// TenantAPIKeyScope.
+type AuditAPIKey struct {
+	ID   uint64
+	Name string
+}
+
+func WithAuditAPIKey(ctx context.Context, key AuditAPIKey) context.Context {
+	if key.ID == 0 && key.Name == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, AuditAPIKeyContextKey, key)
+}
+
+func AuditAPIKeyFromContext(ctx context.Context) (AuditAPIKey, bool) {
+	if ctx == nil {
+		return AuditAPIKey{}, false
+	}
+	key, ok := ctx.Value(AuditAPIKeyContextKey).(AuditAPIKey)
+	if !ok || (key.ID == 0 && key.Name == "") {
+		return AuditAPIKey{}, false
+	}
+	return key, true
 }
 
 // TaskInitiatorFromContext snapshots the real caller identity for a task
 // payload. Synthetic API-key users are service identities, not people, and are
 // intentionally left empty so the activity feed presents them as system work.
+// The API key id/name is still captured so workers can attribute activity.
 func TaskInitiatorFromContext(ctx context.Context) TaskInitiator {
+	initiator := TaskInitiator{}
+	if key, ok := AuditAPIKeyFromContext(ctx); ok {
+		initiator.APIKeyID = key.ID
+		initiator.APIKeyName = key.Name
+	} else if scope, ok := TenantAPIKeyScopeFromContext(ctx); ok && (scope.KeyID > 0 || scope.Name != "") {
+		initiator.APIKeyID = scope.KeyID
+		initiator.APIKeyName = scope.Name
+	}
 	userID, ok := UserIDFromContext(ctx)
 	if !ok || IsSyntheticUserID(userID) {
-		return TaskInitiator{}
+		return initiator
 	}
-	return TaskInitiator{UserID: userID, Role: TenantRoleFromContext(ctx)}
+	initiator.UserID = userID
+	initiator.Role = TenantRoleFromContext(ctx)
+	return initiator
 }
 
 // Apply restores a captured task initiator onto a worker context. Empty or
 // legacy payloads are a no-op and therefore retain the system-task fallback.
+// API key identity is restored for audit display only — not as TenantAPIKeyScope.
 func (i TaskInitiator) Apply(ctx context.Context) context.Context {
-	if i.UserID == "" {
-		return ctx
+	if i.UserID != "" {
+		ctx = context.WithValue(ctx, UserIDContextKey, i.UserID)
+		if i.Role.IsValid() {
+			ctx = context.WithValue(ctx, TenantRoleContextKey, i.Role)
+		}
 	}
-	ctx = context.WithValue(ctx, UserIDContextKey, i.UserID)
-	if i.Role.IsValid() {
-		ctx = context.WithValue(ctx, TenantRoleContextKey, i.Role)
+	if i.APIKeyID > 0 || i.APIKeyName != "" {
+		ctx = WithAuditAPIKey(ctx, AuditAPIKey{ID: i.APIKeyID, Name: i.APIKeyName})
 	}
 	return ctx
 }
@@ -155,6 +212,51 @@ func IsSystemAdminFromContext(ctx context.Context) bool {
 func SessionTenantIDFromContext(ctx context.Context) (uint64, bool) {
 	v, ok := ctx.Value(SessionTenantIDContextKey).(uint64)
 	if ok && v != 0 {
+		return v, true
+	}
+	return TenantIDFromContext(ctx)
+}
+
+// WithSessionID returns a derived context carrying the current session ID.
+// Stateful sandbox backends (e.g. CubeSandbox) rely on this key to route
+// script execution to the per-session persistent MicroVM instance.
+func WithSessionID(ctx context.Context, sessionID string) context.Context {
+	if sessionID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, SessionIDContextKey, sessionID)
+}
+
+// SessionIDFromContext extracts the current session ID from ctx.
+// Returns ("", false) when the key is absent or the value is not a non-empty string.
+func SessionIDFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	v, ok := ctx.Value(SessionIDContextKey).(string)
+	return v, ok && v != ""
+}
+
+// WithSandboxTenantID records the session-owner tenant that session→sandbox
+// bindings must be keyed by, independently of the tenant the rest of the
+// pipeline runs as. Callers set it wherever they swap TenantIDContextKey for a
+// shared agent's workspace.
+func WithSandboxTenantID(ctx context.Context, tenantID uint64) context.Context {
+	if tenantID == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, SandboxTenantIDContextKey, tenantID)
+}
+
+// SandboxTenantIDFromContext returns the tenant to key session→sandbox
+// bindings by. It falls back to TenantIDFromContext, which is correct for every
+// path that never borrows another workspace's tenant: there the request tenant
+// already IS the session owner.
+func SandboxTenantIDFromContext(ctx context.Context) (uint64, bool) {
+	if ctx == nil {
+		return 0, false
+	}
+	if v, ok := ctx.Value(SandboxTenantIDContextKey).(uint64); ok && v != 0 {
 		return v, true
 	}
 	return TenantIDFromContext(ctx)

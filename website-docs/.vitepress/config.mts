@@ -7,13 +7,15 @@ import { repoVersionLabel } from './version'
 
 const root = resolve(import.meta.dirname, '..')
 
-const sections: { dir: string; label: string }[] = [
+const sections: { dir: string; label: string; newestFirst?: boolean }[] = [
   { dir: '01-getting-started', label: 'Quick Start' },
   { dir: '02-architecture', label: 'Architecture' },
   { dir: '03-features', label: 'Features' },
   { dir: '04-api', label: 'API Reference' },
   { dir: '05-clients', label: 'Clients' },
   { dir: '06-development', label: 'Developer Guide' },
+  // One page per release (v0.8.2.md), newest release first
+  { dir: '07-releases', label: 'Releases', newestFirst: true },
 ]
 
 /** Sidebar item text: take the body H1 and strip redundant prefixes/suffixes */
@@ -27,10 +29,19 @@ function itemText(dir: string, file: string): string {
     .trim()
 }
 
-function itemsOf(dir: string): DefaultTheme.SidebarItem[] {
-  return readdirSync(resolve(root, dir))
-    .filter((f) => f.endsWith('.md'))
-    .sort()
+/** 版本号按数字比较，v0.10.0 排在 v0.9.0 之后 */
+function compareVersions(a: string, b: string): number {
+  const parts = (f: string) => f.replace(/^v|\.md$/g, '').split('.').map(Number)
+  const [x, y] = [parts(a), parts(b)]
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0)
+  }
+  return 0
+}
+
+function itemsOf(dir: string, newestFirst = false): DefaultTheme.SidebarItem[] {
+  const files = readdirSync(resolve(root, dir)).filter((f) => f.endsWith('.md'))
+  return (newestFirst ? files.sort(compareVersions).reverse() : files.sort())
     .map((f) => ({
       text: itemText(dir, f),
       link: `/${dir}/${f.replace(/\.md$/, '')}`,
@@ -40,7 +51,7 @@ function itemsOf(dir: string): DefaultTheme.SidebarItem[] {
 const sidebar: DefaultTheme.SidebarItem[] = sections.map((s) => ({
   text: s.label,
   collapsed: false,
-  items: itemsOf(s.dir),
+  items: itemsOf(s.dir, s.newestFirst),
 }))
 
 /** Local search tokenizes by whitespace by default; a whole CJK run would be treated as one word, so degrade to per-character splitting here */
@@ -58,7 +69,6 @@ function tokenize(text: string): string[] {
 }
 
 const repo = 'https://github.com/Tencent/WeKnora'
-const site = 'https://weknora.weixin.qq.com'
 
 export default withMermaid(
   defineConfig({
@@ -68,12 +78,17 @@ export default withMermaid(
     lang: 'zh-CN',
     base: '/docs/',
     cleanUrls: true,
+    appearance: { storageKey: 'vitepress-theme-appearance' },
     lastUpdated: true,
-    srcExclude: ['README.md'],
+    srcExclude: ['README.md', 'MIGRATION.md', 'homepage/**', 'shared/**', 'scripts/**', 'deploy/**', 'static-site/**', 'releases/**'],
     metaChunk: true,
+    transformPageData(pageData) {
+      // The shared masthead replaces the default documentation navbar.
+      pageData.frontmatter.navbar = false
+    },
 
     head: [
-      ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
+      ['link', { rel: 'icon', href: '/docs/favicon.ico', type: 'image/x-icon' }],
       ['meta', { name: 'theme-color', content: '#101f38' }],
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { property: 'og:title', content: 'WeKnora Docs' }],
@@ -100,18 +115,10 @@ export default withMermaid(
     },
 
     themeConfig: {
-      logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: 'WeKnora' },
+      logoLink: { link: '/', target: '_self' },
       siteTitle: 'WeKnora',
 
-      nav: [
-        { text: 'Quick Start', link: '/01-getting-started/01-introduction', activeMatch: '/01-getting-started/' },
-        { text: 'Architecture', link: '/02-architecture/01-overview', activeMatch: '/02-architecture/' },
-        { text: 'Features', link: '/03-features/01-tenant-auth', activeMatch: '/03-features/' },
-        { text: 'API', link: '/04-api/01-api-overview', activeMatch: '/04-api/' },
-        { text: 'Clients', link: '/05-clients/01-frontend', activeMatch: '/05-clients/' },
-        { text: 'Developer', link: '/06-development/01-dev-guide', activeMatch: '/06-development/' },
-        { text: 'Website', link: site },
-      ],
+      nav: [],
 
       weknoraVersion: repoVersionLabel,
 

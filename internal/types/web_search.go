@@ -13,6 +13,9 @@ type WebSearchConfig struct {
 	// Deprecated: Use WebSearchProviderEntity.Parameters.APIKey instead.
 	APIKey string `json:"api_key,omitempty"`
 
+	// Per-call Agent filters; never persisted in tenant configuration.
+	Filters WebSearchFilters `json:"-"`
+
 	MaxResults        int      `json:"max_results"`        // Max number of search results
 	IncludeDate       bool     `json:"include_date"`       // Whether to include dates
 	CompressionMethod string   `json:"compression_method"` // Compression method: none, summary, extract, rag
@@ -79,11 +82,14 @@ func (c *WebSearchConfig) Scan(value interface{}) error {
 
 // WebSearchResult represents a single web search result
 type WebSearchResult struct {
-	Title       string     `json:"title"`                  // Search result title
-	URL         string     `json:"url"`                    // Result URL
-	Snippet     string     `json:"snippet"`                // Summary snippet
-	Content     string     `json:"content"`                // Full content (optional, requires additional scraping)
-	Source      string     `json:"source"`                 // Source (e.g., DuckDuckGo, etc.)
+	Title   string `json:"title"`   // Search result title
+	URL     string `json:"url"`     // Result URL
+	Snippet string `json:"snippet"` // Summary snippet
+	Content string `json:"content"` // Full content (optional, requires additional scraping)
+	Source  string `json:"source"`  // Source (e.g., DuckDuckGo, etc.)
+	// Provider-reported age, without inventing an exact publication date.
+	Age string `json:"age,omitempty"`
+
 	PublishedAt *time.Time `json:"published_at,omitempty"` // Publish time (if available)
 }
 

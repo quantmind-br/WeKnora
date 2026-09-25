@@ -4,6 +4,7 @@ import { BUILTIN_QUICK_ANSWER_ID, BUILTIN_SMART_REASONING_ID } from "@/api/agent
 import { getApiBaseUrl } from "@/utils/api-base";
 import { isAgentStreamAgentId } from "@/utils/agent-mode";
 import { loadAndReconcileSettings } from "@/stores/settingsStorage";
+import { isReasoningLevel, type ReasoningLevel } from "@/utils/reasoningEffort";
 
 // Define settings interface
 interface Settings {
@@ -21,6 +22,7 @@ interface Settings {
   selectedTools?: string[];
   modelConfig: ModelConfig;  // Model configuration
   ollamaConfig: OllamaConfig;  // Ollama configuration
+  localBrowserEnabled: boolean; // Explicit source preference; composer activates it only while the extension is online
   webSearchEnabled: boolean;  // Whether web search is enabled
   conversationModels: ConversationModels;
   selectedAgentId: string;  // Currently selected agent ID
@@ -97,6 +99,7 @@ const defaultSettings: Settings = {
     baseUrl: "http://localhost:11434",
     enabled: true
   },
+  localBrowserEnabled: false,
   webSearchEnabled: false,  // Web search disabled by default
   conversationModels: {
     summaryModelId: "",
@@ -117,6 +120,8 @@ export const useSettingsStore = defineStore("settings", {
     _defaultsSnapshot: null as Settings | null,
     /** Restoring the input bar from session.last_request_state, to avoid the agent-switch watcher overriding the KB selection */
     _isApplyingSessionState: false,
+    // Session-only preference: never written into global settings/localStorage.
+    reasoningEffortOverride: '' as ReasoningLevel | '',
   }),
 
   getters: {
@@ -164,7 +169,8 @@ export const useSettingsStore = defineStore("settings", {
     // Get model configuration
     modelConfig: (state) => state.settings.modelConfig || defaultSettings.modelConfig,
     
-    // Whether web search is enabled
+    // Query sources for this turn
+    isLocalBrowserEnabled: (state) => state.settings.localBrowserEnabled === true,
     isWebSearchEnabled: (state) => state.settings.webSearchEnabled || false,
     
     // Whether to automatically check for and download updates
@@ -322,7 +328,12 @@ export const useSettingsStore = defineStore("settings", {
       return this.settings.selectedKnowledgeBases || [];
     },
     
-    // Enable/disable web search
+    // Local browser and web search can be selected independently.
+    toggleLocalBrowser(enabled: boolean) {
+      this.settings.localBrowserEnabled = enabled;
+      localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
+    },
+
     toggleWebSearch(enabled: boolean) {
       this.settings.webSearchEnabled = enabled;
       localStorage.setItem("WeKnora_settings", JSON.stringify(this.settings));
@@ -448,11 +459,13 @@ export const useSettingsStore = defineStore("settings", {
     
     // Select agent (sourceTenantId is only passed when using a shared agent)
     selectAgent(agentId: string, sourceTenantId?: string | null) {
+      this.reasoningEffortOverride = '';
       this.settings.selectedAgentId = agentId;
       this.settings.selectedAgentSourceTenantId = (sourceTenantId != null && sourceTenantId !== "") ? sourceTenantId : null;
       // The agent configuration only determines whether web search capability is available, not whether it's used this turn — that's still up to the user.
       // Every time an agent is selected, it defaults to off; after that, only the user can turn it on from the input box.
       this.settings.webSearchEnabled = false;
+      this.settings.localBrowserEnabled = false;
       // Automatically switch Agent mode based on agent type
       if (agentId === BUILTIN_QUICK_ANSWER_ID) {
         this.settings.isAgentEnabled = false;
@@ -495,11 +508,20 @@ export const useSettingsStore = defineStore("settings", {
 
     // Restore the default (if a snapshot exists), used when leaving a session or switching across sessions.
     restoreDefaultsIfSnapshotted() {
+      this.reasoningEffortOverride = '';
       if (!this._defaultsSnapshot) return;
       this.settings = this._defaultsSnapshot;
       this._defaultsSnapshot = null;
       // Don't write to localStorage: the default value was already written to localStorage before the snapshot, so restoring here
       // just brings back the value already in localStorage; writing it again would only add pointless IO.
+    },
+
+    // The first send of a new session keeps createChat's input state; it must not be overwritten by an empty/stale record returned asynchronously.
+    // preserveDraft must be captured before requesting session details, not read when the response returns.
+    hydrateSessionInputState(state: SessionLastRequestStatePayload | null | undefined, preserveDraft = false) {
+      if (!state || preserveDraft) return;
+      this.snapshotAsDefaultsIfNeeded();
+      this.applyLastRequestState(state);
     },
 
     // Overwrite input-bar-related fields based on session.last_request_state.
@@ -509,6 +531,7 @@ export const useSettingsStore = defineStore("settings", {
       if (!state) return;
       this._isApplyingSessionState = true;
       try {
+        this.reasoningEffortOverride = isReasoningLevel(state.reasoning_effort) ? state.reasoning_effort : '';
         if (typeof state.agent_enabled === "boolean") {
           this.settings.isAgentEnabled = state.agent_enabled;
         }
@@ -561,6 +584,7 @@ export const useSettingsStore = defineStore("settings", {
             .filter(item => item.type === "skill" && item.id)
             .map(item => item.skill_name || item.id);
         }
+        this.settings.localBrowserEnabled = state.local_browser_enabled === true;
         if (typeof state.web_search_enabled === "boolean") {
           this.settings.webSearchEnabled = state.web_search_enabled;
         }
@@ -583,6 +607,7 @@ export const useSettingsStore = defineStore("settings", {
 // Backend sessions.last_request_state JSON shape (aligned with SessionLastRequestState).
 // All fields are optional — historical sessions, or sessions before the first request of a new session, don't have this record.
 export interface SessionLastRequestStatePayload {
+  reasoning_effort?: string;
   agent_id?: string;
   agent_enabled?: boolean;
   model_id?: string;
@@ -599,5 +624,6 @@ export interface SessionLastRequestStatePayload {
     kb_name?: string;
     skill_name?: string;
   }>;
+  local_browser_enabled?: boolean;
   web_search_enabled?: boolean;
 }

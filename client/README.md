@@ -15,6 +15,9 @@ The client includes the following main functional modules:
 7. **Chunk management**: query, update, and delete knowledge chunks
 8. **Message management**: retrieve and delete session messages
 9. **Model management**: create, retrieve, update, and delete models
+10. **Sandbox skills**: install skills onto a sandbox config (zip upload, or from sources such as ClawHub / SkillHub / GitHub) and configure the environment variables the skills need
+11. **Long-term memory**: the current user's cross-session memory (settings toggle, create/update/delete items, confirm/reject, topics, document affinity, export, consolidate now)
+12. **Authentication**: login, refresh tokens, and switch the active space (`SwitchTenant` records the last-active-tenant preference)
 
 ## Usage
 
@@ -87,6 +90,12 @@ metadata := map[string]string{
 knowledge, err := apiClient.CreateKnowledgeFromFile(context.Background(), kb.ID, "path/to/file.pdf", metadata)
 if err != nil {
     // Handle error
+}
+
+// 将同一知识库中的原始文件打包下载为 ZIP（最多 200 个 ID，合计 512 MiB）
+err = apiClient.DownloadKnowledgeFiles(context.Background(), kb.ID, []string{knowledge.ID}, "knowledge-files.zip")
+if err != nil {
+    // 处理错误
 }
 ```
 
@@ -221,6 +230,7 @@ err = agentSession.Ask(context.Background(), "What is deep learning?",
 | `AgentResponseTypeToolResult` | Tool execution result | After tool execution completes |
 | `AgentResponseTypeReferences` | Knowledge references | When related knowledge is retrieved |
 | `AgentResponseTypeAnswer` | Final answer | When the Agent generates a response (streamed) |
+| `AgentResponseTypeArtifactsPending` | Generated files uploading | After the answer ends, before the files finish being written to object storage |
 | `AgentResponseTypeReflection` | Self-reflection | When the Agent evaluates its own answer |
 | `AgentResponseTypeError` | Error | When an error occurs |
 
@@ -384,6 +394,88 @@ olderMessages, err := apiClient.GetMessagesBefore(context.Background(), sessionI
 if err != nil {
     // Handle error
 }
+```
+
+### Example: Installing a sandbox skill from a hosted registry
+
+`source` must be explicit: use `@owner/slug` for ClawHub, the full `https://clawhub.ai/skills-sh/owner/repo/slug` or `skills-sh:owner/repo/slug` for skills.sh entries on ClawHub, and paste the full URL for GitHub / SkillHub. Do not pass a bare `owner/slug`.
+
+```go
+skillID, err := apiClient.InstallSandboxSkillFromSource(
+    context.Background(), sandboxConfigID, "@owner/slug")
+if err != nil {
+    // Handle error
+}
+_ = skillID // use skillID to subscribe to /sandbox-configs/{id}/skills/{skillID}/install-events
+```
+
+### Example: Stopping a stuck install
+
+After a service restart, an install row may stay at `installing` forever, and the UI can neither retry nor uninstall it. Stopping rewrites the row immediately (and also cancels any goroutine still running in the process); after that you can call retry or uninstall again.
+
+```go
+skill, err := apiClient.StopSandboxSkill(context.Background(), sandboxConfigID, skillID)
+if err != nil {
+    // Handle error
+}
+_ = skill
+```
+
+### Example: Retrying a failed install
+
+Installs often fail for reasons unrelated to the bundle (unreachable sandbox, dependency index timeouts). The server keeps the original bundle, so a retry does not need it uploaded again.
+
+```go
+skillID, err := apiClient.ReinstallSandboxSkill(context.Background(), sandboxConfigID, skillID)
+if err != nil {
+    // Handle error
+}
+```
+
+### Example: Viewing the files of an installed skill
+
+```go
+files, err := apiClient.ListSandboxSkillFiles(context.Background(), sandboxConfigID, skillID)
+if err != nil {
+    // Handle error
+}
+content, err := apiClient.GetSandboxSkillFile(context.Background(), sandboxConfigID, skillID, "SKILL.md")
+if err != nil {
+    // Handle error
+}
+_ = files
+_ = content
+```
+
+### Example: Configuring a skill's environment variables
+
+A skill declares which environment variables it needs when it is installed. Values come in two layers: space-level values are set by an admin and apply to everyone; personal values apply only to the **current calling identity** and override the space-level value. No endpoint reads a saved value back; they only report whether one is set.
+
+Calling with an API Key and logging in on the web are two different identities: personal values entered on the web do not apply to runs initiated by an API Key. For integrations, prefer space-level values.
+
+```go
+// Space-level: applies to everyone in the space; requires Admin or above
+skill, err := apiClient.SetSandboxSkillEnvValues(
+    context.Background(), sandboxConfigID, skillID,
+    map[string]string{"TAVILY_API_KEY": "tvly-xxxxx"})
+if err != nil {
+    // Handle error
+}
+
+// Personal: applies only to the current calling identity
+err = apiClient.SetMySkillEnvVar(
+    context.Background(), skillID, "TAVILY_API_KEY", "tvly-yyyyy")
+if err != nil {
+    // Handle error
+}
+
+// See which variables are still unset. To clear a value use Delete rather than writing an empty string
+groups, err := apiClient.ListMyEnvVars(context.Background())
+if err != nil {
+    // Handle error
+}
+_ = skill
+_ = groups
 ```
 
 ## Complete Example

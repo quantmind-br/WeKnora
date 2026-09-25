@@ -1,49 +1,46 @@
 # Quick Start
 
-Follow this guide through and you'll end up with a knowledge base that can answer questions about your own documents: sign up → create a knowledge base and pick a model → upload documents → ask a question and see an answer with citations. Everything happens in the web UI; if things go smoothly it takes about ten to fifteen minutes, most of which is spent waiting for document parsing.
+By signing up, creating a knowledge base, configuring models, uploading documents, and asking a question, you can complete your first knowledge base Q&A and view source citations in the answer. The steps below use the web UI; the matching API example is at the end of this document.
 
-If you want to integrate via the API, jump to section 7 of this document — there's a copy-paste-ready curl walkthrough there.
+Before you begin, complete [Installation & Deployment](02-installation.md) and have a usable chat model and embedding model ready.
 
-## 1. Before you start
+## Before you start {#_1-before-you-start}
 
-- The service is already running: after starting it following [Installation & Deployment](./02-installation.md), the frontend is at `http://localhost` and the backend at `http://localhost:8080`;
-- You have a usable model available: either a local Ollama (default address inside the container is `http://host.docker.internal:11434`), or any OpenAI-compatible service with a `base_url` + `api_key`. You need at least one chat model and one embedding model;
-- Confirm the backend is alive: `curl http://localhost:8080/health` returns `{"status":"ok"}`.
+- Start the service: after starting it following [Installation & Deployment](./02-installation.md), the frontend is at `http://localhost` and the backend at `http://localhost:8080`;
+- Prepare model connection details: a local Ollama (default address inside the container is `http://host.docker.internal:11434`), or any OpenAI-compatible service with a `base_url` + `api_key`. You need at least one chat model and one embedding model;
+- Check the backend health: `curl http://localhost:8080/health` returns `{"status":"ok"}`.
 
-## 2. Sign up and log in
+## Sign up and log in {#_2-sign-up-and-log-in}
 
-On your first visit you'll land on the login page; registration is a tab on the same page — it only appears when the registration mode is `self_serve` (the frontend reads `/auth/config` to decide). The system has no built-in default account; after registering you automatically get your own workspace, in which you are the Owner.
+On your first visit you'll land on the login page. When the deployment allows public registration (`self_serve`), the page shows a registration tab; the system has no default account. With the default configuration, registering creates a personal workspace and makes the new user the Owner of that workspace.
 
 <Screenshot
   src="/screenshots/quickstart-register.png"
   caption="The registration page on first visit"
   hint="Show the registration form (username / email / password) along with the login link." />
 
-A few things worth knowing upfront:
+Registration requirements and deployment differences:
 
-- Usernames are 2–50 characters; on the registration page passwords must be 8–32 characters and contain both letters and digits (if you call `POST /auth/register` directly, the backend only enforces ≥6 characters, but it's still recommended to use 8+ characters);
-- For team deployments, once the first account has registered you can disable public registration and add people afterward via invite links. There are two ways to disable it: set `DISABLE_REGISTRATION=true` (forces the registration mode to `invite_only` at startup), or, once logged in, change `auth.registration_mode` to `invite_only` under "Settings → System" (takes effect immediately, no restart needed);
+- Usernames are 2–50 characters; passwords must be 8–32 characters and contain at least letters and digits. When the complex password policy is enabled, they must also contain both uppercase and lowercase letters and special characters; the UI and the API use the same policy;
+- Team deployments can disable public registration and add members afterward via invite links. You can set `DISABLE_REGISTRATION=true` (forces the registration mode to `invite_only` at startup), or have a system admin change `auth.registration_mode` to `invite_only` under "Settings → System" (takes effect immediately, no restart needed);
 - If the deployment has the default workspace policy set to `tenantless` (`auth.default_tenant_mode`), a workspace is **not** automatically created after registration — instead you're guided to `/onboarding/workspace`, where you must create your own workspace or accept an invitation to join one before continuing;
-- The desktop / Lite edition requires no registration — a local account is created automatically on startup.
+- The desktop app requires no registration — a local account is created and logged in automatically on startup; the Lite single binary still requires registration and login when accessed in a browser.
 
-::: tip Workspace Owner ≠ System Admin
-These are two different dimensions of identity that are easy to confuse:
+::: tip Workspace and Platform Permissions
+A workspace Owner manages the members, models, and knowledge bases of that workspace. Global system settings, the platform task queue, and cross-workspace auditing require the system admin identity; the two kinds of permission are granted independently.
 
-- **Workspace Owner**: the highest level of privilege within a single workspace, managing that workspace's members, models, and knowledge bases. Registering automatically grants you ownership of your own workspace, so everyone is the Owner of their own workspace.
-- **System Admin**: a platform-level identity that manages the entire deployment — global system settings, the task queue, platform API keys, cross-workspace audit logs, resetting user passwords. It doesn't belong to any workspace, and you don't automatically get it just because you're the Owner of some workspace.
-
-A fresh deployment has **no system admin at all** — the first one must be explicitly designated. To do so: register an account normally, then set `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=<that account's email>` on the app service and restart it — on startup, if it detects that the current deployment has zero system admins, it promotes the user matching that email to system admin. Once a system admin already exists, this variable no longer takes effect (this avoids privileges that were just revoked in the UI being quietly restored on the next restart); if the user hasn't registered yet, it just logs a WARN and retries on the next restart. After that, adding more admins can be done directly in the UI. See [Tenants, Users & Auth](../03-features/01-tenant-auth.md) for details.
+To set up the first system admin, register an account first, then set `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=<that account's email>` on the app service and restart it. This flow only takes effect when the deployment has no system admin yet. For the full steps and limitations, see [Platform Management and System Administrators](../03-features/20-platform-admin.md).
 :::
 
-## 3. Create a knowledge base and configure a model
+## Create a knowledge base and configure a model {#_3-create-a-knowledge-base-and-configure-a-model}
 
-After logging in, create a new knowledge base. WeKnora's model configuration is **per knowledge base**: after creating one, the frontend walks you through picking models for that specific base — there's no global one-time initialization.
+After you create a knowledge base on the "Knowledge Bases" page, the initialization wizard guides you through configuring the models that base uses. Each knowledge base selects its models separately.
 
 1. On the "Knowledge Bases" page, click New, enter a name, and choose a type: `document` (regular document base) or `faq` (Q&A pair base);
 2. In the initialization wizard that pops up, pick your models:
-   - **Chat model (LLM)**: used to generate answers;
-   - **Embedding model**: used to convert documents into vectors — **don't change this after creating the base**; changing it requires rebuilding the index;
-   - Everything else (Rerank, VLM for image understanding, ASR for speech transcription, knowledge graph extraction, question pre-generation) can be left off for now and added at any time later;
+   - **Chat model (LLM)**: generates answers;
+   - **Embedding model**: converts documents into vectors; changing it requires rebuilding the index;
+   - Rerank, VLM for image understanding, ASR for speech transcription, knowledge graph extraction, and question generation can be configured according to your material types and needs;
 3. Use the "Test" button in the wizard to confirm the model connection works, then save.
 
 <Screenshot
@@ -51,13 +48,13 @@ After logging in, create a new knowledge base. WeKnora's model configuration is 
   caption="Initialization wizard: choosing a chat model and an embedding model for the knowledge base"
   hint="Show the model source (Ollama / remote API), model name, Base URL input field, and a message confirming the connectivity test passed." />
 
-::: tip The most common pitfall with local Ollama
-The backend runs inside a container, so entering `http://localhost:11434` won't reach Ollama on the host machine — you need `http://host.docker.internal:11434`.
+::: tip Connecting to Ollama from a container
+Inside the backend container, `localhost` points to the container itself. To connect to Ollama on the host machine, use `http://host.docker.internal:11434`.
 :::
 
-## 4. Upload documents
+## Upload documents {#_4-upload-documents}
 
-Enter the knowledge base and drag files into the upload area, or paste a web page URL. In the upload confirmation dialog you can conveniently set tags and parsing options for this batch of files.
+After entering the knowledge base, drag in files or paste a web page URL. In the upload confirmation dialog, you can set tags and parsing options for this batch of files.
 
 Supported formats include PDF, Word, Excel, PPT, Markdown, HTML, EPUB, images, audio, and more — see [Document Parsing Service](../03-features/03-document-parsing.md) for the full list.
 
@@ -73,32 +70,32 @@ After uploading, documents are parsed asynchronously, moving through the states 
   caption="Document list: three documents finished parsing"
   hint="Show columns for document name, type, parsing status as “Completed”, chunk count, etc." />
 
-## 5. Ask a question
+## Ask a question {#_5-ask-a-question}
 
-Go to the chat page, select the knowledge base you just created, and ask a question directly. The built-in "Quick Q&A" Agent is used by default: it retrieves relevant chunks → hands them to the LLM to answer → the answer includes citations, and clicking a citation jumps back to the source text.
+Go to the chat page and select the knowledge base, then ask your question. The default "Quick Q&A" Agent retrieves relevant chunks and generates an answer; click a citation to view the source text.
 
 <Screenshot
   src="/screenshots/quickstart-chat.png"
   caption="Knowledge Q&A: an answer with clickable citation sources"
   hint="Show one round of Q&A, with citation markers in the answer body and the expanded citation source panel." />
 
-At this point, the minimal end-to-end flow is working.
+If the answer displays correctly and its citations can be opened, this round of document ingestion and Q&A is complete.
 
-## 6. Going further
+## Going further {#_6-going-further}
 
-- **Switch to a reasoning Agent**: switch to the built-in "Smart Reasoning" Agent at the top of the chat box — it decides on its own how many retrieval rounds to run, whether to search the web, and whether to call tools, which suits questions that need multi-step reasoning. You can also build a custom Agent on the "Agents" page, hooking up MCP tools and web search — see [Agent Engine](../03-features/07-agent.md);
-- **Improve answer accuracy**: turn on Rerank, adjust chunk size — see [Chunking](../03-features/04-chunking.md) and [Retrieval Engines](../03-features/05-retrieval-engines.md);
-- **Bring knowledge in automatically**: sync from Feishu / Notion / Yuque / RSS automatically — see [Data Source Import](../03-features/10-datasource.md);
-- **Let others ask questions too**: connect to WeCom / Feishu or other IMs, or embed the Agent as a widget on your own website — see [IM Integration](../03-features/12-im-integration.md) and [Web Embed](../03-features/13-embed-channel.md).
+- [Configure Agents](../03-features/07-agent.md): use Smart Reasoning for multi-step questions, and enable web search and MCP tools as needed.
+- [Adjust chunking](../03-features/04-chunking.md) and [retrieval parameters](../03-features/05-retrieval-engines.md): tune the configuration based on document structure and retrieval results.
+- [Connect data sources](../03-features/10-datasource.md): continuously sync content from Feishu, Notion, Yuque, or RSS.
+- [Connect IM](../03-features/12-im-integration.md) or [embed in a web page](../03-features/13-embed-channel.md): let users ask questions through channels they already use.
 
-## 7. Walking through the same flow via the API
+## Completing your first Q&A via the API {#_7-walking-through-the-same-flow-via-the-api}
 
-Every step above has a corresponding API endpoint, all sharing the prefix `/api/v1`. The snippet below can be run as-is:
+The example below calls the API in order: register, log in, create a knowledge base, initialize models, upload, and ask. All paths use the `/api/v1` prefix.
 
 ```bash
 BASE=http://localhost:8080/api/v1
 
-# 1) Register (for the first deployment; username>=2 chars, password>=6 chars)
+# 1) Register (for the first deployment; username 2–50 chars; password 8–32 chars with letters and digits, stricter if the complex policy is enabled)
 curl -s -X POST $BASE/auth/register -H "Content-Type: application/json" \
   -d '{"username":"admin","email":"admin@example.com","password":"pass123456"}'
 
@@ -206,7 +203,7 @@ sequenceDiagram
     APP-->>U: SSE streaming answer + citation sources
 ```
 
-## 8. Stuck? Check here
+## Stuck? Check here {#_8-stuck-check-here}
 
 | Symptom | What to check |
 | --- | --- |

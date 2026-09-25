@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
+	chatpipeline "github.com/Tencent/WeKnora/internal/application/service/chat_pipeline"
 	"github.com/Tencent/WeKnora/internal/config"
 	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/event"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/chat"
+	"github.com/Tencent/WeKnora/internal/sandbox"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
-
-	chatpipeline "github.com/Tencent/WeKnora/internal/application/service/chat_pipeline"
 )
 
 func sessionUserIDFromContext(ctx context.Context) string {
@@ -123,6 +124,24 @@ type sessionService struct {
 	webSearchProviderRepo interfaces.WebSearchProviderRepository // Repository for web search provider entities
 	kbShareService        interfaces.KBShareService              // Service for KB sharing operations
 	suggestionRepo        interfaces.MessageSuggestionRepository
+	sandboxMgr            sandbox.Manager // Default sandbox backend; used to reclaim per-session MicroVMs on delete
+	sandboxResolver       sandbox.TenantSandboxResolver
+	sandboxPinner         *SessionSandboxPinner
+	sandboxPolicy         WorkspaceSandboxPolicy
+	hostSandbox           sandbox.Manager
+	hostDesktop           bool
+	hostSkillTree         HostSkillTree
+	memoryService         interfaces.MemoryService // Service for cross-session long-term memory
+	// sandboxConfigRepo and tenantSkillRepo answer "which installed skills can
+	// this turn actually invoke". They are repositories rather than
+	// TenantSkillService because that service depends on this one.
+	sandboxConfigRepo repository.TenantSandboxConfigRepository
+	tenantSkillRepo   repository.TenantSkillRepository
+	// forkSnapshots retires provider snapshots when a forked session is deleted
+	// before its sandbox is provisioned. Nil uses NewResolverForkSnapshotDeleter
+	// from sandboxResolver/sandboxMgr.
+	forkSnapshots ForkSnapshotDeleter
+	busyGate      *SessionBusyGate
 }
 
 // NewSessionService creates a new session service instance with all required dependencies
@@ -140,6 +159,15 @@ func NewSessionService(cfg *config.Config,
 	webSearchProviderRepo interfaces.WebSearchProviderRepository,
 	kbShareService interfaces.KBShareService,
 	suggestionRepo interfaces.MessageSuggestionRepository,
+	sandboxMgr sandbox.Manager,
+	sandboxResolver sandbox.TenantSandboxResolver,
+	sandboxPinner *SessionSandboxPinner,
+	sandboxPolicy WorkspaceSandboxPolicy,
+	hostSandbox HostSandboxManager,
+	memoryService interfaces.MemoryService,
+	sandboxConfigRepo repository.TenantSandboxConfigRepository,
+	tenantSkillRepo repository.TenantSkillRepository,
+	busyGate *SessionBusyGate,
 ) interfaces.SessionService {
 	return &sessionService{
 		cfg:                   cfg,
@@ -156,6 +184,17 @@ func NewSessionService(cfg *config.Config,
 		webSearchProviderRepo: webSearchProviderRepo,
 		kbShareService:        kbShareService,
 		suggestionRepo:        suggestionRepo,
+		sandboxMgr:            sandboxMgr,
+		sandboxResolver:       sandboxResolver,
+		sandboxPinner:         sandboxPinner,
+		sandboxPolicy:         sandboxPolicy,
+		hostSandbox:           hostSandbox.Manager,
+		hostDesktop:           hostSandbox.Desktop,
+		hostSkillTree:         hostSandbox.SkillTree,
+		memoryService:         memoryService,
+		sandboxConfigRepo:     sandboxConfigRepo,
+		tenantSkillRepo:       tenantSkillRepo,
+		busyGate:              busyGate,
 	}
 }
 
@@ -394,11 +433,16 @@ func (s *sessionService) UpdateSession(ctx context.Context, session *types.Sessi
 
 	// Update session in repository
 	userID := sessionUserIDFromContext(ctx)
-	if _, err := s.sessionRepo.Get(ctx, session.TenantID, userID, session.ID); err != nil {
+	existing, err := s.sessionRepo.Get(ctx, session.TenantID, userID, session.ID)
+	if err != nil {
 		return err
 	}
+	if existing != nil {
+		session.Description = types.SanitizeClientSessionDescription(
+			session.Description, existing.Description)
+	}
 
-	_, err := s.sessionRepo.Update(ctx, session, userID)
+	_, err = s.sessionRepo.Update(ctx, session, userID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"session_id": session.ID,
@@ -450,7 +494,8 @@ func (s *sessionService) DeleteSession(ctx context.Context, id string) error {
 	tenantID := types.MustTenantIDFromContext(ctx)
 	userID := sessionUserIDFromContext(ctx)
 
-	if _, err := s.sessionRepo.Get(ctx, tenantID, userID, id); err != nil {
+	session, err := s.sessionRepo.Get(ctx, tenantID, userID, id)
+	if err != nil {
 		return err
 	}
 
@@ -464,17 +509,33 @@ func (s *sessionService) DeleteSession(ctx context.Context, id string) error {
 			return
 		}
 		if len(knowledgeIDs) > 0 {
-			if err := s.knowledgeService.DeleteKnowledgeList(bgCtx, knowledgeIDs); err != nil {
+			if err := deleteReferencedKnowledge(bgCtx, s.knowledgeService, "", knowledgeIDs); err != nil {
 				logger.Warnf(bgCtx, "Failed to delete chat history knowledge for session %s: %v", id, err)
 			}
 		}
 	}()
+
+	// NOTE: Skill-generated artifact blobs are intentionally NOT purged here.
+	// Their lifecycle mirrors messages, which are soft-deleted (deleted_at
+	// timestamp) rather than physically removed. Hard-deleting the blobs on a
+	// soft session delete would (a) diverge from message semantics, (b) make
+	// any future "restore soft-deleted session" flow silently broken, and (c)
+	// leave 404s in the download endpoint if the message row is ever surfaced
+	// again. A dedicated GC job or explicit hard-delete API is the right
+	// place to reclaim storage — not this soft-delete path.
 
 	// Cleanup temporary KB stored in Redis for this session
 	if err := s.webSearchStateRepo.DeleteWebSearchTempKBState(ctx, id); err != nil {
 		logger.Warnf(ctx, "Failed to cleanup temporary KB for session %s: %v", id, err)
 	}
 
+	if s.suggestionRepo != nil {
+		if err := s.suggestionRepo.DeleteBySessionID(ctx, tenantID, id); err != nil {
+			logger.Warnf(ctx, "Failed to delete suggestions for session %s: %v", id, err)
+		}
+	}
+
+	s.destroyBoundSandbox(ctx, id)
 	// Delete session from repository
 	rows, err := s.sessionRepo.Delete(ctx, tenantID, userID, id)
 	if err != nil {
@@ -487,12 +548,8 @@ func (s *sessionService) DeleteSession(ctx context.Context, id string) error {
 	if rows == 0 {
 		return apperrors.ErrSessionNotFound
 	}
-	if s.suggestionRepo != nil {
-		if err := s.suggestionRepo.DeleteBySessionID(ctx, tenantID, id); err != nil {
-			logger.Warnf(ctx, "Failed to delete suggestions for session %s: %v", id, err)
-		}
-	}
 
+	s.releaseForkSnapshot(ctx, session)
 	return nil
 }
 
@@ -507,9 +564,12 @@ func (s *sessionService) BatchDeleteSessions(ctx context.Context, ids []string) 
 	tenantID := types.MustTenantIDFromContext(ctx)
 	userID := sessionUserIDFromContext(ctx)
 
+	visible := make([]*types.Session, 0, len(ids))
 	visibleIDs := make([]string, 0, len(ids))
 	for _, id := range ids {
-		if _, err := s.sessionRepo.Get(ctx, tenantID, userID, id); err == nil {
+		session, err := s.sessionRepo.Get(ctx, tenantID, userID, id)
+		if err == nil {
+			visible = append(visible, session)
 			visibleIDs = append(visibleIDs, id)
 		} else if !stderrors.Is(err, apperrors.ErrSessionNotFound) {
 			return err
@@ -530,7 +590,7 @@ func (s *sessionService) BatchDeleteSessions(ctx context.Context, ids []string) 
 				return
 			}
 			if len(knowledgeIDs) > 0 {
-				if err := s.knowledgeService.DeleteKnowledgeList(bgCtx, knowledgeIDs); err != nil {
+				if err := deleteReferencedKnowledge(bgCtx, s.knowledgeService, "", knowledgeIDs); err != nil {
 					logger.Warnf(bgCtx, "Failed to delete chat history knowledge for session %s: %v", sessionID, err)
 				}
 			}
@@ -539,6 +599,13 @@ func (s *sessionService) BatchDeleteSessions(ctx context.Context, ids []string) 
 		if err := s.webSearchStateRepo.DeleteWebSearchTempKBState(ctx, id); err != nil {
 			logger.Warnf(ctx, "Failed to cleanup temporary KB for session %s: %v", id, err)
 		}
+		// Artifact blobs are kept alongside soft-deleted messages — see
+		// DeleteSession for the rationale.
+	}
+
+	// Tear down sandboxes while session rows (and pins) are still readable.
+	for _, id := range visibleIDs {
+		s.destroyBoundSandbox(ctx, id)
 	}
 
 	// Batch delete sessions from repository
@@ -557,6 +624,7 @@ func (s *sessionService) BatchDeleteSessions(ctx context.Context, ids []string) 
 		}
 	}
 
+	s.releaseForkSnapshots(ctx, visible)
 	return nil
 }
 
@@ -580,7 +648,7 @@ func (s *sessionService) DeleteAllSessions(ctx context.Context) error {
 					return
 				}
 				if len(knowledgeIDs) > 0 {
-					if err := s.knowledgeService.DeleteKnowledgeList(bgCtx, knowledgeIDs); err != nil {
+					if err := deleteReferencedKnowledge(bgCtx, s.knowledgeService, "", knowledgeIDs); err != nil {
 						logger.Warnf(bgCtx, "Failed to delete chat history knowledge for session %s: %v", sessionID, err)
 					}
 				}
@@ -589,6 +657,15 @@ func (s *sessionService) DeleteAllSessions(ctx context.Context) error {
 			if err := s.webSearchStateRepo.DeleteWebSearchTempKBState(ctx, session.ID); err != nil {
 				logger.Warnf(ctx, "Failed to cleanup temporary KB for session %s: %v", session.ID, err)
 			}
+			// Artifact blobs are kept alongside soft-deleted messages — see
+			// DeleteSession for the rationale.
+		}
+	}
+
+	// Tear down sandboxes while session rows (and pins) are still readable.
+	if sessions != nil {
+		for _, session := range sessions {
+			s.destroyBoundSandbox(ctx, session.ID)
 		}
 	}
 
@@ -606,8 +683,108 @@ func (s *sessionService) DeleteAllSessions(ctx context.Context) error {
 		}
 	}
 
+	s.releaseForkSnapshots(ctx, sessions)
 	logger.Infof(ctx, "All sessions deleted for tenant %d", tenantID)
 	return nil
+}
+
+// destroyBoundSandbox tears down the sandbox MicroVM bound to sessionID, if
+// the configured sandbox backend supports session-scoped instances.
+//
+// Only SessionBoundManager implements the DestroySession method, which every
+// session-scoped backend resolves to (Cube, E2B, Docker). For Disabled
+// the type assertion fails and the call is a no-op — that backend holds no
+// resources keyed on session ID.
+//
+// Errors are logged but never propagated: sandbox teardown must not block
+// session deletion. Call this while the session row is still live so the
+// sandbox_config_id pin resolves to the correct named backend.
+func (s *sessionService) destroyBoundSandbox(ctx context.Context, sessionID string) {
+	if sessionID == "" {
+		return
+	}
+	// Resolve the workspace's own manager: the sandbox to release lives on
+	// whichever backend that workspace is configured for, not necessarily the
+	// process-wide default.
+	sessionTenantID, _ := types.TenantIDFromContext(ctx)
+	pin, err := sandboxConfigForExistingSandbox(ctx, s.sandboxPinner, sessionID)
+	if err != nil {
+		logger.Warnf(ctx, "Failed to read sandbox pin for session %s cleanup: %v", sessionID, err)
+		return
+	}
+	// An empty pin normally means there is nothing to destroy, but sessions
+	// whose sandbox predates the pin column also read as empty. Falling through
+	// to the default manager keeps those reachable: DestroySession is a cheap
+	// binding lookup that no-ops when the session truly has no sandbox, whereas
+	// skipping would abandon a paused instance that keeps billing.
+	//
+	// The workspace comes from the pin. This runs from a plain DELETE whose
+	// only tenant is the session's own, but a shared agent's sandbox was
+	// created on the LENDING workspace's config: resolving that here as the
+	// session owner finds nothing and abandons a paused MicroVM that keeps
+	// billing with nobody holding its id.
+	//
+	// Pass nil policy so the workspace kill switch cannot strand an already
+	// created sandbox: disabling script execution must still allow teardown.
+	mgr, err := resolveTenantSandboxForConfig(
+		ctx, s.sandboxResolver, s.sandboxMgr,
+		pin.TenantOr(sessionTenantID), pin.ConfigID, nil,
+	)
+	if err != nil {
+		logger.Warnf(ctx, "Failed to resolve sandbox for session %s cleanup: %v", sessionID, err)
+		return
+	}
+	if mgr == nil {
+		return
+	}
+	if mgr.GetType() == sandbox.SandboxTypeHost {
+		// Deleting a chat is not deleting the user's directory.
+		return
+	}
+	destroyer, ok := mgr.(interface {
+		DestroySession(context.Context, string) error
+	})
+	if !ok {
+		return
+	}
+	if err := destroyer.DestroySession(ctx, sessionID); err != nil {
+		logger.Warnf(ctx, "Failed to destroy sandbox for session %s: %v", sessionID, err)
+		return
+	}
+	if s.sandboxPinner != nil {
+		if err := s.sandboxPinner.Clear(ctx, sessionID); err != nil {
+			logger.Warnf(ctx, "Failed to clear sandbox pin for session %s: %v", sessionID, err)
+		}
+	}
+}
+
+func (s *sessionService) releaseForkSnapshot(ctx context.Context, session *types.Session) {
+	if s == nil || session == nil {
+		return
+	}
+	snapshots := s.forkSnapshots
+	if snapshots == nil {
+		snapshots = NewResolverForkSnapshotDeleter(s.sandboxResolver, s.sandboxMgr)
+	}
+	releaseForkSnapshotOnDelete(ctx, s.sessionRepo, snapshots, session)
+}
+
+func (s *sessionService) releaseForkSnapshots(ctx context.Context, sessions []*types.Session) {
+	seen := make(map[string]struct{}, len(sessions))
+	for _, session := range sessions {
+		if session == nil || session.ForkBootstrap == nil {
+			continue
+		}
+		snapshotID := strings.TrimSpace(session.ForkBootstrap.SnapshotID)
+		if snapshotID == "" {
+			continue
+		}
+		if _, ok := seen[snapshotID]; ok {
+			continue
+		}
+		seen[snapshotID] = struct{}{}
+		s.releaseForkSnapshot(ctx, session)
+	}
 }
 
 // GenerateTitle generates a title for the current conversation content
@@ -687,13 +864,7 @@ func (s *sessionService) GenerateTitle(ctx context.Context,
 	titlePrompt := types.RenderPromptPlaceholders(s.cfg.Conversation.GenerateSessionTitlePrompt, types.PlaceholderValues{
 		"language": types.LanguageNameFromContext(ctx),
 	})
-	var chatMessages []chat.Message
-	chatMessages = append(chatMessages,
-		chat.Message{Role: "system", Content: titlePrompt},
-	)
-	chatMessages = append(chatMessages,
-		chat.Message{Role: "user", Content: message.Content},
-	)
+	chatMessages := buildSessionTitleMessages(titlePrompt, message.Content)
 
 	// Call model to generate title
 	thinking := false
@@ -707,7 +878,20 @@ func (s *sessionService) GenerateTitle(ctx context.Context,
 	}
 
 	// Process and store the generated title
-	session.Title = strings.TrimPrefix(response.Content, "<think>\n\n</think>")
+	sanitized := sanitizeGeneratedTitle(response.Content, message.Content)
+	if sanitized.Truncated {
+		logger.Warnf(ctx,
+			"Generated session title exceeded %d runes and was truncated, session=%s, model=%s",
+			maxSessionTitleRunes, session.ID, modelID,
+		)
+	}
+	if sanitized.FromQuery {
+		logger.Warnf(ctx,
+			"Generated session title was not plain text, falling back to the user query, session=%s, model=%s",
+			session.ID, modelID,
+		)
+	}
+	session.Title = sanitized.Title
 
 	// Update session with new title
 	_, err = s.sessionRepo.Update(ctx, session, session.UserID)
@@ -793,4 +977,129 @@ func (s *sessionService) GenerateTitleAsync(
 			}
 		}
 	}()
+}
+
+// holdSandboxTurn opens a chat-turn lease on the session's remote sandbox so
+// a skill-image change mid-turn cannot rebuild the VM between tool calls.
+// The first resolve of this turn may still pick up a stale mark from the
+// previous turn. The returned closer must be called.
+//
+// A rewind in progress is a hard failure: the agent must not start on a
+// workspace that git reset is about to rewrite. Every other lease error
+// degrades to "no lease" and lets the turn run, as it did before rewind
+// existed — a Redis blip on the lease script must not reject the user's
+// message, and rewind reads the same Redis to decide it is busy, so it
+// cannot silently proceed while this store is unreachable either.
+func (s *sessionService) holdSandboxTurn(
+	ctx context.Context, sessionID, configID string,
+) (func(), error) {
+	noop := func() {}
+	if strings.TrimSpace(sessionID) == "" {
+		return noop, nil
+	}
+	releaseGate, err := s.busyGate.HoldSend(sessionID)
+	if err != nil {
+		return noop, err
+	}
+	begin := func(mgr sandbox.Manager) (sandbox.SessionTurnHolder, error) {
+		if mgr == nil {
+			return nil, nil
+		}
+		holder, ok := mgr.(sandbox.SessionTurnHolder)
+		if !ok {
+			return nil, nil
+		}
+		if err := holder.BeginSessionTurn(ctx, sessionID); err != nil {
+			logger.Warnf(ctx, "[sandbox] begin turn for session %s failed: %v", sessionID, err)
+			if stderrors.Is(err, sandbox.ErrSessionRewindLocked) {
+				return nil, err
+			}
+			return nil, nil
+		}
+		return holder, nil
+	}
+
+	holder, err := begin(s.sandboxMgr)
+	if err != nil {
+		releaseGate()
+		return noop, err
+	}
+	if holder != nil {
+		return func() {
+			if err := holder.EndSessionTurn(ctx, sessionID); err != nil {
+				logger.Warnf(ctx, "[sandbox] end turn for session %s failed: %v", sessionID, err)
+			}
+			releaseGate()
+		}, nil
+	}
+
+	tenantID, _ := types.TenantIDFromContext(ctx)
+	if s.sandboxResolver == nil || tenantID == 0 {
+		return releaseGate, nil
+	}
+	mgr, _, err := resolveSandboxForExecution(
+		ctx, s.sandboxResolver, s.sandboxMgr, s.sandboxPinner,
+		tenantID, sessionID, configID, s.sandboxPolicy,
+		withLiteHostSandbox(s.hostSandbox), withLiteDesktop(s.hostDesktop),
+	)
+	if err != nil {
+		logger.Warnf(ctx, "[sandbox] resolve config %s to begin turn of session %s failed: %v",
+			configID, sessionID, err)
+		return releaseGate, nil
+	}
+	holder, err = begin(mgr)
+	if err != nil {
+		releaseGate()
+		return noop, err
+	}
+	if holder == nil {
+		return releaseGate, nil
+	}
+	return func() {
+		if err := holder.EndSessionTurn(ctx, sessionID); err != nil {
+			logger.Warnf(ctx, "[sandbox] end turn for session %s failed: %v", sessionID, err)
+		}
+		releaseGate()
+	}, nil
+}
+
+// RejectSendIfRewinding fails when rewind currently holds sessionID, so
+// knowledge-chat (no sandbox turn lease) cannot persist a new turn on a
+// session that is about to delete those messages.
+func (s *sessionService) RejectSendIfRewinding(ctx context.Context, sessionID string) error {
+	if strings.TrimSpace(sessionID) == "" {
+		return nil
+	}
+	if s.busyGate != nil && s.busyGate.RewindHeld(sessionID) {
+		return sandbox.ErrSessionRewindLocked
+	}
+	type rewindLockReader interface {
+		HasRewindLock(context.Context, string) (bool, error)
+	}
+	check := func(mgr sandbox.Manager) error {
+		if mgr == nil {
+			return nil
+		}
+		reader, ok := mgr.(rewindLockReader)
+		if !ok {
+			return nil
+		}
+		held, err := reader.HasRewindLock(ctx, sessionID)
+		if err != nil {
+			return err
+		}
+		if held {
+			return sandbox.ErrSessionRewindLocked
+		}
+		return nil
+	}
+	return check(s.sandboxMgr)
+}
+
+// HoldSandboxTurn is the exported turn-lease entry so HTTP send can take the
+// lease before persisting messages, matching rewind's busy check.
+func (s *sessionService) HoldSandboxTurn(
+	ctx context.Context, sessionID, configID string,
+) (func(), error) {
+	return s.holdSandboxTurn(ctx, sessionID, configID)
 }

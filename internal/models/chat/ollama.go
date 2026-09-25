@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/models/api"
 	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
 	"github.com/Tencent/WeKnora/internal/types"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
@@ -36,6 +37,7 @@ func NewOllamaChat(config *ChatConfig, ollamaService *ollama.OllamaService) (*Ol
 func (c *OllamaChat) convertMessages(messages []Message) []ollamaapi.Message {
 	ollamaMessages := make([]ollamaapi.Message, 0, len(messages))
 	for _, msg := range messages {
+		msg = api.NeutralizeMessageSpecialTokens(msg)
 		msgOllama := ollamaapi.Message{
 			Role:      msg.Role,
 			Content:   msg.Content,
@@ -44,8 +46,32 @@ func (c *OllamaChat) convertMessages(messages []Message) []ollamaapi.Message {
 		if msg.Role == "tool" {
 			msgOllama.ToolName = msg.Name
 		}
-		if len(msg.Images) > 0 && msg.Role == "user" {
-			for _, imgURL := range msg.Images {
+		// The agent builds multimodal turns as MultiContent parts, the shape
+		// every remote protocol prefers, and only the older callers fill
+		// Images. Reading just Images dropped both the text and the pictures
+		// of such a turn: Ollama answered about nothing, without an error.
+		images := msg.Images
+		if len(msg.MultiContent) > 0 {
+			// Copy first: appending to the caller's slice could write into
+			// its spare capacity and leak an image into another message.
+			images = append([]string(nil), msg.Images...)
+			var text strings.Builder
+			for _, part := range msg.MultiContent {
+				switch part.Type {
+				case "text":
+					text.WriteString(part.Text)
+				case "image_url":
+					if part.ImageURL != nil && part.ImageURL.URL != "" {
+						images = append(images, part.ImageURL.URL)
+					}
+				}
+			}
+			if msgOllama.Content == "" {
+				msgOllama.Content = text.String()
+			}
+		}
+		if len(images) > 0 && msg.Role == "user" {
+			for _, imgURL := range images {
 				if imgData := resolveImageForOllama(imgURL); imgData != nil {
 					msgOllama.Images = append(msgOllama.Images, imgData)
 				}
@@ -59,7 +85,7 @@ func (c *OllamaChat) convertMessages(messages []Message) []ollamaapi.Message {
 // resolveImageForOllama resolves an image URL into raw bytes for Ollama.
 // Handles local serving paths (/files/...), data URIs, and remote HTTP URLs.
 func resolveImageForOllama(imageURL string) ollamaapi.ImageData {
-	if data := resolveImageURLForOllama(imageURL); data != nil {
+	if data := api.ResolveImageURLForOllama(imageURL); data != nil {
 		return data
 	}
 	if strings.HasPrefix(imageURL, "http://") || strings.HasPrefix(imageURL, "https://") {
@@ -103,13 +129,13 @@ func (c *OllamaChat) buildChatRequest(messages []Message, opts *ChatOptions, isS
 		if opts.TopP > 0 {
 			chatReq.Options["top_p"] = opts.TopP
 		}
-		if opts.MaxTokens > 0 {
-			chatReq.Options["num_predict"] = opts.MaxTokens
+		if budget := opts.CompletionBudget(); budget > 0 {
+			chatReq.Options["num_predict"] = budget
 		}
-		if opts.Thinking != nil {
-			chatReq.Think = &ollamaapi.ThinkValue{
-				Value: *opts.Thinking,
-			}
+		if level, requested := opts.Reasoning(); requested {
+			// Ollama accepts a boolean switch; graded levels only exist for a
+			// few models, so they collapse to on/off here.
+			chatReq.Think = &ollamaapi.ThinkValue{Value: level.Enabled()}
 		}
 		if len(opts.Format) > 0 {
 			chatReq.Format = opts.Format
@@ -148,10 +174,12 @@ func (c *OllamaChat) Chat(ctx context.Context, messages []Message, opts *ChatOpt
 		}
 		toolCalls = c.toolCallTo(resp.Message.ToolCalls)
 
-		// Get the token count
+		// Get the token count. eval_count is already the number of answer tokens and excludes the prompt
+		// (https://github.com/ollama/ollama/blob/main/docs/api.md), so prompt_eval_count must not be
+		// subtracted from it — the streaming branch has always used it directly; this aligns with it.
 		if resp.EvalCount > 0 {
 			promptTokens = resp.PromptEvalCount
-			completionTokens = resp.EvalCount - promptTokens
+			completionTokens = resp.EvalCount
 		}
 
 		return nil
@@ -166,7 +194,7 @@ func (c *OllamaChat) Chat(ctx context.Context, messages []Message, opts *ChatOpt
 		TotalTokens:      promptTokens + completionTokens,
 	}
 	usage.MarkPromptCacheUnsupported()
-	logUsage(ctx, c.modelName, &usage)
+	api.LogUsage(ctx, c.modelName, &usage)
 
 	return &types.ChatResponse{
 		Content:   responseContent,
@@ -199,16 +227,16 @@ func (c *OllamaChat) ChatStream(
 	go func() {
 		defer close(streamChan)
 
-		var thinking thinkingEmitter
+		var thinking api.ThinkingEmitter
 		err := c.ollamaService.Chat(ctx, chatReq, func(resp ollamaapi.ChatResponse) error {
 			// Send the thinking content (supports reasoning models like Qwen3, DeepSeek, etc.)
 			if resp.Message.Thinking != "" {
-				thinking.emit(streamChan, resp.Message.Thinking)
+				thinking.Emit(streamChan, resp.Message.Thinking)
 			}
 
 			if resp.Message.Content != "" {
 				// After the thinking phase ends, send the thinking-complete event
-				thinking.finish(streamChan)
+				thinking.Finish(streamChan)
 				streamChan <- types.StreamResponse{
 					ResponseType: types.ResponseTypeAnswer,
 					Content:      resp.Message.Content,
@@ -263,7 +291,7 @@ func (c *OllamaChat) ChatStream(
 					}
 					usage.MarkPromptCacheUnsupported()
 				}
-				logUsage(ctx, c.modelName, usage)
+				api.LogUsage(ctx, c.modelName, usage)
 				streamChan <- types.StreamResponse{
 					ResponseType: types.ResponseTypeAnswer,
 					Done:         true,
@@ -324,26 +352,6 @@ func (c *OllamaChat) toolFrom(tools []Tool) ollamaapi.Tools {
 		})
 	}
 	return ollamaTools
-}
-
-// toolTo converts an Ollama Tool into this module's Tool
-func (c *OllamaChat) toolTo(ollamaTools ollamaapi.Tools) []Tool {
-	if len(ollamaTools) == 0 {
-		return nil
-	}
-	tools := make([]Tool, 0, len(ollamaTools))
-	for _, tool := range ollamaTools {
-		paramsBytes, _ := json.Marshal(tool.Function.Parameters)
-		tools = append(tools, Tool{
-			Type: tool.Type,
-			Function: FunctionDef{
-				Name:        tool.Function.Name,
-				Description: tool.Function.Description,
-				Parameters:  paramsBytes,
-			},
-		})
-	}
-	return tools
 }
 
 // toolCallFrom converts this module's ToolCall into an Ollama ToolCall

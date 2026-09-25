@@ -163,7 +163,7 @@ type Chunk struct {
 	// Metadata stores chunk-level extended information, such as FAQ metadata
 	Metadata JSON `json:"metadata"                 gorm:"type:json"`
 	// ContentHash stores the content's hash value for fast matching (mainly used for FAQ)
-	ContentHash string `json:"content_hash"             gorm:"type:varchar(64);index"`
+	ContentHash string `json:"content_hash"             gorm:"type:varchar(64)"`
 	// Image information, stored as JSON
 	ImageInfo string `json:"image_info"               gorm:"type:text"`
 	// Chunk creation time

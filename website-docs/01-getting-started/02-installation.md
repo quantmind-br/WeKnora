@@ -1,6 +1,6 @@
 # Installation & Deployment
 
-WeKnora supports multiple deployment forms, from "a single laptop" to a "Kubernetes cluster". This document introduces, one by one, Docker Compose (two orchestration sets — production/development), image building, the Makefile and scripts, Helm, and the desktop side (Lite single-binary, desktop app, and Homebrew).
+WeKnora supports Docker Compose, Kubernetes Helm, the Lite single binary, and the desktop app. For server deployments, choose Compose or Helm; for local use, choose Lite; for development, use the separate development orchestration. The dependencies, startup commands, and data directories for each method are described below.
 
 ## Overview of Deployment Forms
 
@@ -11,7 +11,6 @@ WeKnora supports multiple deployment forms, from "a single laptop" to a "Kuberne
 | Helm | `helm/` | ParadeDB (built into the chart) | Redis (built into the chart) | Kubernetes >= 1.25 |
 | Lite single binary | `make build-lite` / `scripts/package-lite.sh` | SQLite (FTS5 + sqlite-vec) | In-memory (no Redis) | Personal / offline / low-resource environments |
 | Desktop app (**not officially released**) | `cmd/desktop` (Wails v2) + `scripts/package-mac-app.sh` | SQLite | In-memory | Single-machine desktop use, with a graphical interface and local data directory |
-| Homebrew | `Formula/weknora-lite.rb` | SQLite | In-memory | Command-line installation of Lite on macOS / Linux |
 
 ```mermaid
 flowchart TB
@@ -40,9 +39,11 @@ flowchart TB
 ## Hardware and Dependency Requirements
 
 - **Standard Docker deployment**: Docker 20.10+ and Docker Compose v2 (v1 `docker-compose` is also compatible — `scripts/start_all.sh` auto-detects it); a starting point of 4 CPU cores / 8GB RAM is recommended (docreader includes LibreOffice and Playwright, which are fairly memory-hungry); reserve disk space according to the knowledge base size (Postgres volume + `/data/files` file volume). Enabling optional components such as Milvus / OpenSearch / Langfuse increases memory requirements accordingly.
-- **Model services**: local inference requires [Ollama](https://ollama.com) (default address `http://host.docker.internal:11434`; when `OLLAMA_OPTIONAL=true`, unavailability only triggers a warning without blocking startup); or any OpenAI-compatible API (DeepSeek, Tongyi, Zhipu, SiliconFlow, etc.).
+- **Model services**: local inference requires [Ollama](https://ollama.com) (default address `http://host.docker.internal:11434`; when `OLLAMA_OPTIONAL=true`, unavailability only triggers a warning without blocking startup); or any OpenAI-compatible API (DeepSeek, Tongyi, Zhipu, SiliconFlow, etc.). The 8GB starting point above does not include Ollama model weights; Neo4j is disabled by default (requires enabling the `neo4j` profile).
 - **Building from source**: Go 1.26 (see the builder stage `golang:1.26-bookworm` in `docker/Dockerfile.app`), CGO (depends on `libsqlite3-dev`), Node.js + npm (frontend), Python 3.10 + uv (docreader).
 - **Kubernetes**: >= 1.25.0 (`helm/Chart.yaml`).
+
+The x86 CPU baseline of Compose's default ParadeDB `v0.22.6-pg17` is `x86-64-v2` (including SSE4.2 and POPCNT); AVX2 is no longer required. This does not mean that all ARM CPUs or other optional services are compatible.
 
 ## 1. Docker Compose Standard Deployment (docker-compose.yml)
 
@@ -58,6 +59,8 @@ docker compose up -d
 docker compose ps                 # Wait until all services become healthy/running
 ```
 
+`JWT_SECRET` and `SYSTEM_AES_KEY` are left empty by default in `.env.example`; generate them once during the first deployment and store them safely: `JWT_SECRET` can be generated with `openssl rand -hex 32`, and `SYSTEM_AES_KEY` must be 32 bytes, which you can generate with `openssl rand -hex 16`. When upgrading an existing deployment, keep the original `SYSTEM_AES_KEY`; otherwise previously encrypted credentials can no longer be decrypted. See [Configuration Explained](./04-configuration.md) for what each key does.
+
 To stop, use `docker compose down` (adding `-v` will also delete the data volumes — use with caution). The `make start-all` target in the repository is a wrapper around the same command (`scripts/start_all.sh`, which additionally performs an Ollama check, `.env` fallback creation, and sandbox image pre-pulling) — pick either one.
 
 Once started, open `http://localhost` in your browser to reach the frontend (the port is determined by `FRONTEND_PORT`, defaulting to 80); the first visit lands on the registration page. The frontend's Nginx reverse-proxies `/api/` to the backend, so API calls likewise go through `http://localhost/api/v1`; the backend's `8080` port is also mapped directly to the host, and `curl http://localhost:8080/health` can be used to confirm the backend is ready.
@@ -67,6 +70,8 @@ Once started, open `http://localhost` in your browser to reach the frontend (the
 ### Version Upgrade
 
 If you already have a deployment and have downloaded a newer release:
+
+> 如果数据库仍为 ParadeDB `v0.22.2-pg17`，先按 [ParadeDB 升级说明](06-paradedb-upgrade.md) 停止写入、备份、保留数据卷更换镜像并完成 `pg_search` 扩展升级，再恢复应用。仅替换镜像不会更新已有数据库的扩展 SQL；迁移 `000099` 会处理 WeKnora 库中符合条件的 `0.22.2–0.22.5`，其他数据库仍需单独检查。
 
 ```bash
 # In .env, set WEKNORA_VERSION to the target version (e.g. 0.7.0), or keep it as latest
@@ -81,9 +86,9 @@ docker compose up -d
 | Service | Image | Port (host:container) | Depends on | Description |
 | --- | --- | --- | --- | --- |
 | `frontend` | `wechatopenai/weknora-ui:${WEKNORA_VERSION:-latest}` | `${FRONTEND_PORT:-80}:80` | app (healthy) | Nginx hosts the SPA and reverse-proxies to app; `APP_HOST`/`APP_BACKEND_PORT`/`APP_SCHEME` can point to a remote backend |
-| `app` | `wechatopenai/weknora-app` | `${APP_PORT:-8080}:8080` | postgres (healthy), redis, docreader (healthy) | Go backend; mounts `./config/config.yaml`, the `data-files` volume, and `./skills/preloaded`; health check `GET /health` |
+| `app` | `wechatopenai/weknora-app` | `${APP_PORT:-8080}:8080` | postgres (healthy), redis, docreader (healthy) | Go backend; mounts `./config/config.yaml` and the `data-files` volume; health check `GET /health` |
 | `docreader` | `wechatopenai/weknora-docreader` | Only `expose: 50051` (not published to the host) | — | Document parsing gRPC service; health check via `grpc_health_probe`; shares the `docreader-tmp` volume with app to pass images |
-| `postgres` | `paradedb/paradedb:v0.22.2-pg17` | Host port not mapped | — | ParadeDB = PostgreSQL 17 + BM25/vector extensions, the default retrieval engine |
+| `postgres` | `paradedb/paradedb:v0.22.6-pg17` | Host port not mapped | — | ParadeDB = PostgreSQL 17 + BM25/vector extensions, the default retrieval engine |
 | `redis` | `redis:7.0-alpine` | Host port not mapped | — | `--appendonly yes --requirepass ${REDIS_PASSWORD}` |
 
 ### Optional Services and Profiles
@@ -102,7 +107,7 @@ Enable as needed with `docker compose --profile <name> up -d`:
 | `dex` (included in `full`) | `dex` | 5556 | Test OIDC IdP (configured in `misc/dex-config.yaml`) |
 | `langfuse` (included in `full`) | `langfuse-db-init`, `langfuse-clickhouse`, `langfuse-minio`, `langfuse-worker`, `langfuse-web` | 3000 (UI) / 9100/9101 (dedicated MinIO) | Self-hosted Langfuse observability stack, reusing WeKnora's postgres (creates a new `langfuse` database) and redis (DB 1) |
 | `odl-hybrid` | `odl-hybrid` | expose 5002 | OpenDataLoader/Docling PDF hybrid parsing backend (local build only, used together with `DOCREADER_ODL_HYBRID`) |
-| `full` | `sandbox`, `mcp`, and the services marked full above | mcp: `${MCP_PORT:-8082}:8000` | `sandbox` is only used for building/pulling the image (`command: ["true"]`, not a long-running process) — app runs it on demand via `docker run` when executing Skills; `mcp` is the MCP Server |
+| `full` | `sandbox`, `mcp`, and the services marked full above | mcp: `${MCP_PORT:-8082}:8000` | `sandbox` is only used for building/pulling the image (`command: ["true"]`, not a long-running process). The Docker sandbox is disabled by default: it requires setting `WEKNORA_SANDBOX_DOCKER_ENABLED=true` and mounting `docker.sock` (equivalent to host root); Cube/E2B do not depend on a local daemon. `mcp` is the MCP Server |
 
 The `environment` section of the app container is the full list of environment variables (database, vector store, object storage, Docreader tuning, tenant policies, OIDC, etc.) — see [04-configuration.md](./04-configuration.md) for details.
 
@@ -127,11 +132,11 @@ Differences from the production orchestration:
 
 | Dockerfile | Resulting image | Key points |
 | --- | --- | --- |
-| `docker/Dockerfile.app` | `wechatopenai/weknora-app` | Two stages: compiled with `golang:1.26-bookworm` (`make build-prod`, injects version info, pre-downloads the DuckDB extension `cmd/download/duckdb`) → `debian:12.12-slim` runtime layer (includes the `migrate` migration tool, python3/node/uvx (for stdio MCP and Skills), ffmpeg (ASR), and gosu for privilege dropping). Entry point `scripts/docker-entrypoint.sh`: fixes the ownership of mounted directories, merges the `_builtin` built-in Skills back into `skills/preloaded`, then runs `./WeKnora` as appuser. `EXPOSE 8080` |
+| `docker/Dockerfile.app` | `wechatopenai/weknora-app` | Three stages: first builds BrowserSkill's `bsk` and its companion Chrome extension (installed into `/opt/weknora/browserskill/`, see [Local Browser](../05-clients/09-local-browser.md)); then compiles with `golang:1.26-bookworm` (`make build-prod`, which by default sets `WITH_ANYDOC=1` to link the in-process office parsing engine, injects version info, and pre-downloads the DuckDB extension `cmd/download/duckdb`) → `debian:12.12-slim` runtime layer (includes the `migrate` migration tool, python3/node/uvx (for stdio MCP), ffmpeg (ASR), gosu for privilege dropping, and third-party license texts). Entry point `scripts/docker-entrypoint.sh`: fixes the ownership of mounted directories; if docker.sock is mounted, adds appuser to the matching group based on the socket GID (compose `group_add` has no effect after gosu), then runs `./WeKnora` as appuser. `EXPOSE 8080` |
 | `docker/Dockerfile.docreader` | `wechatopenai/weknora-docreader` | Python 3.10 + uv locked dependencies; generates protobuf; the runtime layer installs LibreOffice, OpenJDK 17, antiword, Playwright (webkit), and `grpc_health_probe`. The lightweight version does not include PaddleOCR. `EXPOSE 50051`. Supports the `APT_MIRROR` build argument |
 | `docker/Dockerfile.odl-hybrid` | `weknora-odl-hybrid:local` | Installs `opendataloader-pdf[hybrid]` (Docling), listens on 5002, defaults to `--no-ocr`; local build only, not published |
-| `docker/Dockerfile.sandbox` | `wechatopenai/weknora-sandbox` | Python 3.11-slim + Node 20 + jq, non-root user `sandbox` (UID 1000), used to run Agent Skills scripts in one-off containers |
-| `frontend/Dockerfile` | `wechatopenai/weknora-ui` | Requires first running `./scripts/build_frontend_dist.sh` on the host to produce `dist/`; based on `nginx:1.30.3-alpine` pinned by digest (for compatibility with older CentOS 7 kernels) |
+| `docker/Dockerfile.sandbox` | `wechatopenai/weknora-sandbox` | Agent session sandbox image. The base environment is Python 3.12-slim + Node 20 + uv/pnpm, running as `root` by default, with `user` (UID 1000) kept for explicit selection. The default build target `sandbox` is used by the Docker backend; there are also `cube` (includes Cube envd), `desktop` / `desktop-cube` (with a graphical desktop), and other targets — see [Sandbox Deployment](../06-development/04-sandbox-deployment.md) |
+| `frontend/Dockerfile` | `wechatopenai/weknora-ui` | Two stages: `npm ci` + `npm run build` (`VITE_IS_DOCKER` / `VITE_FRONTEND_COMMIT`) inside a digest-pinned `node:24-bookworm-slim` (`$BUILDPLATFORM`, avoiding running Vite under QEMU in multi-arch CI), with optional `NPM_REGISTRY` / `NODE_MAX_OLD_SPACE_SIZE`; the runtime layer is `nginx:1.30.3-alpine` pinned by digest (for compatibility with older CentOS 7 kernels). No need to prebuild `dist/` on the host |
 
 To build all images from source:
 
@@ -168,16 +173,16 @@ make docker-build-frontend
 | `scripts/dev.sh` | Development environment orchestration (see above), subcommands `start/stop/restart/logs/status/app/frontend` |
 | `scripts/check-env.sh` | Validates required `.env` variables (DB_*, STORAGE_TYPE, REDIS_ADDR, OLLAMA_BASE_URL, etc.) and the Go/npm/Docker/Air toolchain |
 | `scripts/build_images.sh` | Builds images and injects version info (git tag / commit / build time), supports cross-architecture builds |
-| `scripts/build_frontend_dist.sh` | Builds the frontend static assets `frontend/dist` (a prerequisite step for the frontend image) |
+| `scripts/build_frontend_dist.sh` | Builds the frontend static assets `frontend/dist` on the host (for non-Docker scenarios such as Lite / desktop packaging; the UI image is now built by a multi-stage Dockerfile) |
 | `scripts/migrate.sh` | Wrapper around golang-migrate |
-| `scripts/docker-entrypoint.sh` | app container entry point (ownership fix + built-in Skills merge + gosu privilege drop) |
+| `scripts/docker-entrypoint.sh` | app container entry point (ownership fix + docker.sock GID group assignment + gosu privilege drop) |
 | `scripts/package-lite.sh` / `package-mac-app.sh` | Lite tarball / macOS .app packaging |
 
 ## 6. Helm Deployment (helm/)
 
-`helm/Chart.yaml`: apiVersion v2, chart name `weknora`, appVersion follows the release version (e.g. v0.7.2), requires Kubernetes >= 1.25.0.
+`helm/Chart.yaml`: apiVersion v2, chart name `weknora`, appVersion follows the release version (e.g. v0.8.2), requires Kubernetes >= 1.25.0.
 
-The chart contains five components: `app` (`wechatopenai/weknora-app`), `frontend` (`wechatopenai/weknora-ui`), `docreader`, `postgresql` (ParadeDB image), `redis` (`redis:7-alpine`), with optional support for enabling `minio` and `neo4j`.
+The chart contains five components: `app` (`wechatopenai/weknora-app`), `frontend` (`wechatopenai/weknora-ui`), `docreader`, `postgresql` (ParadeDB image; the chart defaults to `paradedb/paradedb:v0.18.9-pg17`, a different version from Compose), `redis` (`redis:7-alpine`), with optional support for enabling `minio` and `neo4j`.
 
 Key configuration in `helm/values.yaml`:
 
@@ -197,6 +202,8 @@ redis:
   persistence: { enabled: true, size: 1Gi }
 dataFiles:
   persistence: { enabled: true, size: 10Gi }
+global:
+  maxFileSizeMB: 50                 # Upload size limit, applied to frontend / app / docreader alike
 secrets:                            # Required fields, or use existingSecret to reference an existing Secret
   dbPassword: ""
   redisPassword: ""
@@ -204,17 +211,19 @@ secrets:                            # Required fields, or use existingSecret to 
   systemAesKey: ""                  # 32-byte AES-256 master key
 ```
 
+`global.maxFileSizeMB` 与 Compose 的 `MAX_FILE_SIZE_MB` 含义相同，chart 会把它写入 frontend（Nginx 请求体上限）、app（上传限制）与 docreader（gRPC 消息上限）三处。可选的 MinIO 镜像为 `quay.io/minio/minio`。
+
 ```bash
 helm install weknora ./helm -n weknora --create-namespace \
   --set secrets.dbPassword=xxx --set secrets.redisPassword=xxx \
   --set secrets.jwtSecret=xxx --set secrets.systemAesKey=$(openssl rand -hex 16)
 ```
 
-## 7. Desktop Side (Lite Mode / Desktop App / Homebrew)
+## 7. Desktop Side (Lite Mode / Desktop App)
 
-The desktop side targets local-machine and low-resource environments. Underneath, all forms share the same Lite runtime (single process + SQLite + in-memory queue); only the distribution and startup methods differ: **single binary** (started from the command line, can also run as a background service), **desktop app** (graphical interface, launched by double-clicking), and **Homebrew** (command-line installation of Lite on macOS/Linux). All three have the same range of capabilities.
+The desktop side targets local-machine and low-resource environments. Underneath, all forms share the same Lite runtime (single process + SQLite + in-memory queue); only the distribution and startup methods differ: **single binary** (started from the command line, can also run as a background service) and **desktop app** (graphical interface, launched by double-clicking). Knowledge base and Q&A capabilities are the same; registration-free login, the local sandbox, and binding local project directories are only available in the desktop app.
 
-### 7.1 Lite Runtime (zero external dependencies)
+### Lite Runtime (zero external dependencies) {#_7-1-lite-runtime-zero-external-dependencies}
 
 Lite mode achieves "one process running the whole stack" through the compile-time `EDITION=lite` flag together with the `.env.lite` runtime environment:
 
@@ -223,19 +232,19 @@ Lite mode achieves "one process running the whole stack" through the compile-tim
 - **Queue/stream**: `STREAM_MANAGER_TYPE=memory` (`internal/stream/factory.go`), no Redis needed — the Asynq distributed queue is in-memory/no-op in Lite mode;
 - **Frontend**: `make build-lite` copies `frontend/dist` into `web/` at the repository root, and the binary embeds and serves the static assets directly (`WEKNORA_WEB_DIR` can specify a different directory; the router's `serveFrontendStatic` serves it);
 - **Document parsing**: can still optionally connect to a local docreader (`DOCREADER_ADDR=127.0.0.1:50051`);
-- **Sandbox**: `WEKNORA_SANDBOX_MODE=disabled`.
+- **Sandbox**: the single binary starts without a preset backend; Docker, CubeSandbox, or E2B can be configured per space on the settings page. Desktop app sessions use the local operating system sandbox when no remote sandbox is specified — see [Desktop Client](../05-clients/05-desktop.md).
 
 ```bash
-cp .env.lite.example .env.lite      # Modify SYSTEM_AES_KEY / JWT_SECRET
+cp .env.lite.example .env.lite      # Fill in SYSTEM_AES_KEY (openssl rand -hex 16) and JWT_SECRET
 make run-lite                       # Build and start ./WeKnora-lite with the .env.lite environment
 make package-lite                   # Package a release tarball (scripts/package-lite.sh)
 ```
 
-Lite also provides `POST /auth/auto-setup` to generate a local account with one click (available only in the lite edition, see `internal/handler/auth.go`), which the desktop app uses to implement registration-free startup.
+When the single binary is accessed through a browser, registration and login are required, just like in the standard edition. On startup, the desktop app obtains a random per-process credential through the native bridge and calls `POST /auth/auto-setup` to automatically create a local account and sign in; this endpoint does not accept anonymous HTTP requests.
 
-### 7.2 Desktop App (cmd/desktop, Wails v2)
+### Desktop App (cmd/desktop, Wails v2) {#_7-2-desktop-app-cmd-desktop-wails-v2}
 
-The desktop app provides a graphical way to use WeKnora locally: launched by double-clicking, with the backend and SQLite bundled inside the process, and data stored in the system's application data directory; it also has desktop-specific capabilities such as port settings, LAN binding, and update checking. Its runtime capabilities are the same as in §7.1.
+The desktop app provides a graphical way to use WeKnora locally: launched by double-clicking, with the backend and SQLite bundled inside the process, and data stored in the system's application data directory; it also has desktop-specific capabilities such as port settings, LAN binding, and update checking. Its runtime capabilities are the same as in [Lite Runtime (zero external dependencies)](#_7-1-lite-runtime-zero-external-dependencies).
 
 ::: warning Not Yet Officially Released
 The desktop app currently **does not ship an installer with any Release** — you need to build it yourself following the steps below. `release-lite.yml` already contains cross-platform build jobs (macOS universal/amd64/arm64, Linux amd64, Windows amd64), but that workflow's tag trigger is commented out and can only be triggered manually, and the current latest Release does not include any build artifacts.
@@ -248,15 +257,6 @@ The desktop app currently **does not ship an installer with any Release** — yo
 make package-mac-app
 ```
 
-### 7.3 Homebrew (Formula/weknora-lite.rb)
-
-```bash
-brew install weknora-lite            # Downloads WeKnora-lite_v{ver}_{os}_{arch}.tar.gz from GitHub Releases
-brew services start weknora-lite     # Runs as a background service (keep_alive, logs at var/log/weknora-lite.log)
-```
-
-The formula is described as "Knowledge base management system — single-binary Lite edition", supporting arm64 and amd64 on macOS/Linux. On first run, the wrapper script copies `.env.lite.example` to `~/.config/weknora/.env.lite` (can be overridden with `WEKNORA_CONFIG_DIR` / `WEKNORA_DATA_DIR` for the config and data directories; data defaults to `~/.local/share/weknora`).
-
 ## 8. Building and Running from Source
 
 ```bash
@@ -268,7 +268,7 @@ make build && ./WeKnora                       # Or make build-prod
 cd frontend && npm ci && npm run dev          # Development; npm run build produces dist/
 
 # docreader
-cd docreader && uv sync --locked && bash scripts/generate_proto.sh && python -m docreader.server  # See docreader/ for the exact entry point
+cd docreader && uv sync --locked && bash scripts/generate_proto.sh && uv run -m docreader.main  # Matches the image CMD
 ```
 
 Configuration file lookup order (the `LoadConfig` function in `internal/config/config.go`): current directory → `./config` → `$HOME/.appname` → `/etc/appname/`, filename `config.yaml`.
@@ -291,7 +291,7 @@ flowchart TB
         A2 --> PVC1[("PVC: postgres 10Gi / redis 1Gi / data-files 10Gi")]
         A2 --> D2["docreader Deployment"]
     end
-    subgraph laptop["Personal: Lite / Desktop / Homebrew"]
+    subgraph laptop["Personal: Lite / Desktop"]
         direction LR
         U3["User"] --> L1["WeKnora-lite single process (embedded frontend + SQLite + in-memory queue)"]
         L1 --> O3["Ollama / remote OpenAI-compatible API"]

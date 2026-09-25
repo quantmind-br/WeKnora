@@ -1,8 +1,6 @@
 # API Reference: Chunks & Tags
 
-A chunk is the smallest unit of retrieval, and tags are used to categorize documents. Both sets of endpoints are nested under the knowledge base, sharing the same permission rules as [Knowledge Bases & Knowledge](./02-api-knowledge.md): reads require Viewer+ with read permission on the parent KB (API key `retrieve`); writes require "KB creator OR Admin+" with write permission (API key `ingest`), and both are constrained by the API key's KB allowlist.
-
-Route registration: `RegisterChunkRoutes`, `RegisterKnowledgeTagRoutes`, and `RegisterChunkerDebugRoutes` in `internal/router/routes_knowledge.go`.
+A chunk is the smallest unit of retrieval, and tags are used to categorize documents. Both sets of endpoints belong to the knowledge base resource, sharing the same permission rules as [Knowledge Bases & Knowledge](./02-api-knowledge.md): reads require Viewer+ with read permission on the parent KB (API key `retrieve`); writes require "KB creator OR Admin+" with write permission (API key `ingest`), and both are constrained by the API key's KB allowlist.
 
 For common conventions (Base URL, authentication, error codes, pagination), see the [API Overview](./01-api-overview.md).
 
@@ -184,7 +182,9 @@ curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/tags/t-1 -H "Authorization: Bearer
 
 ### DELETE /api/v1/knowledge-bases/:id/tags/:tag_id
 
-Purpose: delete a tag. Query parameters: `force` (bool, force delete), `content_only` (bool, delete content only while keeping the tag). Request body (optional): `{"exclude_ids":[int64]}`.
+Purpose: delete a tag. Query parameters: `force` (bool, force-delete a tag that is still referenced), `content_only` (bool, delete only the content under the tag while keeping the tag). Request body (optional): `{"exclude_ids":[int64]}`, listing the seq_ids of FAQ entries to keep during deletion.
+
+A malformed request body or an ID that is not a positive integer returns 400; a nonexistent ID returns 404; an ID of an FAQ entry that does not belong to the current knowledge base returns 403.
 
 Response: 200 `{"success":true}`
 
@@ -210,6 +210,8 @@ Purpose: stateless chunking preview (used by the KB editor's debug panel). Permi
 | `chunking_config.enable_parent_child` | bool | No | Trial-split by parent/child chunking; returns the child chunks (matching retrieval granularity) |
 | `chunking_config.parent_chunk_size` / `child_chunk_size` | int | No | Parent/child chunk size, defaulting to 4096 / 384 |
 
+Inline HTML `<table>` elements in the sample text are first converted to Markdown tables, consistent with the processing done at ingestion time.
+
 Response: 200 `{"success":true,"data":{"selected_tier","tier_chain","rejected","profile","chunks":[...],"stats":{count,avg_chars,min_chars,max_chars,stddev_chars,truncated_to}}}`; 413 if the text is too long; 504 if chunking times out (5s).
 
 ```bash
@@ -217,4 +219,6 @@ curl -X POST $BASE/api/v1/chunker/preview -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"text":"# Title\nBody...","chunking_config":{"chunk_size":512}}'
 ```
 
----
+## Implementation Reference
+
+Route registration: `RegisterChunkRoutes`, `RegisterKnowledgeTagRoutes`, and `RegisterChunkerDebugRoutes` in `internal/router/routes_knowledge.go`.

@@ -22,6 +22,9 @@ func RegisterModelRoutes(
 	{
 		// Get the list of model vendors — Viewer+
 		models.GET("/providers", g.Viewer(), handler.ListModelProviders)
+		// Resolve a model's effective access config (protocol / thinking level / context) — Viewer+
+		models.GET("/catalog/resolve", g.Viewer(), handler.ResolveModelCatalog)
+		models.POST("/catalog/resolve", g.Viewer(), handler.ResolveModelCatalog)
 		// Create model — Admin+
 		models.POST("", g.Admin(), handler.CreateModel)
 		// Get the list of models — Viewer+
@@ -37,6 +40,44 @@ func RegisterModelRoutes(
 		// Per-field credential subresource (see internal/handler/model_credentials.go) — Admin+
 		models.PUT("/:id/credentials", g.AdminOrSystemAdmin(), credHandler.Put)
 		models.DELETE("/:id/credentials/:field", g.AdminOrSystemAdmin(), credHandler.DeleteField)
+	}
+}
+
+// Sandbox configs are workspace infrastructure that hold provider credentials.
+// Scoped API keys cannot safely receive partial authority over them yet because
+// mutation can strand remote sandboxes.
+func RegisterSandboxConfigRoutes(
+	r *gin.RouterGroup,
+	h *handler.SandboxConfigHandler,
+	skills *handler.SandboxSkillHandler,
+	g *rbacGuards,
+) {
+	configs := g.apiKeyGroup(r.Group("/sandbox-configs"), apiKeyFullAccess())
+	{
+		configs.GET("", g.Viewer(), h.List)
+		configs.PUT("/workspace-policy", g.Admin(), h.SetWorkspacePolicy)
+		configs.POST("/templates/query", g.Admin(), h.QueryTemplates)
+		configs.POST("", g.Admin(), h.Create)
+		configs.GET("/:id", g.Viewer(), h.Get)
+		configs.PUT("/:id", g.Admin(), h.Update)
+		configs.DELETE("/:id", g.Admin(), h.Delete)
+		configs.GET("/:id/sandboxes", g.Admin(), h.Inventory)
+		// Skills are Admin+ throughout, reads included: an upload drives a
+		// root shell whose output is baked into the image every session of
+		// this config boots, and the listing names what that image carries.
+		configs.GET("/:id/skills", g.Admin(), skills.List)
+		configs.POST("/:id/skills", g.Admin(), skills.Upload)
+		configs.GET("/:id/skills/:skillId", g.Admin(), skills.Get)
+		configs.GET("/:id/skills/:skillId/files", g.Admin(), skills.ListFiles)
+		configs.GET("/:id/skills/:skillId/files/content", g.Admin(), skills.GetFile)
+		configs.POST("/:id/skills/:skillId/reinstall", g.Admin(), skills.Reinstall)
+		configs.GET("/:id/skills/:skillId/guidance", g.Admin(), skills.InstallGuidance)
+		configs.POST("/:id/skills/:skillId/guidance", g.Admin(), skills.SteerInstall)
+		configs.POST("/:id/skills/:skillId/stop", g.Admin(), skills.Stop)
+		configs.PATCH("/:id/skills/:skillId", g.Admin(), skills.Patch)
+		configs.DELETE("/:id/skills/:skillId", g.Admin(), skills.Delete)
+		configs.GET("/:id/skills/:skillId/install-events", g.Admin(), skills.InstallEvents)
+		configs.GET("/:id/skills/:skillId/transcript", g.Admin(), skills.InstallTranscript)
 	}
 }
 
@@ -124,6 +165,12 @@ func RegisterMCPServiceRoutes(
 		mcpServices.POST("/:id/test", g.Admin(), handler.TestMCPService)
 		// Get MCP service tools — Viewer+
 		mcpServices.GET("/:id/tools", g.Viewer(), handler.GetMCPServiceTools)
+		mcpServices.GET("/:id/metadata", g.Viewer(), handler.GetMCPMetadata)
+		// Refresh writes a principal-scoped OAuth snapshot for the caller
+		// (Viewer+), or a tenant-wide snapshot for static auth (Admin+ in the
+		// handler). GET /tools remains Viewer+ and does not persist.
+		mcpServices.POST("/:id/metadata/refresh", g.Viewer(), handler.RefreshMCPMetadata)
+		mcpServices.POST("/:id/usage-instructions/generate", g.Admin(), handler.GenerateMCPUsageInstructions)
 		// Get MCP service resources — Viewer+
 		mcpServices.GET("/:id/resources", g.Viewer(), handler.GetMCPServiceResources)
 		// Per-field credential subresource: secrets never travel via the main

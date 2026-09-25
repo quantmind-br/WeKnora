@@ -1,10 +1,10 @@
 # Claw Skill
 
-Claw Skill is a way to hook WeKnora up for AI Agents to use: once installed, Agents in the OpenClaw ecosystem can write content into knowledge bases and search across them through WeKnora's REST API.
+Claw Skill gives agents in the OpenClaw ecosystem access to WeKnora, uploading documents, importing web pages, and searching across knowledge bases through the REST API.
 
-The Skill is hosted on ClawHub, package name [`@lyingbug/weknora`](https://clawhub.ai/lyingbug/weknora) (MIT-0). It's a thin wrapper — the actual capability is WeKnora's REST interface.
+The Skill is hosted on ClawHub, package name [`@lyingbug/weknora`](https://clawhub.ai/lyingbug/weknora), licensed under MIT-0. Its capabilities and permissions are determined by the WeKnora API it connects to.
 
-## What it can do
+## Key features {#what-it-can-do}
 
 | Capability | Corresponding interface |
 | --- | --- |
@@ -14,11 +14,11 @@ The Skill is hosted on ClawHub, package name [`@lyingbug/weknora`](https://clawh
 | Hybrid search | Single-base `hybrid-search` and cross-base `knowledge-search`, combining vector + keyword recall |
 | Browse knowledge bases | List knowledge bases and entries, view details |
 
-## How to configure it
+## Installation and connection {#how-to-configure-it}
 
-WeKnora's UI has a guided setup page: "Settings → Integrations → Claw Skill", which provides the current instance's API address along with a copyable environment variable example and install command. Steps:
+Open "Settings → Publish & Integrations → Claw Skill" to see the setup guide and copy the current instance's API address, an environment variable example, and the install command.
 
-1. **Get API credentials**: copy the API Key and API address from "Settings → API Info";
+1. **Get API credentials**: copy the API Key and API address from "Settings → Publish & Integrations → API Integration" (the "Open API Info" button on the setup guide jumps straight there);
 2. **Set environment variables**: in your terminal or `~/.zshrc` / `~/.bashrc`, set
 
    ```bash
@@ -26,24 +26,32 @@ WeKnora's UI has a guided setup page: "Settings → Integrations → Claw Skill"
    export WEKNORA_API_KEY=sk-xxxxx
    ```
 
-3. **Install the Skill**: in an environment with the OpenClaw CLI installed, run the install command shown on the guided setup page, or follow the instructions on the ClawHub page to install it;
+   `WEKNORA_BASE_URL` must include `/api/v1`; the example on the setup guide is already filled in with the current instance address.
+
+3. **Install the Skill**: in an environment with the OpenClaw CLI installed, run the command below, or follow the instructions on the ClawHub page to install it;
+
+   ```bash
+   openclaw skills install @lyingbug/weknora
+   ```
+
 4. **Verify**: have the Agent list knowledge bases once or run a search, to confirm credentials and network connectivity are working.
 
 ## Relationship with MCP
 
-Both are about "making WeKnora available to external Agents" — which one to choose depends on the other side's ecosystem:
+Both Claw Skill and the MCP Server can be called by external agents; which one to choose depends on the access methods the client supports and the capabilities you need:
 
-| | Claw Skill | MCP Server |
+| | Claw Skill | MCP Server（内置） |
 | --- | --- | --- |
-| Aimed at | Agents in the OpenClaw / ClawHub ecosystem | Clients supporting the MCP protocol (Claude Desktop, VS Code Copilot, etc.) |
-| Installation | Install the Skill via ClawHub | `pip install tencent-weknora-mcp` or run via `uvx` |
-| Transport | Direct REST calls | stdio / SSE / Streamable HTTP |
-| Scope of capability | Import, search, browse (5 categories) | 29 tools, also covering tenants, models, sessions, Agent Q&A, Wiki |
+| Aimed at | Agents in the OpenClaw / ClawHub ecosystem | Clients supporting the MCP protocol (Claude Desktop, Cursor, Claude Code, VS Code Copilot, etc.) |
+| Installation | Install the Skill via ClawHub | No extra deployment: create an endpoint under "Settings → Publish & Integrations → MCP Server", and clients connect to `/mcp/<endpoint_id>` |
+| Authentication | Space API Key (`WEKNORA_API_KEY`) | A separate token per endpoint, which can be rotated or disabled |
+| Transport | Direct REST calls | Streamable HTTP; clients that only support stdio bridge through `mcp-remote` |
+| Scope of capability | Import, search, browse (5 categories) | Selected per endpoint: retrieval and reading, Q&A (the endpoint's default Agent), Wiki, writes; can be limited to specific knowledge bases |
 | Documentation | This page | [MCP Integration](../03-features/08-mcp.md) |
 
-When you need fuller capability (running Agent conversations, managing models, reading the Wiki), use the MCP Server; if you just want Agents to store and access material, the Skill is lighter-weight.
+Use the MCP Server when you need Q&A or Wiki tools, or want to limit tools and knowledge base scope per endpoint; for importing, searching, and browsing material in the OpenClaw ecosystem, use Claw Skill. The Python MCP service under `mcp-server/` in the repository is deprecated; new integrations should use the built-in MCP Server.
 
-## Related
+## Related documentation {#related}
 
 - Narrowing credentials and capabilities: [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md)
 - Underlying interface: [API Overview](../04-api/01-api-overview.md)

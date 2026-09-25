@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
 	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -39,17 +41,23 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	}
 
 	// Verify that the knowledge base exists and is valid
-	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
+	kb, ctx, err := s.writableFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
+		return "", err
+	}
+	if err := s.validateFAQImportTags(ctx, kb, payload.Entries); err != nil {
 		return "", err
 	}
 
 	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
 
-	// Use the passed-in TaskID, or generate an enhanced TaskID if none was passed
-	taskID := payload.TaskID
+	// Use the passed-in TaskID, or generate an enhanced TaskID if none was passed.
+	// A client-supplied task_id ends up in file names and Redis keys, so it must be an identifier without path separators.
+	taskID := strings.TrimSpace(payload.TaskID)
 	if taskID == "" {
 		taskID = secutils.GenerateTaskID("faq_import", tenantID, kbID)
+	} else if err := secutils.ValidateTaskID(taskID); err != nil {
+		return "", werrors.NewBadRequestError("task_id 格式不合法")
 	}
 
 	var knowledgeID string
@@ -156,7 +164,10 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 		logger.Infof(ctx, "FAQ entries size: %d bytes, uploading to object storage", len(entriesData))
 
 		// Upload to the private bucket (primary bucket); clean up after task processing completes
-		fileName := fmt.Sprintf("faq_import_entries_%s_%d.json", taskID, enqueuedAt)
+		fileName, err := faqImportEntriesFileName(taskID, enqueuedAt)
+		if err != nil {
+			return "", fmt.Errorf("invalid task id for object name: %w", err)
+		}
 		entriesURL, err := s.fileSvc.SaveBytes(ctx, entriesData, tenantID, fileName, false)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to upload FAQ entries to object storage: %v", err)
@@ -182,7 +193,10 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	if len(payloadBytes) > payloadSizeThreshold && taskPayload.EntriesURL == "" {
 		// Payload is too large but not yet uploaded; upload it now
 		entriesData, _ := json.Marshal(payload.Entries)
-		fileName := fmt.Sprintf("faq_import_entries_%s_%d.json", taskID, enqueuedAt)
+		fileName, nameErr := faqImportEntriesFileName(taskID, enqueuedAt)
+		if nameErr != nil {
+			return "", fmt.Errorf("invalid task id for object name: %w", nameErr)
+		}
 		entriesURL, err := s.fileSvc.SaveBytes(ctx, entriesData, tenantID, fileName, false)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to upload FAQ entries to object storage: %v", err)
@@ -235,6 +249,10 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	return taskID, nil
 }
 
+func faqImportEntriesFileName(taskID string, enqueuedAt int64) (string, error) {
+	return secutils.SafeFileName(fmt.Sprintf("faq_import_entries_%s_%d.json", taskID, enqueuedAt))
+}
+
 // generateFailedEntriesCSV generates a CSV file of failed entries and uploads it
 func (s *knowledgeService) generateFailedEntriesCSV(ctx context.Context,
 	tenantID uint64, taskID string, failedEntries []types.FAQFailedEntry,
@@ -280,7 +298,10 @@ func (s *knowledgeService) generateFailedEntriesCSV(ctx context.Context,
 	}
 
 	// Upload the CSV file to temporary storage (auto-expires)
-	fileName := fmt.Sprintf("faq_dryrun_failed_%s.csv", taskID)
+	fileName, err := secutils.SafeFileName(fmt.Sprintf("faq_dryrun_failed_%s.csv", taskID))
+	if err != nil {
+		return "", fmt.Errorf("invalid task id for object name: %w", err)
+	}
 	filePath, err := s.fileSvc.SaveBytes(ctx, []byte(buf.String()), tenantID, fileName, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to save CSV file: %w", err)
@@ -1370,7 +1391,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 		}
 	}()
 
-	kb, err = s.validateFAQKnowledgeBase(ctx, kbID)
+	kb, ctx, err = s.writableFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return err
 	}
@@ -1572,17 +1593,19 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			indexDuration,
 		)
 
-		// Update the chunks' Status to indexed
-		chunksToUpdate := make([]*types.Chunk, 0, len(chunks))
+		// Update the chunks' Status to indexed: every row gets the same value, so a single
+		// UPDATE ... WHERE id IN is enough, without sending content and other fields back again.
 		for _, chunk := range chunks {
 			chunk.Status = int(types.ChunkStatusIndexed) // indexed
-			chunksToUpdate = append(chunksToUpdate, chunk)
 		}
-		if err := s.chunkService.UpdateChunks(ctx, chunksToUpdate); err != nil {
+		if err := s.chunkRepo.UpdateChunkFieldsByIDs(ctx, tenantID, chunkIds, map[string]interface{}{
+			"status": int(types.ChunkStatusIndexed),
+		}); err != nil {
 			return fmt.Errorf("failed to update chunks status: %w", err)
 		}
 
-		// Collect successful entry info
+		// Collect successful entry info (tags are loaded once per batch instead of one query per entry)
+		tagsByID := s.loadFAQTagsForChunks(ctx, tenantID, chunks)
 		for idx, chunk := range chunks {
 			entryIdx := i + idx + processedCount // Original entry index
 			meta, _ := chunk.FAQMetadata()
@@ -1590,15 +1613,7 @@ func (s *knowledgeService) executeFAQImport(ctx context.Context, taskID string, 
 			if meta != nil {
 				standardQ = meta.StandardQuestion
 			}
-			// Get tag info
-			var tagID int64
-			tagName := ""
-			if chunk.TagID != "" {
-				if tag, err := s.tagRepo.GetByID(ctx, tenantID, chunk.TagID); err == nil && tag != nil {
-					tagID = tag.SeqID
-					tagName = tag.Name
-				}
-			}
+			tagID, tagName := faqTagInfo(tagsByID, chunk.TagID)
 			progress.SuccessEntries = append(progress.SuccessEntries, types.FAQSuccessEntry{
 				Index:            entryIdx,
 				SeqID:            chunk.SeqID,
@@ -2229,7 +2244,29 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 
 	ctx = logger.WithRequestID(ctx, uuid.New().String())
 	ctx = logger.WithField(ctx, "faq_import", payload.TaskID)
-	ctx = context.WithValue(ctx, types.TenantIDContextKey, payload.TenantID)
+	ctx = types.WithExecutionTenant(ctx, payload.TenantID)
+	kb, err := s.validateFAQKnowledgeBase(ctx, payload.KBID)
+	if err != nil {
+		if errors.Is(err, repository.ErrKnowledgeBaseNotFound) {
+			return fmt.Errorf("%w: FAQ task KB no longer exists", asynq.SkipRetry)
+		}
+		return err
+	}
+	ctx, err = access.WithKBTaskWrite(ctx, kb, payload.TenantID)
+	if err != nil {
+		return fmt.Errorf("%w: FAQ task KB does not belong to its tenant", asynq.SkipRetry)
+	}
+	knowledge, err := s.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
+	if err != nil {
+		if errors.Is(err, repository.ErrKnowledgeNotFound) {
+			return fmt.Errorf("%w: FAQ task document no longer exists", asynq.SkipRetry)
+		}
+		return err
+	}
+	if knowledge == nil || knowledge.TenantID != payload.TenantID || knowledge.KnowledgeBaseID != payload.KBID ||
+		knowledge.Type != types.KnowledgeTypeFAQ {
+		return fmt.Errorf("%w: FAQ task document does not belong to its KB", asynq.SkipRetry)
+	}
 
 	// Get task retry info, used to determine whether this is the last retry
 	retryCount, _ := asynq.GetRetryCount(ctx)
@@ -2271,6 +2308,9 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 
 	logger.Infof(ctx, "Processing FAQ import task: task_id=%s, kb_id=%s, total_entries=%d, dry_run=%v, retry=%d/%d",
 		payload.TaskID, payload.KBID, len(payload.Entries), payload.DryRun, retryCount, maxRetry)
+	if err := s.validateFAQImportTags(ctx, kb, payload.Entries); err != nil {
+		return err
+	}
 
 	// Save the original total count
 	originalTotalEntries := len(payload.Entries)
@@ -2343,31 +2383,6 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	progress.UpdatedAt = time.Now().Unix()
 	if err := s.saveFAQImportProgress(ctx, progress); err != nil {
 		logger.Warnf(ctx, "Failed to update FAQ import progress: %v", err)
-	}
-
-	// Idempotency check: fetch the knowledge record (FAQ tasks use the knowledge ID as taskID)
-	knowledge, err := s.repo.GetKnowledgeByID(ctx, payload.TenantID, payload.KnowledgeID)
-	if err != nil {
-		logger.Errorf(ctx, "failed to get FAQ knowledge: %v", err)
-		return nil
-	}
-
-	if knowledge == nil {
-		return nil
-	}
-
-	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, payload.KBID)
-	if err != nil {
-		logger.Errorf(ctx, "Failed to get knowledge base: %v", err)
-		// If this is the last retry, update the status to failed
-		if isLastRetry {
-			if updateErr := s.updateFAQImportProgressStatus(ctx, payload.TaskID, payload.InstanceID, payload.EnqueuedAt, types.FAQImportStatusFailed, 0, originalTotalEntries, 0, "Failed to get knowledge base", err.Error()); updateErr != nil {
-				logger.Errorf(ctx, "Failed to update task status to failed: %v", updateErr)
-			}
-			s.recordFAQImportKBActivity(ctx, &payload, progress, originalTotalEntries, types.AuditActionFAQImportFailed, types.AuditOutcomeFailed)
-		}
-		s.cleanupFAQEntriesFileOnFinalFailure(ctx, payload.EntriesURL, retryCount, maxRetry)
-		return fmt.Errorf("failed to get knowledge base: %w", err)
 	}
 
 	// Check task status - idempotency handling (reuse the previously fetched existingProgress)
@@ -2666,17 +2681,11 @@ func (s *knowledgeService) executeFAQMergeOperations(
 		}
 
 		// 5. Collect info on successful entries
+		tagsByID := s.loadFAQTagsForChunks(ctx, tenantID, mergedChunks)
 		for i, op := range batch {
 			chunk := mergedChunks[i]
 			meta := op.MergedMeta
-			var tagID int64
-			tagName := ""
-			if chunk.TagID != "" {
-				if tag, tErr := s.tagRepo.GetByID(ctx, tenantID, chunk.TagID); tErr == nil && tag != nil {
-					tagID = tag.SeqID
-					tagName = tag.Name
-				}
-			}
+			tagID, tagName := faqTagInfo(tagsByID, chunk.TagID)
 			progress.SuccessEntries = append(progress.SuccessEntries, types.FAQSuccessEntry{
 				Index:            op.Detail.Index,
 				SeqID:            chunk.SeqID,
@@ -2694,11 +2703,58 @@ func (s *knowledgeService) executeFAQMergeOperations(
 	return mergedCount, nil
 }
 
+// loadFAQTagsForChunks resolves every distinct tag referenced by chunks with a
+// single query. Lookup failures are logged and yield an empty map so the
+// import result degrades to "no tag info" instead of aborting the batch.
+func (s *knowledgeService) loadFAQTagsForChunks(
+	ctx context.Context, tenantID uint64, chunks []*types.Chunk,
+) map[string]*types.KnowledgeTag {
+	tagsByID := make(map[string]*types.KnowledgeTag)
+	seen := make(map[string]struct{})
+	ids := make([]string, 0)
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.TagID == "" {
+			continue
+		}
+		if _, ok := seen[chunk.TagID]; ok {
+			continue
+		}
+		seen[chunk.TagID] = struct{}{}
+		ids = append(ids, chunk.TagID)
+	}
+	if len(ids) == 0 {
+		return tagsByID
+	}
+	tags, err := s.tagRepo.GetByIDs(ctx, tenantID, ids)
+	if err != nil {
+		logger.Warnf(ctx, "Failed to load FAQ tags for import result: %v", err)
+		return tagsByID
+	}
+	for _, tag := range tags {
+		if tag != nil {
+			tagsByID[tag.ID] = tag
+		}
+	}
+	return tagsByID
+}
+
+// faqTagInfo returns the external (seq_id, name) pair for tagID, or zero values
+// when the chunk has no tag or the tag could not be loaded.
+func faqTagInfo(tagsByID map[string]*types.KnowledgeTag, tagID string) (int64, string) {
+	if tagID == "" {
+		return 0, ""
+	}
+	if tag, ok := tagsByID[tagID]; ok && tag != nil {
+		return tag.SeqID, tag.Name
+	}
+	return 0, ""
+}
+
 // buildFAQImportResultMessage builds a human-readable message for the final FAQ import/validation result.
 // The frontend displays it directly in the toast / task list, so keep it simple and clear:
-// - Default form: "Import complete / N uploaded / X succeeded [/ Y failed] [/ Z partially failed]"
-// - When MergedCount > 0, switch to the split form: "/ X added / Y merged and updated",
-// so users can see how many historical FAQs were merged in append mode, instead of just the total success count.
+//   - Default form: "Import complete / N uploaded / X succeeded [/ Y failed] [/ Z partially failed]"
+//   - When MergedCount > 0, switch to the split form: "/ X added / Y merged and updated",
+//     so users can see how many historical FAQs were merged in append mode, instead of just the total success count.
 //
 // Original internal master implementation; not present before HEAD — all completion messages previously read "Processing item N/M".
 func (s *knowledgeService) buildFAQImportResultMessage(prefix string, progress *types.FAQImportProgress) string {
@@ -2809,8 +2865,11 @@ func (s *knowledgeService) UpdateLastFAQImportResultDisplayStatus(ctx context.Co
 		return werrors.NewBadRequestError("invalid display status, must be 'open' or 'close'")
 	}
 
-	// Get the current space ID
-	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
+	kb, ctx, err := s.writableFAQKnowledgeBase(ctx, kbID)
+	if err != nil {
+		return err
+	}
+	tenantID := kb.TenantID
 
 	// Look up knowledge of type FAQ
 	knowledgeList, err := s.repo.ListKnowledgeByKnowledgeBaseID(ctx, tenantID, kbID)

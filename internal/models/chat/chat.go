@@ -1,87 +1,62 @@
+// Package chat exposes the Chat interface used by the application layer and
+// builds the right protocol client for a configured model. Every vendor fact
+// comes from internal/models/catalog; every wire protocol lives under
+// internal/models/api. This package only glues the two together and wraps
+// the client with debug / tracing / concurrency decorators.
 package chat
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/models/provider"
+	"github.com/Tencent/WeKnora/internal/models/api"
+	"github.com/Tencent/WeKnora/internal/models/api/anthropicmessages"
+	"github.com/Tencent/WeKnora/internal/models/api/googlegenai"
+	"github.com/Tencent/WeKnora/internal/models/api/openaicompletions"
+	"github.com/Tencent/WeKnora/internal/models/api/openairesponses"
+	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
 	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
 	"github.com/Tencent/WeKnora/internal/types"
+	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
-// Tool represents a function/tool definition
-type Tool struct {
-	Type     string      `json:"type"` // "function"
-	Function FunctionDef `json:"function"`
-}
+// Message and the other aliases below re-export the request model defined
+// in internal/models/api so historical chat.* names keep working.
+//
+//nolint:revive // ChatOptions is the historical name every caller uses.
+type (
+	Message            = api.Message
+	MessageContentPart = api.MessageContentPart
+	ImageURL           = api.ImageURL
+	MessageKind        = api.MessageKind
+	ToolCall           = api.ToolCall
+	FunctionCall       = api.FunctionCall
+	Tool               = api.Tool
+	FunctionDef        = api.FunctionDef
+	ChatOptions        = api.Options
+	CacheRetention     = api.CacheRetention
+	ReasoningEffort    = api.ReasoningEffort
+)
 
-// FunctionDef represents a function definition
-type FunctionDef struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
-}
+// Re-exported constants of the request model.
+const (
+	MessageKindCompactionSummary = api.MessageKindCompactionSummary
+	CacheRetentionNone           = api.CacheRetentionNone
+	CacheRetentionShort          = api.CacheRetentionShort
+	CacheRetentionLong           = api.CacheRetentionLong
+)
 
-// ChatOptions chat options
-type ChatOptions struct {
-	Temperature         float64         `json:"temperature"`                   // Temperature parameter
-	TopP                float64         `json:"top_p"`                         // Top P parameter
-	Seed                int             `json:"seed"`                          // Random seed
-	MaxTokens           int             `json:"max_tokens"`                    // Maximum token count
-	MaxCompletionTokens int             `json:"max_completion_tokens"`         // Maximum completion token count
-	FrequencyPenalty    float64         `json:"frequency_penalty"`             // Frequency penalty
-	PresencePenalty     float64         `json:"presence_penalty"`              // Presence penalty
-	Thinking            *bool           `json:"thinking"`                      // Whether thinking is enabled
-	Tools               []Tool          `json:"tools,omitempty"`               // List of available tools
-	ToolChoice          string          `json:"tool_choice,omitempty"`         // "auto", "required", "none", or specific tool
-	ParallelToolCalls   *bool           `json:"parallel_tool_calls,omitempty"` // Whether to allow parallel tool calls (default nil means the model decides)
-	Format              json.RawMessage `json:"format,omitempty"`              // Response format definition
-}
+// SanitizeReasoningEffort is re-exported for the callers that build
+// ChatOptions from stored strings (agent config, session SummaryConfig).
+var SanitizeReasoningEffort = api.SanitizeReasoningEffort
 
-// MessageContentPart represents a part of multi-content message
-type MessageContentPart struct {
-	Type     string    `json:"type"`                // "text" or "image_url"
-	Text     string    `json:"text,omitempty"`      // For type="text"
-	ImageURL *ImageURL `json:"image_url,omitempty"` // For type="image_url"
-}
-
-// ImageURL represents the image URL structure
-type ImageURL struct {
-	URL    string `json:"url"`              // URL or base64 data URI
-	Detail string `json:"detail,omitempty"` // "auto", "low", "high"
-}
-
-// Message represents a chat message
-type Message struct {
-	Role         string               `json:"role"`                    // Role: system, user, assistant, tool
-	Content      string               `json:"content"`                 // Message content
-	MultiContent []MessageContentPart `json:"multi_content,omitempty"` // Multi-content message (text + image)
-	Name         string               `json:"name,omitempty"`          // Function/tool name (for tool role)
-	ToolCallID   string               `json:"tool_call_id,omitempty"`  // Tool call ID (for tool role)
-	ToolCalls    []ToolCall           `json:"tool_calls,omitempty"`    // Tool calls (for assistant role)
-	Images       []string             `json:"images,omitempty"`        // Image URLs for multimodal (only for current user message)
-	// ReasoningContent is used by assistant reasoning models (DeepSeek thinking, Xiaomi MiMo, vLLM reasoning, etc.)
-	// Thinking content output in the previous round. Some providers (MiMo, DeepSeek V3.2/V4 thinking mode) require that in multi-turn conversations
-	// the assistant's reasoning_content be passed back verbatim, otherwise the request is rejected with 400; other providers that don't require this
-	// will ignore unknown fields, with no side effects.
-	ReasoningContent string `json:"reasoning_content,omitempty"`
-}
-
-// ToolCall represents a tool call in a message
-type ToolCall struct {
-	ID               string                 `json:"id"`
-	Type             string                 `json:"type"` // "function"
-	Function         FunctionCall           `json:"function"`
-	ProviderMetadata types.ToolCallMetadata `json:"provider_metadata,omitempty"`
-}
-
-// FunctionCall represents a function call
-type FunctionCall struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"` // JSON string
-}
+// Prompt-cache helpers re-exported for the application layer.
+var (
+	FingerprintPromptPrefix = api.FingerprintPromptPrefix
+	PromptPrefixFingerprint = api.PromptPrefixFingerprint
+	BuildPromptCacheKey     = api.BuildPromptCacheKey
+)
 
 // Chat defines the chat interface
 type Chat interface {
@@ -98,6 +73,7 @@ type Chat interface {
 	GetModelID() string
 }
 
+// ChatConfig is the operator-facing configuration of one chat model.
 type ChatConfig struct {
 	Source    types.ModelSource
 	BaseURL   string
@@ -109,15 +85,17 @@ type ChatConfig struct {
 	// back to the process-wide default (see limiter.GateN).
 	MaxConcurrency int
 	ExtraConfig    map[string]string
-	// CustomHeaders allows attaching custom HTTP headers when calling a remote OpenAI-compatible API (like OpenAI Python SDK's extra_headers).
+	// CustomHeaders allows attaching custom HTTP headers to remote API calls (like OpenAI Python SDK's extra_headers).
 	CustomHeaders map[string]string
 	AppID         string
-	AppSecret     string // Encrypted value, passed in by the factory function caller, already decrypted before use in NewWeKnoraCloudChat
+	AppSecret     string // Encrypted value, passed in by the factory function caller, already decrypted before use
+	// Spec carries per-row catalog overrides (protocol, compat, levels).
+	Spec *types.ModelSpecOverride
 }
 
 // ConfigFromModel builds a ChatConfig from types.Model.
 // Ensures the production path (the service layer spins up an instance based on the model config in the DB) and the test path
-// (the handler layer temporarily spins up an instance based on the frontend form) go through exactly the same field mapping, avoiding duplicated boilerplate.
+// (the handler layer temporarily spins up an instance based on the frontend form) go through exactly the same field mapping.
 // appID / appSecret are already decrypted/parsed WeKnoraCloud credentials; the caller is responsible for passing them in.
 func ConfigFromModel(m *types.Model, appID, appSecret string) *ChatConfig {
 	if m == nil {
@@ -135,6 +113,7 @@ func ConfigFromModel(m *types.Model, appID, appSecret string) *ChatConfig {
 		CustomHeaders:  m.Parameters.CustomHeaders,
 		AppID:          appID,
 		AppSecret:      appSecret,
+		Spec:           m.Parameters.Spec,
 	}
 }
 
@@ -157,16 +136,89 @@ func NewChat(config *ChatConfig, ollamaService *ollama.OllamaService) (Chat, err
 	return wrapChatConcurrency(c, config.MaxConcurrency, err)
 }
 
-// NewRemoteChat creates a remote chat instance based on the provider.
-// Anthropic uses a separate Messages protocol implementation; other OpenAI-compatible providers are handled uniformly by
-// RemoteAPIChat, with provider-specific behavior resolved at construction time via providerAdapter.
+// Resolve looks the configuration up in the catalog. It is exposed so the
+// handler layer can report the effective protocol and capabilities.
+func Resolve(config *ChatConfig) (*modelruntime.Resolved, error) {
+	if config == nil {
+		return nil, fmt.Errorf("chat config is nil")
+	}
+	return modelruntime.Resolve(modelruntime.Ref{
+		Provider:  config.Provider,
+		Model:     config.ModelName,
+		BaseURL:   config.BaseURL,
+		ModelType: types.ModelTypeKnowledgeQA,
+		Extra:     config.ExtraConfig,
+		Override:  config.Spec,
+	})
+}
+
+// EffectiveThinkingControl reports how the resolved model encodes thinking
+// ("none" when it cannot be asked to think). Kept for the model debug view.
+func EffectiveThinkingControl(config *ChatConfig) string {
+	resolved, err := Resolve(config)
+	if err != nil {
+		return "none"
+	}
+	caps := resolved.Capabilities()
+	if len(caps.ThinkingLevels) == 0 {
+		return "none"
+	}
+	return caps.ThinkingFormat
+}
+
+// NewRemoteChat builds the protocol client for a remote model.
 func NewRemoteChat(config *ChatConfig) (Chat, error) {
-	providerName := provider.ProviderName(config.Provider)
-	if providerName == "" {
-		providerName = provider.DetectProvider(config.BaseURL)
+	resolved, err := Resolve(config)
+	if err != nil {
+		return nil, err
 	}
-	if providerName == provider.ProviderAnthropic {
-		return NewAnthropicChat(config)
+	vendor := resolved.Vendor
+	if resolved.BaseURL != "" {
+		if err := secutils.ValidateURLForSSRF(resolved.BaseURL); err != nil {
+			return nil, fmt.Errorf("baseURL SSRF check failed: %w", err)
+		}
 	}
-	return NewRemoteAPIChat(config)
+
+	endpoint, err := resolved.Endpoint(types.ModelTypeKnowledgeQA, modelruntime.Connection{
+		ModelID:     config.ModelID,
+		Credentials: api.Credentials{APIKey: config.APIKey, AppID: config.AppID, AppSecret: config.AppSecret},
+		Headers:     config.CustomHeaders,
+		Extra:       config.ExtraConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	switch resolved.API {
+	case api.APIOpenAICompletions:
+		return openaicompletions.New(openaicompletions.Config{
+			Endpoint:       endpoint,
+			Settings:       resolved.OpenAICompletions,
+			ThinkingLevels: resolved.ThinkingLevels,
+			Reasoning:      resolved.Spec.Reasoning,
+		}), nil
+	case api.APIOpenAIResponses:
+		return openairesponses.New(openairesponses.Config{
+			Endpoint:       endpoint,
+			Settings:       resolved.OpenAIResponses,
+			ThinkingLevels: resolved.ThinkingLevels,
+			Reasoning:      resolved.Spec.Reasoning,
+		}), nil
+	case api.APIAnthropicMessages:
+		return anthropicmessages.New(anthropicmessages.Config{
+			Endpoint:       endpoint,
+			Settings:       resolved.AnthropicMessages,
+			ThinkingLevels: resolved.ThinkingLevels,
+			Reasoning:      resolved.Spec.Reasoning,
+		}), nil
+	case api.APIGoogleGenerativeAI:
+		return googlegenai.New(googlegenai.Config{
+			Endpoint:       endpoint,
+			Settings:       resolved.GoogleGenerativeAI,
+			ThinkingLevels: resolved.ThinkingLevels,
+			Reasoning:      resolved.Spec.Reasoning,
+		}), nil
+	default:
+		return nil, fmt.Errorf("unsupported chat api %q for provider %s", resolved.API, vendor.ID)
+	}
 }

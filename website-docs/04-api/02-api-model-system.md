@@ -1,6 +1,6 @@
 # API Reference: Models and Initialization
 
-Route registration: `RegisterModelRoutes`, `RegisterInitializationRoutes`, `RegisterEvaluationRoutes`, `RegisterWeKnoraCloudRoutes` in `internal/router/router.go`. Handlers: `internal/handler/model.go`, `internal/handler/model_credentials.go`, `internal/handler/initialization.go`, `internal/handler/evaluation.go`, `internal/handler/weknoracloud.go`.
+Manage models, test connections, initialize Knowledge Bases, and start evaluation tasks. The WeKnoraCloud endpoints are used to connect to the related cloud services.
 
 For system information and system administration (`/system`, `/system/admin`) endpoints, see [System and Platform Management](./02-api-system.md).
 
@@ -10,12 +10,36 @@ API key: `manage_models` or full-access.
 
 ### GET /api/v1/models/providers
 
-Purpose: list of model providers. Permission: Viewer+. Query parameters: `model_type` (optional: `chat/embedding/rerank/vllm/asr`). Handler: `internal/handler/model.go`
+Purpose: provider catalog (the frontend uses it to dynamically render the provider dropdown, icons, extra fields, and model selection). Permission: Viewer+. Query parameters: `model_type` (optional: `chat/embedding/rerank/vllm/asr`; backend values such as `KnowledgeQA` are also accepted; unknown values return 400). When specified, only providers that support that type, and only models of that type, are returned. Handler: `internal/handler/model_catalog.go`
 
-Response: 200 `{"success":true,"data":[{value,label,description,defaultUrls,modelTypes}]}`
+Response: 200 `{"success":true,"data":[ModelProviderDTO]}`, where each item contains:
+
+| Field | Description |
+| --- | --- |
+| `value` / `label` / `labels` / `description` / `descriptions` / `website` | Provider id, brand name, and per-language names and descriptions |
+| `icon` | `data:image/svg+xml;base64,...`, usable directly in `<img src>` |
+| `api` / `auth` / `requiresAuth` | Default protocol (`openai-completions`, etc.), authentication method, and whether a key is required |
+| `defaultUrls` / `modelTypes` | Default URLs per model type and the supported types. `defaultUrls` is returned only to Admin+ (or a full-access / `manage_tenant_settings` API key); it is empty for other callers |
+| `extraFields` | Definitions of provider-specific extra configuration fields (`key,label,labels,type,required,default,placeholder,options,model_types,secret`); values are stored in `parameters.extra_config` |
+| `credentialLabels` | Names and hints of the credential input for some model types (for example, the API Key field for Volcengine and LKEAP rerank is actually an Access Key ID / SecretId) |
+| `models` | Built-in model catalog (`id,name,type,api,reasoning,input,context_window,max_output_tokens,dimension,thinking_levels,cost,source`); `source` is the link to the provider documentation the model parameters are based on |
+| `thinking` | Provider-level thinking encoding summary (`format`, `levels`) |
+| `order` | Sort value in the list |
 
 ```bash
 curl "$BASE/api/v1/models/providers?model_type=chat" -H "Authorization: Bearer $TOKEN"
+```
+
+### GET|POST /api/v1/models/catalog/resolve
+
+用途：按厂商、模型名、`base_url` 与 `extra_config` 解析有效接入配置（协议、思考等级、上下文），供模型编辑器实时展示。权限：Viewer+。
+
+参数（GET 用查询参数，POST 用 JSON 请求体，字段相同）：`provider`（厂商 ID）、`model`、`base_url`、`model_type`（默认 `chat`）、`api`、`thinking_control`、`remote_model_name`，以及该厂商声明的非密钥额外字段（如 Azure 的 `api_version`）。POST 请求体还可带 `spec` 对象（与模型 `parameters.spec` 相同），用于预览单行目录覆盖。密钥类字段一律不接受。
+
+响应：200 `{"success":true,"data":{provider,api,remote_model,cataloged,model,capabilities,base_url,url}}`，其中 `capabilities` 为 `{provider,api,cataloged,reasoning,thinking_levels,thinking_format,input,context_window,max_output_tokens,max_tokens_field}`。`base_url` 与 `url`（实际请求地址，仅自行计算地址的厂商返回，如 Azure）只对 Admin+（或 full-access / `manage_tenant_settings` API key）返回。无法解析时返回 400。同一 `capabilities` 结构也随远程对话/视觉模型的 `ModelResponse.capabilities` 返回。
+
+```bash
+curl "$BASE/api/v1/models/catalog/resolve?provider=deepseek&model=deepseek-v4-pro" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### POST /api/v1/models
@@ -26,16 +50,18 @@ Purpose: create a model. Permission: Admin+.
 | --- | --- | --- | --- |
 | `name` | string | Yes (`binding:"required"`) | Model name |
 | `display_name` | string | No | Display name |
-| `type` | string | Yes (`binding:"required"`) | Model type |
-| `source` | string | Yes (`binding:"required"`) | Source (local/remote…) |
+| `type` | string | Yes (`binding:"required"`) | Model type: `KnowledgeQA` / `Embedding` / `Rerank` / `VLLM` / `ASR` (stored as-is; frontend forms such as `chat` are not accepted) |
+| `source` | string | Yes (`binding:"required"`) | Source (`local` / `remote`) |
 | `description` | string | No | Description |
-| `parameters` | object | Yes (`binding:"required"`) | Connection parameters (base_url, etc.; keys are managed through the credentials sub-resource) |
+| `parameters` | object | Yes (`binding:"required"`) | Connection parameters (`base_url`, `provider`, `extra_config`, `spec`, `context_window`, etc.; see [Model Management](../03-features/06-models.md#model-configuration-fields) for the fields). `api_key` / `app_secret` can be passed directly at creation time and changed later through the credentials sub-resource |
 
-Response: 201 `{"success":true,"data":{ModelResponse}}` (`id,name,type,source,parameters,is_default,is_builtin,status,credentials,...`)
+`parameters` is validated against the model catalog (unknown protocols, wrong compat keys, and invalid thinking levels return 400), and `base_url` goes through SSRF validation.
+
+Response: 201 `{"success":true,"data":{ModelResponse}}` (`id,name,type,source,parameters,is_default,is_builtin,status,credentials,capabilities,...`; the response contains no keys)
 
 ```bash
 curl -X POST $BASE/api/v1/models -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"gpt-4o-mini","type":"chat","source":"remote","parameters":{"base_url":"https://api.openai.com/v1"}}'
+  -d '{"name":"gpt-5.5","type":"KnowledgeQA","source":"remote","parameters":{"provider":"openai","base_url":"https://api.openai.com/v1","api_key":"sk-..."}}'
 ```
 
 ### GET /api/v1/models
@@ -60,7 +86,7 @@ curl $BASE/api/v1/models/m-1 -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/models/:id/debug
 
-Purpose: debug a saved model (triggers a real upstream call, which incurs costs). Permission: Admin+. form-data fields: `input` (≤64KB), `options` (JSON-encoded debug options), `documents` (JSON array, ≤100 items), `file` (optional).
+Purpose: debug a saved model (triggers a real upstream call, which incurs costs). Permission: Admin+. form-data fields: `input` (≤64KB), `options` (JSON-encoded debug options: `system_prompt`, `temperature` (0~2), `top_p`, `max_tokens` (1~8192), `thinking`, `reasoning_effort` (`off/auto/minimal/low/medium/high/xhigh/max`; when set, it overrides `thinking`)), `documents` (JSON array, ≤100 items), `file` (optional).
 
 Response: 200 `{"success":true,"data":{"ok",elapsed_ms,request,raw_response,observations,error}}`
 
@@ -84,6 +110,30 @@ curl -X PUT $BASE/api/v1/models/m-1 -H "Authorization: Bearer $TOKEN" \
 Purpose: delete a model. Permission: Admin+.
 
 Response: 200 `{"success":true,"message":"Model deleted"}`
+
+仍被当前空间的知识库、智能体或长期记忆引用时，响应为 HTTP 400；兼容 message 保留，同时 `error.code=2300`，`error.details` 给出具体对象和引用位置：
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": 2300,
+    "message": "model is used by 2 knowledge base(s); reconfigure or remove those references before deleting",
+    "details": {
+      "knowledge_bases": [
+        {"id": "kb-1", "name": "Product docs", "bindings": ["vlm_model"]},
+        {"id": "kb-2", "name": "Engineering", "bindings": ["vlm_model"]}
+      ],
+      "agents": [],
+      "long_term_memory": {"bindings": []},
+      "knowledge_base_total": 2,
+      "agent_total": 0
+    }
+  }
+}
+```
+
+知识库绑定值：`embedding_model`、`summary_model`、`image_processing_model`、`vlm_model`、`asr_model`、`wiki_synthesis_model`、`auto_tag_model`；智能体绑定值：`chat_model`、`rerank_model`、`vlm_model`、`asr_model`、`query_understand_model`、`follow_up_model`；长期记忆绑定值：`embedding_model`、`extract_model`。详情包含对象 `id`、`name`、合并后的 `bindings`，以及 `knowledge_base_total` / `agent_total`。列表最多各 50 条，删除守卫以总数为准。
 
 ```bash
 curl -X DELETE $BASE/api/v1/models/m-1 -H "Authorization: Bearer $TOKEN"
@@ -148,6 +198,8 @@ Handler: `internal/handler/initialization.go`. KB configuration endpoints: API k
 
 Purpose: read the KB's current model/parsing configuration. Permission: Viewer+, KB read.
 
+The model `baseUrl` is returned only to Admin+ of the space that owns the KB (or a full-access / `manage_tenant_settings` API key). A space accessing the KB through organization sharing can only see whether credentials are configured (`credentials.*`), not the source space's model URLs or bucket information.
+
 Response: 200 `{"success":true,"data":{"hasFiles",llm,embedding,rerank,multimodal,documentSplitting,nodeExtract,questionGeneration}}`
 
 ```bash
@@ -157,6 +209,8 @@ curl $BASE/api/v1/initialization/config/kb-1 -H "Authorization: Bearer $TOKEN"
 ### POST /api/v1/initialization/initialize/:kbId
 
 Purpose: initialize the KB's model and parsing configuration (first-time setup wizard). Permission: KB creator OR Admin+, KB write.
+
+Only the space that owns the KB can call this endpoint; a space that has edit permission through organization sharing is rejected (403). When the KB already has bound models, this endpoint updates those models' configuration in place, which requires the same permission as `PUT /models/:id` (Admin+, or an API key with the `manage_models` capability); otherwise it returns 403.
 
 Main fields (`InitializationRequest`):
 
@@ -184,6 +238,8 @@ curl -X POST $BASE/api/v1/initialization/initialize/kb-1 -H "Authorization: Bear
 ### PUT /api/v1/initialization/config/:kbId
 
 Purpose: update the KB's model/chunking configuration (`KBModelConfigRequest`: `llmModelId` required; `embeddingModelId`, `vlm_config`, `asr_config`, `documentSplitting.*`, `multimodal.enabled`, `storageProvider`, `storageBackendId`, `nodeExtract.*`, `questionGeneration.*` optional). Permission: KB creator OR Admin+, KB write.
+
+When accessed through organization sharing, the effective share permission must be admin; editor can only edit content, not change settings (403). The storage binding (`storageBackendId` / `storageProvider`) can only be changed by the space that owns the KB; other spaces submitting a value different from the current one get 403.
 
 Response: 200 `{"success":true,"message":"Configuration updated successfully"}`
 
@@ -264,9 +320,10 @@ The request body uniformly follows `ModelTestRequest`:
 | `modelName` | string | Yes | Model name |
 | `baseUrl` / `apiKey` / `appSecret` | string | No | Connection parameters |
 | `provider` / `interfaceType` | string | No | Provider/interface type |
-| `dimension` | int | No | Embedding dimension |
+| `dimension` / `supportsDimensionOverride` | int / bool | No | Embedding dimension; whether to specify the dimension in the request |
 | `customHeaders` / `extraConfig` | map | No | Extensions |
-| `modelId` | string | No | Fetch credentials from an existing stored model |
+| `spec` | object | No | Single-row catalog override, same as the model's `parameters.spec` |
+| `modelId` | string | No | ID of an existing stored model: keys, `extraConfig`, and `spec` missing from the request are filled in from that model |
 
 | Endpoint | Purpose | Response data |
 | --- | --- | --- |
@@ -354,3 +411,7 @@ Response: 200 `{"success":true,"data":{evaluation result}}`
 ```bash
 curl "$BASE/api/v1/evaluation?task_id=task-1" -H "Authorization: Bearer $TOKEN"
 ```
+
+## 实现参考
+
+路由注册：`internal/router/router.go` 调用 `RegisterModelRoutes`、`RegisterInitializationRoutes`、`RegisterEvaluationRoutes`、`RegisterWeKnoraCloudRoutes`（定义在 `internal/router/routes_infra.go`）。Handler：`internal/handler/model.go`、`internal/handler/model_catalog.go`、`internal/handler/model_credentials.go`、`internal/handler/initialization.go`、`internal/handler/evaluation.go`、`internal/handler/weknoracloud.go`。

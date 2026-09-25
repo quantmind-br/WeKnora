@@ -32,6 +32,8 @@ var imToolNameLabels = map[string]string{
 	"search_knowledge":        "Knowledge Search",
 	"knowledge_search":        "Knowledge Search",
 	"grep_chunks":             "Search keywords",
+	"read_document":           "Read Document",
+	"list_documents":          "Browse Documents",
 	"web_search":              "Web Search",
 	"web_fetch":               "Web Fetch",
 	"get_document_info":       "Get document info",
@@ -49,6 +51,11 @@ var imToolNameLabels = map[string]string{
 	"query_knowledge_graph":   "Knowledge Graph Query",
 	"read_skill":              "Read Skill",
 	"execute_skill_script":    "Execute Skill Script",
+	"list_sandbox_files":      "List Sandbox Files",
+	"read_sandbox_file":       "Read Sandbox File",
+	"write_sandbox_file":      "Write Sandbox File",
+	"edit_sandbox_file":       "Edit Sandbox File",
+	"shell_exec":              "Run Sandbox Command",
 	"data_analysis":           "Data Analysis",
 	"data_schema":             "Data Schema",
 	"database_query":          "Database Query",
@@ -301,6 +308,59 @@ func FormatIMRagPipelineLine(step IMToolStep) string {
 	}
 }
 
+func imSandboxMutationTitle(step IMToolStep, pending bool) string {
+	name := imLocalizedToolName(step.ToolName)
+	path := imSandboxFilePath(step)
+	stat := imSandboxDiffStat(step)
+	base := name
+	if pending {
+		base = name + "..."
+	}
+	if path != "" {
+		base = imAppendQueryTitle(name, path)
+		if pending {
+			base += "..."
+		}
+	}
+	if stat != "" {
+		return base + " " + stat
+	}
+	return base
+}
+
+func imSandboxFilePath(step IMToolStep) string {
+	if step.Data != nil {
+		if p, ok := step.Data["path"].(string); ok && strings.TrimSpace(p) != "" {
+			return strings.TrimSpace(p)
+		}
+	}
+	if step.Arguments != nil {
+		if p, ok := step.Arguments["path"].(string); ok && strings.TrimSpace(p) != "" {
+			return strings.TrimSpace(p)
+		}
+	}
+	return ""
+}
+
+func imSandboxDiffStat(step IMToolStep) string {
+	added := imIntField(step.Arguments, "added_lines")
+	removed := imIntField(step.Arguments, "removed_lines")
+	if added == 0 && removed == 0 {
+		added = imIntField(step.Data, "added_lines")
+		removed = imIntField(step.Data, "removed_lines")
+	}
+	switch {
+	case added > 0 && removed > 0:
+		return fmt.Sprintf("+%d -%d", added, removed)
+	case added > 0:
+		return fmt.Sprintf("+%d", added)
+	case removed > 0:
+		return fmt.Sprintf("-%d", removed)
+	default:
+		return ""
+	}
+}
+
 func imAgentToolTitle(step IMToolStep) string {
 	if step.Pending {
 		switch step.ToolName {
@@ -308,6 +368,8 @@ func imAgentToolTitle(step IMToolStep) string {
 			return "Viewing image content..."
 		case "wiki_search", "wiki_read_page":
 			return imLocalizedToolName(step.ToolName) + "..."
+		case "write_sandbox_file", "edit_sandbox_file":
+			return imSandboxMutationTitle(step, true)
 		default:
 			return fmt.Sprintf("Calling %s...", imLocalizedToolName(step.ToolName))
 		}
@@ -351,6 +413,10 @@ func imAgentToolTitle(step IMToolStep) string {
 		return imAppendQueryTitle(base, pageLabel)
 	}
 
+	if toolName == "write_sandbox_file" || toolName == "edit_sandbox_file" {
+		return imSandboxMutationTitle(step, false)
+	}
+
 	if summary := imToolHeaderSummary(step); summary != "" {
 		return summary
 	}
@@ -388,11 +454,16 @@ func imToolStatusDescription(step IMToolStep) string {
 			return "Get document info"
 		}
 		return "Failed to get document info"
-	case "get_document_content", "wiki_read_source_doc":
+	case "get_document_content", "wiki_read_source_doc", "read_document":
 		if success {
-			return "Get document content"
+			return "Read document"
 		}
-		return "Failed to get document content"
+		return "Failed to read document"
+	case "list_documents":
+		if success {
+			return "Browse documents"
+		}
+		return "Failed to browse documents"
 	case "thinking":
 		if success {
 			return "Finished thinking"
@@ -438,7 +509,7 @@ func imToolHeaderSummary(step IMToolStep) string {
 				return fmt.Sprintf("Get document: %s", strings.TrimSpace(title))
 			}
 		}
-	case "list_knowledge_chunks":
+	case "list_knowledge_chunks", "read_document":
 		if data != nil {
 			if question, ok := data["faq_question"].(string); ok && strings.TrimSpace(question) != "" {
 				return fmt.Sprintf("View FAQ: %s", strings.TrimSpace(question))
@@ -468,8 +539,10 @@ func imToolResultSummary(step IMToolStep) string {
 		return imWebSearchSummary(step.Data)
 	case "grep_chunks":
 		return imGrepSearchSummary(step.Data)
-	case "list_knowledge_chunks":
+	case "list_knowledge_chunks", "read_document":
 		return imKnowledgeChunksSummary(step.Data)
+	case "list_documents":
+		return imDocumentListSummary(step.Data)
 	default:
 		return briefToolSummary(step.Output)
 	}
@@ -604,6 +677,21 @@ func imGrepDocumentCount(data map[string]interface{}) int {
 		return len(results)
 	}
 	return 0
+}
+
+func imDocumentListSummary(data map[string]interface{}) string {
+	if data == nil {
+		return ""
+	}
+	total := imNumericValue(data["total_docs"])
+	listed := 0
+	if docs, ok := data["documents"].([]interface{}); ok {
+		listed = len(docs)
+	}
+	if total == 0 && listed == 0 {
+		return "知识库中没有文档"
+	}
+	return fmt.Sprintf("列出 %d / %d 个文档", listed, total)
 }
 
 func imKnowledgeChunksSummary(data map[string]interface{}) string {

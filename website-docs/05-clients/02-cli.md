@@ -1,11 +1,21 @@
 # WeKnora CLI (`weknora` Command-Line Tool)
 
-The WeKnora CLI (binary name `weknora`) is the official command-line client for the WeKnora RAG service, with source code located in the repository's `cli/` directory (a standalone Go module: `github.com/Tencent/WeKnora/cli`, requiring Go 1.26+). It targets two kinds of users:
+The WeKnora CLI (command name `weknora`) manages Knowledge Bases and documents, runs retrieval, and conducts streaming Q&A. Interactive use can opt into human-readable output, while scripts and AI Agents can use JSON responses, typed errors, `--dry-run` previews, and `weknora schema` contract queries; `weknora mcp serve` provides an MCP server.
 
-- **Human users**: manage Knowledge Bases and documents, perform hybrid search (vector + keyword), and conduct grounded, streaming Q&A;
-- **AI Agents / scripts**: JSON envelope output by default, typed error codes and an exit-code matrix, `--dry-run` previews, a machine-readable `weknora schema` contract, and a `weknora mcp serve` MCP server mode.
+The source code is located in `cli/`, a standalone Go module (`github.com/Tencent/WeKnora/cli`); building from source requires Go 1.26+. The command entry point is `cli/cmd/root.go`.
 
-The command tree entry point is `cli/cmd/root.go`, with each command group organized under directories in `cli/cmd/`.
+Since v0.8.2, the console provides a setup guide page under "Settings → Publish & Integrations → CLI" that generates copyable commands for the current deployment:
+
+1. **Install**: build from source (requires Git and Go 1.26+; the example applies to macOS / Linux);
+2. **Connect**: `weknora profile add weknora --host '<current service address>' --use && weknora auth login` creates and activates a profile named `weknora`, then logs in with your email and password. The service address keeps any reverse proxy path prefix and does not need `/api/v1` at the end; if a profile with the same name already exists, choose another name;
+3. **Verify**: run `weknora doctor` and `weknora kb list` to confirm that the service and credentials work.
+
+The right side of the page also lists common commands (upload, search, Q&A, list agents) and an MCP client configuration example (`"args": ["--profile", "weknora", "mcp", "serve"]`).
+
+<Screenshot
+  src="/screenshots/integration-cli.png"
+  caption="Settings → Publish & Integrations → CLI: install, connect, and verify commands"
+  hint="Show the settings center with CLI selected in the left-side 'Publish & Integrations' group, the three Quick Start steps on the right (Install CLI / Connect to the current service / Verify the connection, with the current service address already filled into the connect command), plus the common commands and the MCP client configuration example." />
 
 ## Overall Architecture
 
@@ -49,7 +59,7 @@ flowchart TB
 
 ### Build from source (currently the supported install method)
 
-`cli/README.md` states clearly: **building from source is currently the supported install method**; prebuilt binaries, `go install`, and a Homebrew formula for the CLI are planned to ship alongside official tags.
+Building from source is currently the supported install method; prebuilt binaries and `go install` are not yet available.
 
 ```bash
 git clone https://github.com/Tencent/WeKnora.git
@@ -72,16 +82,6 @@ sudo mv weknora /usr/local/bin/   # or place it anywhere on your $PATH
 | `make clean` | remove `./bin` and coverage.out |
 
 Note: the Makefile has **no** `install` target — you need to move the build output onto your `$PATH` yourself.
-
-### Homebrew (server-side Lite edition, not the CLI)
-
-The repository's `Formula/` directory currently contains only one formula: `Formula/weknora-lite.rb`, which installs the **single-binary Lite edition of the WeKnora server** (`weknora-lite`) — not the `weknora` CLI covered in this document. This formula:
-
-- downloads `WeKnora-lite_v<version>_<os>_<arch>.tar.gz` from GitHub Releases for four platforms (macOS/Linux × arm64/amd64);
-- generates a `weknora-lite` launcher script: on first run it auto-generates the `~/.config/weknora/.env.lite` config and stores data under `~/.local/share/weknora/`;
-- supports running as a background service via `brew services start weknora-lite`, with logs at `$(brew --prefix)/var/log/weknora-lite.log`.
-
-Using the Lite edition locally as the CLI's target server is a convenient combination: run `brew services start weknora-lite` to start the server, then connect with `weknora profile add local --host http://localhost:8080 --use`.
 
 ---
 
@@ -438,7 +438,7 @@ weknora api /api/v1/knowledge-bases/<id> -X DELETE -y
 |---|---|---|
 | serve | `serve` | Runs a JSON-RPC 2.0 MCP server over stdin/stdout (currently stdio transport only); logs go to stderr; eagerly builds the SDK client on startup and fails immediately with `auth.unauthenticated` if no profile is present |
 
-Exposes a **curated set of 10 tools** (implemented in `cli/internal/mcp/tools.go`): `kb_list` / `kb_view` / `doc_list` / `doc_view` / `doc_download` / `search_chunks` / `chunk_list` / `agent_list` are read-only; `chat` and `session_ask` create session/message records. Destructive verbs (create / delete / upload) are deliberately excluded.
+Exposes 10 tools (implemented in `cli/internal/mcp/tools.go`): `kb_list` / `kb_view` / `doc_list` / `doc_view` / `doc_download` / `search_chunks` / `chunk_list` / `agent_list` are read-only; `chat` and `session_ask` create session/message records. No tools are provided for creating resources, deleting resources, or uploading files.
 
 Example MCP client registration (written to the client's `mcpServers` config):
 
@@ -507,7 +507,7 @@ Additionally, `cli/cmd/` contains cross-cutting tree-level tests (outside the ac
 
 ---
 
-## 5-Minute Quickstart
+## Quick Start {#_5-minute-quickstart}
 
 ```bash
 # 1. Register the server as a profile and activate it

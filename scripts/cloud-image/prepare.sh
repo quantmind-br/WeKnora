@@ -122,7 +122,7 @@ fi
 
 echo "[prepare] 2/6 Fetching WeKnora runtime files (ref=${WEKNORA_REF})"
 # Only download the actually needed 4 files, without cloning the entire repository (~MB scale -> ~KB scale)
-mkdir -p "${WEKNORA_DIR}/config" "${WEKNORA_DIR}/skills"
+mkdir -p "${WEKNORA_DIR}/config"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "${tmp}"' EXIT
@@ -135,8 +135,7 @@ tar -xzf "${tmp}/repo.tar.gz" -C "${tmp}" \
   --wildcards \
   '*/docker-compose.yml' \
   '*/.env.example' \
-  '*/config/config.yaml' \
-  '*/skills/preloaded'
+  '*/config/config.yaml'
 src=$(find "${tmp}" -maxdepth 1 -mindepth 1 -type d -name 'WeKnora-*' | head -1)
 if [[ -z "${src}" ]]; then
   echo "[prepare] Extraction failed, WeKnora-* directory not found" >&2
@@ -146,8 +145,6 @@ fi
 cp    "${src}/docker-compose.yml" "${WEKNORA_DIR}/"
 cp    "${src}/.env.example"       "${WEKNORA_DIR}/"
 cp    "${src}/config/config.yaml" "${WEKNORA_DIR}/config/"
-rm -rf "${WEKNORA_DIR}/skills/preloaded"
-cp -r "${src}/skills/preloaded"   "${WEKNORA_DIR}/skills/"
 
 # Record metadata for reference during firstboot / upgrade
 cat >"${WEKNORA_DIR}/.cloud-image-meta" <<EOF
@@ -163,8 +160,10 @@ sed -i 's/^GIN_MODE=.*/GIN_MODE=release/' .env || true
 
 # Align WEKNORA_VERSION with WEKNORA_REF so docker compose pulls the
 # image tag matching the ref. Unconditional override, to avoid .env retaining a stale version number left by a previous prepare.
-# On Docker Hub, the tag value for wechatopenai/weknora-* is the git ref as-is
-# (`main` / `v0.5.2`), so we don't strip the v or map it to latest here.
+# Tag naming convention for wechatopenai/weknora-* on Docker Hub:
+#   - floating tag: main (always points to the latest build)
+#   - pinned release tag: v prefix + semver (e.g. v0.7.2, v0.5.2)
+# So we don't strip the v or map it to latest here.
 WEKNORA_VERSION_VAL="${WEKNORA_REF}"
 if grep -qE '^WEKNORA_VERSION=' .env; then
   sed -i "s|^WEKNORA_VERSION=.*|WEKNORA_VERSION=${WEKNORA_VERSION_VAL}|" .env
@@ -225,9 +224,9 @@ systemctl enable weknora-firstboot.service
 
 echo "[prepare] 6/6 Done"
 echo
-echo "WeKnora runtime deployed to ${WEKNORA_DIR}"
-echo "    docker-compose.yml / config/config.yaml / skills/preloaded / .env"
-echo "Version: ${WEKNORA_REF}  (see ${WEKNORA_DIR}/.cloud-image-meta)"
+echo "  WeKnora runtime deployed to ${WEKNORA_DIR}"
+echo "    docker-compose.yml / config/config.yaml / .env"
+echo "  Version: ${WEKNORA_REF}  (see ${WEKNORA_DIR}/.cloud-image-meta)"
 echo
 echo "Open a browser to  http://<host-public-IP>  to verify functionality"
 echo

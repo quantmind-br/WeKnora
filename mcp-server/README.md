@@ -1,5 +1,9 @@
 # WeKnora MCP Server
 
+> **⚠️ Deprecated**
+>
+> WeKnora now ships a built-in MCP server: create endpoints under "Settings → Publish & Integrations → MCP Server", each with its own token, knowledge-base scope and tool list, and connect clients to `/mcp/<endpoint_id>` over Streamable HTTP. This Python package is kept only for existing deployments and will be removed in a future release.
+
 This is a Model Context Protocol (MCP) server that provides access to the WeKnora knowledge management API.
 
 ## Quick Start
@@ -123,6 +127,7 @@ This MCP server provides the following tools:
 - `create_knowledge_from_file` - Create knowledge from a local file
 - `create_knowledge_from_url` - Create knowledge from a URL
 - `create_knowledge_from_text` - Create knowledge from text
+- `update_knowledge_from_text` - Update manual Markdown knowledge, with the option to re-index or save as a draft
 - `list_knowledge` - List knowledge
 - `get_knowledge` - Get knowledge details
 - `delete_knowledge` - Delete knowledge
@@ -140,6 +145,11 @@ This MCP server provides the following tools:
 
 ### Chat functionality
 - `chat` - Send a chat message
+- `agent_chat` - Invoke an agent to perform multi-step retrieval and tool calls
+
+Both chat tools assemble events on SSE blank-line boundaries and support events that contain multiple `data:` lines.
+An event that has not reached a blank line when the connection ends is discarded; the data buffer for a single event is capped at 8 MiB,
+and exceeding the cap returns an error and closes the response connection.
 
 ### Chunk management
 - `list_chunks` - List knowledge chunks
@@ -155,3 +165,11 @@ If you encounter import errors, please make sure that:
 ## Demo
 
 <img width="950" height="2063" alt="118d078426f42f3d4983c13386085d7f" src="https://github.com/user-attachments/assets/09111ec8-0489-415c-969d-aa3835778e14" />
+
+### Local upload directory boundary
+
+All transports, including stdio, restrict local file uploads to the working
+directory by default. Set `MCP_ALLOWED_UPLOAD_DIRS` to a comma-separated list of
+trusted absolute directories when additional roots are needed. Starting in a
+filesystem root requires an explicit directory configuration. Paths and symbolic
+links resolving outside the selected roots are rejected.

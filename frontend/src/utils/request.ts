@@ -1,14 +1,57 @@
 // src/utils/request.js
 import axios from "axios";
-import { generateRandomString, MAX_FILE_SIZE_MB } from "./index";
+import { generateRandomString, MAX_FILE_SIZE_MB, MAX_SKILL_BUNDLE_SIZE_MB } from "./index";
 import i18n from '@/i18n'
 import { getApiBaseUrl } from './api-base';
+import { isSkillBundleUploadUrl } from './uploadLimit';
+import { isTimeoutError, uploadTimeoutMs } from './requestTimeouts';
+import {
+  forceReloginRedirect,
+  isEmbedPage,
+  refreshAccessTokenShared,
+} from './authRefresh';
+
+export { forceReloginRedirect, refreshAccessTokenShared };
 
 const t = (key: string) => i18n.global.t(key)
 
 // API base URL
 const BASE_URL = getApiBaseUrl();
 
+/**
+ * Response payload augmented with the HTTP status code.
+ *
+ * `$httpStatus` lets callers distinguish outcomes that share a success shape.
+ * Defined as a non-enumerable property, so it stays invisible to object spread,
+ * JSON.stringify and Object.keys and never leaks into downstream payloads.
+ *
+ * Guaranteed only for JSON responses (objects/arrays). Blob, string and SSE
+ * stream responses do not carry it at runtime, so only read `$httpStatus`
+ * when the payload is known to be an object.
+ */
+export type WithStatus<T> = T & {
+  /** HTTP status code of the response. Non-enumerable. See {@link WithStatus}. */
+  readonly $httpStatus: number
+};
+
+const HTTP_STATUS_KEY = '$httpStatus';
+
+/**
+ * Attach the non-enumerable `$httpStatus` property to a response payload
+ * in place and return it. Primitives pass through untouched.
+ * See {@link WithStatus} for where the property is guaranteed.
+ */
+function withHttpStatus<T>(data: T, status: number): T {
+  if (data !== null && typeof data === 'object') {
+    Object.defineProperty(data, HTTP_STATUS_KEY, {
+      value: status,
+      enumerable: false,
+      configurable: true,
+      writable: false,
+    });
+  }
+  return data;
+}
 
 // Create Axios instance
 const instance = axios.create({
@@ -21,7 +64,7 @@ const instance = axios.create({
 });
 
 // Current UI language for the Accept-Language header
-function getCurrentLanguage(): string {
+export function getCurrentLanguage(): string {
   return i18n.global.locale?.value || localStorage.getItem('locale') || 'en-US'
 }
 
@@ -67,10 +110,6 @@ instance.interceptors.request.use(
   }
 );
 
-// Token refresh flag, prevents multiple requests from refreshing the token simultaneously
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: Function; reject: Function }> = [];
-
 // Share-link endpoints (/auth/invitations/lookup, /auth/register-by-invite)
 // are reachable by anonymous users opening an invite link. A 401 from these
 // must surface to the page (e.g. expired token), not trigger the
@@ -83,47 +122,39 @@ function isPublicAuthRequest(url?: string): boolean {
   return PUBLIC_AUTH_PATHS.some(p => url.includes(p));
 }
 
-// Process queued requests
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve(token);
-    }
-  });
-  
-  failedQueue = [];
-};
-
-function isEmbedPage(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.location.pathname.startsWith('/embed/');
-}
-
-function redirectToLogin() {
-  if (typeof window === 'undefined') return;
-  if (window.location.pathname === '/login') return;
-  // Embed channel is authenticated via Embed token; anonymous access should not be kicked to the login page
-  if (isEmbedPage()) return;
-  window.location.href = '/login';
-}
-
 instance.interceptors.response.use(
   (response) => {
     // Handle logic based on business status code
     const { status, data } = response;
     if (status >= 200 && status < 300) {
-      return data;
+      return withHttpStatus(data, status);
     } else {
-      return Promise.reject(data);
+      return Promise.reject(withHttpStatus(data, status));
     }
   },
   async (error: any) => {
     const originalRequest = error.config;
     
     if (!error.response) {
-      return Promise.reject({ message: t('error.networkError') });
+      // A timeout and an unreachable server both arrive without a response, but
+      // telling someone whose upload timed out to "check your connection" sends
+      // them after the wrong problem.
+      return Promise.reject({
+        message: t(isTimeoutError(error) ? 'error.requestTimeout' : 'error.networkError'),
+      });
+    }
+
+    // 文件下载失败时服务端仍返回 JSON；先还原错误信息，避免被 Blob 隐藏。
+    // 不依赖 Content-Type：网关可能把错误改成 text/plain 或空类型。
+    if (typeof Blob !== 'undefined' && error.response.data instanceof Blob) {
+      try {
+        const text = (await error.response.data.text()).trim();
+        if (text.startsWith('{') || text.startsWith('[') || error.response.data.type.includes('json')) {
+          error.response.data = JSON.parse(text);
+        }
+      } catch {
+        // 非法 JSON 继续使用原有错误处理。
+      }
     }
     
     // 401s from public endpoints (auto-setup / login / register / oidc) skip the refresh logic and return the error directly
@@ -132,7 +163,7 @@ instance.interceptors.response.use(
       const msg = typeof data === 'object'
         ? (typeof data?.error === 'string' ? data.error : (data?.error?.message || data?.message))
         : data;
-      return Promise.reject({ status, message: msg || t('error.invalidCredentials') });
+      return Promise.reject(withHttpStatus({ status, message: msg || t('error.invalidCredentials') }, status));
     }
 
     // Embed debug page/widget: reject immediately when there's no JWT, don't go through refresh → /login
@@ -141,85 +172,38 @@ instance.interceptors.response.use(
       const msg = typeof data === 'object'
         ? (typeof data?.error === 'string' ? data.error : (data?.error?.message || data?.message))
         : data;
-      return Promise.reject({ status, message: msg || t('error.invalidCredentials') });
+      return Promise.reject(withHttpStatus({ status, message: msg || t('error.invalidCredentials') }, status));
     }
 
     // If it's a 401 error and not a token refresh request, try refreshing the token
     if (error.response.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
-      if (isRefreshing) {
-        // If a token refresh is already in progress, queue the request
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then(token => {
-          originalRequest.headers['Authorization'] = 'Bearer ' + token;
-          return instance(originalRequest);
-        }).catch(err => {
-          return Promise.reject(err);
-        });
-      }
-      
       originalRequest._retry = true;
-      isRefreshing = true;
-      
-      const refreshToken = localStorage.getItem('weknora_refresh_token');
-      
-      if (refreshToken) {
-        try {
-          // Dynamically import the refresh token API
-          const { refreshToken: refreshTokenAPI } = await import('../api/auth/index');
-          const response = await refreshTokenAPI(refreshToken);
-          
-          if (response.success && response.data) {
-            const { token, refreshToken: newRefreshToken } = response.data;
-            
-            // Update the token in localStorage
-            localStorage.setItem('weknora_token', token);
-            localStorage.setItem('weknora_refresh_token', newRefreshToken);
-            
-            // Update the request header
-            originalRequest.headers['Authorization'] = 'Bearer ' + token;
-            
-            // Process queued requests
-            processQueue(null, token);
-            
-            return instance(originalRequest);
-          } else {
-            throw new Error(response.message || t('error.tokenRefreshFailed'));
-          }
-        } catch (refreshError) {
-          // Refresh failed, clear all tokens and redirect to the login page
-          localStorage.removeItem('weknora_token');
-          localStorage.removeItem('weknora_refresh_token');
-          localStorage.removeItem('weknora_user');
-          localStorage.removeItem('weknora_tenant');
-          
-          processQueue(refreshError, null);
-          
-          redirectToLogin();
-          
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
-        }
-      } else {
-        // No refresh token, redirect directly to the login page
-        localStorage.removeItem('weknora_token');
-        localStorage.removeItem('weknora_user');
-        localStorage.removeItem('weknora_tenant');
-        
-        redirectToLogin();
-        
-        return Promise.reject({ message: t('error.pleaseRelogin') });
+      try {
+        const token = await refreshAccessTokenShared({
+          messages: {
+            pleaseRelogin: t('error.pleaseRelogin'),
+            tokenRefreshFailed: t('error.tokenRefreshFailed'),
+          },
+        });
+        originalRequest.headers['Authorization'] = 'Bearer ' + token;
+        return instance(originalRequest);
+      } catch (refreshError) {
+        // refreshAccessTokenShared already cleared credentials and redirected.
+        return Promise.reject(refreshError);
       }
     }
     
     // Handle Nginx 413 Request Entity Too Large
-    if (error.response.status === 413) {
-      return Promise.reject({ 
-        status: 413, 
-        message: i18n.global.t('error.fileSizeExceeded', { size: MAX_FILE_SIZE_MB }),
+    const ERR_ENTITY_TOO_LARGE = 413;
+    if (error.response.status === ERR_ENTITY_TOO_LARGE) {
+      const skillUpload = isSkillBundleUploadUrl(error.config?.url)
+      return Promise.reject(withHttpStatus({
+        status: ERR_ENTITY_TOO_LARGE,
+        message: skillUpload
+          ? i18n.global.t('settings.sandbox.skillBundleTooLarge', { size: MAX_SKILL_BUNDLE_SIZE_MB })
+          : i18n.global.t('error.fileSizeExceeded', { size: MAX_FILE_SIZE_MB }),
         success: false
-      });
+      }, ERR_ENTITY_TOO_LARGE));
     }
 
     const { status, data } = error.response;
@@ -238,16 +222,16 @@ instance.interceptors.response.use(
     } else if (typeof data === 'string') {
       errorMessage = data;
     }
-    return Promise.reject({ 
-      status, 
+    return Promise.reject(withHttpStatus({
+      status,
       message: errorMessage,
       ...(typeof data === 'object' ? data : {}) 
-    });
+    }, status));
   }
 );
 
-export function get<T = any>(url: string, config?: any): Promise<T> {
-  return instance.get<T>(url, config) as unknown as Promise<T>;
+export function get<T = any>(url: string, config?: any): Promise<WithStatus<T>> {
+  return instance.get<T>(url, config) as unknown as Promise<WithStatus<T>>;
 }
 
 export async function getDown(url: string): Promise<Blob> {
@@ -262,8 +246,13 @@ export function postUpload(
   data = {},
   onUploadProgress?: (progressEvent: any) => void,
   config: any = {},
-): Promise<any> {
+): Promise<WithStatus<any>> {
   return instance.post(url, data, {
+    // Uploads are bounded by transfer time, not by the 30s default that suits
+    // JSON calls. Derive the budget from the payload so a deployment raising
+    // MAX_FILE_SIZE_MB doesn't silently abort its own uploads; an explicit
+    // `config.timeout` still wins.
+    timeout: uploadTimeoutMs(data),
     ...config,
     headers: {
       "Content-Type": "multipart/form-data",
@@ -275,6 +264,7 @@ export function postUpload(
 }
 
 export function postChat<T = any>(url: string, data = {}): Promise<T> {
+  // SSE stream: body is a string, so no `$httpStatus` is attached (see WithStatus).
   return instance.post(url, data, {
     headers: {
       "Content-Type": "text/event-stream;charset=utf-8",
@@ -283,14 +273,18 @@ export function postChat<T = any>(url: string, data = {}): Promise<T> {
   }) as unknown as Promise<T>;
 }
 
-export function post<T = any>(url: string, data = {}, config?: any): Promise<T> {
-  return instance.post<T>(url, data, config) as unknown as Promise<T>;
+export function post<T = any>(url: string, data = {}, config?: any): Promise<WithStatus<T>> {
+  return instance.post<T>(url, data, config) as unknown as Promise<WithStatus<T>>;
 }
 
-export function put<T = any>(url: string, data = {}, config?: any): Promise<T> {
-  return instance.put<T>(url, data, config) as unknown as Promise<T>;
+export function put<T = any>(url: string, data = {}, config?: any): Promise<WithStatus<T>> {
+  return instance.put<T>(url, data, config) as unknown as Promise<WithStatus<T>>;
 }
 
-export function del<T = any>(url: string, data?: any): Promise<T> {
-  return instance.delete<T>(url, { data }) as unknown as Promise<T>;
+export function patch<T = any>(url: string, data = {}, config?: any): Promise<WithStatus<T>> {
+  return instance.patch<T>(url, data, config) as unknown as Promise<WithStatus<T>>;
+}
+
+export function del<T = any>(url: string, data?: any): Promise<WithStatus<T>> {
+  return instance.delete<T>(url, { data }) as unknown as Promise<WithStatus<T>>;
 }

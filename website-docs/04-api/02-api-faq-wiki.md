@@ -1,6 +1,6 @@
 # API Reference: FAQ & Wiki
 
-Route registration: `RegisterFAQRoutes` and `RegisterWikiPageRoutes` in `internal/router/router.go`. Handlers: `internal/handler/faq.go`, `internal/handler/wiki_page.go`.
+Manage FAQ entries and Wiki pages in a knowledge base, with support for import, retrieval, editing, and version restore.
 
 Both groups are KB content sub-resources: reads require Viewer+ and KB read (API key `retrieve`/full); writes require "KB creator OR Admin+" and KB write (API key `ingest`/full), and are constrained by the KB whitelist.
 
@@ -18,11 +18,12 @@ Purpose: List FAQ entries.
 | `keyword` | string | No | Keyword |
 | `search_field` | string | No | `standard_question`/`similar_questions`/`answers` (defaults to all fields) |
 | `sort_order` | string | No | `asc` (defaults to descending by update time) |
+| `is_enabled` | bool | No | Filter by enabled status: `true` returns enabled entries only, `false` disabled entries only; omit to return all; any other value returns 400 |
 
 Response: 200 `{"success":true,"data":{paginated FAQEntry list}}`
 
 ```bash
-curl "$BASE/api/v1/knowledge-bases/kb-1/faq/entries?page=1" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/knowledge-bases/kb-1/faq/entries?page=1&is_enabled=false" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### GET /api/v1/knowledge-bases/:id/faq/entries/export
@@ -54,7 +55,7 @@ Purpose: Bulk upsert / import (async task). Handler method `UpsertEntries`.
 | `entries` | []FAQEntryPayload | Yes (`binding:"required"`) | Batch entries |
 | `mode` | string | Yes (`binding:"oneof=append replace"`) | Append or replace |
 | `knowledge_id` | string | No | FAQ knowledge entity ID |
-| `task_id` | string | No | Custom task ID |
+| `task_id` | string | No | Custom task ID; only letters, digits, `_`, and `-` are allowed, max 128 characters, otherwise returns 400 |
 | `dry_run` | bool | No | Validate only, no persistence |
 
 Response: 200 `{"success":true,"data":{"task_id"}}`
@@ -156,8 +157,8 @@ Purpose: FAQ retrieval (read-only semantics; a scoped key with `retrieve` can al
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `query_text` | string | Yes (`binding:"required"`) | Query |
-| `vector_threshold` | float64 | No | Vector threshold |
-| `match_count` | int | No | Defaults to 10, capped at 200 |
+| `vector_threshold` | float64 | No | Vector threshold, defaults to 0.7 |
+| `match_count` | int | No | Defaults to 10, capped at 50 |
 | `first_priority_tag_ids` / `second_priority_tag_ids` | []int64 | No | Tag priority filters |
 | `only_recommended` | bool | No | Recommended entries only |
 
@@ -206,7 +207,7 @@ Purpose: List Wiki pages.
 | `folder_id` | string | No | Exact folder filter (empty string = root) |
 | `category_depth` | int | No | Folder depth |
 | `page` / `page_size` | int | No | Pagination (default 1/20) |
-| `sort_by` / `sort_order` | string | No | Sorting (defaults to `updated_at` desc) |
+| `sort_by` / `sort_order` | string | No | Sort field: `title`, `created_at`, `updated_at`, `page_type`, `wiki_path`, `sort_order`, `depth`; any other value sorts by `updated_at`; defaults to `updated_at` desc |
 
 Response: 200 `WikiPageListResponse`
 
@@ -263,7 +264,7 @@ Purpose: Page revision history (migration `000075`). Permissions: Viewer+ + KBAc
 
 | Query parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `version` | int | No | When provided, returns the **full content of that version** (for diffing); an invalid value or < 1 returns 400, not found returns 404 |
+| `version` | int | No | When provided, returns the **full content of that version** (for diffing); an invalid value or < 1 returns 400, not found returns 404 (versions written before the upgrade and snapshots already cleaned up by the retention policy have no full content; this is expected) |
 | `limit` | int | No | Defaults to 50, capped at 200; only applies in list mode |
 | `offset` | int | No | Pagination offset |
 
@@ -447,7 +448,7 @@ curl $BASE/api/v1/knowledgebase/kb-1/wiki/issues -H "Authorization: Bearer $TOKE
 
 ### PUT /api/v1/knowledgebase/:kb_id/wiki/issues/:issue_id/status
 
-Purpose: Update issue status. Write permission. Request body: `{"status":"pending|ignored|resolved"}` (`binding:"required"`).
+Purpose: Update issue status. Write permission. Request body: `{"status":"pending|ignored|resolved"}` (`binding:"required"`). `issue_id` must belong to the knowledge base in the path, otherwise 404.
 
 Response: 200 `{"message":"Issue status updated successfully"}`
 
@@ -455,3 +456,7 @@ Response: 200 `{"message":"Issue status updated successfully"}`
 curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/issues/i-1/status -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"status":"resolved"}'
 ```
+
+## 实现参考
+
+路由注册：`internal/router/routes_knowledge.go` 的 `RegisterFAQRoutes` 与 `RegisterWikiPageRoutes`。Handler：`internal/handler/faq.go`、`internal/handler/wiki_page.go`。

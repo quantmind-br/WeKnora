@@ -17,11 +17,21 @@ export const SETTINGS_SECTION_MIN_ROLE: Record<string, SettingsRoleKey> = {
   vectorstore: 'admin',
   parser: 'admin',
   storage: 'admin',
+  sandbox: 'admin',
+  // Install writes a root shell into the sandbox image every session of
+  // that config boots. Same Admin+ bar as the sandbox editor itself.
+  skills: 'admin',
   mcp: 'admin',
   system: 'viewer',
   userprofile: 'viewer',
+  browserconnection: 'viewer',
   tenant: 'viewer',
   members: 'viewer',
+  mymemory: 'viewer',
+  memory: 'admin',
+  // Every member fills in their own environment variables; the workspace-wide
+  // values stay on the Admin+ skills page.
+  envvars: 'viewer',
 }
 
 /**
@@ -35,6 +45,7 @@ export const SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE = {
 
 export const SYSTEM_ADMIN_SETTINGS_SECTIONS = new Set([
   'system-global',
+  'model-catalog',
   'runtime-queues',
   'platform-api-keys',
   'system-audit-log',

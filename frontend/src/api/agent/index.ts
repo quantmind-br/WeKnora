@@ -38,18 +38,22 @@ export interface CustomAgentConfig {
   agent_type?: AgentType;
   system_prompt?: string;           // Unified system prompt (uses the {{web_search_status}} placeholder to dynamically control behavior)
   system_prompt_id?: string;        // Referenced prompt template ID (presets populate this field)
+  context_template_id?: string;     // Inherit the referenced context template when text is empty
   context_template?: string;        // Context template (normal mode)
 
   // ===== Model Settings =====
   model_id?: string;
   rerank_model_id?: string;         // ReRank model ID
   temperature?: number;
-  max_completion_tokens?: number;   // Maximum number of generated tokens (normal mode)
+  max_completion_tokens?: number;   // 0 = follow system default (quick answer 2048; smart reasoning 4096, or 24576 when bound to a sandbox that can write files). Greater than 0 sets a custom limit
   thinking?: boolean;                      // Whether to enable thinking mode (for models that support extended thinking)
+  // Reasoning effort: off | auto | minimal | low | medium | high | xhigh | max.
+  // When empty, falls back to the thinking boolean (true == auto, false == off).
+  reasoning_effort?: string;
   citation_enabled?: boolean;        // Whether to output knowledge base/web source citations in the final answer (enabled by default)
 
   // ===== Agent Mode Settings =====
-  max_iterations?: number;          // Maximum number of iterations
+  max_iterations?: number;          // Maximum number of iterations; -1 means unlimited
   llm_call_timeout?: number;        // LLM call timeout (seconds)
   allowed_tools?: string[];         // Allowed tools
   reflection_enabled?: boolean;     // Whether to enable reflection
@@ -64,6 +68,11 @@ export interface CustomAgentConfig {
   // Skills selection mode: all=all preinstalled, selected=specified, none=none used
   skills_selection_mode?: 'all' | 'selected' | 'none';
   selected_skills?: string[];       // List of selected skill names
+
+  // ===== Sandbox settings =====
+  // Which sandbox configuration this agent's skill scripts run on; empty means sandboxed execution is disabled.
+  // Points to a logical configuration rather than a specific version, so credential rotation does not require reassigning every agent.
+  sandbox_config_id?: string;
 
   // ===== Knowledge Base Settings =====
   // Knowledge base selection mode: all=all knowledge bases, selected=specified knowledge bases, none=no knowledge base
@@ -104,6 +113,12 @@ export interface CustomAgentConfig {
   // ===== Multi-turn conversation settings =====
   multi_turn_enabled?: boolean;     // Whether to enable multi-turn conversation
   history_turns?: number;           // Number of historical turns to retain
+
+  // ===== Long-term memory =====
+  // Whether this agent can read the user's long-term memory.
+  // Unset (legacy data) is equivalent to true: this is an "off-only" switch; when the
+  // space setting is turned off, turning it on here has no effect.
+  memory_enabled?: boolean;
 
   // ===== Retrieval strategy settings =====
   embedding_top_k?: number;         // Vector recall TopK
@@ -301,6 +316,7 @@ export interface IMChannel {
   enabled: boolean;
   mode: 'webhook' | 'websocket' | 'longpoll';
   output_mode: 'stream' | 'full';
+  locale?: '' | 'zh-CN' | 'en-US' | 'ko-KR' | 'ja-JP' | 'ru-RU';
   session_mode?: 'user' | 'thread';
   knowledge_base_id?: string;
   credentials: Record<string, any>;
@@ -318,12 +334,13 @@ export interface IMChannelOverview {
   id: string;
   tenant_id: number;
   agent_id: string;
-  agent_name: string; // empty string for built-in agents
+  agent_name: string; // localized built-in name when the agent is built-in
   platform: IMChannel['platform'];
   name: string;
   enabled: boolean;
   mode: IMChannel['mode'];
   output_mode: IMChannel['output_mode'];
+  locale?: IMChannel['locale'];
   session_mode?: IMChannel['session_mode'];
   bot_identity: string;
   created_at: string;
@@ -357,6 +374,7 @@ export interface SuggestedQuestion {
   question: string;
   source: 'faq' | 'document' | 'agent_config' | 'wiki';
   knowledge_base_id?: string;
+  knowledge_id?: string;
 }
 
 // Get agent suggested questions

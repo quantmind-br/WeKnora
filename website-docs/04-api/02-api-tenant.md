@@ -1,8 +1,10 @@
 # API Reference: Tenants (Spaces) & Members
 
-Route registration: `RegisterTenantRoutes` in `internal/router/router.go`. Handlers: `internal/handler/tenant.go`, `internal/handler/tenant_member.go`, `internal/handler/tenant_invitation.go`, `internal/handler/tenant_invite_link.go`, `internal/handler/audit_log.go`.
+Manages workspaces, members, invitations, API keys, and audit logs. Operations apply to the currently active space, and cross-space access is checked against each endpoint's permissions.
 
 All `/tenants/:id/*` routes mount `PathTenantMatch()` (`internal/middleware/access.go`) at the group level: the `:id` in the URL must match the currently active space (except for cross-tenant super admins), preventing unauthorized operations on someone else's space.
+
+For the tenant `memory_config` fields and the personal memory endpoints, see the [Long-term Memory API](02-api-memory.md). When a space administrator updates the configuration, submit the complete object to keep.
 
 ## Space Lifecycle
 
@@ -88,7 +90,7 @@ curl -X PUT $BASE/api/v1/tenants/1 -H "Authorization: Bearer $TOKEN" \
 
 ### DELETE /api/v1/tenants/:id
 
-Purpose: delete a space. Permissions: Owner; platform key requires `system_tenants_manage`. Handler: `internal/handler/tenant.go`
+Purpose: delete a space. Permissions: Owner; platform key requires `system_tenants_manage`. The space record and all its memberships are soft-deleted, and members lose access immediately; data in the space such as knowledge bases and models is not physically purged right away, and queued Wiki tasks of a deleted space no longer call models. Handler: `internal/handler/tenant.go`
 
 Response: 200 `{"success":true,"message":"Workspace deleted successfully"}`
 
@@ -98,7 +100,7 @@ curl -X DELETE $BASE/api/v1/tenants/1 -H "Authorization: Bearer $TOKEN"
 
 ## Space KV Configuration
 
-`:key` is a configuration key, not a space ID (the space is taken from the auth context). Valid values: `web-search-config`, `prompt-templates`, `parser-engine-config`, `storage-engine-config`, `chat-history-config`, `retrieval-config`.
+`:key` is a configuration key, not a space ID (the space is taken from the auth context). Valid values: `web-search-config`, `prompt-templates`, `parser-engine-config`, `storage-engine-config`, `chat-history-config`, `retrieval-config`, `memory-config`.
 
 ### GET /api/v1/tenants/kv/:key
 
@@ -151,6 +153,18 @@ Response: 201 `{"success":true,"data":{...,"api_key":"<plaintext>","token":"<pla
 curl -X POST $BASE/api/v1/tenants/1/api-keys -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"ingest-bot","capabilities":["ingest","retrieve"],"knowledge_base_ids":["kb-1"]}'
+```
+
+### PUT /api/v1/tenants/:id/api-keys/:key_id
+
+Owner，仅 JWT。更新已有 Key 的 name、full_access、knowledge_base_ids、capabilities、expires_at_unix，授权字段按整份配置提交；不是只改一个字段的 PATCH。expires_at_unix 省略或 null 会清除已有到期时间。更改权限后使用同一 token，新授权在后续认证时生效，不重新返回明文。
+
+返回 200 `{success,data:APIKeyResponse}`，Key 脱敏；非法能力/知识库范围返回 400，不存在返回 404。
+
+```bash
+curl -X PUT "$BASE/api/v1/tenants/1/api-keys/5" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"search-bot","full_access":false,"knowledge_base_ids":["kb-1"],"capabilities":["retrieve"]}'
 ```
 
 ### DELETE /api/v1/tenants/:id/api-keys/:key_id
@@ -360,8 +374,12 @@ curl "$BASE/api/v1/tenants/1/audit-log?limit=50" -H "Authorization: Bearer $TOKE
 
 Purpose: activity stream for a single KB (read-only audit). Permissions: KB creator OR Admin+, and must have read permission on the KB; JWT only. Query parameters same as above (`after_id/limit/action/outcome/actor`). Registered in `RegisterKnowledgeBaseActivityRoutes`.
 
-Response: 200 `{"success":true,"data":[AuditLog],"next_cursor":N}`
+Response: 200 `{"success":true,"data":[AuditLog],"next_cursor":N}`. `details` is the action payload; if the entry was triggered by an API Key, it includes `api_key_id` and `api_key_name` (a snapshot of the name, never the plaintext key).
 
 ```bash
 curl $BASE/api/v1/knowledge-bases/kb-1/activity -H "Authorization: Bearer $TOKEN"
 ```
+
+## 实现参考
+
+路由注册：`internal/router/routes_auth_tenant.go` 的 `RegisterTenantRoutes`。Handler：`internal/handler/tenant.go`、`internal/handler/tenant_member.go`、`internal/handler/tenant_invitation.go`、`internal/handler/tenant_invite_link.go`、`internal/handler/audit_log.go`。

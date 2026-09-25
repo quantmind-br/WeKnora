@@ -98,6 +98,13 @@ const (
 // positionOverlap is the overlap amount estimated from StartAt/EndAt (lastEnd - curStart), used only to
 // bound the search window size; the actual overlap is determined by text matching, which tolerates re-inserted headers and HTML entity length differences.
 // If no text overlap is found, concatenate as-is (no trimming) — better to keep content than to break it.
+//
+// When positionOverlap <= 0, the two segments are strictly adjacent or disjoint in position, so there is no
+// overlap to deduplicate. Running text matching in that case would, because of the headSlack floor of 320,
+// falsely match a genuine content repeat of acc's suffix inside next's leading window (e.g. the same sentence
+// appearing several times in the document) and delete the whole head of next as a re-inserted header,
+// causing irreversible content loss. Concatenate directly and leave duplicate re-inserted headers to the
+// caller's post-processing.
 func AppendWithOverlap(acc, next string, positionOverlap int) string {
 	if acc == "" {
 		return next
@@ -105,14 +112,14 @@ func AppendWithOverlap(acc, next string, positionOverlap int) string {
 	if next == "" {
 		return acc
 	}
+	if positionOverlap <= 0 {
+		return acc + next
+	}
 
 	accRunes := []rune(acc)
 	nextRunes := []rune(next)
 
 	span := positionOverlap
-	if span < 0 {
-		span = 0
-	}
 
 	maxK := minInt(len(accRunes), len(nextRunes))
 	if cap := maxInt(span*3, defaultSearchSpan); maxK > cap {

@@ -53,7 +53,7 @@ mkdir my-new-skill/scripts
 
 ## Detailed Documentation
 
-For complete documentation, see: [Agent Skills Documentation](../../docs/agent-skills.md)
+For complete documentation, see: [Agent Skills Documentation](../../website-docs/03-features/22-skills-sandbox.md)
 
 ## Example: pdf-processing
 
@@ -86,7 +86,7 @@ User: "Analyze this PDF form and tell me what fields it has"
 
 Agent: 
   1. Identifies a match for the pdf-processing skill
-  2. Calls read_skill to load the skill content
-  3. Calls execute_skill_script to run analyze_form.py
+  2. Calls read_file(path="skill://pdf-processing/SKILL.md") to load the skill content
+  3. Calls shell_exec(skill_name="pdf-processing", command=...) to run analyze_form.py
   4. Returns the form field analysis results
 ```

@@ -72,6 +72,7 @@ type updateLastFAQImportResultDisplayStatusRequest struct {
 // @Param        keyword      query     string  false  "Keyword search"
 // @Param        search_field query     string  false  "Search fields: standard_question, similar_questions, answers; defaults to searching all"
 // @Param        sort_order   query     string  false  "Sort order: asc (updated ascending); defaults to updated descending"
+// @Param        is_enabled   query     bool    false  "Filter by enabled state; returns all when omitted"
 // @Success      200        {object}  map[string]interface{}  "FAQ list"
 // @Failure      400        {object}  errors.AppError         "Invalid request parameters"
 // @Security     Bearer
@@ -102,8 +103,13 @@ func (h *FAQHandler) ListEntries(c *gin.Context) {
 	keyword := secutils.SanitizeForLog(c.Query("keyword"))
 	searchField := secutils.SanitizeForLog(c.Query("search_field"))
 	sortOrder := secutils.SanitizeForLog(c.Query("sort_order"))
+	isEnabled, err := parseOptionalFAQEnabled(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
-	result, err := h.knowledgeService.ListFAQEntries(ctx, kbID, &page, tagUUIDs, legacyTagSeqID, keyword, searchField, sortOrder)
+	result, err := h.knowledgeService.ListFAQEntries(ctx, kbID, &page, tagUUIDs, legacyTagSeqID, keyword, searchField, sortOrder, isEnabled)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(err)
@@ -114,6 +120,26 @@ func (h *FAQHandler) ListEntries(c *gin.Context) {
 		"success": true,
 		"data":    result,
 	})
+}
+
+// parseOptionalFAQEnabled preserves the distinction between an omitted filter
+// and an explicit false value so the management endpoint remains backward compatible.
+func parseOptionalFAQEnabled(c *gin.Context) (*bool, error) {
+	raw, exists := c.GetQuery("is_enabled")
+	if !exists {
+		return nil, nil
+	}
+
+	var value bool
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true":
+		value = true
+	case "false":
+		value = false
+	default:
+		return nil, errors.NewBadRequestError("is_enabled must be true or false")
+	}
+	return &value, nil
 }
 
 // UpsertEntries godoc

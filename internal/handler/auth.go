@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	stderrors "errors"
@@ -22,8 +23,16 @@ import (
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 )
 
-const oidcNonceCookieName = "weknora_oidc_nonce"
-const oidcNonceCookieMaxAge = 600
+var liteSetupToken string
+
+// SetLiteSetupToken is called by the native desktop host before serving requests.
+// Web deployments leave it empty and cannot issue anonymous administrator tokens.
+func SetLiteSetupToken(token string) { liteSetupToken = token }
+
+const (
+	oidcNonceCookieName   = "weknora_oidc_nonce"
+	oidcNonceCookieMaxAge = 600
+)
 
 // AuthHandler implements HTTP request handlers for user authentication
 // Provides functionality for user registration, login, logout, and token management
@@ -103,19 +112,27 @@ func (h *AuthHandler) resolveRegistrationMode(ctx context.Context) string {
 	return h.systemSettingSvc.GetString(ctx, "auth.registration_mode", "", def)
 }
 
-// resolveDefaultTenantMode returns the provisioning policy for ordinary
-// public password registrations. Invitation registration never uses this
-// value: the invitation itself supplies the target tenant.
-func (h *AuthHandler) resolveDefaultTenantMode(ctx context.Context) types.TenantProvisioningMode {
+// resolveDefaultTenantMode returns the provisioning policy for a new
+// local user account.
+// Priority: DB system_settings > cfg.Auth > hard default (create_personal).
+// Shared by public registration and the SystemAdmin create-user endpoint.
+//
+// Invitation registration never uses this value: the invitation itself
+// supplies the target tenant.
+func resolveDefaultTenantMode(
+	ctx context.Context,
+	configInfo *config.Config,
+	systemSettingSvc interfaces.SystemSettingService,
+) types.TenantProvisioningMode {
 	def := config.AuthDefaultTenantModeCreatePersonal
-	if h.configInfo != nil && h.configInfo.Auth != nil {
-		if mode := strings.TrimSpace(h.configInfo.Auth.DefaultTenantMode); mode != "" {
+	if configInfo != nil && configInfo.Auth != nil {
+		if mode := strings.TrimSpace(configInfo.Auth.DefaultTenantMode); mode != "" {
 			def = mode
 		}
 	}
 	mode := def
-	if h.systemSettingSvc != nil {
-		mode = h.systemSettingSvc.GetString(
+	if systemSettingSvc != nil {
+		mode = systemSettingSvc.GetString(
 			ctx,
 			"auth.default_tenant_mode",
 			"WEKNORA_AUTH_DEFAULT_TENANT_MODE",
@@ -126,6 +143,26 @@ func (h *AuthHandler) resolveDefaultTenantMode(ctx context.Context) types.Tenant
 		return types.TenantProvisioningTenantless
 	}
 	return types.TenantProvisioningCreatePersonal
+}
+
+// resolveDefaultTenantMode returns the provisioning policy for ordinary
+// public password registrations.
+func (h *AuthHandler) resolveDefaultTenantMode(ctx context.Context) types.TenantProvisioningMode {
+	return resolveDefaultTenantMode(ctx, h.configInfo, h.systemSettingSvc)
+}
+
+// resolveDefaultTenantMode resolves the same policy for users provisioned
+// by a SystemAdmin via POST /api/v1/system/admin/users/create.
+func (h *SystemHandler) resolveDefaultTenantMode(ctx context.Context) types.TenantProvisioningMode {
+	return resolveDefaultTenantMode(ctx, h.cfg, h.systemSettingSvc)
+}
+
+func (h *AuthHandler) complexPasswordEnabled(ctx context.Context) bool {
+	return service.ResolveComplexPasswordEnabled(ctx, h.configInfo, h.systemSettingSvc)
+}
+
+func (h *SystemHandler) complexPasswordEnabled(ctx context.Context) bool {
+	return service.ResolveComplexPasswordEnabled(ctx, h.cfg, h.systemSettingSvc)
 }
 
 // Register godoc
@@ -180,6 +217,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.Error(appErr)
 		return
 	}
+
+	// Validate password against the runtime policy (DB system_settings
+	// first). Register itself does not enforce this because OIDC
+	// auto-provision uses an untyped random secret the user never types.
+	if err := service.ValidatePasswordPolicy(req.Password, h.complexPasswordEnabled(ctx)); err != nil {
+		logger.Error(ctx, "Invalid password policy")
+		appErr := errors.NewValidationError(err.Error())
+		_ = c.Error(appErr)
+		return
+	}
+
 	req.Username = secutils.SanitizeForLog(req.Username)
 	req.Email = secutils.SanitizeForLog(req.Email)
 	req.TenantProvisioning = h.resolveDefaultTenantMode(ctx)
@@ -287,13 +335,53 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 
 	// Bind the state nonce to this browser so an attacker cannot replay
 	// their own authorization code into a victim's callback.
-	if resp.Nonce != "" {
-		secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
-		c.SetSameSite(http.SameSiteLaxMode)
-		c.SetCookie(oidcNonceCookieName, resp.Nonce, oidcNonceCookieMaxAge, "/", "", secure, true)
-	}
+	setOIDCNonceCookie(c, resp.Nonce)
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// setOIDCNonceCookie binds the OIDC state nonce to this browser so an
+// attacker cannot replay their own authorization code into a victim's
+// callback. Shared by /auth/oidc/url (JSON) and /auth/oidc/start (302).
+func setOIDCNonceCookie(c *gin.Context, nonce string) {
+	if nonce == "" {
+		return
+	}
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(oidcNonceCookieName, nonce, oidcNonceCookieMaxAge, "/", "", secure, true)
+}
+
+// oidcCallbackURL derives the absolute /auth/oidc/callback URL from the
+// request's own origin (scheme + host), so external platforms can deep-link
+// to /auth/oidc/start without supplying a redirect_uri.
+func oidcCallbackURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	return scheme + "://" + c.Request.Host + "/api/v1/auth/oidc/callback"
+}
+
+// OIDCStart godoc
+// @Summary      发起 OIDC 登录（直接 302）
+// @Description  与 /auth/oidc/url 不同，此端点直接 302 重定向到 OIDC Provider 的授权页，
+// @Description  无需前端 JS 介入。适用于外部平台（如企业门户）直接给出一个链接即可
+// @Description  触发 OIDC 授权码流程，借助 IdP 的 SSO session 实现免再次输密码。
+// @Tags         认证
+// @Success      302
+// @Router       /auth/oidc/start [get]
+func (h *AuthHandler) OIDCStart(c *gin.Context) {
+	ctx := c.Request.Context()
+	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, oidcCallbackURL(c))
+	if err != nil {
+		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		c.Error(appErr)
+		return
+	}
+	setOIDCNonceCookie(c, resp.Nonce)
+	c.Redirect(http.StatusFound, resp.AuthorizationURL)
 }
 
 // GetOIDCConfig godoc
@@ -571,15 +659,19 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	memberships := h.userService.BuildLoginMemberships(ctx, user, tenant)
 	canCreateTenant := user.CanAccessAllTenants ||
 		resolveTenantSelfServiceCreationEnabled(ctx, h.configInfo, h.systemSettingSvc)
+	autoAcceptInvitation := h.systemSettingSvc != nil &&
+		h.systemSettingSvc.GetBool(ctx, "tenant.auto_accept_invitation", "WEKNORA_TENANT_AUTO_ACCEPT_INVITATION", false)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"user":            userInfo,
-			"tenant":          dto.NewTenantResponse(ctx, tenant),
-			"memberships":     memberships,
-			"tenant_required": tenant == nil,
+			"user":                userInfo,
+			"preference_defaults": gin.H{"browser_search_instructions": types.DefaultBrowserSearchInstructions},
+			"tenant":              dto.NewTenantResponse(ctx, tenant),
+			"memberships":         memberships,
+			"tenant_required":     tenant == nil,
 			"capabilities": gin.H{
-				"can_create_tenant": canCreateTenant,
+				"can_create_tenant":      canCreateTenant,
+				"auto_accept_invitation": autoAcceptInvitation,
 			},
 		},
 	})
@@ -590,11 +682,14 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 // (preserve existing value) from "explicit false". See
 // types.UserPreferences for the persistence-layer counterpart.
 type updateMyPreferencesRequest struct {
-	// LastActiveTenantID lets the SPA persist "after a fresh login,
-	// drop me back into this workspace" across devices. Send a positive
-	// workspace id to set / replace, or 0 to clear. Membership is validated
-	// at next login, not here. Nil = field omitted from the PATCH and
-	// stays untouched.
+	BrowserSearchInstructions *string `json:"browser_search_instructions" binding:"omitempty,max=4000"`
+	// LastActiveTenantID lets clients persist "after a fresh login,
+	// drop me back into this workspace" across devices. The SPA sends
+	// this after every tenant switch; POST /auth/switch-tenant records
+	// the same preference server-side. Send a positive workspace id to
+	// set / replace, or 0 to clear. Membership is validated at next
+	// login, not here. Nil = field omitted from the PATCH and stays
+	// untouched.
 	LastActiveTenantID *uint64 `json:"last_active_tenant_id"`
 }
 
@@ -629,7 +724,8 @@ func (h *AuthHandler) UpdateMyPreferences(c *gin.Context) {
 	}
 
 	patch := types.UserPreferences{
-		LastActiveTenantID: req.LastActiveTenantID,
+		LastActiveTenantID:        req.LastActiveTenantID,
+		BrowserSearchInstructions: req.BrowserSearchInstructions,
 	}
 	prefs, err := h.userService.UpdateUserPreferences(ctx, user.ID, patch)
 	if err != nil {
@@ -647,7 +743,7 @@ func (h *AuthHandler) UpdateMyPreferences(c *gin.Context) {
 
 // ChangePassword godoc
 // @Summary      Change password
-// @Description  Change the current user's login password. The new password must be 8-32 chars and contain both letters and digits; on success all sessions are revoked and login is required again.
+// @Description  Change the current user's login password. The new password must be 8-32 chars and contain both letters and digits; when complex passwords are enabled it must also contain uppercase, lowercase, and special characters. On success all sessions are revoked and login is required again.
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
@@ -682,14 +778,16 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Change password
+	// Change password. Policy is enforced in the service after the old
+	// password is verified so a wrong current credential is not masked
+	// by a complexity error.
 	err = h.userService.ChangePassword(ctx, user.ID, req.OldPassword, req.NewPassword)
 	if err != nil {
 		switch {
-		case stderrors.Is(err, service.ErrPasswordPolicy):
+		case service.IsPasswordPolicyError(err):
 			appErr := errors.NewValidationError("Password policy violation").
 				WithDetails(service.DetailPasswordPolicy)
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		case stderrors.Is(err, service.ErrInvalidOldPassword):
 			appErr := errors.NewBadRequestError("Current password is incorrect").
@@ -718,7 +816,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 // GetAuthConfig godoc
 // @Summary      Get authentication configuration
-// @Description  Return public auth configuration such as the registration mode, so the frontend can decide whether to show the registration entry
+// @Description  Return the deployment's registration mode and password complexity switch, so the frontend can decide whether to show the registration entry and which password rules to enforce
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
@@ -726,29 +824,38 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 // @Router       /auth/config [get]
 //
 // GetAuthConfig is intentionally a no-auth endpoint: the frontend reads
-// it on app load to decide whether to show the Register tab. We expose
-// only what the UI strictly needs (registration_mode); other config
-// stays internal.
+// it on app load to decide whether to show the Register tab and which
+// password complexity rules to apply. We expose only what the UI
+// strictly needs; other config stays internal.
 func (h *AuthHandler) GetAuthConfig(c *gin.Context) {
 	// Same source-of-truth as Register's gate, so the UI hide-the-button
 	// signal can never disagree with the API enforcement signal.
 	mode := h.resolveRegistrationMode(c.Request.Context())
+
+	complexPasswordEnabled := service.ResolveComplexPasswordEnabled(
+		c.Request.Context(),
+		h.configInfo,
+		h.systemSettingSvc,
+	)
 	c.JSON(http.StatusOK, gin.H{
-		"success":           true,
-		"registration_mode": mode,
+		"success":                  true,
+		"registration_mode":        mode,
+		"complex_password_enabled": complexPasswordEnabled,
 	})
 }
 
 // SwitchTenant godoc
 // @Summary      Switch active workspace
-// @Description  Re-issue an access token for the current user in the target workspace; requires an active membership in that workspace
+// @Description  Re-issue an access token for the current user in the target workspace; requires an active membership in that workspace (except for cross-tenant superusers).
+// @Description  A successful switch saves the target workspace as the 'last active tenant' preference, so the next login and refresh both land in that workspace (the refresh JWT carries no tenant_id).
+// @Description  The preference is account-wide: one switch changes where the next login/refresh lands on all of the user's devices. If saving the preference fails, the whole switch fails and no new token is issued.
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
 // @Param        request  body      object{tenant_id=integer,refresh_token=string}  true  "Switch request"
 // @Success      200      {object}  types.LoginResponse
 // @Failure      400      {object}  errors.AppError  "Invalid parameters"
-// @Failure      403      {object}  errors.AppError  "No membership in that workspace"
+// @Failure      403      {object}  errors.AppError  "No membership in that workspace, or saving the preference failed"
 // @Security     Bearer
 // @Router       /auth/switch-tenant [post]
 //
@@ -787,7 +894,7 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 }
 
 // @Summary      Auto initialization (Lite desktop)
-// @Description  Lite-only: on first start, automatically creates the default user and workspace and returns a token; later starts just issue a token, skipping manual registration/login
+// @Description  Lite-only: on first start, automatically creates the default user and workspace and returns a token; the first and all later starts must authenticate with native desktop credentials, skipping manual registration/login
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
@@ -800,6 +907,12 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 	if Edition != "lite" {
 		appErr := errors.NewForbiddenError("auto-setup is only available in lite edition")
 		c.Error(appErr)
+		return
+	}
+
+	if liteSetupToken == "" ||
+		subtle.ConstantTimeCompare([]byte(c.GetHeader("X-WeKnora-Desktop-Token")), []byte(liteSetupToken)) != 1 {
+		_ = c.Error(errors.NewUnauthorizedError("desktop authentication is required"))
 		return
 	}
 

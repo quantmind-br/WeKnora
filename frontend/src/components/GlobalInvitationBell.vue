@@ -50,7 +50,7 @@ const openDialog = () => {
   height: 32px;
   padding: 0;
   border: 1px solid var(--td-component-stroke);
-  border-radius: 10px;
+  border-radius: var(--app-radius-lg);
   /* Use the container background instead of transparent, so the bell stays visible against different page background colors when floating over content. */
   background: var(--td-bg-color-container);
   color: var(--td-text-color-secondary);

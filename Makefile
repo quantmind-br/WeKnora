@@ -1,4 +1,4 @@
-.PHONY: help build run test clean docker-build-app docker-build-docreader docker-build-frontend docker-build-all docker-run migrate-up migrate-down docker-restart docker-stop start-all stop-all start-ollama stop-ollama build-images build-images-app build-images-docreader build-images-frontend clean-images check-env list-containers pull-images show-platform dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend docs install-swagger build-lite run-lite package-lite
+.PHONY: help build run test clean docker-build-app docker-build-docreader docker-build-frontend docker-build-all docker-run migrate-up migrate-down docker-restart docker-stop start-all stop-all start-ollama stop-ollama build-images build-images-app build-images-docreader build-images-frontend clean-images check-env list-containers pull-images show-platform dev-start dev-stop dev-restart dev-logs dev-status dev-app dev-frontend docs install-swagger build-lite run-lite package-lite anydoc-lib build-anydoc
 
 # Show help
 help:
@@ -8,6 +8,8 @@ help:
 	@echo "  build             Build the application"
 	@echo "  run               Run the application"
 	@echo "  test              Run tests"
+	@echo "  anydoc-lib        Build the anydoc static library (requires the Rust toolchain)"
+	@echo "  build-anydoc      Build the application with the anydoc parsing engine"
 	@echo "  clean             Clean build files"
 	@echo ""
 	@echo "Docker commands:"
@@ -42,6 +44,11 @@ help:
 	@echo "  docs              Generate Swagger API documentation"
 	@echo "  install-swagger   Install swag tool"
 	@echo ""
+	@echo "Model vendor catalog:"
+	@echo "  model-catalog-check   Validate the vendor catalog (invariants + old/new behavior comparison + vendor tests)"
+	@echo "  model-catalog-diff    Compare against models.dev and output a model metadata diff report (requires manual review)"
+	@echo "                        Optional: make model-catalog-diff VENDOR=deepseek"
+	@echo ""
 	@echo "Environment check:"
 	@echo "  check-env         Check environment configuration"
 	@echo "  list-containers   List running containers"
@@ -56,6 +63,7 @@ help:
 	@echo "  dev-logs          View development environment logs"
 	@echo "  dev-status        View development environment status"
 	@echo "  dev-app           Start backend application (runs locally, requires dev-start first)"
+	@echo "                    Automatically links the anydoc engine after make anydoc-lib"
 	@echo "  dev-frontend      Start frontend (runs locally, requires dev-start first)"
 	@echo ""
 	@echo "Lite mode (zero external dependencies):"
@@ -87,6 +95,15 @@ endif
 build:
 	go build -o $(BINARY_NAME) $(MAIN_PATH)
 
+# Build the anydoc static archive (Rust) that the `anydoc` build tag links.
+# Override the platform with TARGET=<rust-target-triple>.
+anydoc-lib:
+	./scripts/build-anydoc-lib.sh
+
+# Build the application with the in-process anydoc parser engine linked in.
+build-anydoc: anydoc-lib
+	go build -tags anydoc -o $(BINARY_NAME) $(MAIN_PATH)
+
 # Run the application
 run: build
 	./$(BINARY_NAME)
@@ -94,6 +111,22 @@ run: build
 # Run tests
 test:
 	go test -v ./...
+
+# Generate reviewed metadata + protocol overrides, then verify every model.
+.PHONY: model-catalog-generate model-catalog-check
+model-catalog-generate:
+	python3 scripts/model-catalog/generate.py
+
+model-catalog-check:
+	python3 scripts/model-catalog/generate.py --check
+	go test ./internal/models/...
+
+# Vendor catalog: report where our model metadata differs from models.dev.
+# Development aid only — nothing is fetched at runtime and nothing is written
+# automatically; review each line against the vendor's own documentation.
+.PHONY: model-catalog-diff
+model-catalog-diff:
+	@python3 scripts/model_catalog_diff.py $(if $(VENDOR),--vendor $(VENDOR),)
 
 # Clean build artifacts
 clean:
@@ -110,16 +143,19 @@ docker-build-app:
 		--build-arg COMMIT_ID_ARG="$$COMMIT_ID" \
 		--build-arg BUILD_TIME_ARG="$$BUILD_TIME" \
 		--build-arg GO_VERSION_ARG="$$GO_VERSION" \
+		--build-arg WITH_ANYDOC=$${WITH_ANYDOC:-1} \
 		-f docker/Dockerfile.app -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 
 # Build docreader Docker image
 docker-build-docreader:
 	docker build --platform $(PLATFORM) -f docker/Dockerfile.docreader -t wechatopenai/weknora-docreader:latest .
 
-# Build frontend Docker image
+# Build frontend Docker image (multi-stage: npm runs inside the builder stage)
 docker-build-frontend:
-	./scripts/build_frontend_dist.sh
-	docker build --platform $(PLATFORM) -f frontend/Dockerfile -t wechatopenai/weknora-ui:latest frontend/
+	@eval $$(./scripts/get_version.sh env); \
+	docker build --platform $(PLATFORM) \
+		--build-arg VITE_FRONTEND_COMMIT="$$COMMIT_ID" \
+		-f frontend/Dockerfile -t wechatopenai/weknora-ui:latest frontend/
 
 # Build all Docker images
 docker-build-all: docker-build-app docker-build-docreader docker-build-frontend
@@ -234,6 +270,8 @@ deps:
 
 # Build for production
 # google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn for qdrant milvus proto conflict
+# GO_BUILD_TAGS adds optional build tags, e.g. GO_BUILD_TAGS=anydoc to link the
+# in-process office document parser (run `make anydoc-lib` first).
 build-prod:
 	VERSION=$$(git describe --tags --abbrev=0 2>/dev/null || echo "$${VERSION:-unknown}"); \
 	COMMIT_ID=$${COMMIT_ID:-unknown}; \
@@ -243,7 +281,7 @@ build-prod:
 	BUILD_TIME=$${BUILD_TIME:-unknown}; \
 	GO_VERSION=$${GO_VERSION:-unknown}; \
 	LDFLAGS="-X 'github.com/Tencent/WeKnora/internal/handler.Version=$$VERSION' -X 'github.com/Tencent/WeKnora/internal/handler.Edition=standard' -X 'github.com/Tencent/WeKnora/internal/handler.CommitID=$$COMMIT_ID' -X 'github.com/Tencent/WeKnora/internal/handler.BuildTime=$$BUILD_TIME' -X 'github.com/Tencent/WeKnora/internal/handler.GoVersion=$$GO_VERSION' -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"; \
-	go build -ldflags="-w -s $$LDFLAGS" -o $(BINARY_NAME) $(MAIN_PATH)
+	go build -tags "$(GO_BUILD_TAGS)" -ldflags="-w -s $$LDFLAGS" -o $(BINARY_NAME) $(MAIN_PATH)
 
 # Build Lite version (single binary, SQLite + in-memory queue)
 # Builds frontend to web/ first, then builds Go binary; SKIP_FRONTEND=1 skips the frontend

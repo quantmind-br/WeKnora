@@ -606,6 +606,13 @@ func computeGraphSubset(pages []*types.WikiPage, req *types.WikiGraphRequest) (*
 	}
 	hasTypeFilter := len(typeAllow) > 0
 
+	familiarSet := make(map[string]struct{}, len(req.FamiliarKnowledgeIDs))
+	for _, id := range req.FamiliarKnowledgeIDs {
+		if id = strings.TrimSpace(id); id != "" {
+			familiarSet[id] = struct{}{}
+		}
+	}
+
 	pageBySlug := make(map[string]*types.WikiPage, len(pages))
 	linkCount := make(map[string]int, len(pages))
 	for _, p := range pages {
@@ -664,6 +671,7 @@ func computeGraphSubset(pages []*types.WikiPage, req *types.WikiGraphRequest) (*
 			Title:     p.Title,
 			PageType:  p.PageType,
 			LinkCount: linkCount[slug],
+			Familiar:  p.BuiltFrom(familiarSet),
 		})
 	}
 	// Deterministic node ordering — the map iteration above is random.
@@ -711,6 +719,11 @@ func computeGraphSubset(pages []*types.WikiPage, req *types.WikiGraphRequest) (*
 		Total:     total,
 		Returned:  len(nodes),
 		Truncated: len(nodes) < total,
+	}
+	for _, n := range nodes {
+		if n.Familiar {
+			meta.FamiliarCount++
+		}
 	}
 	if mode == types.WikiGraphModeEgo {
 		meta.Center = req.Center
@@ -978,6 +991,18 @@ func (s *wikiPageService) ListByTypeRecent(ctx context.Context, kbID string, pag
 // dedup pre-filter to surface candidate merge targets.
 func (s *wikiPageService) FindSimilarPages(ctx context.Context, kbID string, query string, pageTypes []string, limit int) ([]*types.WikiPageLite, error) {
 	return s.repo.FindSimilarPages(ctx, kbID, query, pageTypes, limit)
+}
+
+// FindPagesByNormalizedTitle looks up exact same-type title identities for
+// wiki ingest, independent of the trigram top-K used for semantic dedup.
+func (s *wikiPageService) FindPagesByNormalizedTitle(ctx context.Context, kbID, pageType, identity string) ([]*types.WikiPageLite, error) {
+	return s.repo.FindPagesByNormalizedTitle(ctx, kbID, pageType, identity)
+}
+
+// FindPagesByNormalizedTitles looks up several normalized title identities
+// in one query so wiki ingest does not seq-scan once per extracted item.
+func (s *wikiPageService) FindPagesByNormalizedTitles(ctx context.Context, kbID, pageType string, identities []string) ([]*types.WikiPageLite, error) {
+	return s.repo.FindPagesByNormalizedTitles(ctx, kbID, pageType, identities)
 }
 
 // ListDistinctCategoryPaths returns the existing wiki folder paths. Used by
@@ -1256,7 +1281,16 @@ func normalizeWikiHierarchy(page *types.WikiPage) {
 	}
 	page.ParentSlug = strings.TrimSpace(page.ParentSlug)
 
-	cleanPath := types.StringArray(types.CleanWikiCategoryPath(page.CategoryPath))
+	// A page filed in a folder mirrors the folder tree exactly: its
+	// category_path was derived from the validated folder path, so the
+	// model-noise cleaning (which drops type-like labels such as "概念") must
+	// not rewrite it. Only pages without a folder carry model-authored labels.
+	var cleanPath types.StringArray
+	if strings.TrimSpace(page.FolderID) != "" {
+		cleanPath = types.StringArray(types.TrimWikiFolderSegments(page.CategoryPath))
+	} else {
+		cleanPath = types.StringArray(types.CleanWikiCategoryPath(page.CategoryPath))
+	}
 	page.CategoryPath = cleanPath
 	page.Depth = len(cleanPath)
 
@@ -1335,19 +1369,18 @@ func (s *wikiPageService) ListIssues(ctx context.Context, kbID string, slug stri
 }
 
 // UpdateIssueStatus updates an issue's status
-func (s *wikiPageService) UpdateIssueStatus(ctx context.Context, issueID string, status string) error {
-	return s.repo.UpdateIssueStatus(ctx, issueID, status)
+func (s *wikiPageService) UpdateIssueStatus(ctx context.Context, kbID string, issueID string, status string) error {
+	return s.repo.UpdateIssueStatus(ctx, kbID, issueID, status)
 }
 
 // --- Folder tree (wiki_folders) ---
 
-// wikiFolderSegments splits a materialized folder path ("AI/RAG") into cleaned
-// segments. Empty/blank path yields nil (the wiki root).
+// wikiFolderSegments splits a materialized folder path ("AI/RAG") into its
+// literal segments. Empty/blank path yields nil (the wiki root). Folder names
+// are authoritative, so a folder named like a page type ("概念", "Concepts")
+// is kept rather than dropped as model noise.
 func wikiFolderSegments(path string) []string {
-	if strings.TrimSpace(path) == "" {
-		return nil
-	}
-	return types.CleanWikiCategoryPath(strings.Split(path, "/"))
+	return types.WikiFolderPathSegments(path)
 }
 
 // applyFolderToPage refreshes a page's derived category_path cache from its

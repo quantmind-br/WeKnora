@@ -791,7 +791,7 @@ const docTemplate = `{
         },
         "/auth/auto-setup": {
             "post": {
-                "description": "Lite-only: on first start, automatically creates the default user and workspace and returns a token; later starts just issue a token, skipping manual registration/login",
+                "description": "Lite-only: on first start, automatically creates the default user and workspace and returns a token; both first and later starts must authenticate with desktop-native credentials, skipping manual registration/login",
                 "consumes": [
                     "application/json"
                 ],
@@ -825,7 +825,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Change the current user's login password. The new password must be 8-32 chars and contain both letters and digits; on success all sessions are revoked and login is required again.",
+                "description": "Change the current user's login password. The new password must be 8-32 chars and contain both letters and digits; when complex passwords are enabled it must also contain upper- and lowercase letters and special characters. On success all sessions are revoked and login is required again.",
                 "consumes": [
                     "application/json"
                 ],
@@ -874,7 +874,7 @@ const docTemplate = `{
         },
         "/auth/config": {
             "get": {
-                "description": "Return public auth configuration such as the registration mode, so the frontend can decide whether to show the registration entry",
+                "description": "Return the current deployment's registration mode and password complexity switch, so the frontend can decide whether to show the registration entry and which password validation rules to apply",
                 "consumes": [
                     "application/json"
                 ],
@@ -1161,6 +1161,20 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/oidc/start": {
+            "get": {
+                "description": "Unlike /auth/oidc/url, this endpoint issues a direct 302 redirect to the OIDC Provider's authorization page,\nwith no frontend JS involved. Suited to external platforms (e.g. an enterprise portal) that only need to provide a link\nto trigger the OIDC authorization code flow, reusing the IdP's SSO session so the password need not be entered again.",
+                "tags": [
+                    "Authentication"
+                ],
+                "summary": "Start OIDC login (direct 302)",
+                "responses": {
+                    "302": {
+                        "description": "Found"
+                    }
+                }
+            }
+        },
         "/auth/oidc/url": {
             "get": {
                 "description": "Generate a third-party login redirect URL from the backend OIDC configuration",
@@ -1356,7 +1370,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Re-issue an access token for the current user in the target workspace; requires an active membership in that workspace",
+                "description": "Re-issue an access token for the current user in the target workspace; requires an active membership in that workspace (except for cross-tenant super users).\nA successful switch writes the target workspace into the \"last active tenant\" preference, so the next login and refresh land in that workspace (the refresh JWT carries no tenant_id).\nThis preference is account-wide: one switch changes where the next login/refresh lands on all of the user's devices. If writing the preference fails, the whole switch fails and no new token is issued.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1400,7 +1414,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "No membership in that workspace",
+                        "description": "No membership in that workspace, or failed to write the preference",
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
@@ -4213,6 +4227,12 @@ const docTemplate = `{
                         "description": "Sort order: asc (updated ascending); defaults to updated descending",
                         "name": "sort_order",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "启用状态筛选；不传时返回全部",
+                        "name": "is_enabled",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4914,6 +4934,17 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SearchParams"
                         }
+                    },
+                    {
+                        "enum": [
+                            "handle",
+                            "public"
+                        ],
+                        "type": "string",
+                        "default": "handle",
+                        "description": "文件引用形式，public 返回可加载直链",
+                        "name": "resource_urls",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4968,6 +4999,17 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SearchParams"
                         }
+                    },
+                    {
+                        "enum": [
+                            "handle",
+                            "public"
+                        ],
+                        "type": "string",
+                        "default": "handle",
+                        "description": "文件引用形式，public 返回可加载直链",
+                        "name": "resource_urls",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5144,6 +5186,91 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Insufficient permissions",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/knowledge-bases/{id}/knowledge/batch-download": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Package up to 200 documents from the same knowledge base into a ZIP, with at most 512 MiB of original content in total. Entries without an original file are skipped; if access is denied, documents span knowledge bases, or a read fails, no partial archive is returned.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "Knowledge Management"
+                ],
+                "summary": "Batch download knowledge files",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Knowledge Base ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Document ID list",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.BatchDownloadKnowledgeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ZIP archive",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
@@ -6108,6 +6235,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/knowledge-search": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Search the knowledge base (without LLM summarization)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Q\u0026A"
+                ],
+                "summary": "Knowledge search",
+                "parameters": [
+                    {
+                        "description": "Search request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.SearchKnowledgeRequest"
+                        }
+                    },
+                    {
+                        "enum": [
+                            "handle",
+                            "public"
+                        ],
+                        "type": "string",
+                        "default": "handle",
+                        "description": "File reference format; public returns loadable direct URL",
+                        "name": "resource_urls",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Search results",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/knowledge/batch": {
             "get": {
                 "security": [
@@ -6580,14 +6767,17 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "minimum": 0,
                         "type": "integer",
-                        "description": "Offset for pagination",
+                        "description": "Offset for pagination (minimum 0)",
                         "name": "offset",
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
+                        "minimum": 1,
                         "type": "integer",
-                        "description": "Limit for pagination (default 20)",
+                        "description": "Limit for pagination (default 20, maximum 100)",
                         "name": "limit",
                         "in": "query"
                     },
@@ -6737,7 +6927,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Update knowledge entry info",
+                "description": "Partially update a knowledge entry (title/description/custom metadata); omitted fields stay unchanged, and explicitly passing an empty description clears the summary",
                 "consumes": [
                     "application/json"
                 ],
@@ -6757,12 +6947,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Knowledge info",
+                        "description": "Fields to update (all optional)",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.Knowledge"
+                            "$ref": "#/definitions/internal_handler.UpdateKnowledgeRequest"
                         }
                     }
                 ],
@@ -8143,6 +8333,303 @@ const docTemplate = `{
                 }
             }
         },
+        "/mcp-endpoints": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "获取 MCP 端点列表",
+                "responses": {
+                    "200": {
+                        "description": "端点列表",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "为当前工作空间发布一个 MCP 端点，响应中的 token 只返回一次",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "创建 MCP 端点",
+                "parameters": [
+                    {
+                        "description": "端点配置：name、description、enabled、knowledge_base_ids、tools 等",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "创建的端点，含一次性 token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mcp-endpoints/tools": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "返回工作空间 MCP 端点可勾选的工具清单、分组和默认勾选项",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "获取 MCP 端点工具目录",
+                "responses": {
+                    "200": {
+                        "description": "工具目录",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mcp-endpoints/{endpoint_id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "获取 MCP 端点详情",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "端点 ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "端点详情",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "端点不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "更新 MCP 端点",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "端点 ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "要更新的字段，未提供的字段保持不变",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新后的端点",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "端点不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "删除 MCP 端点",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "端点 ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "端点不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/mcp-endpoints/{endpoint_id}/rotate-token": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "生成新令牌并立即作废旧令牌，响应中的 token 只返回一次",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP端点"
+                ],
+                "summary": "轮换 MCP 端点令牌",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "端点 ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "含新 token 的端点",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "端点不存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/mcp-services": {
             "get": {
                 "security": [
@@ -8153,7 +8640,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get all MCP services of the current workspace",
+                "description": "Get all MCP services of the current workspace (including saved tool catalog counts)",
                 "consumes": [
                     "application/json"
                 ],
@@ -8524,6 +9011,142 @@ const docTemplate = `{
                 }
             }
         },
+        "/mcp-services/{id}/metadata": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Reads the database only, without connecting to the upstream. data is null when not yet synced; stale is true after the connection config changes. OAuth catalogs are isolated per current authorization principal.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP Services"
+                ],
+                "summary": "Read the saved MCP tool catalog",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "MCP Service ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Catalog snapshot",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "OAuth catalog is missing an authorization principal",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Service does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/mcp-services/{id}/metadata/refresh": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Explicitly connects to the upstream and atomically replaces the full catalog. OAuth services write the current user's snapshot and can be called by Viewer and above; static-auth services write the tenant-shared snapshot and require Admin.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "MCP Services"
+                ],
+                "summary": "Sync MCP tool catalog",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "MCP Service ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Catalog snapshot after sync",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Catalog incomplete or validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "OAuth catalog is missing an authorization principal",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "Static-auth catalog must be refreshed by an admin",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Service does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Connection config changed during refresh",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "503": {
+                        "description": "Metadata store unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/mcp-services/{id}/oauth/authorize-url": {
             "post": {
                 "security": [
@@ -8754,7 +9377,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Set/update approval requirements for a tool of the given MCP service",
+                "description": "Update the enabled state and/or manual approval requirement for a tool of the given MCP service. Provide at least one of require_approval or enabled; omitted fields keep their current values.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8764,7 +9387,7 @@ const docTemplate = `{
                 "tags": [
                     "MCP Services"
                 ],
-                "summary": "Set manual approval policy for MCP tools",
+                "summary": "Set MCP tool policy",
                 "parameters": [
                     {
                         "type": "string",
@@ -8781,7 +9404,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "{require_approval: bool}",
+                        "description": "{require_approval?: bool, enabled?: bool}",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -8861,6 +9484,219 @@ const docTemplate = `{
                 }
             }
         },
+        "/me/env-vars": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "List every sandbox config of this workspace with the caller's own config-wide variables and the credentials its skills declared, each reporting whether it is unset, filled in workspace-wide, or filled in by the caller. Values are never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "List my environment variables",
+                "responses": {
+                    "200": {
+                        "description": "One group per sandbox config",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/me/env-vars/sandbox": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Store the caller's own value for one variable on a sandbox config. It is injected into every skill script and shell command this caller's turns run on that config.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Set one of my sandbox environment variables",
+                "parameters": [
+                    {
+                        "description": "Sandbox config, variable name and value",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stored",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Remove the caller's own value for one variable on a sandbox config.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Delete one of my sandbox environment variables",
+                "parameters": [
+                    {
+                        "description": "Sandbox config and variable name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not set",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/env-vars/skill": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Store the caller's own value for one variable the skill declared. It overrides the workspace-wide value for this caller only, and is injected only into executions that name this skill.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Set one of my skill credentials",
+                "parameters": [
+                    {
+                        "description": "Skill, variable name and value",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stored",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Remove the caller's own value. The workspace-wide value, if there is one, applies again afterwards.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Delete one of my skill credentials",
+                "parameters": [
+                    {
+                        "description": "Skill and variable name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.meEnvVarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not set",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
         "/me/invitations": {
             "get": {
                 "security": [
@@ -8890,6 +9726,52 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/me/invitations/accept-by-token": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "A logged-in user joins the workspace with a shared invite-link token, without creating a new account; idempotent for users who are already members.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "My Invitations"
+                ],
+                "summary": "Join workspace via shared link",
+                "parameters": [
+                    {
+                        "description": "Invitation token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.acceptInvitationByTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "410": {
+                        "description": "Link is invalid or revoked",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
                     }
                 }
@@ -8983,6 +9865,574 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/consolidate": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Merge entries with similar meaning and archive expired items, without waiting for the daily background consolidation",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Consolidate my memories now",
+                "responses": {
+                    "200": {
+                        "description": "Consolidation result",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/documents": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Return documents repeatedly cited in the current user's answers; documents below the habit threshold are not shown",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "List frequently used documents",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Document list",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/documents/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Delete a document affinity count; retrieval will no longer be boosted by this document",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Stop using a document for personalized retrieval",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Affinity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/export": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Export all of the current user's memories as JSON",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Export my memories",
+                "responses": {
+                    "200": {
+                        "description": "Memory export",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/items": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Return the current user's memory items with pagination, optionally filtered by status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "List my memories",
+                "parameters": [
+                    {
+                        "enum": [
+                            "active",
+                            "superseded",
+                            "archived",
+                            "pending"
+                        ],
+                        "type": "string",
+                        "description": "Status filter",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Memory list",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Manually add a long-term memory",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Add a memory",
+                "parameters": [
+                    {
+                        "description": "Memory content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Created memory",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Permanently delete all of the current user's memories",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Clear my memories",
+                "responses": {
+                    "200": {
+                        "description": "Cleared successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/items/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Edit a memory's content and importance; once edited, the memory will not be overwritten by background extraction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Edit a memory",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Memory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Memory content",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated memory",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Permanently delete a memory",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Delete a memory",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Memory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/items/{id}/confirm": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Accept a system-inferred memory so that it takes effect",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Confirm an inferred memory",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Memory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmed successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/items/{id}/reject": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Reject a system-inferred memory and remember the rejection",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Reject an inferred memory",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Memory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rejected successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/settings": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Return the merged memory switch state (workspace level + personal level) and the memory count",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Get my memory settings",
+                "responses": {
+                    "200": {
+                        "description": "Memory settings",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Enable or disable long-term memory for the current user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Update my memory settings",
+                "parameters": [
+                    {
+                        "description": "Settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated settings",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/topics": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Return topics that have been counted but not yet promoted to long-term interests, and how many more occurrences each needs to reach the threshold",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "List topics under observation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Topic list",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/topics/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Delete the count of a topic not yet promoted and remember the rejection, so it will no longer be automatically recorded as a long-term interest",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Stop tracking a topic",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Topic ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/memory/topics/{id}/promote": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Promote a topic under observation to a long-term interest memory without waiting for the remaining occurrences",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Long-term Memory"
+                ],
+                "summary": "Record as a long-term interest now",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Topic ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Created memory",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -9493,6 +10943,12 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "模型仍被知识库、智能体或长期记忆引用",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
                     },
                     "404": {
@@ -10401,14 +11857,13 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Search invitable workspaces by name (excluding joined ones) for organization invitations; deduplicated by workspace",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Organization Management"
                 ],
-                "summary": "Search invitable workspaces",
+                "summary": "Resolve a workspace ID for invitation",
                 "parameters": [
                     {
                         "type": "string",
@@ -10419,17 +11874,10 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Search keyword (workspace name)",
+                        "description": "Exact workspace ID",
                         "name": "q",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Result count limit",
-                        "name": "limit",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -10438,12 +11886,6 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
                     }
                 }
@@ -10554,6 +11996,1018 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.ListSharesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List workspace sandbox backend configs with credentials masked.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "List sandbox configs",
+                "responses": {
+                    "200": {
+                        "description": "Sandbox configs and defaults",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a named workspace sandbox backend config. Credentials are masked in the response.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Create sandbox config",
+                "parameters": [
+                    {
+                        "description": "Sandbox backend config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.sandboxConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created sandbox config",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or validation failure",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve a workspace sandbox backend config with credentials masked.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Get sandbox config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sandbox config",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Sandbox config not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update a sandbox backend config. Identity-field changes are refused while the config owns live or paused sandboxes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Update sandbox config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated sandbox config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.sandboxConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated sandbox config",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or validation failure",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Sandbox config not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Live sandboxes or unverifiable inventory",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "423": {
+                        "description": "Sandbox config is being modified by another request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Soft-delete a sandbox backend config. force=true only overrides unverifiable provider inventory, never confirmed live sandboxes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Delete sandbox config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force delete when inventory is unverifiable",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deletion success",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Live sandboxes or unverifiable inventory",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/sandboxes": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Return live/paused sandbox inventory and affected agent names for one config.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Inspect sandbox config inventory",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sandbox inventory",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List the agent skills installed onto one sandbox config's image.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "List installed skills",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Installed skills",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Sandbox config not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Install a skill onto this sandbox config's image. Send a zip\nas multipart form field \"file\", or JSON {\"source\":\"...\"} to\npull a public skill. source is one of: \"@owner/slug\" or a\nslash-free slug (ClawHub), a github.com / gitlab.com /\nskills.sh / clawhub / skillhub URL, a ClawHub skills-sh\ncatalog page (https://clawhub.ai/skills-sh/owner/repo/slug),\na skills-sh:owner/repo/slug locator, or a direct zip/SKILL.md\nURL. Bare \"owner/slug\" is rejected as ambiguous. The source\nmust be readable anonymously. The install boots a sandbox and\nruns for minutes, so the request is only accepted; follow it\nvia the install-events stream.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Install a skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Skill bundle (zip)",
+                        "name": "file",
+                        "in": "formData"
+                    },
+                    {
+                        "description": "Install from a registry, git host, or archive URL",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.skillSourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Install accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Missing, oversized or invalid bundle or source",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Sandbox config not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve one installed skill of a sandbox config.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Get an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Installed skill",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove a skill from the config's image. The removal rebuilds\nthe image and runs for minutes, so it is only accepted; follow\nit via the install-events stream.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Remove an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Removal accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Show or hide an installed skill and set the workspace-wide values of the environment variables it declared. Either field may be sent, or both. The files stay in the image either way; removal is a separate flow.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Update an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.skillPatchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated skill",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/files": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List files in the stored skill bundle without starting a sandbox.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "List files of an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Skill files",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill or files not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/files/content": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Read one skill file as UTF-8, a small base64 image, or binary.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Read one file of an installed skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill-root-relative file path",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Skill file",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid path",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill or file not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/install-events": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Server-sent progress for one install or removal. The stream\nalways terminates: with the run's own terminal event, with one\nderived from the durable status, or with a \"detached\" frame\nwhen it stops following a run that is still going.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Follow an install or removal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream of progress events",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/reinstall": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retry a failed install from the stored archive; does not re-upload.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Retry a skill install",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Reinstall accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "The stored archive is gone",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Abort an in-flight install so the operator can retry or uninstall. After a process restart the row may still say installing with no live process; this rewrites it immediately instead of waiting for the stuck-run reaper. Removal is not stopped.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Stop a skill install",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stopped skill",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Skill is not installing",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sandbox-configs/{id}/skills/{skillId}/transcript": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Server-sent replay of everything the installer agent did — the\nprompt it was given, its thinking, the commands it ran and\ntheir output — followed live while the install is still\nrunning. Frames are the same shape the chat stream uses, so a\nconsole renders an install with the components it renders a\nchat turn with. 404 once the event log has expired; the\ndurable message history is the fallback.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "SandboxConfig"
+                ],
+                "summary": "Follow an install's agent transcript",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill ID",
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream of transcript events",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "204": {
+                        "description": "Install is still preparing; retry once locators exist",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Skill or transcript not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
                     }
                 }
@@ -10783,66 +13237,6 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Session or message does not exist",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/search": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Search the knowledge base (without LLM summarization)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Q\u0026A"
-                ],
-                "summary": "Knowledge search",
-                "parameters": [
-                    {
-                        "description": "Search request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler_session.SearchKnowledgeRequest"
-                        }
-                    },
-                    {
-                        "enum": [
-                            "handle",
-                            "public"
-                        ],
-                        "type": "string",
-                        "default": "handle",
-                        "description": "File reference format; public returns loadable direct URL",
-                        "name": "resource_urls",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Search results",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request parameters",
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
@@ -11093,6 +13487,232 @@ const docTemplate = `{
                 }
             }
         },
+        "/sessions/{id}/steer": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Used to restore the queue above the input box after a page refresh. Returns an empty list when no turn is running.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Q\u0026A"
+                ],
+                "summary": "List queued messages not yet consumed by the current run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "503": {
+                        "description": "Live turn lookup failed; retryable",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{id}/steer/{steer_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove one entry from the current run's queue; it will no longer be injected or sent as a follow-up.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Q\u0026A"
+                ],
+                "summary": "Delete a queued message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Queued message ID",
+                        "name": "steer_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "503": {
+                        "description": "Live turn lookup failed; retryable",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{session_id}/artifacts": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Return metadata of the skill artifacts produced by all assistant messages in this session (without URLs)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "List artifact files generated by the session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{session_id}/fork": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fork a new session from the specified user or assistant message. User message: copies the history before it and pre-fills that question; assistant message: copies the history including that answer and continues from that round's sandbox state.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "Fork session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fork request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.ForkSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New session",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters / unsupported fork-point role",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Session or message does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "Source session is still generating",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{session_id}/messages/{message_id}/artifacts": {
+            "get": {
+                "responses": {}
+            }
+        },
+        "/sessions/{session_id}/messages/{message_id}/artifacts/{index}/download": {
+            "get": {
+                "responses": {}
+            }
+        },
         "/sessions/{session_id}/messages/{message_id}/suggestions": {
             "get": {
                 "security": [
@@ -11235,6 +13855,137 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Session does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{session_id}/steer": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Append a user message to a running agent turn (after = queue / inject = inject). Returns new_run when there is no live turn.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Q\u0026A"
+                ],
+                "summary": "Append a message to a running conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message to append",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_session.SteerMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "queued | new_run",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Session does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "503": {
+                        "description": "Live turn lookup failed; retryable",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{session_id}/steer/{steer_id}/inject": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Switch a queued delivery=after message to inject; the running agent will read it at the next round boundary.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Q\u0026A"
+                ],
+                "summary": "Switch a queued message to immediate injection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Queued message ID",
+                        "name": "steer_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "queued | new_run",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                        }
+                    },
+                    "503": {
+                        "description": "Live turn lookup failed; retryable",
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
@@ -11468,7 +14219,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get metadata for all pre-installed Agent Skills",
+                "description": "Return the installed skills (ready and enabled) that agents can actually invoke within the given sandbox config's image. The list is empty when sandbox_config_id is not provided.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11478,7 +14229,15 @@ const docTemplate = `{
                 "tags": [
                     "Skills"
                 ],
-                "summary": "Get pre-installed Skills list",
+                "summary": "Get Skills executable on the current sandbox config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox config ID",
+                        "name": "sandbox_config_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Skills list",
@@ -11486,11 +14245,183 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": true
                         }
+                    }
+                }
+            }
+        },
+        "/skills/catalog": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
                     },
-                    "500": {
-                        "description": "Internal server error",
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns every skill definition in this workspace and which sandbox configs it is installed on.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "List workspace skills",
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Records a skill without installing it. Send a zip as multipart field \"file\", or JSON {\"source\":\"...\"}.",
+                "consumes": [
+                    "application/json",
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Add a skill to the workspace catalog",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/skills/catalog/{id}": {
+            "delete": {
+                "description": "Refused while any sandbox still has an installation of this skill.",
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Delete a catalog skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Catalog skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/skills/catalog/{id}/files": {
+            "get": {
+                "description": "Lists the stored catalog bundle. Files belong to the skill definition, not a sandbox install.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "List files of a catalog skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Catalog skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/skills/catalog/{id}/files/content": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Read one file of a catalog skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Catalog skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Skill-root-relative file path",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/skills/catalog/{id}/install": {
+            "post": {
+                "description": "Runs the existing snapshot install onto each named sandbox config.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Install a catalog skill onto sandboxes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Catalog skill ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -12594,6 +15525,74 @@ const docTemplate = `{
                 }
             }
         },
+        "/system/admin/users/create": {
+            "post": {
+                "description": "Provision a new local user account (SystemAdmin only).\nWhen ` + "`" + `password` + "`" + ` is omitted or null, a cryptographically random\npassword is generated (OIDC-style crypto/rand + base64url)\nand returned once in the response body. Any provided value,\nincluding empty string, is policy-checked. Tenant provisioning\nfollows the shared auth.default_tenant_mode policy.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System Admin"
+                ],
+                "summary": "Create a new user (SystemAdmin)",
+                "parameters": [
+                    {
+                        "description": "User creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.AdminCreateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Identity already exists, returns the existing user",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreateSystemUserResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "User created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.CreateSystemUserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or weak password",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: not a system admin",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Email and username refer to conflicting identities",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/system/admin/users/reset-password": {
             "post": {
                 "description": "Replace another user's local password and revoke all of their existing sessions (SystemAdmin only).\nA system administrator cannot reset their own password through this endpoint; self-service password change still requires the old password.",
@@ -12642,6 +15641,27 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "User not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/system/capabilities": {
+            "get": {
+                "description": "返回当前部署版本及实际注册的后端路由所对应的功能能力；仅 supported=false 表示入口应隐藏",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统"
+                ],
+                "summary": "获取部署能力清单",
+                "responses": {
+                    "200": {
+                        "description": "标准 code/msg/data 包装，data 为 DeploymentCapabilitiesData",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -12749,6 +15769,40 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    }
+                }
+            }
+        },
+        "/system/sandbox-check": {
+            "post": {
+                "description": "Test the sandbox backend with the currently entered parameters without saving; deep=true runs a temporary script, and remote backends also create and destroy a sandbox",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "Test sandbox connectivity",
+                "parameters": [
+                    {
+                        "description": "Sandbox config",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SandboxCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SandboxCheckResponse"
+                        }
                     }
                 }
             }
@@ -13609,7 +16663,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "Owner invites a registered user by email to join the workspace; the invitee becomes a member only after accepting in /me/invitations.",
+                "description": "Owner invites a registered user by email to join the workspace. With tenant.auto_accept_invitation enabled, the invitee joins automatically right away (the response is a member structure); otherwise the invitee becomes a member only after accepting in /me/invitations.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15052,7 +18106,8 @@ const docTemplate = `{
                 2102,
                 2103,
                 2200,
-                2201
+                2201,
+                2300
             ],
             "x-enum-varnames": [
                 "ErrBadRequest",
@@ -15077,7 +18132,8 @@ const docTemplate = `{
                 "ErrAgentInvalidMaxIterations",
                 "ErrAgentInvalidTemperature",
                 "ErrVectorStoreBindingInvalid",
-                "ErrVectorStoreUnavailable"
+                "ErrVectorStoreUnavailable",
+                "ErrModelInUse"
             ]
         },
         "github_com_Tencent_WeKnora_internal_infrastructure_chunker.DocProfile": {
@@ -15224,9 +18280,33 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Tencent_WeKnora_internal_types.AdminCreateUserRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "username"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 2
+                }
+            }
+        },
         "github_com_Tencent_WeKnora_internal_types.AgentStep": {
             "type": "object",
             "properties": {
+                "intermediate_answer": {
+                    "description": "IntermediateAnswer preserves a plain answer followed by a loop-end steer.\nThe canonical final answer is still stored in Message.Content.",
+                    "type": "boolean"
+                },
                 "iteration": {
                     "description": "Iteration number (0-indexed)",
                     "type": "integer"
@@ -15248,6 +18328,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.ToolCall"
+                    }
+                },
+                "user_messages_before": {
+                    "description": "UserMessagesBefore records consumed steer rows in delivery order, before\nthis model response. Unlike timestamps, this remains unambiguous on replay.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }
@@ -15286,6 +18373,7 @@ const docTemplate = `{
                 "system.admin_promoted",
                 "system.admin_revoked",
                 "system.user_password_reset",
+                "system.user_created",
                 "system.api_key_created",
                 "system.api_key_revoked",
                 "system.queue_task_retried",
@@ -15349,6 +18437,7 @@ const docTemplate = `{
                 "AuditActionSystemAdminPromoted",
                 "AuditActionSystemAdminRevoked",
                 "AuditActionSystemUserPasswordReset",
+                "AuditActionSystemUserCreated",
                 "AuditActionSystemAPIKeyCreated",
                 "AuditActionSystemAPIKeyRevoked",
                 "AuditActionSystemQueueTaskRetried",
@@ -15559,7 +18648,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "parser_engine_rules": {
-                    "description": "ParserEngineRules configures which parser engine to use for each file type.\nWhen empty, the builtin engine is used for all types.",
+                    "description": "ParserEngineRules configures which parser engine to use for each file type.\nWhen empty, DefaultParserEngine is used (builtin/simple routing, except\ntypes that only a specific engine can parse: ppt/pptx fall back to\nmarkitdown). A linked anydoc binding is preferred for every type it\nconverts.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.ParserEngineRule"
@@ -15717,6 +18806,96 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Tencent_WeKnora_internal_types.CubeEgressRule": {
+            "type": "object",
+            "properties": {
+                "audit": {
+                    "description": "Audit is none | metadata | full. Empty uses the server default.",
+                    "type": "string"
+                },
+                "deny": {
+                    "description": "Deny inverts the action, which defaults to allow. A deny rule still\nneeds Host or SNI: the target has to reach CubeEgress for it to answer\nwith a request-level 403 instead of the network layer dropping it.",
+                    "type": "boolean"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "inject": {
+                    "description": "Inject adds credential headers on allowed HTTPS requests.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.CubeHeaderInject"
+                    }
+                },
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "scheme": {
+                    "type": "string"
+                },
+                "sni": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.CubeHeaderInject": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "type": "string"
+                },
+                "header": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.CubeSandboxConfig": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "加密",
+                    "type": "string"
+                },
+                "api_url": {
+                    "type": "string"
+                },
+                "cube_sandbox_ttl_seconds": {
+                    "type": "integer"
+                },
+                "dns_servers": {
+                    "description": "DNSServers are Cube template nameserver IPs. Empty uses Cubelet's default.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "http_timeout_sec": {
+                    "description": "HTTPTimeoutSec bounds each HTTP call to the sandbox control plane.\n0 means use the built-in default (30s), never the deployment's value.",
+                    "type": "integer"
+                },
+                "proxy_url": {
+                    "type": "string"
+                },
+                "sandbox_domain": {
+                    "type": "string"
+                },
+                "template_id": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_Tencent_WeKnora_internal_types.CustomAgentConfig": {
             "type": "object",
             "properties": {
@@ -15771,7 +18950,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "context_template_id": {
-                    "description": "ContextTemplateID references a template ID in prompt_templates/ YAML files.\nIf set and ContextTemplate is empty, the template content will be resolved at startup.",
+                    "description": "ContextTemplateID references a template ID in prompt_templates/ YAML files.\nIf set and ContextTemplate is empty, the template content is resolved at request time for saved agents.",
                     "type": "string"
                 },
                 "data_analysis_enabled": {
@@ -15815,7 +18994,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "history_turns": {
-                    "description": "Number of history turns to keep in context",
+                    "description": "Number of history turns to keep in context. Quick-answer only; smart-reasoning sizes history by context window",
                     "type": "integer"
                 },
                 "image_storage_provider": {
@@ -15853,11 +19032,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "max_completion_tokens": {
-                    "description": "Maximum completion tokens (only for normal mode)",
+                    "description": "Maximum completion tokens. Quick-answer uses this for the RAG answer.\nSmart-reasoning ReAct rounds send this value as-is (zero becomes\nDefaultMaxCompletionTokens at call time: 4096, or 24576 with a sandbox).",
                     "type": "integer"
                 },
                 "max_iterations": {
-                    "description": "===== Agent Mode Settings =====\nMaximum iterations for ReAct loop (only for agent type)",
+                    "description": "===== Agent Mode Settings =====\nMaximum iterations for the ReAct loop. Zero is unset (filled with a\ndefault). A negative value is unlimited: the loop runs until the model\nstops, the user cancels, or another guard fires.",
                     "type": "integer"
                 },
                 "mcp_auth_wait_timeout": {
@@ -15874,6 +19053,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "memory_enabled": {
+                    "description": "Whether this agent may read the user's long-term memory. Nil inherits\nthe workspace setting; false opts a single agent out of memory even when\nthe workspace has it on. There is no \"on\" that overrides the workspace.",
+                    "type": "boolean"
                 },
                 "model_id": {
                     "description": "===== Model Settings =====\nModel ID to use for conversations",
@@ -15923,6 +19106,10 @@ const docTemplate = `{
                     "description": "Rewrite prompt user message template",
                     "type": "string"
                 },
+                "sandbox_config_id": {
+                    "description": "===== Sandbox Settings =====\nSandboxConfigID selects which workspace sandbox config this agent's\nskill scripts run on. Empty means sandbox execution is disabled.\n\nThis references the LOGICAL config, never a specific revision: keeping\nthe indirection here is what would let credential rotation happen\nwithout re-pointing every agent (see the spec's §4.8).",
+                    "type": "string"
+                },
                 "selected_skills": {
                     "description": "Selected skill names (only used when SkillsSelectionMode is \"selected\")",
                     "type": "array",
@@ -15931,7 +19118,7 @@ const docTemplate = `{
                     }
                 },
                 "skills_selection_mode": {
-                    "description": "===== Skills Settings (only for smart-reasoning mode) =====\nSkills selection mode: \"all\" = all preloaded skills, \"selected\" = specific skills, \"none\" = no skills",
+                    "description": "===== Skills Settings (only for smart-reasoning mode) =====\nSkills selection mode: \"all\" = all installed skills, \"selected\" = specific skills, \"none\" = no skills",
                     "type": "string"
                 },
                 "supported_file_types": {
@@ -15946,7 +19133,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "system_prompt_id": {
-                    "description": "SystemPromptID references a template ID in prompt_templates/ YAML files.\nIf set and SystemPrompt is empty, the template content will be resolved at startup.",
+                    "description": "SystemPromptID references a template ID in prompt_templates/ YAML files.\nIf set and SystemPrompt is empty, the template content is resolved at request time for saved agents.",
                     "type": "string"
                 },
                 "temperature": {
@@ -16089,6 +19276,94 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "description": "Last update timestamp",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.DockerSandboxConfig": {
+            "type": "object",
+            "properties": {
+                "cpu_limit": {
+                    "description": "CPULimit is the number of CPU cores one sandbox may use. 0 uses the\nbuilt-in default.",
+                    "type": "number"
+                },
+                "host": {
+                    "description": "Host is the daemon endpoint in DOCKER_HOST form. Empty means the local\nunix socket.",
+                    "type": "string"
+                },
+                "http_timeout_sec": {
+                    "description": "HTTPTimeoutSec bounds each Engine API call. 0 uses the built-in default.",
+                    "type": "integer"
+                },
+                "idle_ttl_seconds": {
+                    "description": "IdleTTLSeconds is how long a session container may go unused before it\nis reclaimed. The daemon has no idle timeout of its own, so this is what\nstops an abandoned session from pinning host memory indefinitely.",
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "memory_limit_mb": {
+                    "description": "MemoryLimitMB caps one sandbox's memory. 0 uses the built-in default.",
+                    "type": "integer"
+                },
+                "network_mode": {
+                    "description": "NetworkMode is the Docker network sandboxes join: \"bridge\" (default) or\n\"none\" for no egress. Nothing else is accepted — host and container:\nmodes share another namespace outright, and a named network is usually\nthe deployment's own compose network, which would put the sandbox next\nto Postgres and Redis.",
+                    "type": "string"
+                },
+                "pids_limit": {
+                    "description": "PidsLimit caps how many processes one sandbox may run. 0 uses the\nbuilt-in default.",
+                    "type": "integer"
+                },
+                "runtime": {
+                    "description": "Runtime selects an alternative OCI runtime such as \"runsc\" (gVisor).\nEmpty uses the daemon default.",
+                    "type": "string"
+                },
+                "tls_cert_path": {
+                    "description": "TLSCertPath is a directory on the WeKnora host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.E2BHostRule": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Headers values are credentials and are encrypted at rest; names stay\nreadable so operators can see which headers are injected.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "host": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.E2BSandboxConfig": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "加密",
+                    "type": "string"
+                },
+                "api_url": {
+                    "type": "string"
+                },
+                "e2b_sandbox_ttl_seconds": {
+                    "type": "integer"
+                },
+                "http_timeout_sec": {
+                    "description": "HTTPTimeoutSec bounds each HTTP call to the sandbox control plane.\n0 means use the built-in default (30s), never the deployment's value.",
+                    "type": "integer"
+                },
+                "proxy_url": {
+                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes WeKnora dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
+                    "type": "string"
+                },
+                "sandbox_domain": {
+                    "type": "string"
+                },
+                "template_id": {
                     "type": "string"
                 }
             }
@@ -16605,147 +19880,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_WeKnora_internal_types.Knowledge": {
-            "type": "object",
-            "properties": {
-                "channel": {
-                    "description": "Channel indicates through which channel the knowledge was ingested (web, api, browser_extension, wechat, etc.)",
-                    "type": "string"
-                },
-                "created_at": {
-                    "description": "Creation time of the knowledge",
-                    "type": "string"
-                },
-                "custom_metadata": {
-                    "description": "CustomMetadata is user-authored descriptive metadata. It is deliberately\nseparate from Metadata, which contains internal ingestion state and IDs.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "deleted_at": {
-                    "description": "Deletion time of the knowledge",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/gorm.DeletedAt"
-                        }
-                    ]
-                },
-                "description": {
-                    "description": "Description of the knowledge",
-                    "type": "string"
-                },
-                "embedding_model_id": {
-                    "description": "ID of the embedding model",
-                    "type": "string"
-                },
-                "enable_status": {
-                    "description": "Enable status of the knowledge",
-                    "type": "string"
-                },
-                "error_message": {
-                    "description": "Error message of the knowledge",
-                    "type": "string"
-                },
-                "file_hash": {
-                    "description": "File hash of the knowledge",
-                    "type": "string"
-                },
-                "file_name": {
-                    "description": "File name of the knowledge",
-                    "type": "string"
-                },
-                "file_path": {
-                    "description": "File path of the knowledge",
-                    "type": "string"
-                },
-                "file_size": {
-                    "description": "File size of the knowledge",
-                    "type": "integer"
-                },
-                "file_type": {
-                    "description": "File type of the knowledge",
-                    "type": "string"
-                },
-                "folder_path": {
-                    "description": "FolderPath is the canonical relative directory this entry belongs to\ninside the knowledge base, e.g. \"docs/spec\" for a folder upload of\n\"docs/spec/design.md\". Empty means the knowledge base root. It is a\ndisplay/navigation concern only: it never affects where the file is\nphysically stored (see FilePath).",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "Unique identifier of the knowledge",
-                    "type": "string"
-                },
-                "knowledge_base_id": {
-                    "description": "ID of the knowledge base",
-                    "type": "string"
-                },
-                "knowledge_base_name": {
-                    "description": "Knowledge base name (not stored in database, populated on query)",
-                    "type": "string"
-                },
-                "last_faq_import_result": {
-                    "description": "Last FAQ import result (for FAQ type knowledge only)",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "metadata": {
-                    "description": "Metadata of the knowledge",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "parse_status": {
-                    "description": "Parse status of the knowledge",
-                    "type": "string"
-                },
-                "pending_subtasks_count": {
-                    "description": "PendingSubtasksCount is the outstanding enrichment subtask count\n(summary + question + graph chunks). Only meaningful while\nParseStatus == \"finalizing\"; defaults to 0 in any terminal state.",
-                    "type": "integer"
-                },
-                "processed_at": {
-                    "description": "Processed time of the knowledge",
-                    "type": "string"
-                },
-                "source": {
-                    "description": "Source of the knowledge (e.g. URL address for url type, \"manual\" for manual type)",
-                    "type": "string"
-                },
-                "storage_size": {
-                    "description": "Storage size of the knowledge",
-                    "type": "integer"
-                },
-                "summary_status": {
-                    "description": "Summary status for async summary generation",
-                    "type": "string"
-                },
-                "tags": {
-                    "description": "Tags holds the tags associated with this knowledge (populated on query, not persisted directly).",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.KnowledgeTag"
-                    }
-                },
-                "tenant_id": {
-                    "description": "Workspace ID",
-                    "type": "integer"
-                },
-                "title": {
-                    "description": "Title of the knowledge",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "Type of the knowledge",
-                    "type": "string"
-                },
-                "updated_at": {
-                    "description": "Last updated time of the knowledge",
-                    "type": "string"
-                }
-            }
-        },
         "github_com_Tencent_WeKnora_internal_types.KnowledgeBase": {
             "type": "object",
             "properties": {
@@ -17131,49 +20265,12 @@ const docTemplate = `{
                 "question_generation_config": {
                     "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.QuestionGenerationConfig"
                 },
+                "summary_enabled": {
+                    "description": "SummaryEnabled defaults to true when omitted for backward compatibility.",
+                    "type": "boolean"
+                },
                 "vlm_config": {
                     "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.VLMConfig"
-                }
-            }
-        },
-        "github_com_Tencent_WeKnora_internal_types.KnowledgeTag": {
-            "type": "object",
-            "properties": {
-                "color": {
-                    "description": "Optional display color",
-                    "type": "string"
-                },
-                "created_at": {
-                    "description": "Creation time",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "Unique identifier of the tag (UUID)",
-                    "type": "string"
-                },
-                "knowledge_base_id": {
-                    "description": "Knowledge base ID that this tag belongs to",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Tag name, unique within the same knowledge base",
-                    "type": "string"
-                },
-                "seq_id": {
-                    "description": "SeqID is an auto-increment integer ID for external API usage",
-                    "type": "integer"
-                },
-                "sort_order": {
-                    "description": "Sort order within the same knowledge base",
-                    "type": "integer"
-                },
-                "tenant_id": {
-                    "description": "Workspace ID",
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "description": "Last updated time",
-                    "type": "string"
                 }
             }
         },
@@ -17432,6 +20529,10 @@ const docTemplate = `{
                 "url": {
                     "description": "Optional: required for SSE/HTTP Streamable",
                     "type": "string"
+                },
+                "usage_instructions": {
+                    "description": "UsageInstructions is maintained locally and is not overwritten by directory refresh.",
+                    "type": "string"
                 }
             }
         },
@@ -17463,6 +20564,11 @@ const docTemplate = `{
                 "MCPTransportSSE": "Server-Sent Events",
                 "MCPTransportStdio": "Stdio (Standard Input/Output)"
             },
+            "x-enum-descriptions": [
+                "Server-Sent Events",
+                "HTTP Streamable",
+                "Stdio (Standard Input/Output)"
+            ],
             "x-enum-varnames": [
                 "MCPTransportSSE",
                 "MCPTransportHTTPStreamable",
@@ -17516,6 +20622,18 @@ const docTemplate = `{
                 "MatchTypeRelationChunk": "Relation chunk match type",
                 "MatchTypeWebSearch": "Web search match type"
             },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "Parent chunk match type",
+                "Relation chunk match type",
+                "",
+                "Web search match type",
+                "Deprecated: reserved to preserve serialized enum values",
+                "Data analysis match type"
+            ],
             "x-enum-varnames": [
                 "MatchTypeEmbedding",
                 "MatchTypeKeywords",
@@ -17539,6 +20657,55 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "tenant_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.MemoryConfig": {
+            "type": "object",
+            "properties": {
+                "embedding_model_id": {
+                    "description": "EmbeddingModelID is the single model used to score memory against a\nquestion. It is pinned per workspace: knowledge bases each have their\nown embedding model, and grabbing whichever one happens to be listed\nfirst would mix incomparable vector spaces. Blank means semantic recall\nis off and matching stays lexical.",
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled defaults to false. Memory retains user statements across\nsessions, so a workspace admin has to turn it on deliberately.",
+                    "type": "boolean"
+                },
+                "extract_delay_seconds": {
+                    "description": "ExtractDelaySeconds is how long a finished turn waits before\ndistillation runs. Waiting lets one model call cover the several\nmessages a user usually sends in a row. 0 means the default.",
+                    "type": "integer"
+                },
+                "extract_instructions": {
+                    "description": "ExtractInstructions are workspace-specific rules appended to the\ndistillation prompt, for policies the product cannot guess (\"never record\ncustomer names\", \"always note the environment a question is about\").",
+                    "type": "string"
+                },
+                "extract_min_interval_seconds": {
+                    "description": "ExtractMinIntervalSeconds is the floor between two distillation runs for\nthe same person, and exists purely to bound cost. It never drops a turn:\na turn arriving inside the interval is queued and picked up by the next\nrun. 0 means the default.",
+                    "type": "integer"
+                },
+                "extract_model_id": {
+                    "description": "ExtractModelID is the model used by the background extraction task.\nEmpty means \"use the model the conversation itself used\", which is what\nthe settings UI promises, so the extraction task must never fail merely\nbecause this is blank.",
+                    "type": "string"
+                },
+                "interest_threshold": {
+                    "description": "InterestThreshold is how many separate conversations must touch a topic\nbefore it becomes a stored interest. 0 means the default. Setting it to 1\nrecords every topic on first sight, which is usually too noisy.",
+                    "type": "integer"
+                },
+                "max_items": {
+                    "description": "MaxItems caps active items per subject. 0 means DefaultMemoryMaxItems.",
+                    "type": "integer"
+                },
+                "retrieval_conditioning": {
+                    "description": "RetrievalConditioning lets memory shape retrieval — query rewriting and\nper-document ranking — rather than only being appended to the answer\nprompt. This is where memory earns its keep in a knowledge-base product.",
+                    "type": "boolean"
+                },
+                "vector_recall": {
+                    "description": "VectorRecall adds semantic similarity to memory recall. Nil means on\nwhen an embedding model is reachable.\n\nLexical matching alone cannot find a memory the user has re-worded, which\nis most of them: \"回答直接给结论\" and \"别铺垫那么多\" share no tokens. The\ncost is one embedding call per turn, bounded and degraded to lexical on\nfailure, so the feature never becomes a reason a chat is slow.",
+                    "type": "boolean"
+                },
+                "write_mode": {
+                    "description": "WriteMode is MemoryWriteExplicitOnly or MemoryWriteAuto.",
                     "type": "string"
                 }
             }
@@ -17594,6 +20761,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.AgentStep"
+                    }
+                },
+                "artifacts": {
+                    "description": "Skill-generated files produced during this assistant turn (assistant messages only).\nPopulated by ArtifactCollector after the sandbox finishes, referenced by the\nartifact download endpoint. Empty for user messages and turns without skills.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.MessageArtifact"
                     }
                 },
                 "attachments": {
@@ -17672,12 +20846,72 @@ const docTemplate = `{
                     "description": "Message role: \"user\", \"assistant\", \"system\"",
                     "type": "string"
                 },
+                "sandbox_checkpoint": {
+                    "description": "SandboxCheckpoint is the git commit this assistant turn produced in the\nsession sandbox's /workspace. Nil for user messages, for turns that ran\nwithout a sandbox, and for turns whose commit failed (best-effort — a\nfailed checkpoint must never block the reply). A message without a\ncheckpoint cannot serve as a fork point with sandbox state.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SandboxCheckpoint"
+                        }
+                    ]
+                },
                 "session_id": {
                     "description": "ID of the session this message belongs to",
                     "type": "string"
                 },
                 "updated_at": {
                     "description": "Last update timestamp",
+                    "type": "string"
+                },
+                "usage": {
+                    "description": "LLM token usage aggregated across every round of the turn that produced this\nassistant message. Persisted so history reads can attribute cost after the\nlive stream is gone; NULL (nil) for user messages and pre-feature rows.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.TokenUsage"
+                        }
+                    ]
+                },
+                "used_memories": {
+                    "description": "UsedMemories records which long-term memories were injected into this\nanswer, so the chat UI can show them and let the user delete one on the\nspot. Persisted rather than only streamed so reopening a conversation\nstill explains what the answer saw.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.UsedMemory"
+                    }
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.MessageArtifact": {
+            "type": "object",
+            "properties": {
+                "content_hash": {
+                    "description": "SHA-256 of the persisted bytes",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "When WeKnora persisted the blob",
+                    "type": "string"
+                },
+                "file_name": {
+                    "description": "Original filename inside the sandbox",
+                    "type": "string"
+                },
+                "file_size": {
+                    "description": "File size in bytes",
+                    "type": "integer"
+                },
+                "file_type": {
+                    "description": "File extension (e.g., \".pptx\", \".pdf\")",
+                    "type": "string"
+                },
+                "mod_time": {
+                    "description": "Sandbox-side modification time (used for diff)",
+                    "type": "string"
+                },
+                "source_path": {
+                    "description": "Absolute path inside the sandbox (used for diff)",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Storage URL (provider://path); persisted, not sent to client",
                     "type": "string"
                 }
             }
@@ -17786,6 +21020,10 @@ const docTemplate = `{
                 "base_url": {
                     "type": "string"
                 },
+                "context_window": {
+                    "description": "ContextWindow is the model's total context window in tokens and\nMaxOutputTokens the most it emits in one response. Both are provider\nfacts the agent cannot discover but has to act on: the context window is\nwhat decides when conversation history gets compacted, and assuming a\nwindow larger than the real one means compaction never fires and the\nprovider rejects the request mid-conversation instead. 0 means unknown,\nwhich falls back to DefaultMaxContextTokens.",
+                    "type": "integer"
+                },
                 "custom_headers": {
                     "description": "CustomHeaders lets you attach custom HTTP headers when calling the remote\nmodel API, similar to the extra_headers parameter in the Python OpenAI\nSDK. Common uses include passing enterprise gateway auth info, trace IDs\nand routing markers. Reserved headers (Authorization, api-key,\nContent-Type, Accept, etc.) are ignored at runtime to avoid breaking\nsignatures/auth flows.",
                     "type": "object",
@@ -17808,6 +21046,9 @@ const docTemplate = `{
                 },
                 "max_concurrency": {
                     "description": "MaxConcurrency caps concurrent in-flight BACKGROUND (ingestion /\nenrichment) calls to THIS specific model, keyed by model ID and shared\nacross all replicas. 0 (the default) means \"fall back to the\nprocess-wide model.max_concurrency\". Interactive user-facing calls are\nnever gated. Only chat / vlm / embedding honour this (see limiter.Gate).",
+                    "type": "integer"
+                },
+                "max_output_tokens": {
                     "type": "integer"
                 },
                 "parameter_size": {
@@ -17841,6 +21082,7 @@ const docTemplate = `{
                 "siliconflow",
                 "jina",
                 "openrouter",
+                "litellm",
                 "requesty",
                 "nvidia",
                 "novita",
@@ -17853,6 +21095,7 @@ const docTemplate = `{
                 "ModelSourceGemini": "Gemini model",
                 "ModelSourceHunyuan": "Hunyuan model",
                 "ModelSourceJina": "Jina AI model",
+                "ModelSourceLiteLLM": "LiteLLM proxy model",
                 "ModelSourceLocal": "Local model",
                 "ModelSourceMimo": "Mimo model",
                 "ModelSourceMinimax": "Minimax mode",
@@ -17866,6 +21109,27 @@ const docTemplate = `{
                 "ModelSourceVolcengine": "Volcengine model",
                 "ModelSourceZhipu": "Zhipu model"
             },
+            "x-enum-descriptions": [
+                "Local model",
+                "Remote model",
+                "Aliyun DashScope model",
+                "Zhipu model",
+                "Volcengine model",
+                "Deepseek model",
+                "Hunyuan model",
+                "Minimax mode",
+                "OpenAI model",
+                "Gemini model",
+                "Mimo model",
+                "SiliconFlow model",
+                "Jina AI model",
+                "OpenRouter model",
+                "LiteLLM proxy model",
+                "Requesty model",
+                "NVIDIA model",
+                "Novita AI model",
+                "Azure OpenAI model"
+            ],
             "x-enum-varnames": [
                 "ModelSourceLocal",
                 "ModelSourceRemote",
@@ -17881,6 +21145,7 @@ const docTemplate = `{
                 "ModelSourceSiliconFlow",
                 "ModelSourceJina",
                 "ModelSourceOpenRouter",
+                "ModelSourceLiteLLM",
                 "ModelSourceRequesty",
                 "ModelSourceNvidia",
                 "ModelSourceNovita",
@@ -17903,6 +21168,13 @@ const docTemplate = `{
                 "ModelTypeRerank": "Rerank model",
                 "ModelTypeVLLM": "VLLM model"
             },
+            "x-enum-descriptions": [
+                "Embedding model",
+                "Rerank model",
+                "KnowledgeQA model",
+                "VLLM model",
+                "ASR (Automatic Speech Recognition) model"
+            ],
             "x-enum-varnames": [
                 "ModelTypeEmbedding",
                 "ModelTypeRerank",
@@ -18242,6 +21514,21 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Tencent_WeKnora_internal_types.PromptCacheStatus": {
+            "type": "string",
+            "enum": [
+                "unsupported",
+                "unreported",
+                "miss",
+                "hit"
+            ],
+            "x-enum-varnames": [
+                "PromptCacheStatusUnsupported",
+                "PromptCacheStatusUnreported",
+                "PromptCacheStatusMiss",
+                "PromptCacheStatusHit"
+            ]
+        },
         "github_com_Tencent_WeKnora_internal_types.QuestionGenerationConfig": {
             "type": "object",
             "properties": {
@@ -18255,6 +21542,17 @@ const docTemplate = `{
                 "question_count": {
                     "description": "Number of questions to generate per chunk (default: 3, max: 10)",
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.QuestionOrigin": {
+            "type": "object",
+            "properties": {
+                "knowledge_base_id": {
+                    "type": "string"
+                },
+                "knowledge_id": {
+                    "type": "string"
                 }
             }
         },
@@ -18569,6 +21867,11 @@ const docTemplate = `{
                 "VectorRetrieverType": "Vector retriever",
                 "WebSearchRetrieverType": "Web search retriever"
             },
+            "x-enum-descriptions": [
+                "Keywords retriever",
+                "Vector retriever",
+                "Web search retriever"
+            ],
             "x-enum-varnames": [
                 "KeywordsRetrieverType",
                 "VectorRetrieverType",
@@ -18742,6 +22045,61 @@ const docTemplate = `{
                 },
                 "use_ssl": {
                     "type": "boolean"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.SandboxCheckpoint": {
+            "type": "object",
+            "properties": {
+                "commit_sha": {
+                    "type": "string"
+                },
+                "committed_at": {
+                    "type": "string"
+                },
+                "sandbox_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.SandboxNetworkPolicy": {
+            "type": "object",
+            "properties": {
+                "allow_out": {
+                    "description": "AllowOut accepts IPv4, IPv4 CIDR, a DNS name, or a single-label\nwildcard such as \"*.example.com\". Domain entries are only meaningful\ntogether with a deny-all; see ValidateSandboxNetworkPolicy.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allow_public_inbound": {
+                    "description": "AllowPublicInbound is accepted on the wire for old payloads and then\ncleared. Inbound is always credential-required; a true value has no\nruntime effect.",
+                    "type": "boolean"
+                },
+                "cube_rules": {
+                    "description": "CubeRules are validated whenever present and consumed only by the Cube\nprovider adapter.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.CubeEgressRule"
+                    }
+                },
+                "deny_egress_by_default": {
+                    "description": "DenyEgressByDefault installs a 0.0.0.0/0 deny-all, after which only\nAllowOut (and L7 rule targets) can reach the network. false allows\npublic egress, which is what skill installs need.",
+                    "type": "boolean"
+                },
+                "deny_out": {
+                    "description": "DenyOut accepts IPv4 and IPv4 CIDR only. Neither provider can deny a\ndomain: denial is a pure longest-prefix match on the destination IP.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "e2b_host_rules": {
+                    "description": "E2BHostRules are validated whenever present and consumed only by the E2B\nprovider adapter.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.E2BHostRule"
+                    }
                 }
             }
         },
@@ -18931,6 +22289,10 @@ const docTemplate = `{
                     "description": "Description",
                     "type": "string"
                 },
+                "forked_from_message_id": {
+                    "description": "ForkedFromMessageID is the user or assistant message, IN THE PARENT\nSESSION, that the fork branched at. For a user point, messages strictly\nbefore it were copied here. For an assistant point, that answer is\nincluded so the branch continues after it.",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID",
                     "type": "string"
@@ -18951,8 +22313,16 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "parent_session_id": {
+                    "description": "ParentSessionID names the session this one was forked from. Empty for\nordinary sessions. Deliberately not a foreign key: the parent may be\ndeleted while the branch lives on, and a branch must not cascade away\nwith it. A dangling value simply renders as an ordinary session.",
+                    "type": "string"
+                },
                 "pinned_at": {
                     "description": "PinnedAt records when the session was pinned; nil when not pinned.",
+                    "type": "string"
+                },
+                "sandbox_config_id": {
+                    "description": "SandboxConfigID pins which sandbox config this session's CURRENT live\nsandbox was created on. Empty means no live sandbox;\nSandboxConfigIDGlobalDefault means the deployment-wide default config.\n\nThis is an ephemeral pin that dies with the sandbox, not a permanent\nowner: sessions outlive sandboxes by months, so treating it as\npermanent would make \"no session references this config\" never true.",
                     "type": "string"
                 },
                 "tenant_id": {
@@ -18992,6 +22362,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "local_browser_enabled": {
+                    "type": "boolean"
                 },
                 "mcp_service_ids": {
                     "type": "array",
@@ -19037,6 +22410,31 @@ const docTemplate = `{
                 },
                 "permission": {
                     "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.OrgMemberRole"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.SkillImageConfig": {
+            "type": "object",
+            "properties": {
+                "base_template_id": {
+                    "description": "BaseTemplateID is the template this chain was originally built from;\nthe rebuild path starts over from it.",
+                    "type": "string"
+                },
+                "built_at": {
+                    "description": "BuiltAt records when this generation was produced.",
+                    "type": "string"
+                },
+                "generation": {
+                    "description": "Generation increments on every successful install/remove, for naming\nand troubleshooting.",
+                    "type": "integer"
+                },
+                "owner_fingerprint": {
+                    "description": "OwnerFingerprint identifies the provider account that owns the snapshot.\nSnapshots are invisible across accounts, so a mismatch means \"fall back\nto the base template\" rather than \"fail\".",
+                    "type": "string"
+                },
+                "snapshot_id": {
+                    "description": "SnapshotID is the currently effective snapshot; empty = base template.",
+                    "type": "string"
                 }
             }
         },
@@ -19439,6 +22837,14 @@ const docTemplate = `{
                     "description": "ID",
                     "type": "integer"
                 },
+                "memory_config": {
+                    "description": "Memory config: workspace switch for cross-session long-term memory",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.MemoryConfig"
+                        }
+                    ]
+                },
                 "name": {
                     "description": "Name",
                     "type": "string"
@@ -19516,6 +22922,112 @@ const docTemplate = `{
                 "TenantRoleViewer"
             ]
         },
+        "github_com_Tencent_WeKnora_internal_types.TenantSandboxConfig": {
+            "type": "object",
+            "properties": {
+                "allow_private_endpoints": {
+                    "description": "AllowPrivateEndpoints permits this workspace config to reach RFC1918 or\nloopback cluster endpoints. Link-local/cloud-metadata addresses remain\nblocked. It is explicit in the UI instead of hidden in process env.",
+                    "type": "boolean"
+                },
+                "cube": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.CubeSandboxConfig"
+                },
+                "default_timeout_sec": {
+                    "description": "DefaultTimeoutSec is the per-execution timeout in seconds. 0 uses the\nprogram's built-in default.",
+                    "type": "integer"
+                },
+                "desktop_enabled": {
+                    "description": "DesktopEnabled declares that this config's base template is a desktop\nimage (XFCE + x11vnc + websockify). It is NOT a second template: a\nconfig has exactly one boot target, and skill snapshots stack on top of\nthis base generation after generation. Flipping it changes the base, so\nany installed skills must be rebuilt from the new one.",
+                    "type": "boolean"
+                },
+                "docker": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.DockerSandboxConfig"
+                },
+                "e2b": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.E2BSandboxConfig"
+                },
+                "env_vars": {
+                    "description": "EnvVars are additional environment variables injected into every\nsandbox created for this tenant. 🔒 Values are encrypted at rest.\nThese become visible to all scripts running in the tenant's\nsandboxes — do not place secrets here that scripts must not access.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "network": {
+                    "description": "Network is the outbound/inbound network policy applied to every sandbox\ncreated from this config — chat sessions, skill installs and deep\nconnectivity probes alike. nil and the zero value mean the same thing:\noutbound egress allowed, inbound public access closed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SandboxNetworkPolicy"
+                        }
+                    ]
+                },
+                "sandbox_type": {
+                    "description": "SandboxType is cube, e2b, or docker; disabled is the hidden policy row.",
+                    "type": "string"
+                },
+                "skill_image": {
+                    "description": "SkillImage points at the snapshot that carries this config's installed\nskills. Empty means \"use the base template\". Written only by the skill\ninstall/remove path: MergeSandboxConfigForUpdate ignores client values\nso a settings-form save cannot wipe or plant the pointer.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.SkillImageConfig"
+                        }
+                    ]
+                },
+                "skill_rollout": {
+                    "description": "SkillRollout decides whether sessions that already hold a sandbox of\nthis config rebuild after a skill install or removal. Empty and\nSkillRolloutNextTurn rebuild on the next chat turn. SkillRolloutNewSession\nleaves those sandboxes on the previous image; only sessions that start\nafterwards boot the new snapshot.",
+                    "type": "string"
+                },
+                "terminal_idle_disconnect_sec": {
+                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before WeKnora closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
+                    "type": "integer"
+                },
+                "volume_mount": {
+                    "description": "VolumeMount configures an optional shared volume mounted into every\nsandbox created for this tenant. Currently used for tenant-installed\nskills, but the configuration itself is skill-agnostic and can serve\nany volume-mount use case (shared datasets, pre-installed toolchains,\netc.).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.VolumeMountConfig"
+                        }
+                    ]
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.TokenUsage": {
+            "type": "object",
+            "properties": {
+                "cache_miss_tokens": {
+                    "type": "integer"
+                },
+                "cache_read_tokens": {
+                    "type": "integer"
+                },
+                "cache_reported": {
+                    "type": "boolean"
+                },
+                "cache_status": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.PromptCacheStatus"
+                },
+                "cache_write_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "description": "CachedTokens is the legacy alias for CacheReadTokens. It remains on the\nwire for compatibility with existing API consumers.",
+                    "type": "integer"
+                },
+                "completion_tokens": {
+                    "type": "integer"
+                },
+                "context_token_scale": {
+                    "description": "ContextTokenScale is provider prompt tokens per cl100k-estimated token,\nmeasured over the turn's rounds. Persisted with the turn so the next\nturn's history loading and first compaction check are calibrated before\nany provider count of their own. Zero when the turn measured none.",
+                    "type": "number"
+                },
+                "prompt_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_Tencent_WeKnora_internal_types.ToolCall": {
             "type": "object",
             "properties": {
@@ -19555,6 +23067,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.ToolResult"
                         }
                     ]
+                },
+                "target": {
+                    "description": "Target identifies the actual proxy target; Name/Args retain the model call for replay.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.ToolCallTarget"
+                        }
+                    ]
                 }
             }
         },
@@ -19564,6 +23084,24 @@ const docTemplate = `{
                 "type": "array",
                 "items": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.ToolCallTarget": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "tool_name": {
+                    "type": "string"
                 }
             }
         },
@@ -19649,6 +23187,20 @@ const docTemplate = `{
             "properties": {
                 "permission": {
                     "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.OrgMemberRole"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.UsedMemory": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
                 }
             }
         },
@@ -19762,8 +23314,12 @@ const docTemplate = `{
         "github_com_Tencent_WeKnora_internal_types.UserPreferences": {
             "type": "object",
             "properties": {
+                "browser_search_instructions": {
+                    "description": "BrowserSearchInstructions customizes browser search for this user. Nil/empty uses the platform default.",
+                    "type": "string"
+                },
                 "last_active_tenant_id": {
-                    "description": "LastActiveTenantID remembers the last workspace the user actively\nswitched into, so a fresh login (new device, cleared browser, new\nrefresh token) lands them back in that workspace instead of always\nbouncing to their home workspace. Login / RefreshToken validate that\nthe workspace still exists and the user still has an active membership\n(or CanAccessAllTenants) before honouring this preference; an\ninvalid pointer is best-effort cleared and the user falls back to\nhome.\n\nnil  = no preference (use user.TenantID, i.e. home)\n*0   = \"clear preference\" sentinel for the partial-update endpoint\n       (UpdateUserPreferences turns this into nil). Otherwise treat\n       a stored *0 the same as nil.\n*N   = preferred workspace id.",
+                    "description": "LastActiveTenantID remembers the last workspace the user actively\nswitched into, so a fresh login (new device, cleared browser, new\nrefresh token) lands them back in that workspace instead of always\nbouncing to their home workspace. Written by the SPA's preferences\nPUT and by service-level SwitchTenant (including when switching\nhome, which stores the home ID). Login / RefreshToken validate that\nthe workspace still exists and the user still has an active membership\n(or CanAccessAllTenants) before honouring this preference; an\ninvalid pointer is best-effort cleared and the user falls back to\nhome. Refresh JWT claims have no tenant_id, so RefreshToken\nre-resolves from this field.\n\nnil  = no preference (use user.TenantID, i.e. home)\n*0   = \"clear preference\" sentinel for the partial-update endpoint\n       (UpdateUserPreferences turns this into nil). Otherwise treat\n       a stored *0 the same as nil.\n*N   = preferred workspace id.",
                     "type": "integer"
                 },
                 "oidc_only_login": {
@@ -19803,6 +23359,35 @@ const docTemplate = `{
                 },
                 "model_name": {
                     "description": "Backward compatibility\nModel Name",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Tencent_WeKnora_internal_types.VolumeMountConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled toggles the volume mount for this tenant.",
+                    "type": "boolean"
+                },
+                "mount_path": {
+                    "description": "MountPath is the sandbox-internal path where the volume is mounted.\nDefault: /weknora/tenant/skills (customizable per use case).",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider identifies the volume backend. Currently \"e2b\" or \"cube\".",
+                    "type": "string"
+                },
+                "volume_id": {
+                    "description": "VolumeID is the provider-specific volume identifier, populated after\nEnsureVolume / CreateVolume succeeds.",
+                    "type": "string"
+                },
+                "volume_name": {
+                    "description": "VolumeName is the human-readable volume name, e.g.\n\"weknora-tenant-\u003cid\u003e-skills\".",
+                    "type": "string"
+                },
+                "volume_owner_fingerprint": {
+                    "description": "VolumeOwnerFingerprint = sha256(provider + APIKey + APIURL).\nUsed to detect when the tenant switched to a different backend or\nAPI key, at which point the volume is no longer reachable and must\nbe recreated.",
                     "type": "string"
                 }
             }
@@ -19952,6 +23537,7 @@ const docTemplate = `{
         "github_com_Tencent_WeKnora_internal_types.WebSearchProviderType": {
             "type": "string",
             "enum": [
+                "brave",
                 "bing",
                 "google",
                 "duckduckgo",
@@ -19960,9 +23546,14 @@ const docTemplate = `{
                 "baidu",
                 "searxng",
                 "keenable",
-                "zhipu"
+                "zhipu",
+                "exa",
+                "metaso",
+                "bocha",
+                "serply"
             ],
             "x-enum-varnames": [
+                "WebSearchProviderTypeBrave",
                 "WebSearchProviderTypeBing",
                 "WebSearchProviderTypeGoogle",
                 "WebSearchProviderTypeDuckDuckGo",
@@ -19971,7 +23562,11 @@ const docTemplate = `{
                 "WebSearchProviderTypeBaidu",
                 "WebSearchProviderTypeSearxng",
                 "WebSearchProviderTypeKeenable",
-                "WebSearchProviderTypeZhipu"
+                "WebSearchProviderTypeZhipu",
+                "WebSearchProviderTypeExa",
+                "WebSearchProviderTypeMetaso",
+                "WebSearchProviderTypeBocha",
+                "WebSearchProviderTypeSerply"
             ]
         },
         "github_com_Tencent_WeKnora_internal_types.WikiConfig": {
@@ -20197,6 +23792,10 @@ const docTemplate = `{
                     "description": "populated in ego mode",
                     "type": "integer"
                 },
+                "familiar_count": {
+                    "description": "FamiliarCount is how many returned nodes are lit up for this person.",
+                    "type": "integer"
+                },
                 "mode": {
                     "type": "string"
                 },
@@ -20217,6 +23816,10 @@ const docTemplate = `{
         "github_com_Tencent_WeKnora_internal_types.WikiGraphNode": {
             "type": "object",
             "properties": {
+                "familiar": {
+                    "description": "Familiar is true when this page was built from a document this person\nkeeps citing in answers. It is a personal overlay, not a property of\nthe page: two people looking at the same wiki see different highlights.",
+                    "type": "boolean"
+                },
                 "link_count": {
                     "description": "Number of inbound + outbound links",
                     "type": "integer"
@@ -20654,7 +24257,8 @@ const docTemplate = `{
                 "pages_by_type": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     }
                 },
                 "pending_issues": {
@@ -20718,6 +24322,22 @@ const docTemplate = `{
                 },
                 "kb_id": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_handler.BatchDownloadKnowledgeRequest": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "maxItems": 200,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -20806,6 +24426,18 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_handler.CreateSystemUserResponse": {
+            "type": "object",
+            "properties": {
+                "generated_password": {
+                    "description": "GeneratedPassword is the plaintext password when the server\nauto-generated one. Absent when the caller supplied the password.",
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.UserInfo"
                 }
             }
         },
@@ -21765,6 +25397,67 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.SandboxCheckItem": {
+            "type": "object",
+            "properties": {
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "Message carries free-form provider detail for an executed probe.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is a stable code explaining why a probe was skipped. It exists so\nthe UI can phrase the skip in the operator's language instead of echoing\na server-side sentence.",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.SandboxCheckRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.TenantSandboxConfig"
+                },
+                "config_id": {
+                    "description": "ConfigID lets an edit form test stored credentials while overriding only\nthe fields the admin changed in the drawer.",
+                    "type": "string"
+                },
+                "deep": {
+                    "description": "Deep additionally runs a throwaway script. For remote backends this also\ncreates and destroys one sandbox, which is the only way to validate the\ntemplate ID, data plane, in-sandbox execution, and outbound egress. It may\nconsume real sandbox time, so it is opt-in.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "internal_handler.SandboxCheckResponse": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_handler.SandboxCheckItem"
+                    }
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "provider": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.SearchMessagesRequest": {
             "type": "object",
             "required": [
@@ -21929,6 +25622,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avatar": {
+                    "description": "Avatar travels as a pointer so an omitted field can be told apart from\nan explicit clear: nil keeps the stored avatar, a pointer to \"\" wipes\nit. As a plain string the two cases were indistinguishable, so a caller\nthat PUT only a config silently zeroed the avatar and still got a 200.",
                     "type": "string"
                 },
                 "config": {
@@ -21969,6 +25663,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.UpdateKnowledgeRequest": {
+            "type": "object",
+            "properties": {
+                "custom_metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }
@@ -22029,6 +25740,17 @@ const docTemplate = `{
             "properties": {
                 "value": {
                     "description": "Value is intentionally ` + "`" + `any` + "`" + ` (decoded as float64 / string / bool /\netc. by the JSON unmarshaller). Service.encodeForType normalises\nthese against the registry's declared type and rejects mismatches."
+                }
+            }
+        },
+        "internal_handler.acceptInvitationByTokenRequest": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "token": {
+                    "type": "string"
                 }
             }
         },
@@ -22208,6 +25930,24 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.meEnvVarRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sandbox_config_id": {
+                    "type": "string"
+                },
+                "skill_id": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is unused by the delete endpoints. Clearing a value is a delete\nrather than a write of \"\", so a member always has one unambiguous way to\nrevoke.",
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.platformAPIKeyCreateRequest": {
             "type": "object",
             "properties": {
@@ -22257,6 +25997,48 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "internal_handler.sandboxConfigRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.TenantSandboxConfig"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.skillPatchRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enabled is a pointer because its absence is not a request to disable the\nskill; a body may carry envs instead.",
+                    "type": "boolean"
+                },
+                "envs": {
+                    "description": "Envs is a pointer to a map because \"sent an empty object\" and \"did not\nmention envs\" are different requests: the first clears what it names,\nthe second must leave every stored value alone.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "internal_handler.skillSourceRequest": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "description": "Source is exactly one of: \"@owner/slug\" or a slash-free slug (ClawHub),\na github.com / gitlab.com / skills.sh / clawhub / skillhub page URL, a\nClawHub skills-sh catalog page or \"skills-sh:owner/repo/slug\" locator, or\na direct zip/SKILL.md URL. Bare \"owner/slug\" is rejected: it is both a\nClawHub id and a GitHub repo. The fetch carries no credential.",
+                    "type": "string"
                 }
             }
         },
@@ -22310,8 +26092,12 @@ const docTemplate = `{
         "internal_handler.updateMyPreferencesRequest": {
             "type": "object",
             "properties": {
+                "browser_search_instructions": {
+                    "type": "string",
+                    "maxLength": 4000
+                },
                 "last_active_tenant_id": {
-                    "description": "LastActiveTenantID lets the SPA persist \"after a fresh login,\ndrop me back into this workspace\" across devices. Send a positive\nworkspace id to set / replace, or 0 to clear. Membership is validated\nat next login, not here. Nil = field omitted from the PATCH and\nstays untouched.",
+                    "description": "LastActiveTenantID lets clients persist \"after a fresh login,\ndrop me back into this workspace\" across devices. The SPA sends\nthis after every tenant switch; POST /auth/switch-tenant records\nthe same preference server-side. Send a positive workspace id to\nset / replace, or 0 to clear. Membership is validated at next\nlogin, not here. Nil = field omitted from the PATCH and stays\nuntouched.",
                     "type": "integer"
                 }
             }
@@ -22394,6 +26180,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "local_browser_enabled": {
+                    "description": "Browser source",
+                    "type": "boolean"
+                },
                 "mcp_service_ids": {
                     "description": "Per-request MCP services selected via @mention",
                     "type": "array",
@@ -22412,6 +26202,14 @@ const docTemplate = `{
                     "description": "Query text for knowledge base search",
                     "type": "string"
                 },
+                "question_origin": {
+                    "description": "QuestionOrigin is the knowledge source of a picked suggested question.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_types.QuestionOrigin"
+                        }
+                    ]
+                },
                 "skill_names": {
                     "description": "Per-request Skills selected via @mention",
                     "type": "array",
@@ -22427,6 +26225,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tag_ids": {
+                    "description": "@mentioned tag IDs (display/debug; scoped via MentionedItems)",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -22447,6 +26246,22 @@ const docTemplate = `{
                 },
                 "title": {
                     "description": "Title for the session (optional)",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler_session.ForkSessionRequest": {
+            "type": "object",
+            "required": [
+                "message_id"
+            ],
+            "properties": {
+                "message_id": {
+                    "description": "MessageID is the message to branch at. A user message copies history\nstrictly before it (the client prefills that question). An assistant\nmessage copies history through that answer so the branch continues after it.",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Title is optional. Empty falls back to the source title plus a suffix.",
                     "type": "string"
                 }
             }
@@ -22559,6 +26374,37 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "internal_handler_session.SteerMessageRequest": {
+            "type": "object",
+            "required": [
+                "query"
+            ],
+            "properties": {
+                "channel": {
+                    "type": "string"
+                },
+                "delivery": {
+                    "description": "Delivery is \"after\" (default) or \"inject\". See the constants above.",
+                    "type": "string"
+                },
+                "expected_assistant_message_id": {
+                    "description": "Optional for older clients. New clients pin delivery to the run they see\nand supply a stable ID so a consume event may precede the HTTP response.",
+                    "type": "string"
+                },
+                "mentioned_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_handler_session.MentionedItemRequest"
+                    }
+                },
+                "query": {
+                    "type": "string"
+                },
+                "steer_id": {
+                    "type": "string"
                 }
             }
         },

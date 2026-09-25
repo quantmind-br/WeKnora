@@ -5,13 +5,13 @@ WeKnora's configuration consists of four layers, **from lowest to highest priori
 | Layer | Location | When to use |
 | --- | --- | --- |
 | Main configuration file | `config/config.yaml` | Structured default values, distributed with the image |
-| Templates / presets | `config/prompt_templates/*.yaml`, `builtin_agents.yaml`, `agent_type_presets.yaml`, `builtin_models.yaml` | Prompts, built-in Agents, built-in models |
+| Templates / presets | `config/prompt_templates/*.yaml`, `builtin_agents.yaml`, `agent_type_presets.yaml`, `builtin_models.yaml`, `models.json` | Prompts, built-in Agents, built-in models, model provider catalog overlay |
 | Environment variables | `.env` / container environment | Deployment-level overrides, requires restart after changes |
-| Runtime system settings | Database `system_settings` table, UI at "Settings → System" | Some switches can be changed online, **overriding environment variables**, and most take effect immediately |
+| Runtime system settings | Database `system_settings` table, UI at "Settings → System" | Supported settings can be changed online, take precedence over environment variables, and most take effect immediately |
 
-The last layer is easily overlooked, yet it's the first thing to check when troubleshooting "I changed the env but it didn't take effect": once keys like registration mode, space policies and quotas, the SSRF whitelist, worker pool concurrency, or model concurrency limits have been changed via the UI, a record is left in the database, and environment variables no longer take effect for that key afterward. Resetting the item (`DELETE /api/v1/system/admin/settings/:key`) is required to fall back to the environment variable or built-in default value. For the complete key table and semantics, see the "Runtime-modifiable system settings" section of [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md).
+Registration mode, space policies and quotas, the SSRF whitelist, task concurrency, and model concurrency limits support runtime configuration. Once changed in the console, the value in the database takes precedence over the environment variable; only resetting the item (`DELETE /api/v1/system/admin/settings/:key`) falls back to the environment variable or built-in default value. When troubleshooting an environment variable that doesn't take effect, first check whether the item already has a runtime configuration. For the full set of settings, see [Platform Management and System Administrators](../03-features/20-platform-admin.md).
 
-The sections below walk through the structs in `internal/config/config.go` one by one, with environment variables summarized at the end.
+The main configuration structs are defined in `internal/config/config.go`. The meaning, default values, and conditions under which each configuration item and environment variable takes effect are described below.
 
 ## Configuration Loading Mechanism
 
@@ -66,7 +66,8 @@ flowchart LR
 | `enable_rerank` | bool | true | Enable reranking |
 | `fallback_prompt_id` | string | "default_fallback_prompt" | Fallback prompt template ID (`prompt_templates/fallback.yaml`, mode:"model") |
 | `rewrite_prompt_id` | string | "default_rewrite" | Rewrite template ID (includes system-side content + user-side user) |
-| `generate_summary_prompt_id` | string | "default_summary" | Document summary template ID |
+| `generate_summary_prompt_id` | string | "default_summary" | Document profile template ID (short summary + gist/topics/type/typical questions, JSON output) |
+| `generate_kb_description_prompt_id` | string | "default_kb_description" | Knowledge base description template ID (the input is the aggregated document profiles, not the document body) |
 | `generate_session_title_prompt_id` | string | "default_session_title" | Session title generation template ID |
 | `extract_entities_prompt_id` / `extract_relationships_prompt_id` | string | "default_extract_entities" / "default_extract_relationships" | Graph extraction template ID (`graph_extraction.yaml`) |
 | `generate_questions_prompt_id` | string | "default_generate_questions" | Pre-generated question template ID |
@@ -75,10 +76,10 @@ flowchart LR
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `max_input_chars` | int | 16384 | Maximum number of characters fed into the LLM |
+| `max_input_chars` | int | 8192 | Maximum number of characters fed into the LLM. A document profile only needs the beginning of the document to determine its topic, so 8k is enough; the old values 16384/24576 multiply the summary cost of every document |
 | `temperature` | float | 0.3 | Generation temperature |
 | `repeat_penalty` | float | 1.0 | Repetition penalty |
-| `max_completion_tokens` | int | 2048 | Maximum number of generated tokens |
+| `max_completion_tokens` | int | 1024 | Maximum number of generated tokens (every field of the profile JSON is short) |
 | `no_match_prefix` | string | `<think>\n</think>\nNO_MATCH` | When the model output starts with this prefix, it's judged as a "miss" and triggers fallback |
 | `prompt_id` | string | "default_kb" | System prompt template ID (`system_prompt.yaml`) |
 | `context_template_id` | string | "default_context" | Context assembly template ID (`context_template.yaml`) |
@@ -107,7 +108,7 @@ flowchart LR
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enable_cross_tenant_access` | bool | false | Allow users with `CanAccessAllTenants` to access across spaces (can be enabled on an internal network) |
-| `enable_rbac` | *bool | true | Enforce space role-based authorization; explicitly setting `false` enters a gray-scale mode that only logs without blocking (env `WEKNORA_TENANT_ENABLE_RBAC`) |
+| `enable_rbac` | *bool | true | Enforce space role-based authorization; explicitly setting `false` enters a gray-scale mode in which role checks within a space only log without blocking, while cross-space access is still blocked (env `WEKNORA_TENANT_ENABLE_RBAC`) |
 | `max_owned_per_user` | int | 0 (falls back to handler default) | Maximum number of spaces a single non-admin user can create; <0 disables the limit (env `WEKNORA_TENANT_MAX_OWNED_PER_USER`) |
 | `self_service_creation_enabled` | *bool | true | Whether regular users can create their own spaces (env `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED`) |
 | `default_session_name` / `default_session_title` / `default_session_description` | string | empty | Default text for new sessions |
@@ -120,7 +121,7 @@ The following sections exist in the `Config` struct and can be appended to `conf
 | --- | --- | --- |
 | `auth` | `AuthConfig` | `registration_mode`: `self_serve` (default) / `invite_only` (forced when `DISABLE_REGISTRATION=true`); `default_tenant_mode`: `create_personal` (default) / `tenantless` |
 | `audit` | `AuditConfig` | `retention_days`: audit log retention in days, defaults to 90 when the section is omitted; 0 disables cleanup; <0 fails validation (env `WEKNORA_AUDIT_RETENTION_DAYS`) |
-| `oidc_auth` | `OIDCAuthConfig` | `enable`, `issuer_url`, `discovery_url` (if omitted, built from issuer by appending `/.well-known/openid-configuration`), `client_id`, `client_secret`, `authorization_endpoint`, `token_endpoint`, `user_info_endpoint`, `scopes` (default `openid profile email`), `user_info_mapping.username` (default `name`) / `email` (default `email`); all can be overridden with `OIDC_AUTH_*` environment variables |
+| `oidc_auth` | `OIDCAuthConfig` | `enable`, `issuer_url`, `jwks_uri`, `discovery_url` (if omitted, built from issuer by appending `/.well-known/openid-configuration`), `client_id`, `client_secret`, `authorization_endpoint`, `token_endpoint`, `user_info_endpoint`, `scopes` (default `openid profile email`), `user_info_mapping.username` (default `name`) / `email` (default `email`); all can be overridden with `OIDC_AUTH_*` environment variables |
 | `agent` | `AgentConfig` | `llm_call_timeout`: single LLM call timeout in seconds (default 120, env `WEKNORA_AGENT_LLM_TIMEOUT`); `tool_approval_timeout_seconds`: MCP tool manual approval wait time (default 600, env `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT`) |
 | `im` | `IMConfig` | IM channel Q&A concurrency: `workers` (5), `global_max_workers` (0=unlimited, requires Redis), `max_queue_size` (50), `max_per_user` (3), `rate_limit_window` (60s), `rate_limit_max` (10) |
 | `docreader` | `DocReaderConfig` | `addr` (gRPC address such as `docreader:50051` or an HTTP base URL), `transport`: `grpc` (default) / `http`; typically set via env `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` |
@@ -142,11 +143,13 @@ The following variables come from the app/docreader `environment` section of `do
 | `LOG_LEVEL` / `LOG_PATH` / `LOG_FORMAT` | debug / empty / empty | Log level, file path (stdout only if empty), custom format |
 | `LLM_DEBUG_LOG` | false | If true, writes `llm_debug.log` in the same directory as LOG_PATH |
 | `TZ` | Asia/Shanghai | Time zone |
-| `WEKNORA_LANGUAGE` | empty | Document processing language (question/summary generation). Priority: this variable > the request's `Accept-Language` > built-in `zh-CN`. **It overrides the request header** intentionally: UI language and document processing language are two different things, allowing "English UI + processing Korean documents" |
+| `DEFAULT_LOCALE` | empty | Default UI language of the frontend (read by the frontend container): `zh-CN` / `en-US` / `ru-RU` / `ko-KR` / `ja-JP`; invalid values are ignored. Only affects users who haven't manually switched languages; priority: the user's selected language > this variable > `zh-CN`. After changing it, just restart the frontend container; no image rebuild is needed |
+| `WEKNORA_LANGUAGE` | empty | Document processing language (question/summary generation). Priority: this variable > the request's `Accept-Language` > built-in `zh-CN`. The document processing language can be set independently of the UI language, for example using an English UI to process Korean documents. IM channels without a configured reply language also use this variable (`zh-CN` when unset) as the default reply language |
 | `AUTO_MIGRATE` | true | Automatically run database migrations on startup |
 | `AUTO_RECOVER_DIRTY` | true | Automatically repair golang-migrate's dirty state (left behind by an interrupted previous migration). Should be temporarily set to false when manually troubleshooting migration issues, otherwise startup will automatically rewrite the migration version record — see [Database and Migrations](../06-development/02-database-schema.md) |
 | `WEKNORA_TRUSTED_PROXIES` | empty | gin trusted proxy CIDRs (comma-separated) |
-| `MAX_FILE_SIZE_MB` | 50 | Upload file size limit (shared across app/frontend/docreader) |
+| `MAX_SKILL_BUNDLE_SIZE_MB` | 256 MiB (by default not less than MAX_FILE_SIZE_MB, capped at 512 MiB) | Limit for skill ZIP uploads and source downloads; the reverse proxy's request body limit must also be large enough |
+| `MAX_FILE_SIZE_MB` | 50 | Upload file size limit (shared across app/frontend/docreader); Helm deployments use `global.maxFileSizeMB` |
 | `CONCURRENCY_POOL_SIZE` | 5 | General-purpose concurrency pool |
 | `APP_EXTERNAL_URL` / `FRONTEND_BASE_URL` | empty | Externally reachable URL for IM channel image/file links / external origin of the frontend |
 | `RESOURCE_URL_MODE` | handle | Default form of file references in API responses: `handle` returns an internal `resource://`, `public` returns a directly loadable, time-limited external link. Can be overridden per-request with `?resource_urls=`; see [API Overview](../04-api/01-api-overview.md) for details |
@@ -193,7 +196,7 @@ See [External Access to Images and Files](../03-features/21-file-access.md) for 
 | Name | Default | Description |
 | --- | --- | --- |
 | `STORAGE_TYPE` | local | `local` / `minio` / `cos` / `tos` / `s3` / `obs` / `oss` |
-| `STORAGE_ALLOW_LIST` | empty | Whitelist of storage types users may select (comma-separated) |
+| `STORAGE_ALLOW_LIST` | empty | Whitelist of storage types users may select (comma-separated); allowed values are `local`, `minio`, `cos`, `tos`, `s3`, `oss`, `ks3`, `obs` |
 | `LOCAL_STORAGE_BASE_DIR` | /data/files | Local storage root directory |
 | `MINIO_ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY/BUCKET_NAME/USE_SSL` | minio:9000 / minioadmin / minioadmin / empty / false | MinIO |
 | `COS_SECRET_ID/SECRET_KEY/REGION/BUCKET_NAME/APP_ID/PATH_PREFIX` | empty | Tencent Cloud COS (also has TEMP_BUCKET/TEMP_REGION) |
@@ -205,19 +208,23 @@ AWS S3's `S3_ACCESS_KEY` / `S3_SECRET_KEY` can **both be left empty**, in which 
 
 | Name | Default | Description |
 | --- | --- | --- |
-| `OLLAMA_BASE_URL` | http://host.docker.internal:11434 | Ollama address |
+| `OLLAMA_BASE_URL` | http://host.docker.internal:11434 | The single local Ollama address. Embedding and chat models with `source=local` share it; when unset, the process uses `http://localhost:11434` |
 | `OLLAMA_OPTIONAL` | true | If Ollama is unavailable, only warn without blocking startup |
 | `BATCH_EMBED_SIZE` | empty | Batch embedding size |
 | `VLM_HTTP_TIMEOUT_SECONDS` | 180 | Timeout for a single VLM request |
 | `BUILTIN_MODELS_CONFIG` | config/builtin_models.yaml | Path to the built-in model declaration file (see below) |
+| `MODELS_CONFIG` | config/models.json | Path to the deployment overlay file for the model provider catalog (adds providers, overrides addresses or model parameters); see [Model Management](../03-features/06-models.md) for the format |
 | `WEKNORA_LLM_STREAM_RAW_DUMP` / `_DIR` | empty | LLM stream raw dump (for troubleshooting) |
+
+The embedding model name is not determined by an environment variable. In the model record, set the `name` of the entry with `type=Embedding` and `source=local` to the Ollama model name (the CLI example uses `nomic-embed-text`, dimension 768; the quick start uses `bge-m3`, dimension 1024). When the name is empty, the local embedder falls back to `nomic-embed-text`. `EMBEDDING_MODEL_NAME` only takes effect when `builtin_models.yaml` references `${EMBEDDING_MODEL_NAME}` (see "config/builtin_models.yaml.example: Declarative Built-in Models" below and `config/builtin_models.yaml.example` in the repository). The 8GB baseline in the installation guide does not include Ollama weights; Neo4j is disabled by default (`neo4j` profile).
 
 ### Authentication, Tenancy, and Security
 
 | Name | Default | Description |
 | --- | --- | --- |
-| `JWT_SECRET` | empty | JWT signing secret (required) |
-| `SYSTEM_AES_KEY` | empty | AES-256 master key for encrypting sensitive fields at rest, **must be 32 bytes**; if lost, already-encrypted data (tenant API keys, model keys, vector database credentials, etc.) cannot be recovered. Replaces `TENANT_AES_KEY`/`CRYPTO_MASTER_KEY`/`CRYPTO_SALT` as of v0.4.0 |
+| `JWT_SECRET` | empty | JWT signing secret (required; can be generated with `openssl rand -hex 32`). If left empty or set to the example value, a random one is generated on every startup, so logged-in users must log in again after a restart; multiple replicas must be configured with the same value |
+| `SYSTEM_AES_KEY` | empty | AES-256 master key for encrypting sensitive fields at rest, **must be 32 bytes** (can be generated with `openssl rand -hex 16`); if lost, already-encrypted data (tenant API keys, model keys, vector database credentials, etc.) cannot be recovered, so keep the original value when upgrading. Replaces `TENANT_AES_KEY`/`CRYPTO_MASTER_KEY`/`CRYPTO_SALT` as of v0.4.0 |
+| `SYSTEM_SIGNING_KEY` | empty (falls back to `SYSTEM_AES_KEY`) | Signing key for embed sessions and pre-signed file links (can be generated with `openssl rand -hex 32`). When unset, `SYSTEM_AES_KEY` is used; when both are missing, shorter than 16 characters, or set to the example value, signed links and embed sessions cannot be issued. After it changes, links already issued stop working; multiple replicas must use the same value |
 | `DISABLE_REGISTRATION` | false | If true, forces `registration_mode=invite_only` |
 | `WEKNORA_AUTH_DEFAULT_TENANT_MODE` | create_personal | Space creation policy after registration (`create_personal` / `tenantless`) |
 | `WEKNORA_TENANT_ENABLE_RBAC` | (default true) | Space role-based authorization enforcement switch |
@@ -226,12 +233,41 @@ AWS S3's `S3_ACCESS_KEY` / `S3_SECRET_KEY` can **both be left empty**, in which 
 | `WEKNORA_TENANT_MAX_OWNED_PER_USER` | empty | Maximum number of self-created spaces |
 | `WEKNORA_TENANT_AUTO_CREATE_API_KEY` | false | Automatically issue a full_access API Key when creating a space (compatibility with old behavior) |
 | `WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB` | 10 | Default storage quota for new spaces |
+| `WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED` | false | Complex password policy: uppercase and lowercase letters, digits, and special characters; the system setting auth.complex_password_enabled takes precedence |
+| `WEKNORA_TENANT_AUTO_ACCEPT_INVITATION` | false | Email invitations to existing accounts join them directly; the system setting tenant.auto_accept_invitation takes precedence |
+| `OIDC_AUTH_JWKS_URI` | empty | Public key set for verifying id_token signatures; can be filled in via discovery, and is validated together with issuer/audience/expiry |
 | `WEKNORA_INVITATION_TTL` | 168h | Invitation link validity period |
 | `WEKNORA_AUDIT_RETENTION_DAYS` | 90 | Audit log retention in days |
 | `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL` | empty | Bootstraps the first system administrator. **Does not create a user**: this email must first register on its own; on next startup, if there is no system administrator yet in the deployment, it is promoted; once an admin exists, this variable no longer has any effect. See [Tenants, Users, and Authentication & Authorization](../03-features/01-tenant-auth.md) for details |
 | `OIDC_AUTH_ENABLE` and `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_*` | false / empty | Full OIDC single sign-on configuration |
-| `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | empty / `searxng,qdrant,milvus,weaviate,doris-fe,doris-be` | SSRF whitelist for outbound requests (shared by app and docreader) |
+| `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | empty / `searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio` (app only) | SSRF whitelist for outbound requests. `SSRF_WHITELIST` is shared by app and docreader; compose only sets a default `SSRF_WHITELIST_EXTRA` for app, and docreader's variable of the same name is empty by default |
+| `SSRF_DNS_WHITELIST_ONLY` | false | Allow only whitelisted outbound traffic (read by both app and docreader). When enabled, hosts not on the whitelist are rejected **before the DNS lookup**, and direct connections to IPs not on the whitelist are also rejected during URL validation; domain names are matched by name only, so CIDRs written in the whitelist no longer apply to domain names. The value is parsed as a boolean (`1/t/true` on, `0/f/false` off), and **a non-empty value that can't be parsed is treated as "on"**. See below for the preparation needed before enabling it |
 | `IMAGE_HOST_KEEP_URL` | empty | Whitelist of image domains for which the original URL is preserved |
+
+#### Before Enabling `SSRF_DNS_WHITELIST_ONLY`
+
+Once enabled, the whitelist becomes the entire outbound policy, so all outbound addresses must first be written into `SSRF_WHITELIST` or `SSRF_WHITELIST_EXTRA`. When docreader also needs to reach hosts inside compose, write them into `SSRF_WHITELIST`, which both services share (docreader's `SSRF_WHITELIST_EXTRA` is empty by default). You will usually also need to add:
+
+- Model service addresses (chat / embedding / rerank / VLM / ASR, including `localhost` for a local Ollama)
+- `dex` for OIDC login (or your IdP's domain), MCP service addresses, `docreader`
+- Object storage (external S3/COS/OSS, etc.), external vector databases, the Langfuse address
+- The sandbox control plane address: once enabled, "Allow private network endpoints" can no longer bypass the whitelist
+
+Outbound paths that are still not covered, in order of impact:
+
+1. **Runtime resolution for gRPC vector databases**: the qdrant / milvus clients resolve their target with gRPC's own resolver, so the dialer only ever sees addresses; these hosts are therefore checked **by name before the client is built** (environment variable configuration is checked at startup, and configuration saved in the console goes through URL validation), not before every connection.
+2. **The Langfuse OTLP exporter** has its own HTTP client and does not go through this mechanism at all. `LANGFUSE_HOST` defaults to the SaaS address; for offline deployments, disable tracing or change it to an internal address.
+3. **`HTTP(S)_PROXY`**: the dialer lets the proxy host through only if "the dial address is exactly equal to the host of the proxy URL". When they are equal, the proxy host is resolved and connected even if it's not on the whitelist; when they differ (for example, the proxy URL has no port), it is treated as not whitelisted and rejected outright. For offline deployments, unset the proxy or add the proxy host to the whitelist as well.
+
+### Image Build Arguments (When Building from Source)
+
+The following variables are only used when building the frontend image with `docker compose build` / `make docker-build-frontend`; they don't need to be set when deploying from the official images. For other build arguments (Go proxy, apt mirror, etc.), see section A1 of `.env.example`.
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `VITE_FRONTEND_COMMIT` | unknown | Frontend short commit written to the "System Information" page. `make docker-build-frontend` and `start_all.sh --no-pull` fill it automatically from git; with a plain `docker compose build` you need to export it yourself |
+| `NPM_REGISTRY` | empty (default registry) | npm registry used during the build stage; in mainland China you can set `https://registry.npmmirror.com` |
+| `NODE_MAX_OLD_SPACE_SIZE` | 4096 | Node heap limit (MB) for the Vite build; can be lowered to 2048 when Docker Desktop has little memory |
 
 ### Docreader Parsing (docreader container)
 
@@ -250,14 +286,30 @@ AWS S3's `S3_ACCESS_KEY` / `S3_SECRET_KEY` can **both be left empty**, in which 
 
 | Name | Default | Description |
 | --- | --- | --- |
-| `WEKNORA_SANDBOX_MODE` | disabled (code default; set to docker in the standard compose file) | Skills sandbox: `docker` / `local` / `disabled` |
-| `WEKNORA_SANDBOX_TIMEOUT` / `WEKNORA_SANDBOX_DOCKER_IMAGE` | 60 / wechatopenai/weknora-sandbox:latest | Sandbox execution timeout and image |
-| `WEKNORA_SKILLS_DIR` | empty (/app/skills/preloaded inside the image) | Custom Skills directory |
+| Sandbox configuration | Maintained per space on the settings page | Backend, credentials, templates, timeouts, and private network access policy are saved per space |
+| `WEKNORA_SANDBOX_DOCKER_ENABLED` | false | Fallback switch for the Docker sandbox backend. A system administrator can also turn it on under "Settings → System settings → Network security" (DB takes precedence, takes effect immediately). Off by default, because a local `docker.sock` is equivalent to root on the host |
 | `WEKNORA_AGENT_LLM_TIMEOUT` | 120s | Agent single LLM call timeout (Go duration or plain number of seconds) |
 | `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT` / `_FAIL_OPEN` | 600s / fail-close | MCP tool manual approval wait time and failure policy |
 | `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS` / `_WAIT_TIMEOUT_SEC` / `_OCR_CONCURRENCY` / `_OCR_MAX_PAGES` | 24 / 60 / 8 / 8 | Chat attachment parsing retention duration, wait timeout, and OCR concurrency/page limits |
 | `WEKNORA_HOUSEKEEPING_ENABLED` | enabled | Reclaims dirty data stuck in processing state |
 | `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` / `WEKNORA_DOCREADER_CALL_TIMEOUT` | 2h / 30m | Document processing task and single RPC timeouts |
+| `WEKNORA_PADDLEOCR_VL_TIMEOUT` | 1000s | HTTP request timeout for self-hosted PaddleOCR-VL; supports positive Go durations (such as `5400s`, `90m`); empty, invalid, or non-positive values use the default. Outer timeouts need headroom, for example `90m` for this item, `100m` for DocReader, and `2h` for the document task |
+
+Sandbox backends, network policy, script switches, and personal environment variables are managed through space configuration/API; see [Skills and Sandbox](../03-features/22-skills-sandbox.md). Long-term memory and automatic tagging are both off by default and use the tenant's memory_config and the knowledge base's auto_tag_config respectively; global environment variables do not replace the per-space configuration.
+
+### Local Browser (BrowserSkill, Optional)
+
+Users connect their local browser to WeKnora through a Chrome extension. The Docker app image already includes `bsk` and the companion extension, and by default the connection address is generated from the page address the user is currently visiting, so usually no configuration is needed.
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `BROWSERSKILL_BINARY` | `/opt/weknora/browserskill/bsk` inside the Docker image | Absolute path to the `bsk` executable; native deployments need to build and configure it themselves, and explicitly setting it to empty disables this feature |
+| `BROWSERSKILL_EXTENSION_PATH` | Preset inside the Docker image | Path of the extension ZIP that users download from "Install manually (alternative)" under "Toolbox → Browser connection" |
+| `BROWSERSKILL_PUBLIC_URL` | empty (generated from the page address) | Override only when the gateway uses a separate domain or path; remote deployments must use `wss://` |
+| `BROWSERSKILL_MAX_CONNECTIONS` | 32 | Maximum number of browser devices online at the same time per application instance |
+| `BROWSERSKILL_INTERNAL_URL` / `BROWSERSKILL_CLUSTER_SECRET` | empty | Multi-replica deployments: each node sets an address other nodes can reach directly (not the load balancer address), and all replicas use the same random secret (at least 32 characters) |
+
+For deployment options and limitations, see [Local Browser](../05-clients/09-local-browser.md).
 
 ### Observability (Langfuse)
 
@@ -271,7 +323,7 @@ These two groups of variables are only needed when enabling the corresponding co
 
 | Name | Default | Description |
 | --- | --- | --- |
-| `SEARXNG_PORT` | 8888 | Host port |
+| `SEARXNG_PORT` | 8888 | Host port. Don't make it the same as `APP_PORT` (default 8080), otherwise requests on `localhost` may hit SearXNG first and the login endpoint returns an HTML 404 |
 | `SEARXNG_BIND` | 127.0.0.1 | **Listens only on localhost by default**. WeKnora's bundled configuration disables SearXNG's own rate limiting (otherwise the backend would get throttled), so it should not be exposed directly to the LAN; if you really need to open it up, explicitly change it to `0.0.0.0` and harden it yourself |
 | `SEARXNG_SECRET` | empty | Used by the entrypoint script to replace the `secret_key` in `settings.yml`; must be set when exposed externally |
 
@@ -330,11 +382,13 @@ Five built-in presets:
 
 | id | System Prompt | Tool whitelist | Notes |
 | --- | --- | --- | --- |
-| `rag-qa` | `progressive_rag_agent` | knowledge_search, grep_chunks, list_knowledge_chunks, get_document_info | temperature 0.7, max_iterations 30, FAQ prioritized |
-| `wiki-qa` | `wiki_researcher` | wiki_search, wiki_read_page, wiki_read_source_doc, wiki_flag_issue | Requires a knowledge base with Wiki enabled |
+| `rag-qa` | `progressive_rag_agent` | search_knowledge, read_document, list_documents | temperature 0.7, max_iterations 30, FAQ prioritized |
+| `wiki-qa` | `wiki_researcher` | wiki_search, wiki_read_page, read_document, wiki_flag_issue | Requires a knowledge base with Wiki enabled |
 | `hybrid-rag-wiki` | `hybrid_rag_wiki_agent` | Full set of Wiki + RAG tools | max_iterations 40, the most flexible preset |
 | `data-analysis` | `data_analyst` | data_schema, data_analysis | temperature 0.3; `kb_filter: none_of: [faq]`; supports csv/xlsx |
 | `custom` | none | no prefill | Fully manual configuration |
+
+Old tool names that appear in saved configurations (`knowledge_search`, `grep_chunks` → `search_knowledge`; `list_knowledge_chunks`, `get_document_info`, `wiki_read_source_doc` → `read_document`) are automatically mapped to the new tools at runtime, with no manual rewriting needed.
 
 ## config/builtin_agents.yaml: Built-in Agents
 
@@ -367,6 +421,8 @@ builtin_models:
 ```
 
 Note: unset `${ENV}` variables keep the literal text to make configuration errors visible; non-string fields (`type`, `source`, `is_default`, `dimension`, etc.) must be written as literal values; deleting an entry from the file **does not** automatically delete it from the database — manual cleanup is required.
+
+Local Ollama: set `source` to `local` and use the Ollama model name for `name` (the embedding side can use `${EMBEDDING_MODEL_NAME}`). For a fully commented example, see the "one local Ollama" section of `config/builtin_models.yaml.example`; `dimension` must be a literal value (768 for the CLI example `nomic-embed-text`).
 
 ## Configuration Priority Quick Reference
 

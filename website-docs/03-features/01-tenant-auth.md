@@ -1,25 +1,43 @@
 # Tenants, Users, and Authentication & Authorization
 
-In WeKnora, a person (**User**) can belong to multiple **spaces** (called Tenant on the backend, referred to as workspace in the UI). A space is an isolation boundary: knowledge bases, models, Agents, and sessions all belong to a given space, and quotas are calculated per space too. If you want to share a knowledge base or Agent between two spaces, put them into the same **organization** (shared space).
+A space (workspace) is WeKnora's boundary for resources and permissions: knowledge bases, models, agents, sessions, and storage quotas all belong to a space. A user can join multiple spaces and hold a different role in each. Organizations connect multiple spaces so they can share knowledge bases and agents. On the backend, a space is represented as a Tenant.
 
-The three things people ask about most often:
+The entry points for inviting members, sharing resources, and API access are listed below. Managing the entire deployment requires separate platform permissions.
 
-| What you want to do | How to do it |
+| Operation | Entry point and requirements |
 | --- | --- |
-| Bring a colleague in to use it together | Space settings → Members → Invite, and assign them a role (Owner / Admin / Contributor / Viewer) |
+| Invite team members | Space settings → Members → Invite, and assign them a role (Owner / Admin / Contributor / Viewer) |
 | Share a knowledge base with another team | Create an organization → add both spaces to it → "Share to organization" on the knowledge base |
-| Let a program call the API | Space settings → API Key, check the capabilities you need (retrieve / chat / ingest / manage), and restrict which knowledge bases it can access if necessary |
-| Manage the entire deployment (global settings, task queue, cross-space audit) | Requires **system administrator** identity, which is different from space Owner — see [Platform Administration and System Administrators](20-platform-admin.md) |
-| Delete an entire space | Triggered by the **Owner** in space settings (`DELETE /tenants/:id`); this also wipes the space's knowledge bases, Agents, sessions, and member relationships, and cannot be undone |
+| Connect via the API | Space settings → API Key, check the capabilities you need (retrieve / chat / ingest / manage), and restrict which knowledge bases it can access if necessary |
+| Manage the entire deployment (global settings, task queue, cross-space audit) | Requires **system administrator** identity, which is granted independently of space Owner — see [Platform Administration and System Administrators](20-platform-admin.md) |
+| Delete an entire space | Triggered by the **Owner** in space settings (`DELETE /tenants/:id`); the space and all its member relationships are soft-deleted, members lose access immediately, and it cannot be restored from the UI |
 
 <Screenshot
   src="/screenshots/settings-members.png"
   caption="Space member management: member roles and invitation entry point"
   hint="Show the member list, the role dropdown, and the 'Invite member' button — ideally with one pending invitation included." />
 
-The one-sentence version of what the four roles can do: Viewer can only view and ask questions, Contributor can create knowledge bases and upload documents, Admin manages members and space settings, and Owner can additionally delete the space and transfer ownership. See the RBAC section below for the full matrix.
+Viewer can browse and ask questions, Contributor can create knowledge bases and upload documents, Admin manages members and space settings, and Owner can additionally delete or transfer the space. Modifying resources is also constrained by ownership or sharing permissions; see the reference section for the role matrix.
 
-Technically, authentication supports three kinds of principals — password login, OIDC single sign-on, and API Keys — while authorization is implemented jointly by three orthogonal mechanisms: the in-space RBAC role ladder, resource ownership, and API Key capabilities. Each is expanded on layer by layer below.
+Users can sign in with a password or OIDC single sign-on; programs access the system via API Keys. A logged-in user's permissions are determined by their space role and resource ownership, while an API Key is checked against the capabilities and knowledge base scope it was granted.
+
+## Inviting Members and Assigning Roles
+
+Invite users under "Members" in the space settings, and assign roles according to their scope of work. Once an invited user accepts, they join the current space; when public registration is disabled, a valid invitation can still be used to complete registration. Existing users can also accept an invitation to join a new space, without creating a second account.
+
+Space member roles and organization member roles are managed separately. When sharing material, check the knowledge base's sharing permission, the receiving space's role in the organization, and the user's own space role together.
+
+## Sharing Knowledge Bases and Agents
+
+First have the source space and the receiving space join the same organization, then a member with sufficient permission shares the knowledge base or agent to that organization. The receiver's actual permissions are limited by both the share record and member roles; organization sharing never automatically raises a user's space role.
+
+## Configuring API Keys for Programs
+
+Create an API Key in the space settings and choose the retrieve, chat, ingest, or manage capabilities according to the task; when you need to limit the scope of material, also specify the knowledge bases it can access. Programs carry the credential in the `X-API-Key` request header; see the reference section for the specific capabilities and resource limits.
+
+## Managing Spaces and Platform Permissions
+
+Deleting a space is performed by the Owner. The space record and its member relationships are soft-deleted, and all members lose access immediately; data in the space such as knowledge bases and models is not physically purged right away, but since v0.8.2, Wiki tasks still queued for a deleted space no longer call the model. Global settings, the platform task queue, and cross-space audit are managed by system administrators; see [Platform Administration and System Administrators](20-platform-admin.md) for details.
 
 ## Conceptual Overview
 
@@ -49,12 +67,474 @@ graph TB
 Key points:
 
 - One User can belong to multiple Tenants at the same time via the `tenant_members` table, with each membership relationship having its own independent role.
-- Organization membership is at the **tenant level** (after the Plan 3 migration, `OrganizationTenantMember` is keyed by `tenant_id` rather than by user), and sharing likewise means "a given tenant shares a KB with a given organization."
+- Organization membership is at the **tenant level** (`OrganizationTenantMember` is keyed by `tenant_id`), and sharing likewise means "a given tenant shares a KB with a given organization."
 - An API Key is a machine principal completely independent from JWT users, and does not reuse the tenant role ladder.
 
-## 1. Data Model
+## Authentication and Authorization Reference
 
-### 1.1 Tenant (Tenant / Workspace)
+### Registration and Login {#_2-registration-and-login}
+
+#### Registration Mode (invite-only) {#_2-1-registration-mode-invite-only}
+
+`internal/handler/auth.go` + `internal/config/config.go`:
+
+```go
+type AuthConfig struct {
+    RegistrationMode  string // "self_serve" (default, public registration) | "invite_only" (invite only)
+    DefaultTenantMode string // "create_personal" (default, auto-create a personal tenant) | "tenantless" (no tenant until invited)
+}
+
+func (c *AuthConfig) IsInviteOnly() bool {
+    return c != nil && c.RegistrationMode == AuthRegistrationModeInviteOnly
+}
+```
+
+The determination happens in two layers, and understanding this is key to explaining "I changed the env var but nothing happened":
+
+**At startup** (`applyAuthAndTenantDefaults()`), `cfg.Auth.RegistrationMode` is synthesized: `DISABLE_REGISTRATION=true` rewrites it directly to `invite_only`, **overriding** whatever is in the YAML. The reason env overrides YAML here is to keep "the API rejects registration" and "the frontend hides the registration entry point" (the frontend reads `/auth/config`) as two gates that stay in sync — otherwise you'd get a button that's still there but returns a 403 when clicked.
+
+**On every request** (`resolveRegistrationMode()`) only two sources are compared: the `auth.registration_mode` row in the database's `system_settings` table takes priority over the cfg value synthesized above, which in turn takes priority over the hardcoded fallback `self_serve`. `DISABLE_REGISTRATION` is **not** re-read on every request.
+
+The consequence is: once a system administrator sets `auth.registration_mode` to `self_serve` in the UI, public registration is on even if the deployment still has `DISABLE_REGISTRATION=true` written somewhere. To fully turn it off, you need to reset that row in the database (`DELETE /system/admin/settings/auth.registration_mode`).
+
+In `invite_only` mode, `POST /auth/register` returns 403, but that only blocks **self-service password registration** — the following two paths are unaffected:
+
+- The **invite registration endpoint** `POST /auth/register-by-invite` (this is by design, see [Invite Registration (register-by-invite)](#_2-3-invite-registration-register-by-invite));
+- **First-time OIDC login**: when `LoginWithOIDC()` can't find a matching email, it goes straight to `provisionOIDCUser()` to create an account, without ever reading the registration mode. In other words, once OIDC is enabled, `invite_only` doesn't block anyone in the IdP — to restrict scope you need to do it on the IdP side (application visibility / user groups), or just turn OIDC off entirely.
+
+#### Password Registration / Login {#_2-2-password-registration-login}
+
+- `POST /auth/register`: `{username(2-50), email, password}`; whether a personal tenant is automatically created depends on `DefaultTenantMode` (`TenantProvisioningCreatePersonal` / `TenantProvisioningTenantless`).
+- `POST /auth/login`: `{email, password}`, returns `LoginResponse{user, active_tenant, memberships[], token, refresh_token}`; the active tenant is restored based on `Preferences.LastActiveTenantID`.
+- Registration, invite registration, password changes, and administrators setting a new password all enforce a unified password policy: 8–32 characters by default, with at least letters and digits. `GET /auth/config` returns the current complex_password_enabled; when enabled, uppercase and lowercase letters and special characters are also required.
+- System administrators can adjust this with `auth.complex_password_enabled`; when it hasn't been stored in the database, it falls back to `WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED`. Changing the policy only constrains passwords created or changed afterward, and doesn't force existing accounts to change their passwords immediately.
+- Changing your own password in your profile requires the old password, and the new password must be different; on success, all of that user's sessions are revoked and they must log in again. For endpoint errors and parameters, see the [Authentication API](../04-api/02-api-auth.md).
+
+#### Invite Registration (register-by-invite) {#_2-3-invite-registration-register-by-invite}
+
+`internal/handler/auth_register_by_invite.go`. A **shared invitation link** (share link, see [Shared Invitation Links (invite link)](#_7-2-shared-invitation-links-invite-link)) generated by a tenant Owner carries a token; the registration page uses that token to complete registration, even while the system is in `invite_only` mode:
+
+```go
+// POST /auth/register-by-invite
+type registerByInviteRequest struct {
+    Token    string `binding:"required"`
+    Email    string `binding:"required,email"` // filled in by the registrant; not bound to the token
+    Username string `binding:"required"`
+    Password string `binding:"required"`       // additionally validated by the unified password policy (8–32 characters, letters and digits)
+}
+```
+
+Flow: validate the token (`LookupByToken`) → check the email isn't already registered (returns 409 if it is) → create the user in `tenantless` mode → set the invited tenant as the user's primary tenant → `AcceptByToken` creates the `tenant_members` row (status `active`, role taken from the one specified in the invitation).
+
+The companion endpoint `POST /auth/invitations/lookup` (no authentication required) returns the invitation context `{tenant_id, tenant_name, role, expires_at}` for display on the registration page; the token is passed in the POST request body so it doesn't end up in URL access logs; an invalid/revoked token returns 410.
+
+#### Registered Users Joining via an Invitation Link
+
+In invite_only deployments, the invitation page guides the user to log in first, then submit the token to `POST /me/invitations/accept-by-token` to join the space; there's no need to create another account for an already-registered email. For a user with no default space, the space they join first becomes their default space. `register-by-invite` remains the API for creating a new account with a valid invitation.
+
+Email invitations to already-registered users are also governed by `tenant.auto_accept_invitation`: by default it's false, which creates a pending invitation and waits for confirmation from the inbox; when true, the user joins directly, an active member is returned, and any existing pending invitation is handled. The frontend detects this switch from `capabilities.auto_accept_invitation` in `GET /auth/me`. It does not turn arbitrary shared links into login-free entry points.
+
+### Tenant Members, Invitations, and Invitation Links {#_7-tenant-members-invitations-and-invitation-links}
+
+#### Member Management and Targeted Invitations {#_7-1-member-management-and-targeted-invitations}
+
+Handlers: `internal/handler/tenant_member.go`, `tenant_invitation.go`. The `/tenants/:id` group all attaches `PathTenantMatch()` (the URL tenant must match the active tenant in the token, except for superusers).
+
+| Endpoint | Minimum role | Description |
+| --- | --- | --- |
+| `GET /tenants/:id/members` | Viewer | Paginated list of active members; `q` fuzzy-filters by email/username |
+| `POST /tenants/:id/members` | Owner | Directly add an existing user `{email, role}` |
+| `PUT /tenants/:id/members/:user_id` | Owner | Change role |
+| `DELETE /tenants/:id/members/:user_id` | Owner | Remove member |
+| `POST /tenants/:id/invitations` | Owner | Targeted invitation of an existing user `{email, role, message}` |
+| `GET /tenants/:id/invitations` | Viewer | List invitations |
+| `DELETE /tenants/:id/invitations/:inv_id` | Owner | Revoke an invitation |
+| `GET /me/invitations` | Self | Invitation inbox |
+| `POST /me/invitations/:inv_id/accept` / `.../decline` | Self | Accept / decline |
+
+`TenantInvitation` state machine: `pending → accepted / declined / revoked / expired` (expiration is transitioned by a lazy sweep and audited as `rbac.invitation_expired`). Members and invitations have audit events across their whole lifecycle: `rbac.member_added` / `member_removed` / `member_role_changed` / `member_left` / `invitation_sent` / `invitation_accepted` / `invitation_declined` / `invitation_revoked` (`internal/types/audit_log.go`).
+
+#### Shared Invitation Links (invite link) {#_7-2-shared-invitation-links-invite-link}
+
+`internal/handler/tenant_invite_link.go`. Stored in the same table as targeted invitations: an empty `InviteeUserID` means it's a shared link (usable by multiple people, counted via `AcceptedCount`), while a non-empty one means a targeted invitation.
+
+- `POST /tenants/:id/invite-links` (Owner): `{role, message}` → returns `invite_url` (`{FrontendBaseURL}/register?token=...`, where `FrontendBaseURL` is taken from the YAML `frontend_base_url` → the environment variable `FRONTEND_BASE_URL` → falling back to a relative path);
+- Invitation links share a table with targeted invitations, so they are listed with `GET /tenants/:id/invitations` (Viewer) and revoked with `DELETE /tenants/:id/invitations/:inv_id` (Owner).
+
+The link stays valid until it expires or is revoked, and combined with the `register-by-invite` endpoint from [Invite Registration (register-by-invite)](#_2-3-invite-registration-register-by-invite), it closes the account-creation loop under invite-only mode.
+
+### Organizations and Shared Spaces {#_8-organizations-and-shared-spaces}
+
+#### Organization Lifecycle {#_8-1-organization-lifecycle}
+
+`internal/application/service/organization.go`:
+
+- When an organization is created, a unique `InviteCode` is generated, with a validity period `invite_code_validity_days ∈ {0(forever), 1, 7, 30}`, defaulting to 7 days (checked against the `ValidInviteCodeValidityDays` allowlist, with invalid values raising `ErrInvalidValidityDays`);
+- `GetOrganizationByInviteCode` joins via an invite code (distinguishing `ErrInviteCodeNotFound` / `ErrInviteCodeExpired`); when `RequireApproval=true`, a pending join request is created;
+- Organizations with `Searchable=true` can be discovered via `SearchSearchableOrganizations`;
+- The invite code and the pending-approval count are only visible to "an org admin or owner tenant" (determined by the `isAdmin || isOwner` check in `internal/handler/organization.go`).
+
+#### Invitation Candidates: Exact Resolution by Space ID {#_8-2-invitation-search-by-space-tenant-not-by-user}
+
+Organization invitations target workspaces. `GET /organizations/:id/search-tenants?q=<space ID>` can only be called by org admins, and since v0.8.2 it resolves candidates only by **exact space ID**, no longer searching across spaces by name (to avoid it being used to enumerate other spaces' names): when `q` is not a valid ID, or the space is already in the organization or doesn't exist, an empty list is returned; otherwise the single `{tenant_id, tenant_name}` is returned. The invitee can look up the space ID in their own space settings and pass it to the organization admin; they can also keep joining via the organization invite code or invitation link.
+
+The old endpoint `GET /organizations/:id/search-users` is kept as a backward-compatible alias, behaving the same as `search-tenants`.
+
+`POST /organizations/:id/invite` (org admins only) adds a member directly: it prefers the `tenant_id` path, and supports the legacy SDK's `user_id` path for compatibility (reverse-looking-up that user's default space). Direct additions no longer carry a representative user (`representative_user_id` is ignored); the organization member list returns the representative user's email only to the caller's own space.
+
+#### KB Sharing Model and Permission Calculation {#_8-3-kb-sharing-model-and-permission-calculation}
+
+`internal/types/organization.go` + `internal/application/service/kbshare.go`:
+
+```go
+type KnowledgeBaseShare struct {
+    ID              string
+    KnowledgeBaseID string
+    OrganizationID  string
+    SharedByUserID  string
+    SourceTenantID  uint64        // source tenant of the share
+    Permission      OrgMemberRole // highest permission granted by the share (viewer/editor/admin)
+}
+// AgentShare is shaped the same way, for Agents.
+```
+
+**Prerequisite for sharing** (`ShareKnowledgeBase`): the caller's tenant must **own** the KB (`kb.TenantID == tenantID`), and must hold at least **editor** role in the target organization. Sharing again just updates the permission.
+
+**Who can manage a share** (`canManageShare`, shared by KB sharing and Agent sharing, used for changing permissions / revoking a share):
+
+1. The original sharer, still operating within the source tenant and holding a tenant role of Contributor+;
+2. Admin+ of the source tenant (ownership is tenant-level, so if the original sharer leaves, the tenant's Admins can still manage the share);
+3. For a tenant that holds the admin role in the target organization, its Admin+ users can revoke the share or **lower** the permission, but cannot raise it above the current value — otherwise that would amount to handing write access to someone else's KB to every editor member.
+
+The `share_id` in the route must belong to the KB / Agent in the path, otherwise 404 is returned.
+
+**Restrictions on the receiver configuring a shared KB**: only the space that owns the KB can call `POST /initialization/initialize/:kbId`; other spaces modifying the KB configuration (`PUT /initialization/config/:kbId`) need an admin-level share and cannot change the storage binding; when the receiver reads the configuration, it only sees whether credentials are configured, not details such as the model Base URL or bucket location, and KB details no longer return the storage/VLM credentials that older versions inlined.
+
+**When a share stops taking effect**: a share only takes effect while the organization hasn't been deleted and the source tenant is still a member of the organization. When the source tenant leaves or is removed, the KBs and Agents it shared into that organization are revoked along with it; the query side also filters by the source tenant's membership, so shares left behind by older versions no longer take effect either.
+
+**Effective permission = intersection across multiple layers (take the minimum)**:
+
+```go
+// final permission = Min(share.Permission, caller tenant's OrgMemberRole in the org)
+// then capped by the tenant role:
+func applyTenantRoleCap(p types.OrgMemberRole, callerTenantRole types.TenantRole) types.OrgMemberRole {
+    // a user who is only a Viewer inside the tenant is lowered to viewer even if the share gives editor+
+    if callerTenantRole == types.TenantRoleViewer && p.HasPermission(types.OrgRoleEditor) {
+        return types.OrgRoleViewer
+    }
+    return p
+}
+```
+
+Sharing-related operations are written to the KB activity feed: `kb.share_added` / `kb.share_permission_changed` / `kb.share_removed`.
+
+**Additional rules for Agent sharing** (`internal/application/service/agent_share.go`, `agent_share_scope.go`):
+
+- Built-in agents cannot be shared: every space has a built-in agent with the same ID, so the receiver couldn't tell them apart after sharing. Chat requests that don't specify a source space always use the agent from their own space first.
+- Sharing an Agent opens its KB scope to organization members in read-only mode, so the sharer must be entitled to share those KBs directly, i.e. be the KB creator or a tenant Admin+. `kb_selection_mode: all` automatically includes KBs created later, so only Admin+ can share it. When an already-shared Agent is edited, the same rule applies to KBs newly added to its scope.
+- At shared runtime, an Agent with no MCP selection mode set is treated as "none", consistent with what's shown in the share scope; in Quick Answer mode, web search requires the Agent itself to have it enabled, and `summary_model_id` in the request is ignored.
+- The shared Agent seen by the receiver doesn't include the system prompt or the creator's user ID; its capabilities and knowledge base scope remain visible.
+- Once an Agent with skills enabled is shared, the skills run in the source space's sandbox, carrying the environment variables the administrator configured for the skills (such as API Keys); members can ask the agent to read these values out. The share settings page shows a warning about this.
+
+```mermaid
+flowchart LR
+    subgraph srcT["Source Tenant"]
+        KB["KnowledgeBase (TenantID = source tenant)"]
+    end
+    subgraph orgS["Organization"]
+        SH["KnowledgeBaseShare (Permission: editor)"]
+    end
+    subgraph dstT["Consumer Tenant"]
+        M["OrganizationTenantMember (Role: viewer)"]
+        UV["User (tenant role: Viewer)"]
+    end
+    KB -- "ShareKnowledgeBase (requires editor+ in org)" --> SH
+    SH --> M
+    M --> EP["effective permission = Min(share.Permission, org role), then capped by applyTenantRoleCap = viewer"]
+    UV --> EP
+```
+
+### RBAC: Roles, Ownership, and the Guard Matrix {#_6-rbac-roles-ownership-and-the-guard-matrix}
+
+Authorization is composed of three orthogonal mechanisms, all converging in `rbacGuards` in `internal/router/rbac.go`:
+
+1. **Role guards** (role-only): `Viewer()` / `Contributor()` / `Admin()` / `Owner()` / `SystemAdmin()`, asking "what is the caller's role in this tenant?"
+2. **Ownership guards** (ownership-or-role): `OwnedKBOrAdmin()` etc., asking "is the caller the creator of **this specific resource**, or at least Admin+?"
+3. **KB access guards** (KB-access): `KBAccessRead()` / `KBAccessWrite()`, asking "can the caller's tenant reach this KB?" (own it / organization-shared / visible via a shared Agent)
+
+#### Role Capability Matrix {#_6-1-role-capability-matrix}
+
+| Capability | Owner (40) | Admin (30) | Contributor (20) | Viewer (10) |
+| --- | --- | --- | --- | --- |
+| Delete tenant / transfer ownership / manage API Keys | ✓ | ✗ | ✗ | ✗ |
+| Add/remove members, change roles, send invitations | ✓ | ✗ (handler restricted to Owner) | ✗ | ✗ |
+| Configure tenant infrastructure (models / vector stores / IM / MCP / web search / storage backends / data sources) | ✓ | ✓ | ✗ | ✗ |
+| Clear knowledge base contents (`DELETE /knowledge-bases/:id/knowledge`) | ✓ | ✓ | ✗ | ✗ |
+| Modify/delete KB / Agent / knowledge / chunk / Wiki / tags created by **others** | ✓ | ✓ | ✗ | ✗ |
+| Create KB / Agent; copy an Agent for oneself | ✓ | ✓ | ✓ | ✗ |
+| Modify/delete a KB **created by oneself** and its sub-resources | ✓ | ✓ | ✓ | ✗ |
+| Create/manage one's own sessions, start Q&A (`/sessions`, `/knowledge-chat`, `/agent-chat` are all Viewer+) | ✓ | ✓ | ✓ | ✓ |
+| View member list / invitation list / KB list / knowledge / retrieval / preview | ✓ | ✓ | ✓ | ✓ |
+
+The design comment at the top of `internal/router/rbac.go` summarizes the product semantics:
+
+> - Owner / Admin: manage everything within the tenant;
+> - Contributor: manages resources they created themselves; other people's resources are effectively read-only to them;
+> - Viewer: everything is read-only;
+> - Creating a new resource requires at least Contributor; configuring tenant infrastructure requires Admin+.
+
+Two exceptions that are easy to trip over: **adding/removing members, changing roles, and sending invitations are Owner-only**, not even Admin (`routes_auth_tenant.go` attaches `g.Owner()` there, while the member list itself is Viewer+); **Viewer isn't "can't create anything at all"** — a session belongs to one's own working data, so a Viewer can still create sessions and ask questions; they just can't create knowledge bases or Agents.
+
+#### Guard Selection Rules (Q1 / Q2) {#_6-2-guard-selection-rules-q1-q2}
+
+`rbac.go` explicitly specifies the method for choosing a guard when adding a new route:
+
+- **Q1: Does the resource have a creator?** Yes (KB, Agent, knowledge document, Chunk, WikiPage, FAQ entry, KB tag) → use `OwnedXxxOrAdmin` for mutation routes; No (Model, VectorStore, IM channel, WebSearchProvider, DataSource, MCPService, and other tenant-level infrastructure) → use `Admin()`; creation entry points (the resource doesn't exist yet) → `Contributor()`.
+- **Q2: Is the side effect private or public?** Private (e.g. `POST /agents/:id/copy` only copies for oneself) → `Contributor()` is sufficient; public (sharing a KB to an organization, disabling a tenant-wide Agent, transferring ownership) → `OwnedXxxOrAdmin` or `Admin`.
+
+#### Ownership Guard List {#_6-3-ownership-guard-list}
+
+| Guard | Resolution path | Applicable routes |
+| --- | --- | --- |
+| `OwnedKBOrAdmin` | `:id` → KB.CreatorID | KB update / delete / pin / knowledge upload / tag CRUD |
+| `OwnedKBOrAdminFromKbIDParam` | `:kbId` → KB.CreatorID | `/initialization/*` KB configuration routes |
+| `OwnedAgentOrAdmin` | `:id` → Agent.CreatorID (built-in Agents have an empty creator, so only Admin+ can modify them) | Agent mutations |
+| `OwnedKnowledgeKBOrAdmin` | knowledge `:id` → owning KB.CreatorID | Knowledge update / delete / re-parse / image editing |
+| `OwnedChunkKBOrAdmin` / `...FromChunkID` | `:knowledge_id` or chunk `:id` → KB.CreatorID | Chunk mutations |
+| `OwnedWikiKBOrAdmin` | `:kb_id` → KB.CreatorID | Wiki page CRUD |
+
+Sub-resources must inherit the gating of their parent KB (the comment explicitly calls out a bug it once fixed where FAQ/Tag, agent share, and KB share were wired to the wrong axis).
+
+#### Middleware Semantics (`internal/middleware/rbac.go`) {#_6-4-middleware-semantics-internal-middleware-rbac-go}
+
+The decision order for `RequireRole` / `RequireOwnershipOrRole`:
+
+1. An API Key principal is passed through directly (its authorization goes through the APIKeyGate described in [Route Declaration Mechanism](#_4-2-route-declaration-mechanism), and a synthesized system user can never match `creator_id`);
+2. Role satisfied → pass through;
+3. Cross-tenant superuser (`IsCrossTenantSuperuser`) → pass through;
+4. RBAC not enforced (`tenant.enable_rbac=false`, gradual-rollout mode) → log only, pass through;
+5. The ownership guard runs a creator lookup: resource not found → pass through and let the handler return 404; lookup failed → 503; creator == current user → pass through;
+6. Otherwise, 403 + audit log (`AuditActionAccessDenied = "rbac.access_denied"`).
+
+The enforcement switch `TenantConfig.EnableRBAC`: `nil` or `true` = enforced (current default), `false` = log only, no denial (used during rollout transitions); can be overridden with the environment variable `WEKNORA_TENANT_ENABLE_RBAC`. This switch only applies to role checks within a space; the knowledge base access guard (`RequireKBAccess`) always blocks cross-space access.
+
+`RequireSystemAdmin`: the JWT user must have `IsSystemAdmin=true`; for API Keys, it must be a platform key (tenant keys always get 403).
+
+#### KB Access Guards (Cross-Tenant Sharing Channel) {#_6-5-kb-access-guards-cross-tenant-sharing-channel}
+
+`middleware/kb_access.go` (wrapped by the `KBAccess*` family in `rbac.go`, with the decision rules located in `internal/application/access`) unifies three access paths:
+
+```text
+1. Own KB → full access equivalent to Admin
+2. Org-shared KB (Plan 3) → capped by the shared permission
+3. Visible via a shared Agent → read-only (activated only at the KBAccessRead layer)
+```
+
+On success, the guard stores `(KB, effective tenant ID, permission)` in the context and **rewrites the request's tenant ID to the effective tenant**, so downstream handlers don't need to be aware of whether the KB is owned or shared. Variants `KBAccessReadFromKnowledgeIDParam` / `...FromChunkIDParam` support reverse-looking-up the KB from a knowledge / chunk ID. Read routes require at least `OrgRoleViewer`; write routes require at least `OrgRoleEditor`.
+
+### API Key System {#_4-api-key-system}
+
+#### Capabilities List {#_4-1-capabilities-list}
+
+`internal/types/tenant_api_key.go`. An API Key **does not reuse tenant roles**: a key either has `FullAccess`, or carries an explicit set of capabilities; routes with no declared policy deny API Keys by default (default-deny).
+
+| Capability | Description |
+| --- | --- |
+| `retrieve` | Read/search knowledge base data (KB listing, knowledge details, hybrid-search, etc.) |
+| `chat` | Session flows: create session, knowledge-chat / agent-chat, load and delete messages |
+| `read_agents` | List and view Agents (excludes creation/modification) |
+| `ingest` | Write content: upload documents, edit chunks / FAQs / tags / Wiki pages, bulk delete and move knowledge |
+| `manage_kbs` | KB lifecycle: create / duplicate / copy / update / delete / initialize configuration |
+| `manage_agents` | Create, delete, modify, and copy Agents |
+| `message_history` | Search and view tenant-level chat history (`POST /messages/search` etc., independent from chat) |
+| `manage_models` | Manage model definitions and credentials |
+| `manage_mcp_services` | Manage MCP services and credentials |
+| `manage_datasources` | Manage data source connectors and sync jobs |
+| `manage_channels` | Manage Embed / IM channel integrations |
+| `manage_vector_stores` | Manage vector stores and parsers |
+| `manage_storage_backends` | Manage object storage backends |
+| `manage_web_search` | Manage web search configuration |
+| `run_evaluations` | Run and view evaluation jobs |
+| `manage_members` | Manage tenant members and invitations |
+| `manage_spaces` | Manage organization / shared-space membership |
+| `manage_tenant_settings` | Read/write tenant integration settings |
+| `system_tenants_read` / `system_tenants_manage` | Platform level: tenant management (platform key only) |
+| `system_settings_read` / `system_settings_manage` | Platform level: system settings |
+| `system_runtime_read` / `system_runtime_manage` | Platform level: runtime queue / tasks |
+| `system_audit_read` | Platform level: audit log |
+
+#### Route Declaration Mechanism {#_4-2-route-declaration-mechanism}
+
+In `internal/router/rbac.go`, every route accessible via API Key is explicitly registered with an `APIKeyRoutePolicy` through `apiKeyGroup` / `apiKeyRoute` (`middleware.APIKeyRouteAuthorizer` is the single source of truth):
+
+```go
+// policy constructors
+apiKeyAny()                    // any valid key
+apiKeyFullAccess()             // FullAccess keys only
+apiKeyPlatform(caps...)        // platform keys only + given capabilities
+apiKeyRetrieve(base) / apiKeyChat(base) / apiKeyIngest(base) / ...
+```
+
+At startup, `assertAPIKeyPoliciesMatchRoutes` validates that every declared policy corresponds to an actually registered route, and panics on any configuration drift. Typical mappings evidenced by `router_api_key_capabilities_test.go`:
+
+| Route | Required Capability |
+| --- | --- |
+| `POST /sessions`, `POST /knowledge-chat/:session_id`, `POST /agent-chat/:session_id`, `GET /messages/:session_id/load` | `chat` |
+| `GET /agents`, `GET /agents/:id`, `GET /agents/:id/suggested-questions` | `read_agents` |
+| `POST/PUT/DELETE /agents`, `POST /agents/:id/copy` | `manage_agents` |
+| `PUT/DELETE /knowledge-bases/:id`, `POST /initialization/initialize/:kbId` | `manage_kbs` |
+| `POST /messages/search`, `GET /messages/chat-history-stats` | `message_history` (not `chat`) |
+| `GET /system/admin/settings` | platform key + `system_settings_read` |
+| `POST /system/admin/runtime/queues/:queue/tasks/:task_id/actions/:action` | platform key + `system_runtime_manage` |
+
+#### KB Allow-list {#_4-3-kb-allow-list}
+
+When `KnowledgeBaseIDs` is non-empty, the key can only reach the KBs on the list (evidenced by `knowledge_api_key_scope_test.go`):
+
+```go
+// single out-of-scope KB → 403
+requireTenantAPIKeyKnowledgeBase(ctx, "kb-2") // scope only contains kb-1 → forbidden
+// any KB out of scope in batch → whole request 403 (partial overlap rejected)
+requireTenantAPIKeyKnowledgeBases(ctx, "kb-1", "kb-2") // → forbidden
+```
+
+Other hard limits: a platform key cannot create other platform keys; the API Key principal does not participate in ownership determination (see [RBAC: Roles, Ownership, and the Guard Matrix](#_6-rbac-roles-ownership-and-the-guard-matrix)).
+
+### OIDC Single Sign-On {#_5-oidc-single-sign-on}
+
+#### Configuration {#_5-1-configuration}
+
+`OIDCAuthConfig` in `internal/config/config.go`:
+
+| Config item | Description |
+| --- | --- |
+| `enable` | Whether OIDC is enabled |
+| `issuer_url` | Expected Issuer, used in id_token validation |
+| `jwks_uri` | Address of the signing public key set; environment variable OIDC_AUTH_JWKS_URI |
+| `discovery_url` | OpenID Connect Discovery address (`.well-known/openid-configuration`) |
+| `provider_display_name` | Display name for the login button |
+| `client_id` / `client_secret` | Client credentials (secret is serialized as `json:"-"`, not exposed to the frontend) |
+| `authorization_endpoint` / `token_endpoint` / `user_info_endpoint` | Manually specified endpoints |
+| `scopes` | Requested scopes (e.g. `openid email profile`) |
+| `user_info_mapping.username` / `.email` | Claims field mapping (defaults to `name` / `email`) |
+
+The authorization/token endpoints can be configured explicitly; even when both are filled in, if issuer or jwks_uri is incomplete, the validation information still has to be completed via discovery. Without a reliable validation configuration, login cannot proceed by merely parsing the id_token payload.
+
+Routes (`internal/router/routes_auth_tenant.go`):
+
+```go
+r.GET("/auth/oidc/config",   handler.GetOIDCConfig)           // frontend probe of whether OIDC is enabled
+r.GET("/auth/oidc/url",      handler.GetOIDCAuthorizationURL) // get authorization URL
+r.GET("/auth/oidc/start",    handler.OIDCStart)              // start login directly with a 302
+r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)    // authorization code callback
+```
+
+Enterprise portals can link directly to `/api/v1/auth/oidc/start`; the backend returns a 302 redirect to the IdP and builds the callback address from the request origin. When deployed behind a reverse proxy, the external scheme/host must be passed through correctly, and the corresponding callback address must be registered with the IdP. This endpoint does not accept arbitrary post-login redirect targets.
+
+#### Flow and Security Design {#_5-2-flow-and-security-design}
+
+`internal/application/service/user.go`:
+
+- `GetOIDCAuthorizationURL`: generates a 24-byte random `nonce`, and uses `secutils.SignOIDCState` to sign `{nonce, redirect_uri}` **into the state** (guarding against CSRF / replay / callback-address tampering); the nonce is delivered via an HttpOnly cookie (omitted from the JSON response via `json:"-"`).
+- `LoginWithOIDC`: exchanges the authorization code for a token → if an id_token is used, first verifies its signature, issuer, audience, and validity period with JWKS → merges user info from the UserInfo endpoint (mapped according to `user_info_mapping`) → **matches a local user by email**; if none is found, `provisionOIDCUser` automatically creates an account → issues a local JWT pair identical in form to the password-login one.
+
+When there is only an access_token, the identity can be taken from UserInfo; without JWKS, unverified id_token claims cannot be used, but with an access_token and a UserInfo endpoint the UserInfo path still works. A verified id_token can serve as a fallback when the UserInfo request fails.
+
+Auto-provisioning details:
+
+- The tenant mode is taken from `auth.default_tenant_mode` (`create_personal` automatically creates a personal tenant / `tenantless` waits for an invitation);
+- Username candidates: OIDC username → email prefix → `oidc-user`, appending a `-1..-20` numeric suffix on conflict, and falling back to a Unix timestamp if still conflicting;
+- A randomly generated 32-character password is written in (the user never knows it and can only log in via OIDC);
+- The response includes `is_new_user` for the SPA to drive first-login onboarding; accounts with `IsActive=false` are denied login.
+
+```mermaid
+sequenceDiagram
+    participant B as "Browser (SPA)"
+    participant W as "WeKnora backend"
+    participant IdP as "OIDC Provider"
+    B->>W: GET /auth/oidc/url?redirect_uri=...
+    W->>W: generate nonce (24B), sign state={nonce, redirect_uri}
+    W-->>B: authorization_url + state (nonce via HttpOnly cookie)
+    B->>IdP: 302 authorization_endpoint?response_type=code&client_id&scope&state
+    IdP->>IdP: user completes authentication at IdP
+    IdP-->>B: 302 redirect_uri?code=...&state=...
+    B->>W: GET /auth/oidc/callback?code&state
+    W->>W: verify state signature and nonce
+    W->>IdP: POST token_endpoint (code + client_secret)
+    IdP-->>W: access_token / id_token
+    W->>W: verify signature and claims when an id_token and JWKS are present
+    W->>IdP: GET user_info_endpoint
+    IdP-->>W: claims (email, name)
+    W->>W: look up user by email, auto-provision if missing (provisionOIDCUser)
+    W->>W: issue local JWT (access 24h + refresh 7d)
+    W-->>B: LoginResponse {user, memberships, token, refresh_token, is_new_user}
+```
+
+### Configuration Quick Reference {#_9-configuration-quick-reference}
+
+| Config item | Values | Default | Purpose |
+| --- | --- | --- | --- |
+| `auth.registration_mode` | `self_serve` / `invite_only` | `self_serve` | Public registration switch (hot-changeable via DB system_settings) |
+| `auth.default_tenant_mode` | `create_personal` / `tenantless` | `create_personal` | Whether new users automatically get a personal tenant created |
+| `tenant.enable_rbac` | `true` / `false` | `true` | RBAC enforcement / log-only mode |
+| `JWT_SECRET` (environment variable) | Any string | Random 32 bytes | JWT HMAC secret |
+| `SYSTEM_AES_KEY` (environment variable) | AES key | Not set | Encryption of API Key plaintext at rest |
+| `oidc.*` | See [Configuration](#_5-1-configuration) | Off | OIDC single sign-on |
+| `frontend_base_url` / `FRONTEND_BASE_URL` | URL | Relative path | Invitation link registration page address |
+| `Tenant.StorageQuota` | Bytes | 10737418240 (10GB) | Tenant storage quota |
+
+### JWT Mechanism {#_3-jwt-mechanism}
+
+Implemented in `internal/application/service/user.go`, using `github.com/golang-jwt/jwt` (HMAC-SHA256).
+
+#### Secret Source {#_3-1-secret-source}
+
+```go
+func getJwtSecret() string {
+    // 1) JWT_SECRET environment variable
+    // 2) otherwise generate a 32-byte secure random key (Base64) at startup; old tokens expire after restart
+}
+```
+
+#### Issuance (Access + Refresh Dual Tokens) {#_3-2-issuance-access-refresh-dual-tokens}
+
+```go
+accessClaims := jwt.MapClaims{
+    "user_id":   user.ID,
+    "email":     user.Email,
+    "tenant_id": activeTenantID, // requested tenant scope is baked into the token
+    "exp":       time.Now().Add(24 * time.Hour).Unix(),
+    "iat":       time.Now().Unix(),
+    "type":      "access",
+}
+refreshClaims := jwt.MapClaims{
+    "user_id": user.ID,
+    "exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
+    "type":    "refresh",
+}
+```
+
+| Token | Validity | Key Claims |
+| --- | --- | --- |
+| Access Token | 24 hours | `user_id` / `email` / `tenant_id` / `type=access` |
+| Refresh Token | 7 days | `user_id` / `type=refresh` (does not include `tenant_id`) |
+
+Both tokens are written to the `auth_tokens` table, used for **server-side revocation**.
+
+#### Validation and Refresh {#_3-3-validation-and-refresh}
+
+The `ValidateToken` check chain:
+
+1. The signature algorithm must be from the HMAC family (guards against algorithm-confusion attacks);
+2. A token with `type=refresh` **cannot** be used as an access token (`isRefreshTokenClaims`);
+3. The `auth_tokens` table is checked for `IsRevoked` (logout = a revocation record);
+4. `user_id` is extracted from the claims to load the user, and `tenant_id` is used as the active tenant.
+
+**Switching tenants means reissuing tokens**: `SwitchTenant` validates the caller's active membership in the target tenant (except for cross-tenant superusers), first writes the target space into the "last active tenant" preference (`Preferences.LastActiveTenantID`), then issues a new token pair carrying the new `tenant_id` claim, and makes a best effort to revoke the old refresh token. The refresh JWT doesn't include `tenant_id`, so both the next login and refreshes land according to that preference; if writing the preference fails, the whole reissue fails. Switching back to home writes the home ID (equivalent, in terms of the current landing semantics, to the SPA sending `0` to clear the preference). The preference is account-level, so a single reissue changes the next landing space on all devices.
+
+### Data Model {#_1-data-model}
+
+#### Tenant (Tenant / Workspace) {#_1-1-tenant-tenant-workspace}
 
 `internal/types/tenant.go`:
 
@@ -83,7 +563,7 @@ type Tenant struct {
 
 The tenant is the anchor point for quotas (`StorageQuota` / `StorageUsed`, default 10GB) and for various tenant-level configurations (retrieval engine, web search, parser engine, credentials, storage engine, chat history, etc.).
 
-### 1.2 User
+#### User {#_1-2-user}
 
 `internal/types/user.go`:
 
@@ -112,7 +592,7 @@ Two special flags:
 - `CanAccessAllTenants`: cross-space superuser. **Both switches must be true at the same time** for this to take effect — the `CanAccessAllTenants` flag on the user row, and the deployment-level `tenant.enable_cross_tenant_access` / `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS` (`middleware/access.go`'s `IsCrossTenantSuperuser()` checks the config first and then the user; when the config is turned off, this field is also forced to false in the login response). Once active, it can bypass space role checks and access cross-space endpoints such as `/tenants/all` and `/tenants/search`. Note that `POST /tenants` (creating a new space) is **not** a cross-space endpoint — any logged-in user can call it (subject to self-service creation policy and quota limits).
 - `IsSystemAdmin`: platform-level administrator (system admin), independent of any tenant role, used for the `/system/admin/*` control plane. It governs the entire deployment rather than a single space; for how the first one is created and what it can do, see [Platform Administration and System Administrators](20-platform-admin.md).
 
-### 1.3 TenantMember and Tenant Roles
+#### TenantMember and Tenant Roles {#_1-3-tenantmember-and-tenant-roles}
 
 `internal/types/tenant_member.go`:
 
@@ -150,7 +630,7 @@ type TenantMember struct {
 
 The login response returns a `Membership{TenantID, TenantName, Role}` projection list, which the frontend uses to render the workspace switcher.
 
-### 1.4 TenantAPIKey
+#### TenantAPIKey (API Key) {#_1-4-tenantapikey}
 
 `internal/types/tenant_api_key.go`:
 
@@ -172,7 +652,7 @@ type TenantAPIKey struct {
 - **Encryption at rest**: when `SYSTEM_AES_KEY` is configured, the `BeforeSave` hook encrypts the `api_key` column with AES-GCM before storing it, and `AfterFind` automatically decrypts it; lookups always go through the irreversible `KeyHash`.
 - **Validation flow**: the request carries `X-API-Key` → the hash is computed → the table is looked up by `KeyHash` → `RevokedAt` / `ExpiresAt` are checked → `TenantAPIKeyScope{KeyID, ScopeType, FullAccess, KnowledgeBaseIDs, Capabilities}` is injected into the context, and subsequently read via `types.TenantAPIKeyScopeFromContext`.
 
-### 1.5 Organization (Organization / Shared Space)
+#### Organization (Organization / Shared Space) {#_1-5-organization-organization-shared-space}
 
 `internal/types/organization.go`:
 
@@ -204,453 +684,9 @@ const (
 )
 ```
 
-## 2. Registration and Login
-
-### 2.1 Registration Mode (invite-only)
-
-`internal/handler/auth.go` + `internal/config/config.go`:
-
-```go
-type AuthConfig struct {
-    RegistrationMode  string // "self_serve" (default, public registration) | "invite_only" (invite only)
-    DefaultTenantMode string // "create_personal" (default, auto-create a personal tenant) | "tenantless" (no tenant until invited)
-}
-
-func (c *AuthConfig) IsInviteOnly() bool {
-    return c != nil && c.RegistrationMode == AuthRegistrationModeInviteOnly
-}
-```
-
-The determination happens in two layers, and understanding this is key to explaining "I changed the env var but nothing happened":
-
-**At startup** (`applyAuthAndTenantDefaults()`), `cfg.Auth.RegistrationMode` is synthesized: `DISABLE_REGISTRATION=true` rewrites it directly to `invite_only`, **overriding** whatever is in the YAML. The reason env overrides YAML here is to keep "the API rejects registration" and "the frontend hides the registration entry point" (the frontend reads `/auth/config`) as two gates that stay in sync — otherwise you'd get a button that's still there but returns a 403 when clicked.
-
-**On every request** (`resolveRegistrationMode()`) only two sources are compared: the `auth.registration_mode` row in the database's `system_settings` table takes priority over the cfg value synthesized above, which in turn takes priority over the hardcoded fallback `self_serve`. `DISABLE_REGISTRATION` is **not** re-read on every request.
-
-The consequence is: once a system administrator sets `auth.registration_mode` to `self_serve` in the UI, public registration is on even if the deployment still has `DISABLE_REGISTRATION=true` written somewhere. To fully turn it off, you need to reset that row in the database (`DELETE /system/admin/settings/auth.registration_mode`).
-
-In `invite_only` mode, `POST /auth/register` returns 403, but that only blocks **self-service password registration** — the following two paths are unaffected:
-
-- The **invite registration endpoint** `POST /auth/register-by-invite` (this is by design, see §2.3);
-- **First-time OIDC login**: when `LoginWithOIDC()` can't find a matching email, it goes straight to `provisionOIDCUser()` to create an account, without ever reading the registration mode. In other words, once OIDC is enabled, `invite_only` doesn't block anyone in the IdP — to restrict scope you need to do it on the IdP side (application visibility / user groups), or just turn OIDC off entirely.
-
-### 2.2 Password Registration / Login
-
-- `POST /auth/register`: `{username(2-50), email, password}`; whether a personal tenant is automatically created depends on `DefaultTenantMode` (`TenantProvisioningCreatePersonal` / `TenantProvisioningTenantless`).
-- `POST /auth/login`: `{email, password}`, returns `LoginResponse{user, active_tenant, memberships[], token, refresh_token}`; the active tenant is restored based on `Preferences.LastActiveTenantID`.
-- Password requirements are enforced in three different places, and the strength is **not consistent** across them — when integrating, go by the strictest one:
-  - **Registration page (frontend form)**: 8–32 characters, with at least 1 letter and 1 digit;
-  - **`POST /auth/register` (backend)**: only has the binding's `min=6` — `Register()` **does not call** `ValidatePasswordPolicy`, so calling the API directly lets you set a 6-digit all-numeric password;
-  - **`ValidatePasswordPolicy` (8–32 + letter + digit)**: only used for **password changes** (the password-change path in `user.go`) and for **system administrators resetting other users' passwords** (`handler/system.go`).
-
-  In other words, registering via the UI is subject to the strict 8-character validation, while registering via the API is only bound by the 6-character minimum.
-
-### 2.3 Invite Registration (register-by-invite)
-
-`internal/handler/auth_register_by_invite.go`. A **shared invitation link** (share link, see §7.2) generated by a tenant Owner carries a token; the registration page uses that token to complete registration, even while the system is in `invite_only` mode:
-
-```go
-// POST /auth/register-by-invite
-type registerByInviteRequest struct {
-    Token    string `binding:"required"`
-    Email    string `binding:"required,email"` // filled in by the registrant; not bound to the token
-    Username string `binding:"required"`
-    Password string `binding:"required,min=6"`
-}
-```
-
-Flow: validate the token (`LookupByToken`) → check the email isn't already registered (returns 409 if it is) → create the user in `tenantless` mode → set the invited tenant as the user's primary tenant → `AcceptByToken` creates the `tenant_members` row (status `active`, role taken from the one specified in the invitation).
-
-The companion endpoint `POST /auth/invitations/lookup` (no authentication required) returns the invitation context `{tenant_id, tenant_name, role, expires_at}` for display on the registration page; **it deliberately uses POST + body instead of GET + path, to avoid the token ending up in access logs**; an invalid/revoked token returns 410.
-
-## 3. JWT Mechanism
-
-Implemented in `internal/application/service/user.go`, using `github.com/golang-jwt/jwt` (HMAC-SHA256).
-
-### 3.1 Secret Source
-
-```go
-func getJwtSecret() string {
-    // 1) JWT_SECRET environment variable
-    // 2) otherwise generate a 32-byte secure random key (Base64) at startup; old tokens expire after restart
-}
-```
-
-### 3.2 Issuance (Access + Refresh Dual Tokens)
-
-```go
-accessClaims := jwt.MapClaims{
-    "user_id":   user.ID,
-    "email":     user.Email,
-    "tenant_id": activeTenantID, // requested tenant scope is baked into the token
-    "exp":       time.Now().Add(24 * time.Hour).Unix(),
-    "iat":       time.Now().Unix(),
-    "type":      "access",
-}
-refreshClaims := jwt.MapClaims{
-    "user_id": user.ID,
-    "exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
-    "type":    "refresh",
-}
-```
-
-| Token | Validity | Key Claims |
-| --- | --- | --- |
-| Access Token | 24 hours | `user_id` / `email` / `tenant_id` / `type=access` |
-| Refresh Token | 7 days | `user_id` / `type=refresh` (does not include `tenant_id`) |
-
-Both tokens are written to the `auth_tokens` table, used for **server-side revocation**.
-
-### 3.3 Validation and Refresh
-
-The `ValidateToken` check chain:
-
-1. The signature algorithm must be from the HMAC family (guards against algorithm-confusion attacks);
-2. A token with `type=refresh` **cannot** be used as an access token (`isRefreshTokenClaims`);
-3. The `auth_tokens` table is checked for `IsRevoked` (logout = a revocation record);
-4. `user_id` is extracted from the claims to load the user, and `tenant_id` is used as the active tenant.
-
-**Switching tenants means reissuing tokens**: `SwitchTenant` validates the caller's active membership in the target tenant (except for cross-tenant superusers), then issues a new token pair carrying the new `tenant_id` claim, and makes a best effort to revoke the old refresh token.
-
-## 4. API Key System
-
-### 4.1 Capabilities List
-
-`internal/types/tenant_api_key.go`. An API Key **does not reuse tenant roles**: a key either has `FullAccess`, or carries an explicit set of capabilities; routes with no declared policy deny API Keys by default (default-deny).
-
-| Capability | Description |
-| --- | --- |
-| `retrieve` | Read/search knowledge base data (KB listing, knowledge details, hybrid-search, etc.) |
-| `chat` | Session flows: create session, knowledge-chat / agent-chat, load and delete messages |
-| `read_agents` | List and view Agents (excludes creation/modification) |
-| `ingest` | Write content: upload documents, edit chunks / FAQs / tags / Wiki pages, bulk delete and move knowledge |
-| `manage_kbs` | KB lifecycle: create / duplicate / copy / update / delete / initialize configuration |
-| `manage_agents` | Create, delete, modify, and copy Agents |
-| `message_history` | Search and view tenant-level chat history (`POST /messages/search` etc., independent from chat) |
-| `manage_models` | Manage model definitions and credentials |
-| `manage_mcp_services` | Manage MCP services and credentials |
-| `manage_datasources` | Manage data source connectors and sync jobs |
-| `manage_channels` | Manage Embed / IM channel integrations |
-| `manage_vector_stores` | Manage vector stores and parsers |
-| `manage_storage_backends` | Manage object storage backends |
-| `manage_web_search` | Manage web search configuration |
-| `run_evaluations` | Run and view evaluation jobs |
-| `manage_members` | Manage tenant members and invitations |
-| `manage_spaces` | Manage organization / shared-space membership |
-| `manage_tenant_settings` | Read/write tenant integration settings |
-| `system_tenants_read` / `system_tenants_manage` | Platform level: tenant management (platform key only) |
-| `system_settings_read` / `system_settings_manage` | Platform level: system settings |
-| `system_runtime_read` / `system_runtime_manage` | Platform level: runtime queue / tasks |
-| `system_audit_read` | Platform level: audit log |
-
-### 4.2 Route Declaration Mechanism
-
-In `internal/router/rbac.go`, every route accessible via API Key is explicitly registered with an `APIKeyRoutePolicy` through `apiKeyGroup` / `apiKeyRoute` (`middleware.APIKeyRouteAuthorizer` is the single source of truth):
-
-```go
-// policy constructors
-apiKeyAny()                    // any valid key
-apiKeyFullAccess()             // FullAccess keys only
-apiKeyPlatform(caps...)        // platform keys only + given capabilities
-apiKeyRetrieve(base) / apiKeyChat(base) / apiKeyIngest(base) / ...
-```
-
-At startup, `assertAPIKeyPoliciesMatchRoutes` validates that every declared policy corresponds to an actually registered route, and panics on any configuration drift. Typical mappings evidenced by `router_api_key_capabilities_test.go`:
-
-| Route | Required Capability |
-| --- | --- |
-| `POST /sessions`, `POST /knowledge-chat/:session_id`, `POST /agent-chat/:session_id`, `GET /messages/:session_id/load` | `chat` |
-| `GET /agents`, `GET /agents/:id`, `GET /agents/:id/suggested-questions` | `read_agents` |
-| `POST/PUT/DELETE /agents`, `POST /agents/:id/copy` | `manage_agents` |
-| `PUT/DELETE /knowledge-bases/:id`, `POST /initialization/initialize/:kbId` | `manage_kbs` |
-| `POST /messages/search`, `GET /messages/chat-history-stats` | `message_history` (not `chat`) |
-| `GET /system/admin/settings` | platform key + `system_settings_read` |
-| `POST /system/admin/runtime/queues/:queue/tasks/:task_id/actions/:action` | platform key + `system_runtime_manage` |
-
-### 4.3 KB Allow-list
-
-When `KnowledgeBaseIDs` is non-empty, the key can only reach the KBs on the list (evidenced by `knowledge_api_key_scope_test.go`):
-
-```go
-// single out-of-scope KB → 403
-requireTenantAPIKeyKnowledgeBase(ctx, "kb-2") // scope only contains kb-1 → forbidden
-// any KB out of scope in batch → whole request 403 (partial overlap rejected)
-requireTenantAPIKeyKnowledgeBases(ctx, "kb-1", "kb-2") // → forbidden
-```
-
-Other hard limits: a platform key cannot create other platform keys; the API Key principal does not participate in ownership determination (see §6).
-
-## 5. OIDC Single Sign-On
-
-### 5.1 Configuration
-
-`OIDCAuthConfig` in `internal/config/config.go`:
-
-| Config item | Description |
-| --- | --- |
-| `enable` | Whether OIDC is enabled |
-| `issuer_url` | Issuer address |
-| `discovery_url` | OpenID Connect Discovery address (`.well-known/openid-configuration`) |
-| `provider_display_name` | Display name for the login button |
-| `client_id` / `client_secret` | Client credentials (secret is serialized as `json:"-"`, not exposed to the frontend) |
-| `authorization_endpoint` / `token_endpoint` / `user_info_endpoint` | Manually specified endpoints |
-| `scopes` | Requested scopes (e.g. `openid email profile`) |
-| `user_info_mapping.username` / `.email` | Claims field mapping (defaults to `name` / `email`) |
-
-Endpoint resolution order: if both `authorization_endpoint` and `token_endpoint` are configured, use them directly; otherwise, discover them dynamically from `discovery_url`; if both are missing, an error is raised.
-
-Routes (`internal/router/router.go`):
-
-```go
-r.GET("/auth/oidc/config",   handler.GetOIDCConfig)           // frontend probe of whether OIDC is enabled
-r.GET("/auth/oidc/url",      handler.GetOIDCAuthorizationURL) // get authorization URL
-r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)    // authorization code callback
-```
-
-### 5.2 Flow and Security Design
-
-`internal/application/service/user.go`:
-
-- `GetOIDCAuthorizationURL`: generates a 24-byte random `nonce`, and uses `secutils.SignOIDCState` to sign `{nonce, redirect_uri}` **into the state** (guarding against CSRF / replay / callback-address tampering); the nonce is delivered via an HttpOnly cookie (omitted from the JSON response via `json:"-"`).
-- `LoginWithOIDC`: exchanges the authorization code for a token → retrieves user info from the UserInfo endpoint (mapped according to `user_info_mapping`) → **matches a local user by email**; if none is found, `provisionOIDCUser` automatically creates an account → issues a local JWT pair identical in form to the password-login one.
-
-Auto-provisioning details:
-
-- The tenant mode is taken from `auth.default_tenant_mode` (`create_personal` automatically creates a personal tenant / `tenantless` waits for an invitation);
-- Username candidates: OIDC username → email prefix → `oidc-user`, appending a `-1..-20` numeric suffix on conflict, and falling back to a Unix timestamp if still conflicting;
-- A randomly generated 32-character password is written in (the user never knows it and can only log in via OIDC);
-- The response includes `is_new_user` for the SPA to drive first-login onboarding; accounts with `IsActive=false` are denied login.
-
-```mermaid
-sequenceDiagram
-    participant B as "Browser (SPA)"
-    participant W as "WeKnora backend"
-    participant IdP as "OIDC Provider"
-    B->>W: GET /auth/oidc/url?redirect_uri=...
-    W->>W: generate nonce (24B), sign state={nonce, redirect_uri}
-    W-->>B: authorization_url + state (nonce via HttpOnly cookie)
-    B->>IdP: 302 authorization_endpoint?response_type=code&client_id&scope&state
-    IdP->>IdP: user completes authentication at IdP
-    IdP-->>B: 302 redirect_uri?code=...&state=...
-    B->>W: GET /auth/oidc/callback?code&state
-    W->>W: verify state signature and nonce
-    W->>IdP: POST token_endpoint (code + client_secret)
-    IdP-->>W: access_token / id_token
-    W->>IdP: GET user_info_endpoint
-    IdP-->>W: claims (email, name)
-    W->>W: look up user by email, auto-provision if missing (provisionOIDCUser)
-    W->>W: issue local JWT (access 24h + refresh 7d)
-    W-->>B: LoginResponse {user, memberships, token, refresh_token, is_new_user}
-```
-
-## 6. RBAC: Roles, Ownership, and the Guard Matrix
-
-Authorization is composed of three orthogonal mechanisms, all converging in `rbacGuards` in `internal/router/rbac.go`:
-
-1. **Role guards** (role-only): `Viewer()` / `Contributor()` / `Admin()` / `Owner()` / `SystemAdmin()`, asking "what is the caller's role in this tenant?"
-2. **Ownership guards** (ownership-or-role): `OwnedKBOrAdmin()` etc., asking "is the caller the creator of **this specific resource**, or at least Admin+?"
-3. **KB access guards** (KB-access): `KBAccessRead()` / `KBAccessWrite()`, asking "can the caller's tenant reach this KB?" (own it / organization-shared / visible via a shared Agent)
-
-### 6.1 Role Capability Matrix
-
-| Capability | Owner (40) | Admin (30) | Contributor (20) | Viewer (10) |
-| --- | --- | --- | --- | --- |
-| Delete tenant / transfer ownership / manage API Keys | ✓ | ✗ | ✗ | ✗ |
-| Add/remove members, change roles, send invitations | ✓ | ✗ (handler restricted to Owner) | ✗ | ✗ |
-| Configure tenant infrastructure (models / vector stores / IM / MCP / web search / storage backends / data sources) | ✓ | ✓ | ✗ | ✗ |
-| Clear knowledge base contents (`DELETE /knowledge-bases/:id/knowledge`) | ✓ | ✓ | ✗ | ✗ |
-| Modify/delete KB / Agent / knowledge / chunk / Wiki / tags created by **others** | ✓ | ✓ | ✗ | ✗ |
-| Create KB / Agent; copy an Agent for oneself | ✓ | ✓ | ✓ | ✗ |
-| Modify/delete a KB **created by oneself** and its sub-resources | ✓ | ✓ | ✓ | ✗ |
-| Create/manage one's own sessions, start Q&A (`/sessions`, `/knowledge-chat`, `/agent-chat` are all Viewer+) | ✓ | ✓ | ✓ | ✓ |
-| View member list / invitation list / KB list / knowledge / retrieval / preview | ✓ | ✓ | ✓ | ✓ |
-
-The design comment at the top of `internal/router/rbac.go` summarizes the product semantics:
-
-> - Owner / Admin: manage everything within the tenant;
-> - Contributor: manages resources they created themselves; other people's resources are effectively read-only to them;
-> - Viewer: everything is read-only;
-> - Creating a new resource requires at least Contributor; configuring tenant infrastructure requires Admin+.
-
-Two exceptions that are easy to trip over: **adding/removing members, changing roles, and sending invitations are Owner-only**, not even Admin (`routes_auth_tenant.go` attaches `g.Owner()` there, while the member list itself is Viewer+); **Viewer isn't "can't create anything at all"** — a session belongs to one's own working data, so a Viewer can still create sessions and ask questions; they just can't create knowledge bases or Agents.
-
-### 6.2 Guard Selection Rules (Q1 / Q2)
-
-`rbac.go` explicitly specifies the method for choosing a guard when adding a new route:
-
-- **Q1: Does the resource have a creator?** Yes (KB, Agent, knowledge document, Chunk, WikiPage, FAQ entry, KB tag) → use `OwnedXxxOrAdmin` for mutation routes; No (Model, VectorStore, IM channel, WebSearchProvider, DataSource, MCPService, and other tenant-level infrastructure) → use `Admin()`; creation entry points (the resource doesn't exist yet) → `Contributor()`.
-- **Q2: Is the side effect private or public?** Private (e.g. `POST /agents/:id/copy` only copies for oneself) → `Contributor()` is sufficient; public (sharing a KB to an organization, disabling a tenant-wide Agent, transferring ownership) → `OwnedXxxOrAdmin` or `Admin`.
-
-### 6.3 Ownership Guard List
-
-| Guard | Resolution path | Applicable routes |
-| --- | --- | --- |
-| `OwnedKBOrAdmin` | `:id` → KB.CreatorID | KB update / delete / pin / knowledge upload / tag CRUD |
-| `OwnedKBOrAdminFromKbIDParam` | `:kbId` → KB.CreatorID | `/initialization/*` KB configuration routes |
-| `OwnedAgentOrAdmin` | `:id` → Agent.CreatorID (built-in Agents have an empty creator, so only Admin+ can modify them) | Agent mutations |
-| `OwnedKnowledgeKBOrAdmin` | knowledge `:id` → owning KB.CreatorID | Knowledge update / delete / re-parse / image editing |
-| `OwnedChunkKBOrAdmin` / `...FromChunkID` | `:knowledge_id` or chunk `:id` → KB.CreatorID | Chunk mutations |
-| `OwnedWikiKBOrAdmin` | `:kb_id` → KB.CreatorID | Wiki page CRUD |
-
-Sub-resources must inherit the gating of their parent KB (the comment explicitly calls out a bug it once fixed where FAQ/Tag, agent share, and KB share were wired to the wrong axis).
-
-### 6.4 Middleware Semantics (`internal/middleware/rbac.go`)
-
-The decision order for `RequireRole` / `RequireOwnershipOrRole`:
-
-1. An API Key principal is passed through directly (its authorization goes through the APIKeyGate described in §4.2, and a synthesized system user can never match `creator_id`);
-2. Role satisfied → pass through;
-3. Cross-tenant superuser (`IsCrossTenantSuperuser`) → pass through;
-4. RBAC not enforced (`tenant.enable_rbac=false`, gradual-rollout mode) → log only, pass through;
-5. The ownership guard runs a creator lookup: resource not found → pass through and let the handler return 404; lookup failed → 503; creator == current user → pass through;
-6. Otherwise, 403 + audit log (`AuditActionAccessDenied = "rbac.access_denied"`).
-
-The enforcement switch `TenantConfig.EnableRBAC`: `nil` or `true` = enforced (current default), `false` = log only, no denial (used during rollout transitions); can be overridden with the environment variable `WEKNORA_TENANT_ENABLE_RBAC`.
-
-`RequireSystemAdmin`: the JWT user must have `IsSystemAdmin=true`; for API Keys, it must be a platform key (tenant keys always get 403).
-
-### 6.5 KB Access Guards (Cross-Tenant Sharing Channel)
-
-`middleware/kb_access.go` (wrapped by the `KBAccess*` family in `rbac.go`) unifies three access paths:
-
-```text
-1. Own KB → full access equivalent to Admin
-2. Org-shared KB (Plan 3) → capped by the shared permission
-3. Visible via a shared Agent → read-only (activated only at the KBAccessRead layer)
-```
-
-On success, the guard stores `(KB, effective tenant ID, permission)` in the context and **rewrites the request's tenant ID to the effective tenant**, so downstream handlers don't need to be aware of whether the KB is owned or shared. Variants `KBAccessReadFromKnowledgeIDParam` / `...FromChunkIDParam` support reverse-looking-up the KB from a knowledge / chunk ID. Read routes require at least `OrgRoleViewer`; write routes require at least `OrgRoleEditor`.
-
-## 7. Tenant Members, Invitations, and Invitation Links
-
-### 7.1 Member Management and Targeted Invitations
-
-Handlers: `internal/handler/tenant_member.go`, `tenant_invitation.go`. The `/tenants/:id` group all attaches `PathTenantMatch()` (the URL tenant must match the active tenant in the token, except for superusers).
-
-| Endpoint | Minimum role | Description |
-| --- | --- | --- |
-| `GET /tenants/:id/members` | Viewer | Paginated list of active members; `q` fuzzy-filters by email/username |
-| `POST /tenants/:id/members` | Owner | Directly add an existing user `{email, role}` |
-| `PUT /tenants/:id/members/:user_id` | Owner | Change role |
-| `DELETE /tenants/:id/members/:user_id` | Owner | Remove member |
-| `POST /tenants/:id/invitations` | Owner | Targeted invitation of an existing user `{email, role, message}` |
-| `GET /tenants/:id/invitations` | Viewer | List invitations |
-| `DELETE /tenants/:id/invitations/:inv_id` | Owner | Revoke an invitation |
-| `GET /me/invitations` | Self | Invitation inbox |
-| `POST /me/invitations/:inv_id/accept` / `.../decline` | Self | Accept / decline |
-
-`TenantInvitation` state machine: `pending → accepted / declined / revoked / expired` (expiration is transitioned by a lazy sweep and audited as `rbac.invitation_expired`). Members and invitations have audit events across their whole lifecycle: `rbac.member_added` / `member_removed` / `member_role_changed` / `member_left` / `invitation_sent` / `invitation_accepted` / `invitation_declined` / `invitation_revoked` (`internal/types/audit_log.go`).
-
-### 7.2 Shared Invitation Links (invite link)
-
-`internal/handler/tenant_invite_link.go`. Stored in the same table as targeted invitations: an empty `InviteeUserID` means it's a shared link (usable by multiple people, counted via `AcceptedCount`), while a non-empty one means a targeted invitation.
-
-- `POST /tenants/:id/invite-links` (Owner): `{role, message}` → returns `invite_url` (`{FrontendBaseURL}/register?token=...`, where `FrontendBaseURL` is taken from the YAML `frontend_base_url` → the environment variable `FRONTEND_BASE_URL` → falling back to a relative path);
-- `GET /tenants/:id/invite-links` (Viewer) lists them; `DELETE /tenants/:id/invite-links/:inv_id` (Owner) revokes.
-
-The link stays valid until it expires or is revoked, and combined with the `register-by-invite` endpoint from §2.3, it closes the account-creation loop under invite-only mode.
-
-## 8. Organizations and Shared Spaces
-
-### 8.1 Organization Lifecycle
-
-`internal/application/service/organization.go`:
-
-- When an organization is created, a unique `InviteCode` is generated, with a validity period `invite_code_validity_days ∈ {0(forever), 1, 7, 30}`, defaulting to 7 days (checked against the `ValidInviteCodeValidityDays` allowlist, with invalid values raising `ErrInvalidValidityDays`);
-- `GetOrganizationByInviteCode` joins via an invite code (distinguishing `ErrInviteCodeNotFound` / `ErrInviteCodeExpired`); when `RequireApproval=true`, a pending join request is created;
-- Organizations with `Searchable=true` can be discovered via `SearchSearchableOrganizations`;
-- The invite code and the pending-approval count are only visible to "an org admin or owner tenant" (determined by the `isAdmin || isOwner` check in `internal/handler/organization.go`).
-
-### 8.2 Invitation Search: By Space (Tenant), Not By User
-
-After Plan 3, the unit of membership is the tenant, and a single user may belong to multiple spaces, so searching by username/email creates ambiguity about "which space the admin actually wants to invite." For this reason, `GET /organizations/:id/search-tenants` (callable only by org admins) **matches strictly by space name**:
-
-```go
-// SearchTenantsForInvite：
-// 1. verify the caller's tenant is an org admin
-// 2. exclude tenants already in the org (existingTenantIDs)
-// 3. tenantService.SearchTenants searches by name (pageSize = limit*2, limit capped at 50)
-// 4. dedupe on insertion order, drop defunct tenants whose names cannot be resolved, truncate to limit
-```
-
-The old endpoint `GET /organizations/:id/search-users` is kept as a backward-compatible shim, delegating directly to `SearchTenantsForInvite` (the response is already in the new tenant-candidate shape, marked `@Deprecated`).
-
-`POST /organizations/:id/invite` (org admins only) adds a member directly: it prefers the `tenant_id` path (with an optional `representative_user_id` — if the representative user doesn't belong to the target tenant, that field is dropped with a warning rather than failing hard); it also supports the legacy SDK's `user_id` path (reverse-looking-up that user's tenant) for compatibility.
-
-### 8.3 KB Sharing Model and Permission Calculation
-
-`internal/types/organization.go` + `internal/application/service/kbshare.go`:
-
-```go
-type KnowledgeBaseShare struct {
-    ID              string
-    KnowledgeBaseID string
-    OrganizationID  string
-    SharedByUserID  string
-    SourceTenantID  uint64        // source tenant of the share
-    Permission      OrgMemberRole // highest permission granted by the share (viewer/editor/admin)
-}
-// AgentShare is shaped the same way, for Agents.
-```
-
-**Prerequisite for sharing** (`ShareKnowledgeBase`): the caller's tenant must **own** the KB (`kb.TenantID == tenantID`), and must hold at least **editor** role in the target organization. Sharing again just updates the permission.
-
-**Three exemption paths for managing a share** (`callerCanManageShare`, used for changing permissions / revoking a share):
-
-1. The caller is the original sharer (same user ID);
-2. The caller's tenant is the source tenant and the caller is a tenant Admin+ (ownership is tenant-level, so if the original sharer leaves, the tenant's Admins can still manage the share);
-3. The caller's tenant is the admin of the target organization (an org admin can repair a share after the original sharer has left).
-
-**Effective permission = intersection across multiple layers (take the minimum)**:
-
-```go
-// final permission = Min(share.Permission, caller tenant's OrgMemberRole in the org)
-// then capped by the tenant role:
-func applyTenantRoleCap(p types.OrgMemberRole, callerTenantRole types.TenantRole) types.OrgMemberRole {
-    // a user who is only a Viewer inside the tenant is lowered to viewer even if the share gives editor+
-    if callerTenantRole == types.TenantRoleViewer && p.HasPermission(types.OrgRoleEditor) {
-        return types.OrgRoleViewer
-    }
-    return p
-}
-```
-
-Sharing-related operations are written to the KB activity feed: `kb.share_added` / `kb.share_permission_changed` / `kb.share_removed`.
-
-```mermaid
-flowchart LR
-    subgraph srcT["Source Tenant"]
-        KB["KnowledgeBase (TenantID = source tenant)"]
-    end
-    subgraph orgS["Organization"]
-        SH["KnowledgeBaseShare (Permission: editor)"]
-    end
-    subgraph dstT["Consumer Tenant"]
-        M["OrganizationTenantMember (Role: viewer)"]
-        UV["User (tenant role: Viewer)"]
-    end
-    KB -- "ShareKnowledgeBase (requires editor+ in org)" --> SH
-    SH --> M
-    M --> EP["effective permission = Min(share.Permission, org role), then capped by applyTenantRoleCap = viewer"]
-    UV --> EP
-```
-
-## 9. Configuration Quick Reference
-
-| Config item | Values | Default | Purpose |
-| --- | --- | --- | --- |
-| `auth.registration_mode` | `self_serve` / `invite_only` | `self_serve` | Public registration switch (hot-changeable via DB system_settings) |
-| `auth.default_tenant_mode` | `create_personal` / `tenantless` | `create_personal` | Whether new users automatically get a personal tenant created |
-| `tenant.enable_rbac` | `true` / `false` | `true` | RBAC enforcement / log-only mode |
-| `JWT_SECRET` (environment variable) | Any string | Random 32 bytes | JWT HMAC secret |
-| `SYSTEM_AES_KEY` (environment variable) | AES key | Not set | Encryption of API Key plaintext at rest |
-| `oidc.*` | See §5.1 | Off | OIDC single sign-on |
-| `frontend_base_url` / `FRONTEND_BASE_URL` | URL | Relative path | Invitation link registration page address |
-| `Tenant.StorageQuota` | Bytes | 10737418240 (10GB) | Tenant storage quota |
-
 ## Implementation Reference
 
-To locate things when reading the source, use the table below (paths relative to the repository root):
+All paths below are relative to the repository root:
 
 | Layer | File |
 | --- | --- |

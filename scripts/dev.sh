@@ -406,6 +406,46 @@ check_remote_dev_connectivity() {
     return 0
 }
 
+# Host-platform path of the anydoc static archive (built by `make anydoc-lib`).
+anydoc_host_archive() {
+    case "$(uname -s)-$(uname -m)" in
+        Darwin-arm64) echo "$PROJECT_ROOT/third_party/anydoc-go/lib/darwin_arm64/libanydoc_go.a" ;;
+        Darwin-x86_64) echo "$PROJECT_ROOT/third_party/anydoc-go/lib/darwin_amd64/libanydoc_go.a" ;;
+        Linux-x86_64)
+            if [ -f "$PROJECT_ROOT/third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a" ]; then
+                echo "$PROJECT_ROOT/third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a"
+            else
+                echo "$PROJECT_ROOT/third_party/anydoc-go/lib/linux_amd64_musl/libanydoc_go.a"
+            fi
+            ;;
+        Linux-aarch64)
+            if [ -f "$PROJECT_ROOT/third_party/anydoc-go/lib/linux_arm64_gnu/libanydoc_go.a" ]; then
+                echo "$PROJECT_ROOT/third_party/anydoc-go/lib/linux_arm64_gnu/libanydoc_go.a"
+            else
+                echo "$PROJECT_ROOT/third_party/anydoc-go/lib/linux_arm64_musl/libanydoc_go.a"
+            fi
+            ;;
+        *) echo "" ;;
+    esac
+}
+
+# Enable the in-process anydoc engine when the archive is present, unless the
+# caller already set GO_BUILD_TAGS (including empty, which opts out).
+enable_anydoc_build_tag() {
+    if [ -n "${GO_BUILD_TAGS+x}" ]; then
+        export GO_BUILD_TAGS
+        return
+    fi
+    local archive
+    archive="$(anydoc_host_archive)"
+    if [ -n "$archive" ] && [ -f "$archive" ]; then
+        export GO_BUILD_TAGS=anydoc
+        log_info "anydoc static library detected, enabled -tags anydoc"
+    else
+        log_info "anydoc static library not detected, parsing engine unavailable. Run first when needed: make anydoc-lib"
+    fi
+}
+
 # Start backend app (local)
 start_app() {
     log_info "Starting backend app (local dev mode)..."
@@ -424,7 +464,7 @@ start_app() {
         return 1
     fi
     
-    # Local docker-compose.dev mode: map container service names to localhost
+    # Local docker-compose.dev mode: map container service names to the host loopback address
     # Remote dev mode (DEV_REMOTE_HOST or .env.local set): keep values from .env/.env.local
     if [ -n "${DEV_REMOTE_HOST:-}" ]; then
         log_info "Remote dev mode: infrastructure → ${DEV_REMOTE_HOST}"
@@ -439,13 +479,13 @@ start_app() {
             export LANGFUSE_HOST="http://${DEV_REMOTE_HOST}:3000"
         fi
     else
-        export DB_HOST=localhost
-        export DOCREADER_ADDR=localhost:50051
-        export MINIO_ENDPOINT=localhost:9000
-        export REDIS_ADDR=localhost:6379
-        export MILVUS_ADDRESS=localhost:19530
-        export NEO4J_URI=bolt://localhost:7687
-        export QDRANT_HOST=localhost
+        export DB_HOST=127.0.0.1
+        export DOCREADER_ADDR=127.0.0.1:50051
+        export MINIO_ENDPOINT=127.0.0.1:9000
+        export REDIS_ADDR=127.0.0.1:6379
+        export MILVUS_ADDRESS=127.0.0.1:19530
+        export NEO4J_URI=bolt://127.0.0.1:7687
+        export QDRANT_HOST=127.0.0.1
     fi
     export DOCREADER_TRANSPORT="${DOCREADER_TRANSPORT:-grpc}"
 
@@ -477,6 +517,8 @@ start_app() {
       export CGO_LDFLAGS="-Wl,-no_warn_duplicate_libraries"
     fi
 
+    enable_anydoc_build_tag
+
     # Check whether Air (hot reload tool) is installed
     if command -v air &> /dev/null; then
         log_success "Air detected, starting in hot reload mode..."
@@ -487,7 +529,7 @@ start_app() {
         log_warning "Tip: install Air to enable automatic restart on code changes"
         log_info "Install command: go install github.com/air-verse/air@latest"
         LDFLAGS="$(./scripts/get_version.sh ldflags) -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"
-        go run -ldflags="$LDFLAGS" ./cmd/server
+        go run -tags "${GO_BUILD_TAGS:-}" -ldflags="$LDFLAGS" ./cmd/server
     fi
 }
 

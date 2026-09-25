@@ -95,6 +95,7 @@ export interface RegisterResponse {
 // When adding a new key, remember: the backend service.UpdateUserPreferences also needs to
 // handle it in the merge branch; frontend callers read it as needed / fall back to defaults.
 export interface UserPreferences {
+  browser_search_instructions?: string | null
   // last_active_tenant_id persists "return to the last workspace after refresh / device change / re-login"
   // preference; the backend only honors it after validating membership is still valid during Login / RefreshToken,
   // otherwise it falls back to home and clears this field. Passing 0 to PATCH means "clear preference".
@@ -262,6 +263,7 @@ export async function getOIDCConfig(): Promise<OIDCConfigResponse> {
 export interface AuthConfigResponse {
   success: boolean
   registration_mode: 'self_serve' | 'invite_only' | string
+  complex_password_enabled: boolean
 }
 
 export async function getAuthConfig(): Promise<AuthConfigResponse> {
@@ -269,7 +271,7 @@ export async function getAuthConfig(): Promise<AuthConfigResponse> {
     const response = await get('/api/v1/auth/config')
     return response as unknown as AuthConfigResponse
   } catch {
-    return { success: false, registration_mode: 'self_serve' }
+    return { success: false, registration_mode: 'self_serve', complex_password_enabled: false }
   }
 }
 
@@ -291,16 +293,34 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
 /**
  * Lite edition auto-init (creates default user/space + issues token)
  */
-export async function autoSetup(): Promise<LoginResponse> {
-  try {
-    const response = await post('/api/v1/auth/auto-setup', {})
-    return response as unknown as LoginResponse
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message || 'Auto-setup unavailable'
+let autoSetupPromise: Promise<LoginResponse> | null = null
+
+export function autoSetup(): Promise<LoginResponse> {
+  if (autoSetupPromise) return autoSetupPromise
+
+  const request = (async () => {
+    try {
+      const nativeApp = (window as any).go?.main?.App
+      if (!nativeApp?.GetAutoSetupToken) return { success: false, message: 'Desktop authentication required' }
+      const token = await nativeApp.GetAutoSetupToken()
+      const response = await post('/api/v1/auth/auto-setup', {}, {
+        headers: { 'X-WeKnora-Desktop-Token': token },
+      })
+      return response as unknown as LoginResponse
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Auto-setup unavailable'
+      }
     }
-  }
+  })()
+
+  autoSetupPromise = request
+  void request.then(
+    () => { if (autoSetupPromise === request) autoSetupPromise = null },
+    () => { if (autoSetupPromise === request) autoSetupPromise = null },
+  )
+  return request
 }
 
 /**
@@ -321,12 +341,13 @@ export interface MembershipInfo {
  */
 export interface AuthCapabilities {
   can_create_tenant: boolean
+  auto_accept_invitation: boolean
 }
 
-export async function getCurrentUser(): Promise<{ success: boolean; data?: { user: UserInfo; tenant?: TenantInfo | null; memberships?: MembershipInfo[]; tenant_required?: boolean; capabilities?: AuthCapabilities }; message?: string }> {
+export async function getCurrentUser(): Promise<{ success: boolean; data?: { user: UserInfo; tenant?: TenantInfo | null; memberships?: MembershipInfo[]; tenant_required?: boolean; capabilities?: AuthCapabilities; preference_defaults?: { browser_search_instructions: string } }; message?: string }> {
   try {
     const response = await get('/api/v1/auth/me')
-    return response as unknown as { success: boolean; data?: { user: UserInfo; tenant?: TenantInfo | null; memberships?: MembershipInfo[]; tenant_required?: boolean; capabilities?: AuthCapabilities }; message?: string }
+    return response as unknown as { success: boolean; data?: { user: UserInfo; tenant?: TenantInfo | null; memberships?: MembershipInfo[]; tenant_required?: boolean; capabilities?: AuthCapabilities; preference_defaults?: { browser_search_instructions: string } }; message?: string }
   } catch (error: any) {
     return {
       success: false,

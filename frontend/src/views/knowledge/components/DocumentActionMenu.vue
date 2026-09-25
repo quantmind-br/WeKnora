@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useI18n } from 'vue-i18n';
 
 interface KnowledgeItem {
   id: string;
@@ -12,6 +11,7 @@ interface KnowledgeItem {
 
 const props = defineProps<{
   item: KnowledgeItem;
+  canDownload: boolean;
   canMutateKnowledge: boolean;
   traceVisible: boolean;
   /** Whether the knowledge base has a folder structure to file documents into. */
@@ -19,6 +19,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  (e: 'download'): void;
   (e: 'edit'): void;
   (e: 'view-trace'): void;
   (e: 'reparse'): void;
@@ -29,7 +30,6 @@ const emit = defineEmits<{
   (e: 'delete'): void;
 }>();
 
-const { t } = useI18n();
 
 const CANCELABLE_PARSE_STATUSES = new Set(['pending', 'processing', 'finalizing']);
 
@@ -41,6 +41,16 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
 </script>
 
 <template>
+  <!-- Download original document -->
+  <div
+    v-if="canDownload && (item.type === 'file' || item.type === 'manual')"
+    class="doc-action-menu-item"
+    @click.stop="emit('download')"
+  >
+    <t-icon class="icon" name="download" />
+    <span>{{ $t('common.download') }}</span>
+  </div>
+
   <!-- Edit document -->
   <div v-if="item.type === 'manual'" class="doc-action-menu-item" @click.stop="emit('edit')">
     <t-icon class="icon" name="edit" />
@@ -96,7 +106,7 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
   </div>
 
   <!-- Batch management -->
-  <div v-if="canMutateKnowledge" class="doc-action-menu-item" @click.stop="emit('batch-manage')">
+  <div v-if="canMutateKnowledge || canDownload" class="doc-action-menu-item" @click.stop="emit('batch-manage')">
     <t-icon class="icon" name="queue" />
     <span>{{ $t('menu.batchManage') }}</span>
   </div>
@@ -118,14 +128,16 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
 .doc-action-menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  font-size: 14px;
+  gap: 8px;
+  padding: 6px 10px;
+  font-family: var(--app-font-family);
+  font-size: var(--app-text-base);
+  font-weight: 400;
   line-height: 20px;
   color: var(--td-text-color-primary);
   cursor: pointer;
-  border-radius: 6px;
-  transition: background-color 0.15s cubic-bezier(0.2, 0, 0, 1), transform 0.12s ease;
+  border-radius: var(--app-radius-xs);
+  transition: background-color var(--app-motion-fast) cubic-bezier(0.2, 0, 0, 1);
 
   &:hover {
     background: var(--td-bg-color-container-hover);
@@ -133,13 +145,12 @@ const fileName = computed(() => props.item.file_name || props.item.title || prop
 
   &:active {
     background: var(--td-bg-color-container-active);
-    transform: scale(0.98);
   }
 
   .icon {
-    font-size: 16px;
+    font-size: var(--app-text-2xl);
     color: var(--td-text-color-secondary);
-    transition: color 0.15s ease;
+    transition: color var(--app-motion-fast) ease;
   }
 
   &:hover .icon {

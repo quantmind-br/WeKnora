@@ -363,6 +363,7 @@ func fetchDriveFileContent(
 	}
 
 	editTime := core.ParseFeishuTimestamp(file.ModifiedTime)
+	createTime := core.ParseFeishuTimestamp(file.CreatedTime)
 	// Channel marks the knowledge "source" label. Drive uses its own channel
 	// (feishu_drive / lark_drive) so Drive docs show "Feishu Drive" / "Lark Drive"
 	// distinct from the wiki connector's "Feishu".
@@ -387,6 +388,7 @@ func fetchDriveFileContent(
 			URL:               file.URL,
 			ResourceID:        resourceID,
 			EditTime:          editTime,
+			CreateTime:        createTime,
 			BaseMeta:          baseMeta,
 			MultimodalEnabled: multimodalEnabled,
 		})
@@ -412,6 +414,7 @@ func fetchDriveFileContent(
 			FileName:         fileName,
 			URL:              file.URL,
 			UpdatedAt:        editTime,
+			CreatedAt:        createTime,
 			SourceResourceID: resourceID,
 			Metadata:         baseMeta,
 		}}, nil
@@ -435,6 +438,7 @@ func fetchDriveFileContent(
 			FileName:         fileName,
 			URL:              file.URL,
 			UpdatedAt:        editTime,
+			CreatedAt:        createTime,
 			SourceResourceID: resourceID,
 			Metadata:         baseMeta,
 		}}, nil

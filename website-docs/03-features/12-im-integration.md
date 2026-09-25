@@ -1,72 +1,15 @@
 # IM Integration
 
-Often, the easiest way to get colleagues using the knowledge base isn't to have them open a new website — it's to put the bot right into the chat tools they already use. That's what IM Integration does: mention the bot in WeCom, Feishu, DingTalk, Slack, Telegram, and similar platforms to ask questions, and WeKnora answers through the same RAG / Agent pipeline.
+IM Integration connects Agents to chat platforms such as WeCom, Feishu, DingTalk, Slack and Telegram. Users can ask the bot questions on the platform, and WeKnora runs retrieval and answers according to the bound Agent's configuration.
 
-Configuration path: "Settings → IM Integration" → Create a new channel → Select a platform → Fill in that platform's app credentials → Bind an Agent (determines which knowledge bases are used and whether web search is enabled) → Enable. Webhook mode requires filling the callback address back into the platform's backend; long-connection mode doesn't need a public-facing address.
+Under "Settings → IM Integration", create a new channel, select a platform, fill in the app credentials and bind an Agent, then enable it. Webhook mode requires filling the callback address into the platform's backend; long-connection mode doesn't need a public-facing callback address for receiving messages. Each channel can set its own "Reply Language", which pins the language the Agent replies in on that channel; when left empty, the deployment's default language is used.
 
 <Screenshot
   src="/screenshots/im-channels.png"
   caption="IM channel configuration: platform, credentials, and bound Agent"
   hint="Shows the channel list and a channel's configuration form (platform type, credentials, bound Agent, callback address)." />
 
-Users can also send files directly to the bot in a group chat to have them ingested, and the bot supports built-in commands like `/help` — details below. Related code:
-
-- Core framework and orchestration: `internal/im/` (`adapter.go`, `service.go`, `supervisor.go`, `command*.go`, `qaqueue.go`, `session/stream/think/tool_display`, etc.)
-- Per-platform adapters: `internal/im/{wecom,feishu,dingtalk,slack,telegram,mattermost,wechat,qqbot,yunzhijia}/`
-- HTTP interface layer: `internal/handler/im.go`
-- Routes: `RegisterIMRoutes` / `RegisterIMChannelRoutes` in `internal/router/router.go`
-
-## Architecture Overview
-
-### Adapter Interface (internal/im/adapter.go)
-
-Each platform adapter implements a unified `Adapter` interface, condensing platform differences into four methods:
-
-```go
-type Adapter interface {
-    Platform() Platform
-    // VerifyCallback validates the callback request's signature/token
-    VerifyCallback(c *gin.Context) error
-    // ParseCallback parses the platform's raw callback into a unified IncomingMessage (returns nil for non-message events)
-    ParseCallback(c *gin.Context) (*IncomingMessage, error)
-    // SendReply sends the reply back to the IM platform
-    SendReply(ctx context.Context, incoming *IncomingMessage, reply *ReplyMessage) error
-    // HandleURLVerification handles the platform's URL verification challenge
-    HandleURLVerification(c *gin.Context) bool
-}
-```
-
-Two **optional** extension interfaces determine platform capability differences:
-
-- `StreamSender` — streaming replies (`StartStream` → `UpdateStreamContent` (whole-block replacement semantics) → `FinalizeStream` (keeps only the final answer, stripping thinking/tool process) → `EndStream`). Implemented by: Feishu/Lark (streaming cards), DingTalk (AI cards, requires `card_template_id`), Slack, Telegram (message editing), Mattermost, WeCom WebSocket mode.
-- `FileDownloader` — downloads files/images sent by users from the platform (`DownloadFile`). Implemented by: all platforms except the QQ bot (both WeCom modes support it).
-
-The unified message model `IncomingMessage` carries fields such as `Platform`, `MessageType` (`text`/`file`/`image`), `UserID`, `ChatID`, `ChatType` (`direct`/`group`), `Content`, `MessageID` (for deduplication), `FileKey`/`FileName`/`FileSize`, `ThreadID` (topic/thread ID), `Quote` (quoted message), and more.
-
-### Service Orchestration (internal/im/service.go)
-
-`im.Service` is the message-processing hub, responsible for (as noted in the source comments):
-
-1. Receiving the unified `IncomingMessage` from the Adapter;
-2. Resolving or creating a WeKnora Session for that IM channel;
-3. Dispatching slash commands first (these don't enter the QA pipeline);
-4. Calling the WeKnora QA pipeline (`KnowledgeQA` / `AgentQA`) for normal messages;
-5. Collecting the streamed answer and sending it back via the Adapter.
-
-Platform adapters are registered through `AdapterFactory` (see `registerIMAdapterFactories` in `internal/container/container.go`):
-
-```go
-imService.RegisterAdapterFactory("wecom", wecom.NewFactory())
-imService.RegisterAdapterFactory("feishu", feishu.NewFactory(feishu.RegionFeishu))
-imService.RegisterAdapterFactory("lark", feishu.NewFactory(feishu.RegionLark)) // Lark shares the same adapter as Feishu, only the API domain differs
-imService.RegisterAdapterFactory("slack", slack.NewFactory())
-imService.RegisterAdapterFactory("telegram", telegram.NewFactory())
-imService.RegisterAdapterFactory("dingtalk", dingtalk.NewFactory())
-imService.RegisterAdapterFactory("mattermost", mattermost.NewFactory())
-imService.RegisterAdapterFactory("wechat", wechat.NewFactory())
-imService.RegisterAdapterFactory("qqbot", qqbot.NewFactory())
-imService.RegisterAdapterFactory("yunzhijia", yunzhijia.NewFactory())
-```
+Supported platforms can also import received files into a knowledge base, and provide built-in commands such as `/help`. The exact behavior depends on platform capabilities and channel configuration.
 
 ## Supported Platforms and Capability Comparison
 
@@ -79,101 +22,11 @@ imService.RegisterAdapterFactory("yunzhijia", yunzhijia.NewFactory())
 | Lark `lark` | Same as Feishu (same adapter, `RegionLark` points to open.larksuite.com) | Yes | Yes | Yes | Same as Feishu |
 | Slack `slack` | **websocket** (Socket Mode) / webhook (Events API) | Yes | Yes | Yes (`thread_ts`) | websocket: `app_token` + `bot_token`; webhook: `bot_token` + `signing_secret` |
 | Telegram `telegram` | **websocket** (long polling via getUpdates) / webhook | Yes (message editing) | Yes | Yes (`message_thread_id` for Forum Topics) | `bot_token`; webhook also has `secret_token` |
-| DingTalk `dingtalk` | **websocket** (Stream mode) / webhook | Yes (AI cards) | Yes | No | `client_id`, `client_secret`, `card_template_id` |
+| DingTalk `dingtalk` | **websocket** (Stream mode; the only mode supported since v0.8.2 — upgrade migration 000096 switches webhook channels to websocket, and Stream must be enabled in the DingTalk developer console) | Yes (AI cards) | Yes | No | `client_id`, `client_secret`, `card_template_id` |
 | Mattermost `mattermost` | **webhook** (only supports Outgoing Webhook + REST API) | Yes | Yes | Yes (`root_id`) | `site_url`, `bot_token`, `outgoing_token` (required), `bot_user_id`, `post_to_main` |
 | WeChat `wechat` (iLink bot) | **longpoll** (forced; on creation the backend forces `mode=longpoll`, `output_mode=full`) | No (only full output) | Yes | No | `bot_token`, `ilink_bot_id` (both required) |
 | QQ Bot `qqbot` | **websocket** (only mode supported) | No | No | No | `app_id`, `client_secret`, `api_base_url`, `gateway_url` |
-| Yunzhijia `yunzhijia` | **webhook** / websocket (WS address derived from `send_msg_url`) | No | Yes | No | `send_msg_url` (required), `secret`, `app_id`, `app_secret`, `allowed_webhook_host_suffix`, `timeout_seconds` |
-
-## Channel Model and Configuration (internal/im/types.go)
-
-An `IMChannel` (table `im_channels`) binds a platform bot to an Agent:
-
-| Field | Description |
-| --- | --- |
-| `AgentID` | The bound custom agent; answers follow that Agent's configuration (model, knowledge bases, Skills, MCP, web search) |
-| `Platform` / `Mode` | Platform and connection mode. Defaults: mattermost/yunzhijia → `webhook`, wechat → `longpoll` (and forces `output_mode=full`), others → `websocket` |
-| `OutputMode` | `stream` (default, streaming) or `full` (reply once with the complete answer) |
-| `KnowledgeBaseID` | Optional "file knowledge base." When configured, files/images sent to the bot by users are downloaded and ingested (see below) |
-| `SessionMode` | `user` (default, maps sessions by platform+user+chat) or `thread` (maps by platform+thread+chat, with a new session for each top-level message) |
-| `BotIdentity` | A unique bot identifier derived from platform+mode+credentials (`computeBotIdentity`, e.g. `feishu:<app_id>`, `telegram:<botID>`, `wecom:ws:<bot_id>`); a database unique index prevents the same bot from being configured on two channels (`checkDuplicateBot` returns a `duplicate_bot:`-prefixed error → HTTP 409) |
-| `Credentials` | JSONB credentials. The list interface (`IMChannelSummary`) **never returns credential contents**, only a `credentials_configured` boolean |
-
-`ChannelSession` (table `im_channel_sessions`) maps `(platform, user_id, chat_id, thread_id, tenant_id)` to a WeKnora `session_id`, providing conversation continuity on the IM side. If the underlying Session was deleted from the Web UI, `HandleMessage` detects `ErrSessionNotFound`, soft-deletes the stale mapping, and automatically rebuilds it (fixing the "bot permanently disconnected" issue in #1046, #1499).
-
-### Channel Management API (internal/handler/im.go + router.go)
-
-| Method & Path | Description |
-| --- | --- |
-| `POST /api/v1/agents/:id/im-channels` | Create a channel for an Agent (validates platform legality, fills in default mode/output_mode) |
-| `GET /api/v1/agents/:id/im-channels` | List an Agent's channels (excludes credentials) |
-| `GET /api/v1/im-channels` | Cross-Agent channel overview within the tenant |
-| `PUT /api/v1/im-channels/:id` | Update (name/mode/output_mode/knowledge_base_id/credentials/enabled/agent_id) |
-| `DELETE /api/v1/im-channels/:id` | Delete |
-| `POST /api/v1/im-channels/:id/toggle` | Enable/disable |
-| `GET / POST /api/v1/im/callback/:channel_id` | **Platform callback address** (configured in each platform's backend under webhook mode; validated by the platform's own signature check, no WeKnora API Key needed) |
-
-The webhook-mode setup consists of filling `https://<your-domain>/api/v1/im/callback/<channel_id>` into the platform's event subscription/callback address field. WeKnora first responds to the platform's URL verification challenge (`HandleURLVerification`, e.g. Feishu's challenge echo, WeCom's echostr decryption), after which every callback passes through `VerifyCallback` signature validation. WebSocket/long-connection mode doesn't need a public-facing callback address, since WeKnora actively connects to the platform's gateway.
-
-### Long-Connection Reliability: Leader Election and Supervisor
-
-- **Multi-instance leader election** (`service.go`): for websocket/longpoll channels, in a multi-instance deployment (with Redis), `SETNX im:ws:leader:<channelID>` (TTL 15s, renewed every 5s) ensures **only one instance** maintains the long connection; non-leader instances retry the lock every 10s, and if the leader goes down, another instance takes over automatically. When a longpoll channel stops, it deliberately doesn't release the lock immediately — it lets the TTL expire naturally, to avoid brief double-writes between old and new instances. When renewal fails (leadership is lost), it goes through `handleWSLeadershipLoss`: first stopping this instance's adapter, then putting the channel back into the lock-retry loop — before retrying, it re-reads the channel row from the database, so a channel deleted, disabled, or reconfigured in the meantime won't be revived by the old runtime.
-- **Connection keep-alive** (`RunSupervised` in `supervisor.go`): some SDKs' (DingTalk, Feishu) internal reconnection can enter a "zombie state" (the connection object is alive but receives no messages). The Supervisor proactively rebuilds the connection every 6 hours (`defaultRecycleInterval`), and retries failed connections with a 5s backoff, bounding the worst-case downtime to the recycle interval.
-
-## Message Processing Flow
-
-Both `IMCallback` (webhook) and long-connection callbacks ultimately flow into `Service.HandleMessage`, then proceed through the queue into QA execution:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant P as "IM Platform"
-    participant H as "IMHandler / Long-Connection Client"
-    participant A as "Adapter"
-    participant S as "im.Service"
-    participant Q as "qaQueue (worker pool)"
-    participant QA as "SessionService (KnowledgeQA / AgentQA)"
-    participant DB as "PostgreSQL / Redis"
-
-    P->>H: callback POST /api/v1/im/callback/:channel_id (or WS push)
-    H->>A: HandleURLVerification / VerifyCallback (signature validation)
-    H->>A: ParseCallback → IncomingMessage
-    H-->>P: immediate ACK (avoids platform timeout re-push)
-    H->>S: async HandleMessage(msg, channelID)
-    S->>DB: message deduplication (im:dedup:messageID, TTL 5min)
-    S->>S: over-length truncation (4096 runes) / rate limiting (sliding window, 10 msgs/60s, commands exempt)
-    alt "File/image message and channel has a file knowledge base configured"
-        S->>A: DownloadFile → CreateKnowledgeFromFile → LLM-generated smart notification + push a summary once parsing completes
-    else "Slash command (/help /info /search /stop /clear)"
-        S->>S: CommandRegistry.Parse → cmd.Execute → side effect (ActionClear / ActionStop)
-        S->>A: SendReply / stream the command result
-    else "Regular text"
-        S->>DB: resolveSession — (platform,user,chat[,thread]) → ChannelSession → WeKnora Session
-        S->>Q: Enqueue(qaRequest) (replies "queue is busy" if the queue is full/over the limit)
-        Q-->>S: worker executes executeQARequest
-        S->>DB: create user message + assistant placeholder message
-        S->>QA: AgentQA (Agent mode) or KnowledgeQA (RAG mode) + EventBus
-        loop "flush every 300ms (streamFlushInterval)"
-            QA-->>S: thinking/tool-call/answer-chunk events
-            S->>A: UpdateStreamContent(thinking block + tool status lines + answer generated so far)
-            A->>P: update streaming card / edit message
-        end
-        QA-->>S: EventAgentComplete (final answer + citations)
-        S->>A: FinalizeStream(keeps only the answer, strips think/tool process) → EndStream
-        S->>DB: backfill assistant message (content/citations/AgentSteps)
-    end
-```
-
-Key details (all in `service.go`):
-
-- **Deduplication**: `MessageID` is written to Redis `im:dedup:` (TTL 5 minutes) or a local `sync.Map` (single-instance mode); callbacks re-pushed by the IM platform are simply skipped.
-- **Rate limiting**: sliding-window rate limiting keyed by `channelID:userID:chatID[:threadID]` (default 10 messages within 60s, overridable via `config.IM`); **slash commands bypass rate limiting**, so a user can still `/stop` during a storm.
-- **QA queue** (`qaqueue.go`): a bounded queue + fixed worker pool (default workers=5, queue cap 50, per-user queue cap 3, queue timeout 60s); across multiple instances, Redis counters implement a **global per-user cap** (`im:queue:user:`) and an optional **global concurrency gate** (`im:global:active` + Lua script, `GlobalMaxWorkers` config), applying backpressure to the downstream LLM. When the queue position is > 0, a "queued" notice is replied first.
-- **Session resolution**: `user` mode shares a session per user, with titles like "John Doe · Group Chat 1a2b3c4d"; `thread` mode creates one session per top-level message/topic (Slack thread, Feishu topic group, Telegram Forum Topic, Mattermost root_id). The session title is generated asynchronously on the first message (`GenerateTitleAsync`).
-- **Identity injection** (`withIMIdentity`): since IM callbacks go through platform signatures rather than WeKnora's login state, a synthetic identity is injected — `system-<tenantID>` + `PrincipalIMUser` (`tenantID:channelID:platform:userID`) + Viewer role — so that logic depending on UserID (e.g. organization-shared knowledge bases) works correctly; this also marks `MCPOAuthNonInteractive` (see the OAuth notification section below).
-- **Streaming rendering** (`handleMessageStream` + `think.go` + `tool_display.go`): subscribes to EventBus events `EventAgentThought` (thinking), `EventAgentToolCall`/`EventAgentToolResult` (tool status lines — internal tools are filtered via `isToolVisibleToUser`; Quick QA only shows the two RAG-pipeline tools `query_understand`/`knowledge_search`), `EventAgentFinalAnswer` (answer chunks), `EventAgentReferences` (citations), and `EventAgentComplete`. In Agent mode, an "optimistic answer" that's followed by another tool call gets **retracted** back into the thinking block (`retractAgentLiveAnswer`, consistent with the Web UI's superseded-preamble behavior). Buffered content is pushed as a whole block every 300ms (`UpdateStreamContent` uses replacement semantics); `holdbackCutoff` withholds incomplete `provider://` URLs, Markdown images, and XML tags that straddle chunk boundaries, to avoid flickering half-rendered content. The final `FinalizeStream` keeps only the answer text (`StripThinkBlocks`), strips out `<kb/>`, `<web/>` citation tags and `<image>` XML, and rewrites `provider://` storage URLs into accessible links (`cleanIMContent` / `rewriteStorageURLs`).
-- **Non-streaming path**: when a channel has `output_mode=full`, the adapter doesn't support `StreamSender`, or `StartStream` fails, it falls back to `runQA`, aggregating the complete answer and sending it once via `SendReply`.
-- **Quoted messages** (`Quote`, currently populated by adapters such as WeCom's long connection): a quoted text message is wrapped in `<quoted_message>` and injected into the LLM context (capped at 500 runes, distinguishing "quoting the bot's own reply"); when quoting non-text content like images/files/videos, the injected content is an instruction explicitly telling the model it cannot view that content, **preventing the model from hallucinating a guess at the content**.
+| Yunzhijia `yunzhijia` | **webhook** / websocket (WS address derived from `send_msg_url`) | No | Yes | Yes (top-level msgId / replies use replyRootMsgId) | `send_msg_url` (required), `secret`, `app_id`, `app_secret`, `allowed_webhook_host_suffix`, `timeout_seconds` |
 
 ## Built-in Command System
 
@@ -200,15 +53,9 @@ All commands registered in `NewService`:
 
 ## File Message Handling
 
-When a channel has `knowledge_base_id` configured and the message type is `file`/`image` (`handleFileMessage` / `processFileToKnowledgeBase`):
+Files and images are handled as QA attachments: document content is provided to the model, and images are recognized directly when the model supports it. As a result, the bot replies normally based on the attachment content even if the channel has no file knowledge base configured.
 
-1. The adapter must implement `FileDownloader`, otherwise it replies "this platform doesn't currently support file message handling";
-2. Extension whitelist: `pdf txt docx doc md markdown png jpg jpeg gif csv xlsx xls pptx ppt` (`supportedKBFileExts`); images missing an extension get `.png` appended; for platforms like WeCom aibot, where the callback only contains a hashed filename, the real filename is parsed from Content-Disposition/Content-Type **after downloading**, for validation;
-3. The file is downloaded asynchronously and ingested via `KnowledgeService.CreateKnowledgeFromFile` (the channel field is recorded per platform, see `imPlatformToChannel`); duplicate files trigger a "file already exists in the knowledge base" notice;
-4. The result is communicated via `sendSmartReply`: the channel Agent's LLM generates a natural notification message following `smartReplySystemPrompt` (streaming supported); if the LLM is unavailable, it falls back to a static template;
-5. `watchAndSendSummary` polls in the background waiting for Asynq parsing + summarization to complete, then proactively pushes the **document summary** back into the chat.
-
-If a channel without a file knowledge base configured receives a plain file/image message, it prompts the user to configure a file knowledge base in the channel settings first.
+`knowledge_base_id` only determines whether attachments are additionally saved to a knowledge base. It must be a knowledge base in the channel's space (a restricted API key additionally requires it to be on its knowledge base allowlist); otherwise creating or updating the channel returns 400. Once configured, the save task runs in the background, doesn't affect the current QA reply, and doesn't send extra "ingested" or "parsing complete" messages. At most the first 500 lines of parsed text are kept, capped at 32 KiB; when either limit is hit, the model receives a generic truncation notice. When an attachment can't be read, the platform doesn't support downloading, or the file exceeds 32 MiB, the bot asks the user to describe it in text instead or to resend it.
 
 ## Image External Links in Replies (resource:// Rewriting)
 
@@ -245,7 +92,57 @@ flowchart LR
     G --> H["User resends message → tool becomes available"]
 ```
 
-## Multi-Instance Deployment Notes
+## Configuration and Runtime Reference
+
+### Channel Model and Configuration (internal/im/types.go)
+
+An `IMChannel` (table `im_channels`) binds a platform bot to an Agent:
+
+| Field | Description |
+| --- | --- |
+| `AgentID` | The bound custom agent; answers follow that Agent's configuration (model, knowledge bases, Skills, MCP, web search) |
+| `Platform` / `Mode` | Platform and connection mode. Defaults: mattermost/yunzhijia → `webhook`, wechat → `longpoll` (and forces `output_mode=full`), others → `websocket` |
+| `OutputMode` | `stream` (default, streaming) or `full` (reply once with the complete answer) |
+| `Locale` | Reply language: `zh-CN` / `en-US` / `ja-JP` / `ko-KR` / `ru-RU`; other values return 400. When empty (the default), `WEKNORA_LANGUAGE` is used, falling back to `zh-CN` when that isn't set. The `Accept-Language` header on IM callback requests comes from the platform rather than the person asking, so it plays no part in choosing the reply language |
+| `KnowledgeBaseID` | Optional "file knowledge base." Whether or not it is configured, files/images are downloaded for QA to understand; when configured, they are additionally ingested in the background (see below) |
+| `SessionMode` | `user` (default, maps sessions by platform+user+chat) or `thread` (maps by platform+thread+chat, with a new session for each top-level message) |
+| `BotIdentity` | A unique bot identifier derived from platform+mode+credentials (`computeBotIdentity`, e.g. `feishu:<app_id>`, `telegram:<botID>`, `wecom:ws:<bot_id>`); a database unique index prevents the same bot from being configured on two channels (`checkDuplicateBot` returns a `duplicate_bot:`-prefixed error → HTTP 409) |
+| `Credentials` | JSONB credentials. The list interface (`IMChannelSummary`) **never returns credential contents**, only a `credentials_configured` boolean |
+
+`ChannelSession` (table `im_channel_sessions`) maps `(platform, user_id, chat_id, thread_id, tenant_id)` to a WeKnora `session_id`, providing conversation continuity on the IM side. If the underlying Session was deleted from the Web UI, `HandleMessage` detects `ErrSessionNotFound`, soft-deletes the stale mapping, and automatically rebuilds it (fixing the "bot permanently disconnected" issue in #1046, #1499).
+
+#### Channel Management API (internal/handler/im.go + routes_agent.go)
+
+| Method & Path | Description |
+| --- | --- |
+| `POST /api/v1/agents/:id/im-channels` | Create a channel for an Agent (validates platform legality, fills in default mode/output_mode) |
+| `GET /api/v1/agents/:id/im-channels` | List an Agent's channels (excludes credentials) |
+| `GET /api/v1/im-channels` | Cross-Agent channel overview within the tenant |
+| `PUT /api/v1/im-channels/:id` | Partial update (name/mode/output_mode/locale/session_mode/knowledge_base_id/credentials/enabled/agent_id); passing an empty string for `knowledge_base_id` unbinds the file knowledge base |
+| `DELETE /api/v1/im-channels/:id` | Delete |
+| `POST /api/v1/im-channels/:id/toggle` | Enable/disable |
+| `POST /api/v1/wechat/qrcode`, `POST /api/v1/wechat/qrcode/status` | WeChat (iLink) QR-code binding: generate a QR code and poll its status |
+| `GET / POST /api/v1/im/callback/:channel_id` | **Platform callback address** (configured in each platform's backend under webhook mode; validated by the platform's own signature check, no WeKnora API Key needed) |
+
+The webhook-mode setup consists of filling `https://<your-domain>/api/v1/im/callback/<channel_id>` into the platform's event subscription/callback address field. WeKnora first responds to the platform's URL verification challenge (`HandleURLVerification`, e.g. Feishu's challenge echo, WeCom's echostr decryption), after which every callback passes through `VerifyCallback` signature validation. WebSocket/long-connection mode doesn't need a public-facing callback address, since WeKnora actively connects to the platform's gateway.
+
+#### Feishu/Lark Reverse Proxy
+
+credentials.api_base_url overrides the API origin and is also used as the bootstrap domain of the long-connection SDK. When empty, the default Feishu/Lark cloud addresses are used respectively; on a private network you can set `https://feishu-proxy.example.com`, without appending a specific API path at the end. The proxy should forward both the platform API and the long-connection bootstrap requests, and the WebSocket address returned in the bootstrap response must also be reachable from the WeKnora server. Proxying only the web console does not solve server-to-Feishu network issues.
+
+```json
+{"platform":"feishu","mode":"websocket","credentials":{"app_id":"<app-id>","app_secret":"<app-secret>","api_base_url":"https://feishu-proxy.example.com"}}
+```
+
+With session_mode=thread, Yunzhijia reuses sessions per topic: a top-level message starts a new thread, and replies continue along the root message's thread. DingTalk rich-text messages have their readable content extracted; images in Feishu post messages go through image handling. output_mode=full can show the intermediate process and output progress, while answer_only keeps just the final answer.
+
+#### Long-Connection Reliability: Leader Election and Supervisor
+
+- **Multi-instance leader election** (`service.go`): for websocket/longpoll channels, in a multi-instance deployment (with Redis), `SETNX im:ws:leader:<channelID>` (TTL 15s, renewed every 5s) ensures **only one instance** maintains the long connection; non-leader instances retry the lock every 10s, and if the leader goes down, another instance takes over automatically. After a longpoll channel stops, it keeps the lock until it expires, letting the TTL run out naturally, to avoid brief double-writes between old and new instances. When renewal fails (leadership is lost), it goes through `handleWSLeadershipLoss`: first stopping this instance's adapter, then putting the channel back into the lock-retry loop — before retrying, it re-reads the channel row from the database, so a channel deleted, disabled, or reconfigured in the meantime won't be revived by the old runtime.
+- **Connection keep-alive** (`RunSupervised` in `supervisor.go`): some SDKs' (DingTalk, Feishu) internal reconnection can end up in a state where the connection object exists but receives no messages. The Supervisor proactively rebuilds the connection every 6 hours (`defaultRecycleInterval`), and retries failed connections with a 5s backoff, bounding the worst-case downtime to the recycle interval.
+- **Yunzhijia long connection** (`yunzhijia/websocket.go`): sends a heartbeat every 15s; if no data at all is received within 45s, the connection is deemed dead and reconnected; a single connection is proactively rebuilt after being held for at most 6 hours. Reconnects back off at 1s, 2s, 5s, 10s, 30s, 60s.
+
+### Multi-Instance Deployment Notes
 
 All distributed state is centrally defined as Redis key prefix constants in `service.go`:
 
@@ -260,3 +157,116 @@ All distributed state is centrally defined as Redis key prefix constants in `ser
 | `im:global:active` | Global concurrent QA worker count (atomic Lua INCR+check, TTL 5min self-healing) |
 
 Without Redis (Lite/single-instance mode), all of the above fall back to local in-memory implementations — functionality is unchanged, only the cross-instance semantics are lost.
+
+### Message Processing Flow
+
+Both `IMCallback` (webhook) and long-connection callbacks ultimately flow into `Service.HandleMessage`, then proceed through the queue into QA execution:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant P as "IM Platform"
+    participant H as "IMHandler / Long-Connection Client"
+    participant A as "Adapter"
+    participant S as "im.Service"
+    participant Q as "qaQueue (worker pool)"
+    participant QA as "SessionService (KnowledgeQA / AgentQA)"
+    participant DB as "PostgreSQL / Redis"
+
+    P->>H: callback POST /api/v1/im/callback/:channel_id (or WS push)
+    H->>A: HandleURLVerification / VerifyCallback (signature validation)
+    H->>A: ParseCallback → IncomingMessage
+    H-->>P: immediate ACK (avoids platform timeout re-push)
+    H->>S: async HandleMessage(msg, channelID)
+    S->>DB: message deduplication (im:dedup:messageID, TTL 5min)
+    S->>S: over-length truncation (4096 runes) / rate limiting (sliding window, 10 msgs/60s, commands exempt)
+    alt "Slash command (/help /info /search /stop /clear)"
+        S->>S: CommandRegistry.Parse → cmd.Execute → side effect (ActionClear / ActionStop)
+        S->>A: SendReply / stream the command result
+    else "Regular message (including files/images)"
+        S->>DB: resolveSession — (platform,user,chat[,thread]) → ChannelSession → WeKnora Session
+        S->>Q: Enqueue(qaRequest) (replies "queue is busy" if the queue is full/over the limit)
+        Q-->>S: worker executes executeQARequest
+        S->>DB: create user message + assistant placeholder message
+        S->>QA: AgentQA (Agent mode) or KnowledgeQA (RAG mode) + EventBus
+        loop "flush every 300ms (streamFlushInterval)"
+            QA-->>S: thinking/tool-call/answer-chunk events
+            S->>A: UpdateStreamContent(thinking block + tool status lines + answer generated so far)
+            A->>P: update streaming card / edit message
+        end
+        QA-->>S: EventAgentComplete (final answer + citations), or AgentQA returns
+        S->>A: FinalizeStream(keeps only the answer, strips think/tool process) → EndStream
+        S->>DB: backfill assistant message (content/citations/AgentSteps)
+    end
+```
+
+Key details (all in `service.go`):
+
+- **Deduplication**: `MessageID` is written to Redis `im:dedup:` (TTL 5 minutes) or a local `sync.Map` (single-instance mode); callbacks re-pushed by the IM platform are simply skipped.
+- **Rate limiting**: sliding-window rate limiting keyed by `channelID:userID:chatID[:threadID]` (default 10 messages within 60s, overridable via `config.IM`); **slash commands bypass rate limiting**, so a user can still `/stop` during a storm.
+- **QA queue** (`qaqueue.go`): a bounded queue + fixed worker pool (default workers=5, queue cap 50, per-user queue cap 3, queue timeout 60s); across multiple instances, Redis counters implement a **global per-user cap** (`im:queue:user:`) and an optional **global concurrency gate** (`im:global:active` + Lua script, `GlobalMaxWorkers` config), applying backpressure to the downstream LLM. When the queue position is > 0, a "queued" notice is replied first.
+- **Session resolution**: `user` mode shares a session per user, with titles like "John Doe · Group Chat 1a2b3c4d"; `thread` mode creates one session per top-level message/topic (Slack thread, Feishu topic group, Telegram Forum Topic, Mattermost root_id). The session title is generated asynchronously on the first message (`GenerateTitleAsync`).
+- **Identity injection** (`withIMIdentity`): since IM callbacks go through platform signatures rather than WeKnora's login state, a synthetic identity is injected — `system-<tenantID>` + `PrincipalIMUser` (`tenantID:channelID:platform:userID`) + Viewer role — so that logic depending on UserID (e.g. organization-shared knowledge bases) works correctly; this also marks `MCPOAuthNonInteractive` (see [MCP OAuth Authorization Notification](#mcp-oauth-authorization-notification-identity-binding)).
+- **Streaming rendering** (`handleMessageStream` + `think.go` + `tool_display.go`): subscribes to EventBus events `EventAgentThought` (thinking), `EventAgentToolCall`/`EventAgentToolResult` (tool status lines — internal tools are filtered via `isToolVisibleToUser`; Quick QA only shows the two RAG-pipeline tools `query_understand`/`knowledge_search`), `EventAgentFinalAnswer` (answer chunks), `EventAgentReferences` (citations), and `EventAgentComplete`. In Agent mode, an "optimistic answer" that's followed by another tool call gets **retracted** back into the thinking block (`retractAgentLiveAnswer`, consistent with the Web UI's superseded-preamble behavior). Buffered content is pushed as a whole block every 300ms (`UpdateStreamContent` uses replacement semantics); `holdbackCutoff` withholds incomplete `provider://` URLs, Markdown images, and XML tags that straddle chunk boundaries, to avoid flickering half-rendered content. The final `FinalizeStream` keeps only the answer text (`StripThinkBlocks`), strips out `<kb/>`, `<web/>` citation tags and `<image>` XML, and rewrites `provider://` storage URLs into accessible links (`cleanIMContent` / `rewriteStorageURLs`).
+- **Stream finalization**: in Agent mode, either receiving `EventAgentComplete` or the AgentQA call returning (whichever comes first) ends the streaming reply, so the card doesn't get stuck on "Generating"; errors produced after the completion event are still collected and attached to the final reply. The answer stream of Quick QA (KnowledgeQA) is asynchronous, and the end of the stream is what counts. Feishu streaming cards stay active during long-running QA and are not reclaimed early by expiry cleanup.
+- **Non-streaming path**: when a channel has `output_mode=full`, the adapter doesn't support `StreamSender`, or `StartStream` fails, it falls back to `runQA`, aggregating the complete answer and sending it once via `SendReply`.
+- **Quoted messages** (`Quote`, currently populated by adapters such as WeCom's long connection): a quoted text message is wrapped in `<quoted_message>` and injected into the LLM context (capped at 500 runes, distinguishing "quoting the bot's own reply"); when quoting non-text content like images/files/videos, the injected content is an instruction explicitly telling the model it cannot view that content, preventing the model from guessing at content it can't read.
+
+### Architecture Overview
+
+#### Adapter Interface (internal/im/adapter.go)
+
+Each platform adapter implements a unified `Adapter` interface, condensing platform differences into four methods:
+
+```go
+type Adapter interface {
+    Platform() Platform
+    // VerifyCallback validates the callback request's signature/token
+    VerifyCallback(c *gin.Context) error
+    // ParseCallback parses the platform's raw callback into a unified IncomingMessage (returns nil for non-message events)
+    ParseCallback(c *gin.Context) (*IncomingMessage, error)
+    // SendReply sends the reply back to the IM platform
+    SendReply(ctx context.Context, incoming *IncomingMessage, reply *ReplyMessage) error
+    // HandleURLVerification handles the platform's URL verification challenge
+    HandleURLVerification(c *gin.Context) bool
+}
+```
+
+Two **optional** extension interfaces determine platform capability differences:
+
+- `StreamSender` — streaming replies (`StartStream` → `UpdateStreamContent` (whole-block replacement semantics) → `FinalizeStream` (keeps only the final answer, stripping thinking/tool process) → `EndStream`). Implemented by: Feishu/Lark (streaming cards), DingTalk (AI cards, requires `card_template_id`), Slack, Telegram (message editing), Mattermost, WeCom WebSocket mode.
+- `FileDownloader` — downloads files/images sent by users from the platform (`DownloadFile`). Implemented by: all platforms except the QQ bot (both WeCom modes support it).
+
+The unified message model `IncomingMessage` carries fields such as `Platform`, `MessageType` (`text`/`file`/`image`), `UserID`, `ChatID`, `ChatType` (`direct`/`group`), `Content`, `MessageID` (for deduplication), `FileKey`/`FileName`/`FileSize`, `ThreadID` (topic/thread ID), `Quote` (quoted message), and more.
+
+#### Service Orchestration (internal/im/service.go)
+
+`im.Service` is the message-processing hub, responsible for (as noted in the source comments):
+
+1. Receiving the unified `IncomingMessage` from the Adapter;
+2. Resolving or creating a WeKnora Session for that IM channel;
+3. Dispatching slash commands first (these don't enter the QA pipeline);
+4. Calling the WeKnora QA pipeline (`KnowledgeQA` / `AgentQA`) for normal messages;
+5. Collecting the streamed answer and sending it back via the Adapter.
+
+Platform adapters are registered through `AdapterFactory` (see `registerIMAdapterFactories` in `internal/container/container.go`):
+
+```go
+imService.RegisterAdapterFactory("wecom", wecom.NewFactory())
+imService.RegisterAdapterFactory("feishu", feishu.NewFactory(feishu.RegionFeishu))
+imService.RegisterAdapterFactory("lark", feishu.NewFactory(feishu.RegionLark)) // Lark shares the same adapter as Feishu, only the API domain differs
+imService.RegisterAdapterFactory("slack", slack.NewFactory())
+imService.RegisterAdapterFactory("telegram", telegram.NewFactory())
+imService.RegisterAdapterFactory("dingtalk", dingtalk.NewFactory())
+imService.RegisterAdapterFactory("mattermost", mattermost.NewFactory())
+imService.RegisterAdapterFactory("wechat", wechat.NewFactory())
+imService.RegisterAdapterFactory("qqbot", qqbot.NewFactory())
+imService.RegisterAdapterFactory("yunzhijia", yunzhijia.NewFactory())
+```
+
+## Implementation Reference
+
+- Core framework and orchestration: `internal/im/` (`adapter.go`, `service.go`, `supervisor.go`, `command*.go`, `qaqueue.go`, `session/stream/think/tool_display`, etc.)
+- Per-platform adapters: `internal/im/{wecom,feishu,dingtalk,slack,telegram,mattermost,wechat,qqbot,yunzhijia}/`
+- HTTP interface layer: `internal/handler/im.go`
+- Routes: `RegisterIMRoutes` / `RegisterIMChannelRoutes` in `internal/router/routes_agent.go`

@@ -51,7 +51,7 @@ var (
 	PlaceholderCurrentTime = PromptPlaceholder{
 		Name:        "current_time",
 		Label:       "Current Time",
-		Description: "Current system time (format: 2006-01-02 15:04:05)",
+		Description: "Current date (ISO format: 2006-01-02). Uses only the date, not the clock, so per-second changes do not break provider prefix caching.",
 	}
 
 	PlaceholderCurrentWeek = PromptPlaceholder{
@@ -194,7 +194,8 @@ type PlaceholderValues map[string]string
 // the corresponding values from vals. Unknown placeholders are left untouched.
 //
 // Built-in auto-values (filled when not supplied explicitly):
-//   - {{current_time}} -> time.Now().Format("2006-01-02 15:04:05")
+//   - {{current_time}} -> time.Now().Format("2006-01-02") (date only; clock
+//     precision would bust provider prefix caches on every request)
 //   - {{current_week}} -> current weekday name
 //   - {{yesterday}}    -> yesterday's date (2006-01-02)
 func RenderPromptPlaceholders(template string, vals PlaceholderValues) string {
@@ -212,7 +213,7 @@ func RenderPromptPlaceholders(template string, vals PlaceholderValues) string {
 	}
 
 	now := time.Now()
-	autoFill("current_time", now.Format("2006-01-02 15:04:05"))
+	autoFill("current_time", now.Format("2006-01-02"))
 	autoFill("current_week", now.Weekday().String())
 	autoFill("yesterday", now.AddDate(0, 0, -1).Format("2006-01-02"))
 

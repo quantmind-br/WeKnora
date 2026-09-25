@@ -1,138 +1,100 @@
 # Evaluation
 
-Switch out the embedding model, toggle reranking on or off, bump up the chunk size — did any of these changes actually make things better? That's exactly what the evaluation capability answers: prepare a QA dataset with ground-truth answers, and WeKnora will automatically build a temporary knowledge base, ingest the corpus, run the full retrieval + generation pipeline question by question, and finally produce a set of comparable scores (Precision / Recall / NDCG / MRR / MAP on the retrieval side, BLEU / ROUGE on the generation side).
+Evaluation uses a QA dataset with ground-truth answers to compare the effect of chunking, model, and retrieval configurations. The system creates an evaluation knowledge base and ingests the corpus, runs retrieval and generation question by question, and outputs metrics such as Precision, Recall, NDCG, MRR, MAP, BLEU, and ROUGE.
 
-::: tip API only for now
-Evaluation doesn't yet have a dedicated UI entry point. It's triggered via `POST /api/v1/evaluation` and polled via `GET /api/v1/evaluation?task_id=...`, both requiring Admin permission. The dataset is in Parquet format — see the format requirements below.
+::: tip Using it via the API
+Evaluation doesn't yet have a dedicated UI entry point. It's triggered via `POST /api/v1/evaluation` and polled via `GET /api/v1/evaluation?task_id=...`; creating a task requires Admin and querying requires Viewer permission. The dataset is in Parquet format — see the format requirements below.
 :::
 
-Usage tip: keep the dataset fixed and change only one variable at a time (e.g., only swap the embedding model), then compare the same set of metrics — otherwise it's hard to attribute score changes to a specific cause.
+When comparing configurations, keep the dataset fixed, adjust one variable at a time, and analyze the results against the same set of metrics.
 
-## API
+## 运行一次评估
 
-`internal/router/router.go`:
+1. Use the built-in sample dataset, or prepare Parquet files in the format below and replace the files with the same names in `dataset/samples/` under the service working directory (`/app/dataset/samples/` inside the container).
+2. Choose a reference knowledge base, chat model, and rerank model, and create a task via `POST /api/v1/evaluation`. The reference knowledge base is used to copy configuration; the evaluation uses a separate knowledge base.
+3. Note the returned task ID and query the status and progress via `GET /api/v1/evaluation?task_id=...`.
+4. Once the task succeeds, compare the retrieval and generation metrics; if it fails, check the task error first, then adjust the configuration and run it again.
 
-```go
-evaluationRoutes := g.apiKeyGroup(r.Group("/evaluation"), apiKeyRunEvaluations(apiKeyFullAccess()))
-{
-    evaluationRoutes.POST("", g.Admin(), handler.Evaluation)
-    evaluationRoutes.GET("", g.Viewer(), handler.GetEvaluationResult)
-}
-```
+创建任务需要 Admin 权限，查询结果需要 Viewer 权限；API Key 还需 `run_evaluations` 能力或 full-access。
 
-| Method | Path | Permission | Description |
-| --- | --- | --- | --- |
-| POST | `/api/v1/evaluation` | Admin (API Key needs the `RunEvaluations` capability) | Creates an evaluation task and immediately returns the task info |
-| GET | `/api/v1/evaluation?task_id=...` | Viewer | Queries task status, progress, and metric results |
+## Dataset format
 
-### Creating an evaluation task
+The dataset service (`internal/application/service/dataset.go`) loads 5 **Parquet** files from `./dataset/samples/`:
 
-Request parameters (`internal/handler/evaluation.go`):
-
-```go
-type EvaluationRequest struct {
-    DatasetID       string `json:"dataset_id"`        // Dataset ID, defaults to "default"
-    KnowledgeBaseID string `json:"knowledge_base_id"` // Reference knowledge base (reuses its configuration)
-    ChatModelID     string `json:"chat_id"`           // Chat model
-    RerankModelID   string `json:"rerank_id"`         // Rerank model
-}
-```
-
-| Parameter | Required | Default behavior |
+| File | Schema | Meaning |
 | --- | --- | --- |
-| `dataset_id` | No | Uses the built-in `default` dataset (`dataset/samples/`) if omitted |
-| `knowledge_base_id` | No | If not provided, creates a new evaluation-dedicated knowledge base; if provided, copies its configuration to create the evaluation KB |
-| `chat_id` | No | Automatically selects the default Chat model if omitted |
-| `rerank_id` | No | Automatically selects the default Rerank model if omitted |
+| `queries.parquet` | `id: int64, text: string` | Question set |
+| `corpus.parquet` | `id: int64, text: string` | Corpus passages (ingested into the knowledge base during evaluation) |
+| `answers.parquet` | `id: int64, text: string` | Reference answers |
+| `qrels.parquet` | `qid: int64, pid: int64` | Ground-truth question → relevant passage associations (used by retrieval metrics) |
+| `qas.parquet` | `qid: int64, aid: int64` | Question → answer mapping (used by generation metrics) |
 
-The task ID format is `evaluation-{tenantID}-{datasetID}`. Task object (`internal/types/evaluation.go`):
+The corresponding Go structs:
 
 ```go
-type EvaluationTask struct {
-    ID        string           `json:"id"`
-    TenantID  uint64           `json:"tenant_id"`
-    DatasetID string           `json:"dataset_id"`
-    StartTime time.Time        `json:"start_time"`
-    Status    EvaluationStatue `json:"status"`
-    ErrMsg    string           `json:"err_msg,omitempty"`
-    Total     int              `json:"total,omitempty"`    // Total number of samples
-    Finished  int              `json:"finished,omitempty"` // Number of completed samples
+type TextInfo struct {
+    ID   int64  `parquet:"id"`
+    Text string `parquet:"text"`
+}
+type RelsInfo struct {
+    QID int64 `parquet:"qid"`
+    PID int64 `parquet:"pid"`
+}
+type QaInfo struct {
+    QID int64 `parquet:"qid"`
+    AID int64 `parquet:"aid"`
 }
 ```
 
-Task status enum (note: spelled `EvaluationStatue` in the source code):
+After loading, these are assembled into per-sample `QAPair` records (`internal/types/dataset.go`):
 
 ```go
-const (
-    EvaluationStatuePending EvaluationStatue = iota // 0 pending
-    EvaluationStatueRunning                          // 1 running
-    EvaluationStatueSuccess                          // 2 success
-    EvaluationStatueFailed                           // 3 failed
-)
-```
-
-## Evaluation flow
-
-In `internal/application/service/evaluation.go`, the POST endpoint **synchronously handles preparation, then runs the evaluation asynchronously**:
-
-1. **Knowledge base preparation**: creates a new evaluation-dedicated knowledge base (or clones one from a reference KB's configuration), taking the default Embedding and LLM models;
-2. **Parameter assembly**: assembles the `ChatManage` evaluation parameters from the system configuration — `VectorThreshold`, `KeywordThreshold`, `EmbeddingTopK`, `RerankTopK`, `RerankThreshold`, `MaxRounds`, `SummaryConfig` (MaxTokens / TopK / TopP / RepeatPenalty / Prompt / ContextTemplate, etc.), `FallbackResponse`, the query rewrite prompt, and so on;
-3. **Task registration**: registers the task in in-memory storage under its task ID with status `Pending`, then returns the response immediately;
-4. **Background execution** (goroutine): ingests the dataset corpus into the evaluation KB → evaluates each QA pair in parallel → aggregates the metrics → cleans up resources.
-
-Concurrency is set to `max(GOMAXPROCS - 1, 1)` (rate-limited via errgroup):
-
-```go
-var g errgroup.Group
-metricHook := NewHookMetric(len(dataset))
-g.SetLimit(max(runtime.GOMAXPROCS(0)-1, 1))
-for i, qaPair := range dataset {
-    g.Go(func() error {
-        // 1. Clone the ChatManage configuration
-        // 2. Run the full KnowledgeQAByEvent pipeline (retrieval + reranking + generation)
-        // 3. Record the MetricInput (retrieved passage IDs, generated text, ground truth)
-        // 4. Lock and update the finished progress counter
-    })
-}
-g.Wait()
-```
-
-Each sample produces one `MetricInput` (`internal/types/evaluation.go`):
-
-```go
-type MetricInput struct {
-    RetrievalGT    [][]int // Retrieval ground truth (list of relevant passage IDs)
-    RetrievalIDs   []int   // Passage IDs actually returned by retrieval
-    GeneratedTexts string  // Model-generated text
-    GeneratedGT    string  // Reference answer
+type QAPair struct {
+    QID      int      // Question ID
+    Question string   // Question text
+    PIDs     []int    // IDs of relevant passages (ground truth)
+    Passages []string // Passage text
+    AID      int      // Answer ID
+    Answer   string   // Reference answer text
 }
 ```
 
-`metric_hook.go` iterates over all registered metric calculators for each sample to compute the scores; finally, `Avg()` averages every metric across all samples and writes the result into `MetricResult`.
+The service always reads these 5 files from `./dataset/samples/`; `dataset_id` is currently only used to compose the task ID and does not switch to a different directory. To use a custom dataset, generate Parquet files with the same names following the schema above and replace the contents of that directory (Docker deployments can mount it at `/app/dataset/samples/`). During loading, the service prints summary statistics (number of questions, number of corpus entries, average number of relevant passages, answer coverage, etc.).
 
-::: warning The meaning of RetrievalIDs
-`RetrievalIDs` must be the **passage IDs from the dataset** — they cannot be the retrieval result's raw `ChunkIndex`, since that's merely the chunk's sequence number within the knowledge base and has no correspondence to the passage ID. Using it directly would make every retrieval metric come out as 0. That's why `recordFinish` performs a bidirectional containment match between each retrieved passage's text and the ground-truth passages for that sample, reverse-looks-up the corresponding pid, and deduplicates. When the rerank result is empty, it falls back to the raw retrieval result, so the whole sample doesn't get recorded as "nothing retrieved."
+## Querying results
 
-Ingesting the corpus must also **synchronously wait for indexing to complete** (`CreateKnowledgeFromPassageSync`): if ingestion is asynchronous, the evaluation queries would run before indexing finishes, which likewise shows up as metrics stuck at 0. Also note that the passage list length is allocated as `maxPID + 1`, since pids are 0-based and inclusive of the last index.
+`GET /api/v1/evaluation?task_id=<task ID returned at creation>` returns an `EvaluationDetail`:
 
-### Evaluation flow diagram
-
-```mermaid
-flowchart TD
-    A["POST /api/v1/evaluation<br/>(dataset_id, knowledge_base_id, chat_id, rerank_id)"] --> B["Create evaluation-dedicated knowledge base<br/>(new, or cloned from reference KB config)"]
-    B --> C["Assemble ChatManage evaluation parameters<br/>(thresholds / TopK / Summary config)"]
-    C --> D["Register task in in-memory storage<br/>ID = evaluation-{tenant}-{dataset}, status Pending"]
-    D --> E["Return task info immediately"]
-    D --> F["Background execution via goroutine, status Running"]
-    F --> G["Load Parquet dataset<br/>queries / corpus / qrels / answers / qas"]
-    G --> H["Ingest corpus into evaluation knowledge base"]
-    H --> I["errgroup processes QA pairs in parallel<br/>concurrency = max(CPU-1, 1)"]
-    I --> J["Run KnowledgeQAByEvent for each question<br/>retrieval + reranking + generation"]
-    J --> K["Record MetricInput<br/>(RetrievalIDs vs GT, generated text vs reference answer)"]
-    K --> L["MetricList.Avg aggregates averages across 12 metrics"]
-    L --> M["Write back to EvaluationDetail, status Success / Failed<br/>clean up evaluation knowledge base"]
-    M --> N["GET /api/v1/evaluation?task_id=...<br/>poll progress and metrics"]
+```json
+{
+  "success": true,
+  "data": {
+    "task": {
+      "id": "evaluation_1_1758600000000_1a2b3c4d_default",
+      "dataset_id": "default",
+      "status": 2,
+      "total": 100,
+      "finished": 100
+    },
+    "params": { "...": "snapshot of the ChatManage evaluation parameters" },
+    "metric": {
+      "retrieval_metrics": {
+        "precision": 0.85, "recall": 0.92,
+        "ndcg3": 0.88, "ndcg10": 0.86,
+        "mrr": 0.95, "map": 0.87
+      },
+      "generation_metrics": {
+        "bleu1": 0.72, "bleu2": 0.65, "bleu4": 0.58,
+        "rouge1": 0.78, "rouge2": 0.71, "rougel": 0.75
+      }
+    }
+  }
+}
 ```
+
+While the task is running, you can poll this endpoint to get `finished / total` progress; when `status = 3`, `err_msg` carries the failure reason.
+
+> **Note**: Evaluation results are stored **in memory** (`evaluationMemoryStorage`: `map[string]*EvaluationDetail` + `sync.RWMutex`, see `internal/application/service/evaluation.go`). Tasks and results are lost on service restart, and the evaluation must be re-run.
 
 ## Metrics list
 
@@ -181,88 +143,138 @@ for i, predID := range ids {
 
 BLEU core (`metric/bleu.go`): the weighted geometric mean of the modified n-gram precisions, multiplied by the brevity penalty `bp * exp(sum(w_i * log(p_i)))`. ROUGE uses F1: `F1 = 2PR / (P + R + 1e-8)` (`metric/rouge_score.go`).
 
-## Dataset format
+## API and execution reference
 
-The dataset service (`internal/application/service/dataset.go`) loads 5 **Parquet** files from `./dataset/samples/`:
+### API
 
-| File | Schema | Meaning |
-| --- | --- | --- |
-| `queries.parquet` | `id: int64, text: string` | Question set |
-| `corpus.parquet` | `id: int64, text: string` | Corpus passages (ingested into the knowledge base during evaluation) |
-| `answers.parquet` | `id: int64, text: string` | Reference answers |
-| `qrels.parquet` | `qid: int64, pid: int64` | Ground-truth question → relevant passage associations (used by retrieval metrics) |
-| `qas.parquet` | `qid: int64, aid: int64` | Question → answer mapping (used by generation metrics) |
-
-The corresponding Go structs:
+`internal/router/routes_infra.go`:
 
 ```go
-type TextInfo struct {
-    ID   int64  `parquet:"id"`
-    Text string `parquet:"text"`
-}
-type RelsInfo struct {
-    QID int64 `parquet:"qid"`
-    PID int64 `parquet:"pid"`
-}
-type QaInfo struct {
-    QID int64 `parquet:"qid"`
-    AID int64 `parquet:"aid"`
-}
-```
-
-After loading, these are assembled into per-sample `QAPair` records (`internal/types/dataset.go`):
-
-```go
-type QAPair struct {
-    QID      int      // Question ID
-    Question string   // Question text
-    PIDs     []int    // IDs of relevant passages (ground truth)
-    Passages []string // Passage text
-    AID      int      // Answer ID
-    Answer   string   // Reference answer text
-}
-```
-
-To use a custom dataset, simply generate Parquet files with the same names following the schema above. During loading, the service prints summary statistics (number of questions, number of corpus entries, average number of relevant passages, answer coverage, etc.).
-
-## Querying results
-
-`GET /api/v1/evaluation?task_id=evaluation-{tenant}-{dataset}` returns an `EvaluationDetail`:
-
-```json
+evaluationRoutes := g.apiKeyGroup(r.Group("/evaluation"), apiKeyRunEvaluations(apiKeyFullAccess()))
 {
-  "success": true,
-  "data": {
-    "task": {
-      "id": "evaluation-1-default",
-      "dataset_id": "default",
-      "status": 2,
-      "total": 100,
-      "finished": 100
-    },
-    "params": { "...": "snapshot of the ChatManage evaluation parameters" },
-    "metric": {
-      "retrieval_metrics": {
-        "precision": 0.85, "recall": 0.92,
-        "ndcg3": 0.88, "ndcg10": 0.86,
-        "mrr": 0.95, "map": 0.87
-      },
-      "generation_metrics": {
-        "bleu1": 0.72, "bleu2": 0.65, "bleu4": 0.58,
-        "rouge1": 0.78, "rouge2": 0.71, "rougel": 0.75
-      }
-    }
-  }
+    evaluationRoutes.POST("", g.Admin(), handler.Evaluation)
+    evaluationRoutes.GET("", g.Viewer(), handler.GetEvaluationResult)
 }
 ```
 
-While the task is running, you can poll this endpoint to get `finished / total` progress; when `status = 3`, `err_msg` carries the failure reason.
+| Method | Path | Permission | Description |
+| --- | --- | --- | --- |
+| POST | `/api/v1/evaluation` | Admin (API Key needs the `run_evaluations` capability or full access) | Creates an evaluation task and immediately returns the task info |
+| GET | `/api/v1/evaluation?task_id=...` | Viewer | Queries task status, progress, and metric results |
 
-> **Note**: Evaluation results are stored **in memory** (`evaluationMemoryStorage`: `map[string]*EvaluationDetail` + `sync.RWMutex`, see `internal/application/service/evaluation.go`). Tasks and results are lost on service restart, and the evaluation must be re-run.
+#### Creating an evaluation task
+
+Request parameters (`internal/handler/evaluation.go`):
+
+```go
+type EvaluationRequest struct {
+    DatasetID       string `json:"dataset_id"`        // Dataset ID, defaults to "default"
+    KnowledgeBaseID string `json:"knowledge_base_id"` // Reference knowledge base (reuses its configuration)
+    ChatModelID     string `json:"chat_id"`           // Chat model
+    RerankModelID   string `json:"rerank_id"`         // Rerank model
+}
+```
+
+| Parameter | Required | Default behavior |
+| --- | --- | --- |
+| `dataset_id` | No | Defaults to `default` if omitted; only used for the task ID, data is always read from `dataset/samples/` |
+| `knowledge_base_id` | No | If not provided, creates a new evaluation-dedicated knowledge base; if provided, copies its configuration to create the evaluation KB |
+| `chat_id` | No | Automatically selects the default Chat model if omitted |
+| `rerank_id` | No | Automatically selects the default Rerank model if omitted |
+
+The task ID is generated by `utils.GenerateTaskID` in the format `evaluation_{tenantID}_{millisecond timestamp}_{8-character random string}_{datasetID}`. It differs on every creation, so query with the ID from the creation response. Task object (`internal/types/evaluation.go`):
+
+```go
+type EvaluationTask struct {
+    ID        string           `json:"id"`
+    TenantID  uint64           `json:"tenant_id"`
+    DatasetID string           `json:"dataset_id"`
+    StartTime time.Time        `json:"start_time"`
+    Status    EvaluationStatue `json:"status"`
+    ErrMsg    string           `json:"err_msg,omitempty"`
+    Total     int              `json:"total,omitempty"`    // Total number of samples
+    Finished  int              `json:"finished,omitempty"` // Number of completed samples
+}
+```
+
+Task status enum (note: spelled `EvaluationStatue` in the source code):
+
+```go
+const (
+    EvaluationStatuePending EvaluationStatue = iota // 0 pending
+    EvaluationStatueRunning                          // 1 running
+    EvaluationStatueSuccess                          // 2 success
+    EvaluationStatueFailed                           // 3 failed
+)
+```
+
+### Evaluation flow
+
+In `internal/application/service/evaluation.go`, the POST endpoint **synchronously handles preparation, then runs the evaluation asynchronously**:
+
+1. **Knowledge base preparation**: creates a new evaluation-dedicated knowledge base (or clones one from a reference KB's configuration), taking the default Embedding and LLM models;
+2. **Parameter assembly**: assembles the `ChatManage` evaluation parameters from the system configuration — `VectorThreshold`, `KeywordThreshold`, `EmbeddingTopK`, `RerankTopK`, `RerankThreshold`, `MaxRounds`, `SummaryConfig` (MaxTokens / TopK / TopP / RepeatPenalty / Prompt / ContextTemplate, etc.), `FallbackResponse`, the query rewrite prompt, and so on;
+3. **Task registration**: registers the task in in-memory storage under its task ID with status `Pending`, then returns the response immediately;
+4. **Background execution** (goroutine): ingests the dataset corpus into the evaluation KB → evaluates each QA pair in parallel → aggregates the metrics → cleans up resources.
+
+Concurrency is set to `max(GOMAXPROCS - 1, 1)` (rate-limited via errgroup):
+
+```go
+var g errgroup.Group
+metricHook := NewHookMetric(len(dataset))
+g.SetLimit(max(runtime.GOMAXPROCS(0)-1, 1))
+for i, qaPair := range dataset {
+    g.Go(func() error {
+        // 1. Clone the ChatManage configuration
+        // 2. Run the full KnowledgeQAByEvent pipeline (retrieval + reranking + generation)
+        // 3. Record the MetricInput (retrieved passage IDs, generated text, ground truth)
+        // 4. Lock and update the finished progress counter
+    })
+}
+g.Wait()
+```
+
+Each sample produces one `MetricInput` (`internal/types/evaluation.go`):
+
+```go
+type MetricInput struct {
+    RetrievalGT    [][]int // Retrieval ground truth (list of relevant passage IDs)
+    RetrievalIDs   []int   // Passage IDs actually returned by retrieval
+    GeneratedTexts string  // Model-generated text
+    GeneratedGT    string  // Reference answer
+}
+```
+
+`metric_hook.go` iterates over all registered metric calculators for each sample to compute the scores; finally, `Avg()` averages every metric across all samples and writes the result into `MetricResult`.
+
+::: warning The meaning of RetrievalIDs
+`RetrievalIDs` must be the **passage IDs from the dataset** — they cannot be the retrieval result's raw `ChunkIndex`, since that's merely the chunk's sequence number within the knowledge base and has no correspondence to the passage ID. Using it directly would make every retrieval metric come out as 0. That's why `recordFinish` performs a bidirectional containment match between each retrieved passage's text and the ground-truth passages for that sample, reverse-looks-up the corresponding pid, and deduplicates. When the rerank result is empty, it falls back to the raw retrieval result, so the whole sample doesn't get recorded as "nothing retrieved."
+
+Ingesting the corpus must also **synchronously wait for indexing to complete** (`CreateKnowledgeFromPassageSync`): if ingestion is asynchronous, the evaluation queries would run before indexing finishes, which likewise shows up as metrics stuck at 0. Also note that the passage list length is allocated as `maxPID + 1`, since pids are 0-based and inclusive of the last index.
+:::
+
+#### Evaluation flow diagram
+
+```mermaid
+flowchart TD
+    A["POST /api/v1/evaluation<br/>(dataset_id, knowledge_base_id, chat_id, rerank_id)"] --> B["Create evaluation-dedicated knowledge base<br/>(new, or cloned from reference KB config)"]
+    B --> C["Assemble ChatManage evaluation parameters<br/>(thresholds / TopK / Summary config)"]
+    C --> D["Register task in in-memory storage<br/>ID = evaluation_{tenant}_{timestamp}_{random}_{dataset}, status Pending"]
+    D --> E["Return task info immediately"]
+    D --> F["Background execution via goroutine, status Running"]
+    F --> G["Load Parquet dataset<br/>queries / corpus / qrels / answers / qas"]
+    G --> H["Ingest corpus into evaluation knowledge base"]
+    H --> I["errgroup processes QA pairs in parallel<br/>concurrency = max(CPU-1, 1)"]
+    I --> J["Run KnowledgeQAByEvent for each question<br/>retrieval + reranking + generation"]
+    J --> K["Record MetricInput<br/>(RetrievalIDs vs GT, generated text vs reference answer)"]
+    K --> L["MetricList.Avg aggregates averages across 12 metrics"]
+    L --> M["Write back to EvaluationDetail, status Success / Failed<br/>clean up evaluation knowledge base"]
+    M --> N["GET /api/v1/evaluation?task_id=...<br/>poll progress and metrics"]
+```
 
 ## Implementation reference
 
-For navigating the source code, use the table below (paths relative to the repository root):
+All paths below are relative to the repository root:
 
 | Layer | File |
 | --- | --- |
@@ -270,7 +282,7 @@ For navigating the source code, use the table below (paths relative to the repos
 | Evaluation service | `internal/application/service/evaluation.go` |
 | Metric registration and aggregation | `internal/application/service/metric_hook.go` |
 | Metric implementations | `internal/application/service/metric/` (`precision.go`, `recall.go`, `ndcg.go`, `mrr.go`, `map.go`, `bleu.go`, `rouge.go`, `rouge_score.go`, `common.go`) |
-| Dataset loading | `internal/application/service/dataset.go`, `internal/handler/dataset.go` |
+| Dataset loading | `internal/application/service/dataset.go` |
 | Type definitions | `internal/types/evaluation.go`, `internal/types/dataset.go` |
 | Built-in sample dataset | `dataset/samples/` (Parquet files) |
-| Route registration | `RegisterEvaluationRoutes` in `internal/router/router.go` |
+| Route registration | `RegisterEvaluationRoutes` in `internal/router/routes_infra.go` |

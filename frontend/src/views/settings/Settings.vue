@@ -1,210 +1,222 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="visible" class="settings-overlay">
-        <div class="settings-modal">
-          <!-- Close button -->
-          <button class="close-btn" @click="handleClose" :aria-label="$t('general.close')">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <SettingsModalShell :visible="visible" :title="$t('general.settings')" @close="modalShell.requestClose">
+    <template #nav>
+      <template v-for="group in navGroups" :key="group.key">
+        <div class="nav-group-title">{{ group.label }}</div>
+        <template v-for="item in group.items" :key="item.key">
+          <div :class="['nav-item', {
+            'active': currentSection === item.key,
+            'has-submenu': item.children && item.children.length > 0,
+            'expanded': expandedMenus.includes(item.key)
+          }]" @click="handleNavClick(item)">
+            <!-- Web search uses a custom SVG icon -->
+            <svg v-if="item.key === 'websearch'" width="17" height="17" viewBox="0 0 18 18" fill="none"
+              xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.2" fill="none" />
+              <path d="M 9 2 A 3.5 7 0 0 0 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
+              <path d="M 9 2 A 3.5 7 0 0 1 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
+              <line x1="2.94" y1="5.5" x2="15.06" y2="5.5" stroke="currentColor" stroke-width="1.2"
+                stroke-linecap="round" />
+              <line x1="2.94" y1="12.5" x2="15.06" y2="12.5" stroke="currentColor" stroke-width="1.2"
+                stroke-linecap="round" />
             </svg>
-          </button>
-
-          <div class="settings-container">
-            <!-- Left sidebar -->
-            <div class="settings-sidebar">
-              <div class="sidebar-header">
-                <h2 class="sidebar-title">{{ $t('general.settings') }}</h2>
-              </div>
-              <div class="settings-nav">
-                <template v-for="group in navGroups" :key="group.key">
-                  <div class="nav-group-title">{{ group.label }}</div>
-                  <template v-for="item in group.items" :key="item.key">
-                    <div :class="['nav-item', {
-                      'active': currentSection === item.key,
-                      'has-submenu': item.children && item.children.length > 0,
-                      'expanded': expandedMenus.includes(item.key)
-                    }]" @click="handleNavClick(item)">
-                      <!-- Web search uses a custom SVG icon -->
-                      <svg v-if="item.key === 'websearch'" width="17" height="17" viewBox="0 0 18 18" fill="none"
-                        xmlns="http://www.w3.org/2000/svg" class="nav-icon">
-                        <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.2" fill="none" />
-                        <path d="M 9 2 A 3.5 7 0 0 0 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
-                        <path d="M 9 2 A 3.5 7 0 0 1 9 16" stroke="currentColor" stroke-width="1.2" fill="none" />
-                        <line x1="2.94" y1="5.5" x2="15.06" y2="5.5" stroke="currentColor" stroke-width="1.2"
-                          stroke-linecap="round" />
-                        <line x1="2.94" y1="12.5" x2="15.06" y2="12.5" stroke="currentColor" stroke-width="1.2"
-                          stroke-linecap="round" />
-                      </svg>
-                      <!-- WeKnora Cloud uses a custom W icon -->
-                      <svg v-else-if="item.key === 'weknoracloud'" width="17" height="17" viewBox="0 0 18 18"
-                        fill="none" xmlns="http://www.w3.org/2000/svg" class="nav-icon">
-                        <rect x="1.5" y="1.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.2"
-                          fill="none" />
-                        <path d="M4.5 5.5L6.5 12.5L9 7.5L11.5 12.5L13.5 5.5" stroke="currentColor" stroke-width="1.3"
-                          stroke-linecap="round" stroke-linejoin="round" fill="none" />
-                      </svg>
-                      <span v-else-if="item.emoji" class="nav-icon nav-icon-emoji">{{ item.emoji }}</span>
-                      <t-icon v-else :name="item.icon" class="nav-icon" />
-                      <span class="nav-label">{{ item.label }}</span>
-                      <t-icon v-if="item.children && item.children.length > 0"
-                        :name="expandedMenus.includes(item.key) ? 'chevron-down' : 'chevron-right'"
-                        class="expand-icon" />
-                    </div>
-
-                    <!-- Submenu -->
-                    <Transition name="submenu">
-                      <div v-if="item.children && expandedMenus.includes(item.key)" class="submenu">
-                        <div v-for="(child, childIndex) in item.children" :key="childIndex"
-                          :class="['submenu-item', { 'active': currentSubSection === child.key }]"
-                          @click.stop="handleSubMenuClick(item.key, child.key)">
-                          <span class="submenu-label">{{ child.label }}</span>
-                        </div>
-                      </div>
-                    </Transition>
-                  </template>
-                </template>
-              </div>
-            </div>
-
-            <!-- Right content area -->
-            <div class="settings-content">
-              <div class="content-wrapper" :class="{
-                'content-wrapper--wide': currentSection === 'members',
-                'content-wrapper--full': SYSTEM_ADMIN_SECTIONS.has(currentSection) || isIntegrationSection(currentSection),
-              }">
-                <!-- Role not allowed to access the current section (deep-linked in / role downgraded after switching spaces) — takes precedence over rendering the specific section.
-                     Normal navigation goes through the navItems filter and never reaches here, but the watch(navItems) fallback fires
-                     the moment the role is downgraded; this block is a fallback for compatibility with old URLs. -->
-                <div v-if="!canSeeSection(currentSection)" class="section role-denied">
-                  <div class="role-denied-icon">
-                    <t-icon name="lock-on" size="48px" />
-                  </div>
-                  <div class="role-denied-title">{{ $t('settings.roleDenied.title') }}</div>
-                  <div class="role-denied-desc">{{ $t('settings.roleDenied.desc') }}</div>
-                </div>
-                <template v-else>
-                  <!-- General settings -->
-                  <div v-if="currentSection === 'general'" class="section">
-                    <GeneralSettings />
-                  </div>
-
-                  <!-- Ollama settings -->
-                  <div v-if="currentSection === 'ollama'" class="section">
-                    <OllamaSettings />
-                  </div>
-
-                  <!-- WeKnora Cloud -->
-                  <div v-if="currentSection === 'weknoracloud'" class="section">
-                    <WeKnoraCloudSettings />
-                  </div>
-
-                  <!-- Model configuration -->
-                  <div v-if="currentSection === 'models'" class="section">
-                    <ModelSettings />
-                  </div>
-
-                  <!-- Web search configuration -->
-                  <div v-if="currentSection === 'websearch'" class="section">
-                    <WebSearchSettings />
-                  </div>
-
-                  <!-- Message management -->
-                  <div v-if="currentSection === 'chathistory'" class="section">
-                    <ChatHistorySettings />
-                  </div>
-
-                  <!-- Vector database engine -->
-                  <div v-if="currentSection === 'vectorstore'" class="section">
-                    <VectorStoreSettings />
-                  </div>
-
-                  <!-- Parsing engine -->
-                  <div v-if="currentSection === 'parser'" class="section">
-                    <ParserEngineSettings />
-                  </div>
-
-                  <!-- Storage engine -->
-                  <div v-if="currentSection === 'storage'" class="section">
-                    <StorageEngineSettings />
-                  </div>
-
-                  <!-- System information -->
-                  <div v-if="currentSection === 'system'" class="section">
-                    <SystemInfo />
-                  </div>
-
-                  <!-- Global runtime settings visible to system admins -->
-                  <div v-if="currentSection === 'system-global'" class="section">
-                    <SystemSettings />
-                  </div>
-
-                  <!-- Task queue runtime status visible to system admins -->
-                  <div v-if="currentSection === 'runtime-queues'" class="section">
-                    <RuntimeQueues />
-                  </div>
-
-                  <div v-if="currentSection === 'platform-api-keys'" class="section">
-                    <PlatformAPIKeys />
-                  </div>
-
-                  <div v-if="currentSection === 'system-audit-log'" class="section">
-                    <SystemAuditLog />
-                  </div>
-
-                  <!-- User info (basic account info: ID / username / email / registration time).
-                     A user's basic info shouldn't be tied to owner permissions. -->
-                  <div v-if="currentSection === 'userprofile'" class="section">
-                    <UserProfile />
-                  </div>
-
-                  <!-- Space info -->
-                  <div v-if="currentSection === 'tenant'" class="section">
-                    <TenantInfo />
-                  </div>
-
-                  <!-- Member management (#1303 PR 3) -->
-                  <div v-if="currentSection === 'members'" class="section">
-                    <TenantMembers />
-                  </div>
-
-                  <!-- Publish integration -->
-                  <div v-if="isIntegrationSection(currentSection)" class="section">
-                    <IntegrationSettingsSection :tab="integrationTabFromSection(currentSection)" />
-                  </div>
-
-                  <!-- MCP service -->
-                  <div v-if="currentSection === 'mcp'" class="section">
-                    <McpSettings />
-                  </div>
-                </template>
-              </div>
-            </div>
+            <!-- WeKnora Cloud uses a custom W icon -->
+            <svg v-else-if="item.key === 'weknoracloud'" width="17" height="17" viewBox="0 0 18 18"
+              fill="none" xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              <rect x="1.5" y="1.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.2"
+                fill="none" />
+              <path d="M4.5 5.5L6.5 12.5L9 7.5L11.5 12.5L13.5 5.5" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <!-- Sandbox: isolated execution window, avoids sharing the server with Ollama / system settings -->
+            <svg v-else-if="item.key === 'sandbox'" width="17" height="17" viewBox="0 0 18 18" fill="none"
+              xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              <rect x="2.5" y="3" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.2"
+                fill="none" />
+              <path d="M2.5 6.5h13" stroke="currentColor" stroke-width="1.2" />
+              <path d="M5.5 10h4M5.5 12.5h2.5" stroke="currentColor" stroke-width="1.2"
+                stroke-linecap="round" />
+            </svg>
+            <span v-else-if="item.emoji" class="nav-icon nav-icon-emoji">{{ item.emoji }}</span>
+            <t-icon v-else :name="item.icon" class="nav-icon" />
+            <span class="nav-label">{{ item.label }}</span>
+            <t-icon v-if="item.children && item.children.length > 0"
+              :name="expandedMenus.includes(item.key) ? 'chevron-down' : 'chevron-right'"
+              class="expand-icon" />
           </div>
+
+          <!-- 子菜单 -->
+          <Transition name="submenu">
+            <div v-if="item.children && expandedMenus.includes(item.key)" class="submenu">
+              <div v-for="(child, childIndex) in item.children" :key="childIndex"
+                :class="['submenu-item', { 'active': currentSubSection === child.key }]"
+                @click.stop="handleSubMenuClick(item.key, child.key)">
+                <span class="submenu-label">{{ child.label }}</span>
+              </div>
+            </div>
+          </Transition>
+        </template>
+      </template>
+    </template>
+    <div class="content-wrapper" :class="{
+      'content-wrapper--wide': currentSection === 'members',
+      'content-wrapper--full': SYSTEM_ADMIN_SECTIONS.has(currentSection) || isIntegrationSection(currentSection),
+    }">
+      <!-- 角色不允许访问当前 section（deep-link 进来 / 跨空间切换后角色降级）—— 优先于具体 section 渲染。
+           正常导航走 navItems filter 不会到这里，但 watch(navItems) 的 fallback 会在角色降级
+           的瞬间触发；这一段做兜底兼容旧 URL。 -->
+      <div v-if="!canSeeSection(currentSection)" class="section role-denied">
+        <div class="role-denied-icon">
+          <t-icon name="lock-on" size="48px" />
         </div>
+        <div class="role-denied-title">{{ $t('settings.roleDenied.title') }}</div>
+        <div class="role-denied-desc">{{ $t('settings.roleDenied.desc') }}</div>
       </div>
-    </Transition>
-  </Teleport>
+      <template v-else>
+        <!-- 常规设置 -->
+        <div v-if="currentSection === 'general'" class="section">
+          <GeneralSettings />
+        </div>
+
+        <!-- Ollama 设置 -->
+        <div v-if="currentSection === 'ollama'" class="section">
+          <OllamaSettings />
+        </div>
+
+        <!-- WeKnora Cloud -->
+        <div v-if="currentSection === 'weknoracloud'" class="section">
+          <WeKnoraCloudSettings />
+        </div>
+
+        <!-- 模型配置 -->
+        <div v-if="currentSection === 'models'" class="section">
+          <ModelSettings />
+        </div>
+
+        <!-- 网络搜索配置 -->
+        <div v-if="currentSection === 'websearch'" class="section">
+          <WebSearchSettings />
+        </div>
+
+        <!-- 消息管理 -->
+        <div v-if="currentSection === 'chathistory'" class="section">
+          <ChatHistorySettings />
+        </div>
+
+        <!-- 长期记忆（空间级开关） -->
+        <div v-if="currentSection === 'memory'" class="section">
+          <MemoryWorkspaceSettings />
+        </div>
+
+        <!-- 我的记忆（个人记忆管理） -->
+        <div v-if="currentSection === 'mymemory'" class="section">
+          <MemorySettings />
+        </div>
+
+        <!-- 沙箱密钥（成员自己的技能 / 沙箱密钥） -->
+        <div v-if="currentSection === 'envvars'" class="section">
+          <EnvVarSettings />
+        </div>
+
+        <!-- 向量数据库引擎 -->
+        <div v-if="currentSection === 'vectorstore'" class="section">
+          <VectorStoreSettings />
+        </div>
+
+        <!-- 解析引擎 -->
+        <div v-if="currentSection === 'parser'" class="section">
+          <ParserEngineSettings />
+        </div>
+
+        <!-- 存储引擎 -->
+        <div v-if="currentSection === 'storage'" class="section">
+          <StorageBackendSettings />
+        </div>
+
+        <!-- 沙箱 -->
+        <div v-if="currentSection === 'sandbox'" class="section">
+          <SandboxSettings />
+        </div>
+
+        <!-- 系统信息 -->
+        <div v-if="currentSection === 'system'" class="section">
+          <SystemInfo />
+        </div>
+
+        <!-- 系统管理员可见的全局运行时设置 -->
+        <div v-if="currentSection === 'system-global'" class="section">
+          <SystemSettings />
+        </div>
+
+        <div v-if="currentSection === 'model-catalog'" class="section">
+          <ModelCatalog />
+        </div>
+
+        <!-- 系统管理员可见的任务队列运行状态 -->
+        <div v-if="currentSection === 'runtime-queues'" class="section">
+          <RuntimeQueues />
+        </div>
+
+        <div v-if="currentSection === 'platform-api-keys'" class="section">
+          <PlatformAPIKeys />
+        </div>
+
+        <div v-if="currentSection === 'system-audit-log'" class="section">
+          <SystemAuditLog />
+        </div>
+
+        <!-- 用户信息（账户基础信息：ID / 用户名 / 邮箱 / 注册时间）。
+           用户的基本信息不该跟 owner 权限绑定。 -->
+        <div v-if="currentSection === 'userprofile'" class="section">
+          <UserProfile />
+        </div>
+
+        <!-- 空间信息 -->
+        <div v-if="currentSection === 'tenant'" class="section">
+          <TenantInfo />
+        </div>
+
+        <!-- 成员管理 (#1303 PR 3) -->
+        <div v-if="currentSection === 'members'" class="section">
+          <TenantMembers />
+        </div>
+
+        <!-- 发布集成 -->
+        <div v-if="isIntegrationSection(currentSection)" class="section">
+          <IntegrationSettingsSection :tab="integrationTabFromSection(currentSection)" />
+        </div>
+      </template>
+    </div>
+  </SettingsModalShell>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { LocationQueryRaw } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
+import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
 import { useI18n } from 'vue-i18n'
+import { MessagePlugin } from 'tdesign-vue-next'
+import { useModalShell } from '@/composables/useModalShell'
+import SettingsModalShell from '@/components/SettingsModalShell.vue'
 import SystemInfo from './SystemInfo.vue'
 import TenantInfo from './TenantInfo.vue'
 import UserProfile from './UserProfile.vue'
 import GeneralSettings from './GeneralSettings.vue'
 import ModelSettings from './ModelSettings.vue'
+import ModelCatalog from '../system/ModelCatalog.vue'
 import OllamaSettings from './OllamaSettings.vue'
-import McpSettings from './McpSettings.vue'
 import WebSearchSettings from './WebSearchSettings.vue'
 import ChatHistorySettings from './ChatHistorySettings.vue'
+import MemorySettings from './MemorySettings.vue'
+import EnvVarSettings from './EnvVarSettings.vue'
+import MemoryWorkspaceSettings from './MemoryWorkspaceSettings.vue'
 import VectorStoreSettings from './VectorStoreSettings.vue'
 import ParserEngineSettings from './ParserEngineSettings.vue'
-import StorageEngineSettings from './StorageBackendSettings.vue'
+import StorageBackendSettings from './StorageBackendSettings.vue'
+import SandboxSettings from './SandboxSettings.vue'
 import WeKnoraCloudSettings from './WeKnoraCloudSettings.vue'
 import TenantMembers from './TenantMembers.vue'
 import SystemSettings from '@/views/system/SystemSettings.vue'
@@ -214,20 +226,40 @@ import SystemAuditLog from '@/views/system/SystemAuditLog.vue'
 import IntegrationSettingsSection from '@/views/integrations/IntegrationSettingsSection.vue'
 import {
   INTEGRATION_PREVIEW_ITEMS,
+  INTEGRATION_TAB_CAPABILITY,
   INTEGRATION_TAB_MIN_ROLE,
-  INTEGRATION_TABS,
-  type IntegrationTab,
 } from '@/config/integrations'
 import {
   SETTINGS_SECTION_MIN_ROLE,
   SYSTEM_ADMIN_SETTINGS_SECTIONS,
 } from '@/config/settingsAccess'
+import { SETTINGS_SECTION_CAPABILITY, skillSettingsSupported } from '@/config/deploymentCapabilities'
+import { isToolboxSection, toolboxLocation } from '@/config/toolbox'
+import { hostSkillsOnly } from '@/utils/skillTarget'
+import {
+  buildSettingsRouteQuery,
+  integrationSectionKey,
+  integrationTabFromSection,
+  isIntegrationSection,
+  normalizeSettingsSection as normalizeSettingsSectionFromQuery,
+  settingsQueryUnchanged,
+} from '@/config/settingsRoute'
 
 const route = useRoute()
 const router = useRouter()
 const uiStore = useUIStore()
 const authStore = useAuthStore()
-const { t } = useI18n()
+const deploymentCapabilities = useDeploymentCapabilitiesStore()
+const { t, te } = useI18n()
+const hostSkills = computed(() => hostSkillsOnly(
+  deploymentCapabilities.isSupported('settings.sandbox.remote'),
+  deploymentCapabilities.isSupported('settings.sandbox.host'),
+))
+function envNavLabel(): string {
+  const hostKey = 'envVarSettings.host.title'
+  if (hostSkills.value && te(hostKey)) return t(hostKey)
+  return t('envVarSettings.title')
+}
 
 const currentSection = ref<string>('general')
 const currentSubSection = ref<string>('')
@@ -251,7 +283,7 @@ type NavGroup = {
 // is aligned with the guard matrix in internal/router/router.go.
 // Baseline: the minimum role required for at least one meaningful write action on the page. Infrastructure
 // config (models write, ollama download, websearch write, parser/storage/vector/mcp
-// CRUD, chat-history config) is uniformly bumped to admin; read-only pages (general / system info /
+// CRUD, sandbox connections, skills installation, chat-history config) is uniformly bumped to admin; read-only pages (general / system info /
 // tenant-info / members roster) stay viewer-visible; the most sensitive one, reset api
 // key, is owner-only. Before changing this table, re-check the corresponding route group in router.go.
 //
@@ -263,33 +295,31 @@ type NavGroup = {
 // separately gated with hasRole('admin') in ModelSettings.vue, so leaving the entry at
 // viewer is fine (contributors can browse the model list too).
 const SYSTEM_ADMIN_SECTIONS = SYSTEM_ADMIN_SETTINGS_SECTIONS
-const INTEGRATION_SECTION_PREFIX = 'integration-'
-
-const integrationSectionKey = (tab: IntegrationTab) => `${INTEGRATION_SECTION_PREFIX}${tab}`
-
-const integrationTabFromSection = (section: string): IntegrationTab => {
-  const raw = section.startsWith(INTEGRATION_SECTION_PREFIX)
-    ? section.slice(INTEGRATION_SECTION_PREFIX.length)
-    : section
-  if (INTEGRATION_TABS.includes(raw as IntegrationTab)) {
-    return raw as IntegrationTab
-  }
-  return 'im'
-}
-
-const isIntegrationSection = (section: string) => {
-  return section.startsWith(INTEGRATION_SECTION_PREFIX) &&
-    INTEGRATION_TABS.includes(integrationTabFromSection(section))
-}
 
 const normalizeSettingsSection = (section: string) => {
-  if (section === 'api') {
-    return integrationSectionKey('api')
+  return normalizeSettingsSectionFromQuery(section, route.query.tab as string | undefined)
+}
+
+const syncSettingsRoute = (sectionKey: string) => {
+  if (route.path !== '/platform/settings') return
+  const query = buildSettingsRouteQuery(sectionKey, route.query)
+  if (settingsQueryUnchanged(route.query, query)) return
+  void router.replace({
+    path: '/platform/settings',
+    query: query as LocationQueryRaw,
+  })
+}
+
+const isSectionSupported = (key: string): boolean => {
+  if (isIntegrationSection(key)) {
+    return deploymentCapabilities.isSupported(
+      INTEGRATION_TAB_CAPABILITY[integrationTabFromSection(key)],
+    )
   }
-  if (section === 'integrations') {
-    return integrationSectionKey(integrationTabFromSection((route.query.tab as string) || 'im'))
+  if (key === 'skills' || key === 'envvars') {
+    return skillSettingsSupported(deploymentCapabilities.capabilities)
   }
-  return section
+  return deploymentCapabilities.isSupported(SETTINGS_SECTION_CAPABILITY[key])
 }
 
 const canSeeSection = (key: string): boolean => {
@@ -326,16 +356,20 @@ const navItems = computed(() => {
     { key: 'models', icon: 'control-platform', label: t('settings.modelManagement') },
     { key: 'websearch', icon: 'search', label: t('settings.webSearchConfig') },
     { key: 'chathistory', icon: 'chat', label: t('chatHistorySettings.title') },
+    { key: 'memory', icon: 'bulletpoint', label: t('memoryWorkspaceSettings.title') },
     { key: 'vectorstore', icon: 'data-base', label: t('settings.vectorStoreEngine') },
     { key: 'parser', icon: 'file-search', label: t('settings.parserEngine') },
     { key: 'storage', icon: 'cloud', label: t('settings.storageEngine') },
-    { key: 'mcp', icon: 'tools', label: t('settings.mcpService') },
+    { key: 'sandbox', icon: 'code', label: t('settings.sandbox.title') },
     { key: 'system', icon: 'info-circle', label: t('settings.versionInfo') },
     { key: 'system-global', icon: 'server', label: t('settings.system') },
+    { key: 'model-catalog', icon: 'control-platform', label: t('modelCatalog.title') },
     { key: 'runtime-queues', icon: 'queue', label: t('settings.taskQueue') },
     { key: 'platform-api-keys', icon: 'secured', label: t('platformApiKeys.title') },
     { key: 'system-audit-log', icon: 'history', label: t('system.globalSettings.audit.tabLabel') },
     { key: 'userprofile', icon: 'user', label: t('userProfile.title') },
+    { key: 'mymemory', icon: 'bookmark', label: t('memorySettings.title') },
+    { key: 'envvars', icon: 'key', label: envNavLabel() },
     { key: 'tenant', icon: 'user-circle', label: t('settings.tenantInfo') },
     { key: 'members', icon: 'usergroup', label: t('tenantMember.title') },
     ...integrationItems,
@@ -346,7 +380,7 @@ const navItems = computed(() => {
   if (!authStore.currentTenantRole && !authStore.canAccessAllTenants) {
     return [] as NavItem[]
   }
-  return all.filter((it) => canSeeSection(it.key))
+  return all.filter((it) => canSeeSection(it.key) && isSectionSupported(it.key))
 })
 
 const navGroups = computed<NavGroup[]>(() => {
@@ -360,12 +394,12 @@ const navGroups = computed<NavGroup[]>(() => {
     {
       key: 'account',
       label: t('settings.navGroups.account'),
-      items: pickItems(['general', 'userprofile']),
+      items: pickItems(['general', 'userprofile', 'mymemory', 'envvars']),
     },
     {
       key: 'workspace',
       label: t('settings.navGroups.workspace'),
-      items: pickItems(['tenant', 'members', 'chathistory']),
+      items: pickItems(['tenant', 'members', 'chathistory', 'memory']),
     },
     {
       key: 'models_runtime',
@@ -375,13 +409,7 @@ const navGroups = computed<NavGroup[]>(() => {
     {
       key: 'integrations',
       label: t('integrations.title'),
-      items: pickItems([
-        integrationSectionKey('im'),
-        integrationSectionKey('embed'),
-        integrationSectionKey('api'),
-        integrationSectionKey('chrome'),
-        integrationSectionKey('claw'),
-      ]),
+      items: pickItems(INTEGRATION_PREVIEW_ITEMS.map((item) => integrationSectionKey(item.key))),
     },
     {
       key: 'data_extensions',
@@ -390,14 +418,14 @@ const navGroups = computed<NavGroup[]>(() => {
         'vectorstore',
         'parser',
         'storage',
+        'sandbox',
         'websearch',
-        'mcp',
       ]),
     },
     {
       key: 'system_administration',
       label: t('settings.navGroups.systemAdministration'),
-      items: pickItems(['system-global', 'runtime-queues', 'platform-api-keys', 'system-audit-log']),
+      items: pickItems(['system-global', 'model-catalog', 'runtime-queues', 'platform-api-keys', 'system-audit-log']),
     },
     {
       key: 'platform',
@@ -422,25 +450,10 @@ const handleNavClick = (item: any) => {
     currentSubSection.value = ''
   }
 
-  // Switch to the corresponding page
+  // Switch to the corresponding page and sync the URL to ?section=<navKey> (including integration-claw).
+  // Otherwise, when navigating in from another section the query stays the same and the route watcher pulls the content back.
   currentSection.value = item.key
-  if (route.path === '/platform/settings' && isIntegrationSection(item.key)) {
-    router.replace({
-      path: '/platform/settings',
-      query: {
-        ...route.query,
-        section: 'integrations',
-        tab: integrationTabFromSection(item.key),
-      },
-    })
-  } else if (route.path === '/platform/settings' && SYSTEM_ADMIN_SECTIONS.has(item.key)) {
-    const query = { ...route.query }
-    delete query.tab
-    router.replace({
-      path: '/platform/settings',
-      query: { ...query, section: item.key },
-    })
-  }
+  syncSettingsRoute(item.key)
 }
 
 // Submenu click handler
@@ -472,7 +485,7 @@ const handleClose = () => {
   // If the current route is the settings page, go back to the previous page
   if (route.path === '/platform/settings') {
     const sec = route.query.section
-    if (sec === 'system-global' || sec === 'runtime-queues' || sec === 'platform-api-keys' || sec === 'system-audit-log') {
+    if (sec === 'model-catalog' || sec === 'system-global' || sec === 'runtime-queues' || sec === 'platform-api-keys' || sec === 'system-audit-log') {
       router.push('/platform/knowledge-bases')
     } else {
       router.back()
@@ -480,11 +493,28 @@ const handleClose = () => {
   }
 }
 
+// Existing in-product shortcuts can still call openSettings; moved tools
+// always navigate to the toolbox, with the requested sandbox selection intact.
+const redirectToToolbox = (section: string, subSection?: string | null) => {
+  if (!isToolboxSection(section)) return false
+  uiStore.closeSettings()
+  void router.push(toolboxLocation(section, subSection || undefined))
+  return true
+}
+
 // Listen for initial navigation settings
 watch(() => uiStore.settingsInitialSection, (section) => {
   if (section && visible.value) {
     const normalizedSection = normalizeSettingsSection(section)
+    if (redirectToToolbox(normalizedSection, uiStore.settingsInitialSubSection)) return
+    if (deploymentCapabilities.loaded && !isSectionSupported(normalizedSection)) {
+      MessagePlugin.warning(t('settings.capabilityUnavailable'))
+      currentSection.value = navItems.value[0]?.key || 'general'
+      currentSubSection.value = ''
+      return
+    }
     currentSection.value = normalizedSection
+    syncSettingsRoute(normalizedSection)
     const navItem = (navItems.value as any[]).find((item) => item.key === normalizedSection)
     if (navItem && navItem.children && navItem.children.length > 0) {
       if (!expandedMenus.value.includes(section)) {
@@ -506,11 +536,28 @@ watch(() => uiStore.settingsInitialSection, (section) => {
 }, { immediate: true })
 
 watch(
-  () => [visible.value, route.query.section],
-  ([isVisible, section]) => {
-    if (!isVisible || typeof section !== 'string') return
-    currentSection.value = normalizeSettingsSection(section)
+  () => [visible.value, route.path, route.query.section, deploymentCapabilities.loaded] as const,
+  ([isVisible, path, section, capabilitiesLoaded]) => {
+    if (!isVisible || path !== '/platform/settings') return
+    if (typeof section !== 'string') {
+      syncSettingsRoute(currentSection.value || 'general')
+      return
+    }
+    const normalizedSection = normalizeSettingsSectionFromQuery(
+      section,
+      typeof route.query.tab === 'string' ? route.query.tab : undefined,
+    )
+    if (capabilitiesLoaded && !isSectionSupported(normalizedSection)) {
+      MessagePlugin.warning(t('settings.capabilityUnavailable'))
+      const fallback = navItems.value[0]?.key || 'general'
+      currentSection.value = fallback
+      currentSubSection.value = ''
+      syncSettingsRoute(fallback)
+      return
+    }
+    currentSection.value = normalizedSection
     currentSubSection.value = ''
+    syncSettingsRoute(normalizedSection)
   },
   { immediate: true },
 )
@@ -519,24 +566,33 @@ watch(
 // If currentSection lands on a key that's no longer shown, fall back to the first visible item.
 watch(navItems, (items) => {
   if (!items.some((item) => item.key === currentSection.value)) {
-    currentSection.value = items[0]?.key || 'general'
+    const fallback = items[0]?.key || 'general'
+    currentSection.value = fallback
     currentSubSection.value = ''
+    syncSettingsRoute(fallback)
   }
 })
 
-// Close on ESC key
-const handleEscape = (e: KeyboardEvent) => {
-  if (e.key === 'Escape' && visible.value) {
-    handleClose()
-  }
-}
+// Close on Esc / overlay click (shares the same shell interaction as other settings-style modals)
+const modalShell = useModalShell({
+  visible: () => visible.value,
+  close: handleClose,
+})
 
 // Handle quick navigation events
 const handleSettingsNav = (e: CustomEvent) => {
   const { section, subsection } = e.detail
   if (section) {
     const normalizedSection = normalizeSettingsSection(section)
+    if (redirectToToolbox(normalizedSection, subsection)) return
+    if (deploymentCapabilities.loaded && !isSectionSupported(normalizedSection)) {
+      MessagePlugin.warning(t('settings.capabilityUnavailable'))
+      currentSection.value = navItems.value[0]?.key || 'general'
+      currentSubSection.value = ''
+      return
+    }
     currentSection.value = normalizedSection
+    syncSettingsRoute(normalizedSection)
     // Auto-expand if there's a submenu
     const navItem = (navItems.value as any[]).find((item: any) => item.key === normalizedSection)
     if (navItem && navItem.children && navItem.children.length > 0) {
@@ -550,7 +606,6 @@ const handleSettingsNav = (e: CustomEvent) => {
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleEscape)
   window.addEventListener('settings-nav', handleSettingsNav as EventListener)
 })
 
@@ -561,162 +616,19 @@ watch(currentSection, () => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleEscape)
   window.removeEventListener('settings-nav', handleSettingsNav as EventListener)
 })
 </script>
 
 <style lang="less" scoped>
 /* Overlay */
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  backdrop-filter: blur(4px);
-}
-
 /* Modal container */
-.settings-modal {
-  position: relative;
-  width: 100%;
-  // 1080×780 trades a touch of small-screen real estate for noticeably
-  // less cramped tables (member list, system settings rows). Outer
-  // padding is 20px so 1080 + 40 = 1120, comfortably within typical
-  // laptops (1280+). Below 1100px viewport the `width: 100%` kicks in
-  // and the modal shrinks to fit minus the 20px padding.
-  max-width: 1080px;
-  height: 780px;
-  max-height: calc(100vh - 40px);
-  background: var(--td-bg-color-container);
-  border-radius: 12px;
-  box-shadow: 0 6px 28px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
 /* Close button */
-.close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: var(--td-text-color-secondary);
-  cursor: pointer;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  z-index: 10;
-
-  &:hover {
-    background: var(--td-bg-color-container-hover);
-    color: var(--td-text-color-primary);
-  }
-}
-
-.settings-container {
-  display: flex;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
 /* Left navigation bar: slightly more compact than the initial version, moderate font size and spacing */
-.settings-sidebar {
-  width: 208px;
-  background-color: var(--td-bg-color-settings-modal);
-  border-right: 1px solid var(--td-component-stroke);
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.sidebar-header {
-  padding: 16px 14px 12px;
-  border-bottom: 1px solid var(--td-component-stroke);
-  flex-shrink: 0;
-}
-
-.sidebar-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-  margin: 0;
-}
-
-.settings-nav {
-  padding: 8px 8px 12px;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.nav-group-title {
-  padding: 9px 14px 4px;
-  color: var(--td-text-color-placeholder);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  padding: 6px 12px;
-  margin-bottom: 2px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--td-text-color-primary);
-  font-size: 14px;
-  transition: all 0.2s ease;
-  user-select: none;
-
-  &:hover {
-    background-color: var(--td-bg-color-container-hover);
-    color: var(--td-text-color-primary);
-  }
-
-  &.active {
-    background-color: var(--td-bg-color-secondarycontainer);
-    color: var(--td-brand-color);
-    font-weight: 500;
-  }
-}
-
-.nav-icon {
-  margin-right: 9px;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.nav-icon-emoji {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.nav-label {
-  flex: 1;
-}
-
 .expand-icon {
   margin-left: 4px;
-  font-size: 14px;
-  transition: transform 0.2s ease;
+  font-size: var(--app-text-base);
+  transition: transform var(--app-motion-base) ease;
 }
 
 /* Submenu */
@@ -729,11 +641,11 @@ onUnmounted(() => {
 .submenu-item {
   padding: 5px 12px;
   margin-bottom: 2px;
-  border-radius: 4px;
+  border-radius: var(--app-radius-xs);
   cursor: pointer;
   color: var(--td-text-color-primary);
-  font-size: 13px;
-  transition: all 0.2s ease;
+  font-size: var(--app-text-md);
+  transition: all var(--app-motion-base) ease;
   user-select: none;
 
   &:hover {
@@ -755,7 +667,7 @@ onUnmounted(() => {
 /* Submenu animation */
 .submenu-enter-active,
 .submenu-leave-active {
-  transition: all 0.2s ease;
+  transition: all var(--app-motion-base) ease;
 }
 
 .submenu-enter-from {
@@ -779,12 +691,6 @@ onUnmounted(() => {
 }
 
 /* Right content area */
-.settings-content {
-  flex: 1;
-  overflow-y: auto;
-  background-color: var(--td-bg-color-container);
-}
-
 .content-wrapper {
   // Bumped from 600 to 760 when the modal grew from 900→1080 (see
   // .settings-modal). Without this, single-column panes (General,
@@ -828,59 +734,7 @@ onUnmounted(() => {
 }
 
 /* Modal animation */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-enter-active .settings-modal,
-.modal-leave-active .settings-modal {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .settings-modal,
-.modal-leave-to .settings-modal {
-  transform: scale(0.95);
-  opacity: 0;
-}
-
 /* Scrollbar style */
-.settings-nav::-webkit-scrollbar,
-.settings-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.settings-nav::-webkit-scrollbar-track {
-  background: var(--td-bg-color-secondarycontainer);
-}
-
-.settings-nav::-webkit-scrollbar-thumb {
-  background: var(--td-gray-color-5);
-  border-radius: 3px;
-}
-
-.settings-nav::-webkit-scrollbar-thumb:hover {
-  background: var(--td-gray-color-6);
-}
-
-.settings-content::-webkit-scrollbar-track {
-  background: var(--td-bg-color-container);
-}
-
-.settings-content::-webkit-scrollbar-thumb {
-  background: var(--td-gray-color-5);
-  border-radius: 3px;
-}
-
-.settings-content::-webkit-scrollbar-thumb:hover {
-  background: var(--td-gray-color-6);
-}
-
 .role-denied {
   display: flex;
   flex-direction: column;
@@ -896,13 +750,13 @@ onUnmounted(() => {
   }
 
   .role-denied-title {
-    font-size: 16px;
+    font-size: var(--app-text-xl);
     font-weight: 600;
     color: var(--td-text-color-primary);
   }
 
   .role-denied-desc {
-    font-size: 13px;
+    font-size: var(--app-text-md);
     color: var(--td-text-color-secondary);
     max-width: 360px;
     line-height: 1.6;

@@ -58,6 +58,20 @@ log_success() {
     printf "%b\n" "${GREEN}[SUCCESS]${NC} $1"
 }
 
+# Inject git short hash into the frontend image when composing from source.
+# docker-compose.yml interpolates VITE_FRONTEND_COMMIT; the build context is
+# frontend/ (no .git), so Vite cannot discover the commit on its own.
+export_frontend_build_args() {
+    if [ -n "${VITE_FRONTEND_COMMIT:-}" ]; then
+        export VITE_FRONTEND_COMMIT
+        return 0
+    fi
+    # shellcheck source=/dev/null
+    eval "$("$PROJECT_ROOT/scripts/get_version.sh" env)"
+    export VITE_FRONTEND_COMMIT="${COMMIT_ID:-unknown}"
+    log_info "VITE_FRONTEND_COMMIT=${VITE_FRONTEND_COMMIT}"
+}
+
 # Select available Docker Compose command (prefer docker compose, then docker-compose)
 DOCKER_COMPOSE_BIN=""
 DOCKER_COMPOSE_SUBCMD=""
@@ -355,8 +369,10 @@ start_docker() {
     
     check_platform
     
-    # Enter project root directory before running docker-compose commands
+	# Enter project root directory before running docker-compose commands
     cd "$PROJECT_ROOT"
+
+    export_frontend_build_args
     
     # Start basic services
     log_info "Starting core service containers..."
@@ -499,6 +515,8 @@ restart_container() {
     
     # Go to the project root directory before running docker-compose commands
     cd "$PROJECT_ROOT"
+
+    export_frontend_build_args
     
     # Check if the container exists
 	if ! "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD ps --services | grep -q "^$container_name$"; then

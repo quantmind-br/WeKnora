@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/longbridgeapp/opencc"
+	"github.com/Tencent/WeKnora/internal/textconv"
 )
 
 // FAQChunkMetadata defines the structure of an FAQ entry within Chunk.Metadata
@@ -583,18 +583,6 @@ const (
 	URLKeepDomainAndPath
 )
 
-// t2sConverter Traditional-to-Simplified Chinese converter (singleton)
-var t2sConverter *opencc.OpenCC
-
-func init() {
-	var err error
-	t2sConverter, err = opencc.New("t2s") // Traditional to Simplified
-	if err != nil {
-		// Use an empty converter when initialization fails, without affecting other features
-		t2sConverter = nil
-	}
-}
-
 // NormalizeQuestion normalizes the question text to improve vector matching hit rate
 // Processing order reference: query = convert_st(trim_url(query.lower().strip().strip("？。，；、：""！?.,;!:'\"")), 1)
 // 1. Trim leading and trailing whitespace
@@ -761,14 +749,7 @@ func parseURL(raw string) (domain, path string) {
 
 // toSimplified converts Traditional Chinese to Simplified Chinese
 func toSimplified(s string) string {
-	if t2sConverter == nil {
-		return s
-	}
-	result, err := t2sConverter.Convert(s)
-	if err != nil {
-		return s
-	}
-	return result
+	return textconv.ToSimplified(s)
 }
 
 // toHalfWidth converts full-width characters to half-width characters

@@ -1,41 +1,39 @@
 # Chunking Mechanism
 
-Retrieval accuracy depends heavily on how a document is chunked: cut it too fine, and a single chunk carries incomplete information and can't fully answer a question; cut it too coarse, and a chunk mixes several topics together, blurring its vector representation. Chunking is that step.
+Chunking divides a document into retrieval units. Smaller chunks help keep each one focused on a topic, while larger chunks preserve more context; chunk size and overlap need to be tuned based on document structure and retrieval results.
 
-In most cases the defaults work fine (chunk size 512 characters, overlap 80 characters, adaptive strategy). When tuning is needed, use the table below:
+You can start with the UI defaults (chunk size 512 characters, overlap 80 characters, adaptive strategy), then adjust based on the symptoms below:
 
 | Situation | Recommendation |
 | --- | --- |
-| Answers lack context, often cut off mid-sentence | Increase `chunk_size`, or enable parent-child chunking (retrieve child chunks, answer from parent chunks) |
+| Answers lack context or information is incomplete | Increase `chunk_size`, or enable parent-child chunking (retrieve child chunks, answer from parent chunks) |
 | Retrieved chunks aren't very relevant to the question | Decrease `chunk_size` so each chunk stays focused on a single topic |
 | Content is entry-based (FAQ, dictionary, parameter tables) | Set overlap to 0 to avoid adjacent entries contaminating each other |
 | Content is long-form narrative (reports, papers) | Increase overlap to 150–200 to preserve semantic continuity across chunks |
-| Want to preview the chunking result before committing | Use the chunking preview endpoint `POST /api/v1/chunker/preview` to test-run without persisting |
+| Preview the chunking result | Use `POST /api/v1/chunker/preview` to preview without writing to the database |
 
-Changing the chunking configuration only takes effect after existing documents are re-parsed. The full mechanism is described below.
+After changing the chunking configuration, existing documents must be re-parsed to use the new configuration.
+
+## Parameter Quick Reference and Tuning Recommendations {#_10-parameter-quick-reference-and-tuning-recommendations}
+
+| Scenario | strategy | chunk_size | chunk_overlap | Other |
+|------|----------|------------|---------------|------|
+| General documents (recommended starting point) | `auto` | 512 | 80 | — |
+| Structured technical documentation / manuals | `auto` (will hit heading) | 512–1024 | 80 | Breadcrumbs apply automatically |
+| OCR'd PDFs / plain-text books | `auto` (will hit heuristic) | 512–1024 | 80–150 | Specifying `languages` can reduce misdetection |
+| Long narrative / argumentative documents | `auto` | 1000–2000 | 150–200 | Can be combined with parent-child chunking |
+| Precise retrieval + long context | any | — | — | `enable_parent_child=true`, parent 4096 / child 384 |
+| FAQ / atomic records | not applicable (FAQ KB chunks entry-by-entry) | — | 0 | `FAQIndexMode` controls whether answers are indexed |
+| Embedding models with a strict token ceiling | any | — | — | Set `token_limit` to auto-convert to a character budget |
+| Reproducing legacy-version behavior | `legacy` | original value | explicitly set to 64 | See the migration note in [ChunkingConfig (KB-level, overridable per upload)](#_1-1-chunkingconfig-kb-level-overridable-per-upload) |
+
+## Chunking Mechanism Reference
 
 WeKnora's chunking happens on the **Go side** (`internal/infrastructure/chunker` package), using an adaptive architecture of "document profiling → tiered strategy → result validation → progressive fallback." The Python side's `docreader/splitter/` retains a source-aligned recursive splitter for use by the docreader sidecar (the production main path is the Go implementation; a comment in `docreader/splitter/splitter.py` explicitly notes the two default values have been aligned).
 
-Source code involved:
+### Configuration Model {#_1-configuration-model}
 
-| Module | File |
-|------|------|
-| Strategy entry point and fallback chain | `internal/infrastructure/chunker/strategy.go` |
-| Document profiling | `internal/infrastructure/chunker/profiler.go` |
-| Tier 1 heading-based chunking | `internal/infrastructure/chunker/heading_splitter.go`, `heading_hierarchy.go` |
-| Tier 2 heuristic chunking | `internal/infrastructure/chunker/heuristic_splitter.go`, `patterns.go` |
-| Tier 3 recursive chunking (legacy) | `internal/infrastructure/chunker/splitter.go` |
-| Header tracking | `internal/infrastructure/chunker/header_tracker.go` |
-| Result validation | `internal/infrastructure/chunker/validator.go` |
-| Token estimation | `internal/infrastructure/chunker/tokens.go` |
-| Configuration structures | `internal/types/knowledgebase.go` (`ChunkingConfig`), `internal/types/indexing_strategy.go` |
-| Pipeline integration | `internal/application/service/knowledge_process.go` (`buildSplitterConfigFromChunking` / `buildParentChildConfigs` / `processChunks`) |
-| Debug endpoint | `internal/handler/chunker_debug.go` (`POST /api/v1/chunker/preview`) |
-| Python side | `docreader/splitter/splitter.py`, `docreader/splitter/header_hook.py` |
-
-## 1. Configuration Model
-
-### 1.1 ChunkingConfig (KB-level, overridable per upload)
+#### ChunkingConfig (KB-level, overridable per upload) {#_1-1-chunkingconfig-kb-level-overridable-per-upload}
 
 `internal/types/knowledgebase.go`:
 
@@ -44,10 +42,10 @@ Source code involved:
 | `chunk_size` | int | 512 (characters) | Target size for a single chunk. Roughly 100–130 English tokens / 300 Chinese tokens. For FAQ-style atomic content, 200–400 is recommended; for long narrative documents, 1000–2000 |
 | `chunk_overlap` | int | 80 (~15%) | Number of overlapping characters between adjacent chunks. Can be set to 0 for atomic data, 150–200 for long narratives. Values exceeding `chunk_size/2` are clamped to half that |
 | `separators` | []string | `["\n\n", "\n", "。"]` | Separator priority sequence for recursive chunking |
-| `strategy` | string | `""` (= legacy) | Chunking strategy: `auto` / `heading` / `heuristic` / `recursive` / `legacy`, see §2 |
+| `strategy` | string | `""` (= legacy) | Chunking strategy: `auto` / `heading` / `heuristic` / `recursive` / `legacy`, see [Adaptive Strategy: Three Tiers and the Fallback Chain](#_2-adaptive-strategy-three-tiers-and-the-fallback-chain) |
 | `token_limit` | int | 0 (disabled) | Constrains chunk size by an approximate token count ceiling; when >0, converts to a character budget per language and takes the smaller value (0.9 safety factor) |
 | `languages` | []string | empty (auto-detect) | Language hints for heuristic mode, e.g. `["zh"]`, `["en","de"]` |
-| `enable_parent_child` | bool | false | Enables parent-child (two-level) chunking, see §5 |
+| `enable_parent_child` | bool | false | Enables parent-child (two-level) chunking, see [Parent-Child Chunking (Multi-Granularity)](#_5-parent-child-chunking-multi-granularity) |
 | `parent_chunk_size` | int | 4096 | Parent chunk size (parent-child mode only) |
 | `child_chunk_size` | int | 384 | Child chunk size (parent-child mode only); child overlap is fixed at `child_size/5` (~20%) |
 | `parser_engine_rules` | []ParserEngineRule | empty | File type → parser engine routing, along with parser-level switches such as `xlsx_first_row_as_header` (belongs to parsing rather than chunking, but shares this structure) |
@@ -64,14 +62,14 @@ const (
 
 > Migration note (verbatim from source code comment): historically, the Go DefaultConfig used 64, knowledge.go used 50, and Python docreader used 100 as three different overlap defaults; these have now been unified to 80. For existing KBs where the DB stores `ChunkOverlap=0`, rebuilding the index will fall back to 80, and the embedding will no longer match the old value bit-for-bit.
 
-### 1.2 SplitterConfig (runtime configuration)
+#### SplitterConfig (runtime configuration) {#_1-2-splitterconfig-runtime-configuration}
 
 The service layer maps `ChunkingConfig` to `chunker.SplitterConfig{ChunkSize, ChunkOverlap, Separators, Strategy, TokenLimit, Languages}` via `buildSplitterConfigFromChunking` (`knowledge_process.go`); the chunker package's internal `ensureDefaults` then applies further fallback logic:
 
 - When `TokenLimit > 0`: `charBudget = CharsForTokenLimit(TokenLimit, lang)`; if smaller than `ChunkSize`, it takes precedence (`tokens.go`, character-to-token ratios: en 4.0, de 4.5, zh 1.7, mixed 3.0, with a 0.9 safety factor — ensuring chunks don't exceed the embedding model's token ceiling);
 - When `ChunkOverlap > ChunkSize/2`, it is clamped to `ChunkSize/2`.
 
-### 1.3 Relationship between IndexingStrategy and Chunking
+#### Relationship between IndexingStrategy and Chunking {#_1-3-relationship-between-indexingstrategy-and-chunking}
 
 The four switches in `internal/types/indexing_strategy.go` determine which pipelines the chunking output flows into:
 
@@ -88,7 +86,7 @@ type IndexingStrategy struct {
 - When `NeedsEmbedding()` (vector || keyword) is false, chunking only writes to the DB and skips `BatchIndex` (`skipStage(StageEmbedding)` in `processChunks`);
 - Both Wiki and Graph consume text chunks as input during the post-processing stage.
 
-## 2. Adaptive Strategy: Three Tiers and the Fallback Chain
+### Adaptive Strategy: Three Tiers and the Fallback Chain {#_2-adaptive-strategy-three-tiers-and-the-fallback-chain}
 
 The public entry point is `chunker.Split(text, cfg)` / `chunker.SplitWithDiagnostics` (`strategy.go`). The values of `cfg.Strategy` and how they're resolved (`resolveChainWithProfile`):
 
@@ -112,7 +110,7 @@ Validator rejection rules:
 | Largest chunk is smaller than `chunkSize/4` (over-fragmentation) | `all chunks far below target size` |
 | Largest chunk exceeds `2*chunkSize` (ignoring the budget) | `chunk exceeds 2x target size` |
 
-### 2.1 Document Profiling (profiler.go)
+#### Document Profiling (profiler.go) {#_2-1-document-profiling-profiler-go}
 
 `ProfileDocument(text)` performs a single pass to produce a `DocProfile`: total characters/lines, mean and variance of line length, counts of Markdown headings at each level, numbered section count, count of short all-caps lines, consecutive blank-line blocks, form feed `\f` count, horizontal separator count, German/English/Chinese chapter marker counts, footer line count, whether tables/code are present, code ratio, and language detection (sampling the first 4096 bytes; `DetectLanguage` determines `zh/de/en/mixed` based on CJK-to-Latin ratio).
 
@@ -133,7 +131,7 @@ chain = append(chain, TierLegacy) // always the fallback
 
 `DominantHeadingLevel` selects the primary split level: it prefers the "shallowest level that appears ≥3 times" (the document's true structural skeleton); otherwise it takes the deepest level that appears at all.
 
-### 2.2 Chunking Decision Flowchart
+#### Chunking Decision Flowchart {#_2-2-chunking-decision-flowchart}
 
 ```mermaid
 flowchart TD
@@ -160,9 +158,9 @@ flowchart TD
     V3 -->|"yes"| OUT
 ```
 
-## 3. The Three Chunking Algorithms in Detail
+### The Three Chunking Algorithms in Detail {#_3-the-three-chunking-algorithms-in-detail}
 
-### 3.1 Tier 1: Heading-Aware Chunking (heading_splitter.go)
+#### Tier 1: Heading-Aware Chunking (heading_splitter.go) {#_3-1-tier-1-heading-aware-chunking-heading-splitter-go}
 
 **Applies to**: Documents with well-formed Markdown heading structure (technical documentation, exported Word docs, bookmarked PDFs, etc.).
 
@@ -177,7 +175,7 @@ Algorithm:
 
 **Position invariant**: `End - Start == utf8.RuneCountInString(Content)` always holds (the breadcrumb is not counted in Content), and document reconstruction and UI highlighting depend on this.
 
-### 3.2 Tier 2: Heuristic Boundary Chunking (heuristic_splitter.go + patterns.go)
+#### Tier 2: Heuristic Boundary Chunking (heuristic_splitter.go + patterns.go) {#_3-2-tier-2-heuristic-boundary-chunking-heuristic-splitter-go-patterns-go}
 
 **Applies to**: Documents without Markdown headings but with recognizable structural cues (OCR'd PDFs, plain-text manuals, scanned books, etc.).
 
@@ -195,12 +193,12 @@ First, all candidate boundaries are scanned (only the highest-priority match is 
 
 Then:
 
-- `dropBoundsInsideSpans`: boundaries falling **inside** a protected span (table/code block/formula, see §3.3) are discarded; boundaries aligned to the edge are kept;
+- `dropBoundsInsideSpans`: boundaries falling **inside** a protected span (table/code block/formula, see [Tier 3: Recursive Chunking, legacy (splitter.go, ported from Python)](#_3-3-tier-3-recursive-chunking-legacy-splitter-go-ported-from-python)) are discarded; boundaries aligned to the edge are kept;
 - **Greedy bin packing**: chunks accumulate along boundaries; once the accumulated content exceeds `ChunkSize` and already has ≥ `max(ChunkSize/4, 50)` content, a Chunk is emitted;
 - Oversized spans between two boundaries are recursively handed to `SplitText`;
 - Overlap alignment: `applyOverlapAligned` snaps preferentially to the nearest semantic boundary within the `[curEnd-2*overlap, curEnd)` window, falling back to a newline, so the next chunk doesn't start mid-word.
 
-### 3.3 Tier 3: Recursive Chunking, legacy (splitter.go, ported from Python)
+#### Tier 3: Recursive Chunking, legacy (splitter.go, ported from Python) {#_3-3-tier-3-recursive-chunking-legacy-splitter-go-ported-from-python}
 
 This is the base implementation ported from `docreader/splitter/splitter.py`, and also serves as the fallback and "in-section re-splitting" engine for all tiers. Three steps:
 
@@ -208,13 +206,16 @@ This is the base implementation ported from `docreader/splitter/splitter.py`, an
 
 ```go
 var protectedPatterns = []*regexp.Regexp{
-    regexp.MustCompile(`(?s)\$\$.*?\$\$`),        // LaTeX block formulas
-    regexp.MustCompile(`!\[[^\]]*\]\([^)]+\)`),   // Markdown images
-    regexp.MustCompile(`\[[^\]]*\]\([^)]+\)`),    // Markdown links
-    /* header row + separator row */ /* table data row */             // Markdown tables
-    regexp.MustCompile("(?s)```(?:\\w+)?[\\r\\n].*?```"), // fenced code blocks
+    regexp.MustCompile(`(?s)\$\$.*?\$\$`),                        // LaTeX block formulas
+    regexp.MustCompile(`!\[[^\]\n]{0,200}\]\([^)\n]{1,500}\)`),   // Markdown images (single line, length-limited)
+    regexp.MustCompile(`\[[^\]\n]{1,200}\]\([^)\n]{1,500}\)`),    // Markdown links (single line, length-limited)
+    /* header row + separator row */ /* table data row */         // Markdown tables
+    regexp.MustCompile("(?s)```(?:\\w+)?[\\r\\n].*?```"),          // fenced code blocks
+    regexp.MustCompile("`[^`\\r\\n]+`"),                            // inline code
 }
 ```
+
+Image and link matching is limited to a single line, with link text of at most 200 characters and a URL of at most 500 characters (consistent with CommonMark's rule of not spanning blank lines). This way, a stray `[` left over from OCR won't pair with a distant `](` and turn an entire passage of body text into one unsplittable protected span.
 
 Protected spans exceeding `maxProtectedSize = 7500` runes (oversized tables/code blocks) are force-split at a newline or space to avoid exceeding embedding API limits.
 
@@ -228,11 +229,9 @@ What `computeOverlap` takes is a **semantic suffix**, not a fixed-length charact
 - Boundary priority: paragraph separator (`\n\n`) > newline (`\n`) > sentence end (`。`, `？`, `！`, and English `. ` / `? ` / `! ` — English punctuation requires a following space, to avoid splitting `3.14` or `v1.2`). When priorities tie, the **earliest** one within the window is taken, to maximize effective overlap;
 - The window can cut into the middle of a single `splitUnit` (the old implementation could only retain whole units, so ordinary paragraphs often degenerated to zero overlap), but it will not cross zero-width synthetic units where `start == end`, such as table header markers, in order to preserve the `Start/End` offset-to-Content correspondence invariant;
 - Separators inside protected spans (code blocks, inline code `` ` ` ``, formulas, tables, images/links) don't count as boundaries; a boundary is also invalid if only whitespace remains after it;
-- When no valid semantic boundary is found within the window, **no overlap is retained** — it's better to have no overlap than to start mid-word.
+- When no valid semantic boundary is found within the window, no overlap is retained, to avoid cutting in the middle of a word.
 
-Inline code `` `foo` `` was added to the protected regex list in this version, to prevent cutting inside backticks.
-
-### 3.4 Table Handling: Header Tracking (header_tracker.go)
+#### Table Handling: Header Tracking (header_tracker.go) {#_3-4-table-handling-header-tracking-header-tracker-go}
 
 When a large Markdown table is split across multiple chunks, subsequent chunks lose the column-name context. `headerTracker` (ported from `docreader/splitter/header_hook.py`) solves this:
 
@@ -241,15 +240,15 @@ When a large Markdown table is split across multiple chunks, subsequent chunks l
 - An empty header (common with MarkItDown, `||` + `|---|---|`) is filled in using the first data row (`pendingExtend`);
 - Table boundary awareness: if a new table row appears after `\n\n` at the end of a chunk, or a new row's column count doesn't match the header, the old header is ended and a chunk is forced (`headerEndedThisUnit`), preventing the previous table's header from contaminating the next table.
 
-Additionally, inline HTML tables produced by OCR engines (PaddleOCR-VL, etc.) are converted to GFM Markdown tables during parsing by `normalizeHTMLTables` in `docparser/html_table_normalizer.go` (tables with rowspan/colspan only have their presentational attributes stripped), so they enter the protection and header-tracking logic above rather than being chopped up by the chunker.
+Additionally, inline HTML tables from all parser engines (MinerU, PaddleOCR-VL, VLM OCR, etc.) as well as from hand-written Markdown are converted to GFM Markdown tables before chunking by `NormalizeHTMLTables` in `docparser/html_table_normalizer.go`, so they enter the protection and header-tracking logic above. Tables with real merged cells (`rowspan`/`colspan` greater than 1) or that otherwise cannot be converted remain HTML, but each `<tr>` is put on its own line with blank lines before and after, so the chunker can split at row boundaries instead of hard-cutting at the 7500-character ceiling.
 
-### 3.5 Image Handling
+#### Image Handling {#_3-5-image-handling}
 
 - Markdown image references `![alt](url)` are a protected pattern and are never cut through;
 - `chunker.ExtractImageRefs(text)` (`splitter.go`) uses a regex supporting one level of nested parentheses to extract in-chunk image references, which `processChunks` uses to build chunk ↔ image associations;
 - During the multimodal stage, each image generates two sub-chunks, `image_caption` / `image_ocr` (with `ParentChunkID` pointing to the text chunk), which are indexed separately — image semantics become retrievable, and a hit returns to the original text chunk.
 
-## 4. Context Header (ContextHeader)
+### Context Header (ContextHeader) {#_4-context-header-contextheader}
 
 `Chunk.ContextHeader` is a context string (heading breadcrumb) stored **separately** from Content:
 
@@ -272,7 +271,7 @@ Design points:
 - **Persisted to the `chunks.context_header` column** (migration `000078`). In earlier versions this was an in-memory field (`gorm:"-"`) discarded once indexing finished; after manual chunk editing was introduced, re-indexing a single chunk must reproduce the same index input, so it was changed to be persisted. `json:"-"` is unchanged, so it's still not returned in API responses;
 - For parent-child chunking, `mergeBreadcrumbs` (`strategy.go`) merges the parent/child breadcrumbs and removes duplicate leading lines, so child chunks get a finer-grained path than their parent.
 
-## 5. Parent-Child Chunking (Multi-Granularity)
+### Parent-Child Chunking (Multi-Granularity) {#_5-parent-child-chunking-multi-granularity}
 
 When `EnableParentChild = true`, two-level chunking is enabled (`chunker.SplitParentChild`, the strategy-aware version; the legacy version is `SplitTextParentChild`):
 
@@ -305,7 +304,7 @@ flowchart LR
     V --> R
 ```
 
-## 6. The Special Case of FAQ Chunking
+### The Special Case of FAQ Chunking {#_6-the-special-case-of-faq-chunking}
 
 FAQ knowledge bases **don't go through any chunking algorithm**: each Q&A pair is itself a `ChunkTypeFAQ` Chunk (`knowledge_faq.go`), with Content generated by `buildFAQChunkContent` according to the indexing mode:
 
@@ -322,7 +321,7 @@ if mode == types.FAQIndexModeQuestionAnswer && len(meta.Answers) > 0 {
 - Indexing modes: `question_only` / `question_answer` (KB-level `FAQIndexMode`); question indexing mode `combined` (standard question + similar questions share one vector) / `separate` (each similar question gets its own vector, supporting incremental updates);
 - The general recommendation of `chunk_overlap = 0` for FAQ scenarios naturally holds here — there is no overlap between entries.
 
-## 7. Integration with the Ingestion Pipeline
+### Integration with the Ingestion Pipeline {#_7-integration-with-the-ingestion-pipeline}
 
 The call chain in `knowledge_process.go`:
 
@@ -337,7 +336,7 @@ processDocument
 
 The chunking stage has its own Span (`StageChunking`, recording `chunks_planned/chunks_written/total_text_chars`), with failure error code `ErrCodeChunkingFailed`.
 
-## 8. Debug Capability: POST /api/v1/chunker/preview (chunker_debug.go)
+### Debug Capability: POST /api/v1/chunker/preview (chunker_debug.go) {#_8-debug-capability-post-api-v1-chunker-preview-chunker-debug-go}
 
 A read-only preview endpoint, used by the KB editor's "chunking debug panel" to test-run sample text before changing parameters — it **doesn't write to the DB, doesn't produce embeddings, and doesn't log text content**.
 
@@ -371,14 +370,14 @@ Response (`PreviewChunkingResponse`):
 
 Safeguards (constants): input ceiling `previewMaxChars = 64k` runes (returns 413), returned chunk count ceiling `previewMaxChunks = 500` (statistics are still computed over the full set), timeout `previewTimeout = 5s` (the splitter doesn't accept a context, so after timeout the handler returns 504 but the worker goroutine runs to completion naturally — the 64k ceiling is the main safeguard). Diagnostic information is produced by `chunker.SplitWithDiagnostics`, whose JSON shape is part of the public API.
 
-Route registration (`internal/router/router.go`):
+Route registration (`internal/router/routes_knowledge.go`):
 
 ```go
 g.apiKeyRoute(r, http.MethodPost, "/chunker/preview",
     apiKeyRetrieve(apiKeyIngest(apiKeyFullAccess())), g.Viewer(), handler.PreviewChunking)
 ```
 
-## 9. The Python-Side Chunker (docreader/splitter/)
+### The Python-Side Chunker (docreader/splitter/) {#_9-the-python-side-chunker-docreader-splitter}
 
 The `TextSplitter` in `docreader/splitter/splitter.py` is the prototype for the Go legacy implementation, and is still kept around for the docreader sidecar:
 
@@ -387,15 +386,21 @@ The `TextSplitter` in `docreader/splitter/splitter.py` is the prototype for the 
 - Produces `(start, end, text)` triples and asserts `"".join(splits) == text` for full reconstruction; `restore_text` demonstrates the de-overlap reconstruction algorithm;
 - `HeaderTracker` in `docreader/splitter/header_hook.py` behaves identically to the Go `header_tracker.go` (header detection, empty-header completion, ending on column-count mismatch).
 
-## 10. Parameter Quick Reference and Tuning Recommendations
+## Implementation Reference
 
-| Scenario | strategy | chunk_size | chunk_overlap | Other |
-|------|----------|------------|---------------|------|
-| General documents (recommended starting point) | `auto` | 512 | 80 | — |
-| Structured technical documentation / manuals | `auto` (will hit heading) | 512–1024 | 80 | Breadcrumbs apply automatically |
-| OCR'd PDFs / plain-text books | `auto` (will hit heuristic) | 512–1024 | 80–150 | Specifying `languages` can reduce misdetection |
-| Long narrative / argumentative documents | `auto` | 1000–2000 | 150–200 | Can be combined with parent-child chunking |
-| Precise retrieval + long context | any | — | — | `enable_parent_child=true`, parent 4096 / child 384 |
-| FAQ / atomic records | not applicable (FAQ KB chunks entry-by-entry) | — | 0 | `FAQIndexMode` controls whether answers are indexed |
-| Embedding models with a strict token ceiling | any | — | — | Set `token_limit` to auto-convert to a character budget |
-| Reproducing legacy-version behavior | `legacy` | original value | explicitly set to 64 | See the migration note in §1.1 |
+Source code involved:
+
+| Module | File |
+|------|------|
+| Strategy entry point and fallback chain | `internal/infrastructure/chunker/strategy.go` |
+| Document profiling | `internal/infrastructure/chunker/profiler.go` |
+| Tier 1 heading-based chunking | `internal/infrastructure/chunker/heading_splitter.go`, `heading_hierarchy.go` |
+| Tier 2 heuristic chunking | `internal/infrastructure/chunker/heuristic_splitter.go`, `patterns.go` |
+| Tier 3 recursive chunking (legacy) | `internal/infrastructure/chunker/splitter.go` |
+| Header tracking | `internal/infrastructure/chunker/header_tracker.go` |
+| Result validation | `internal/infrastructure/chunker/validator.go` |
+| Token estimation | `internal/infrastructure/chunker/tokens.go` |
+| Configuration structures | `internal/types/knowledgebase.go` (`ChunkingConfig`), `internal/types/indexing_strategy.go` |
+| Pipeline integration | `internal/application/service/knowledge_process.go` (`buildSplitterConfigFromChunking` / `buildParentChildConfigs` / `processChunks`) |
+| Debug endpoint | `internal/handler/chunker_debug.go` (`POST /api/v1/chunker/preview`) |
+| Python side | `docreader/splitter/splitter.py`, `docreader/splitter/header_hook.py` |

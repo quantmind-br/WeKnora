@@ -20,6 +20,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/limiter"
+	"github.com/Tencent/WeKnora/internal/sandbox"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/Tencent/WeKnora/internal/utils"
@@ -126,6 +127,14 @@ var registry = map[string]settingSpec{
 		Description: "SSRF protection allowlist. You may enter example.com / *.foo.com / 10.0.0.0/8 / 2001:db8::1." +
 			"Changes take effect immediately. The SSRF_WHITELIST_EXTRA environment variable remains deployment-owned and is not overridden here.",
 	},
+	"sandbox.docker_enabled": {
+		Type:     "bool",
+		EnvName:  sandbox.DockerBackendEnabledEnv,
+		Default:  false,
+		Category: "security",
+		Description: "是否允许 Docker 沙箱后端。本机 docker.sock 等同宿主机 root，默认关闭。" +
+			"仅系统管理员可打开；打开后立即生效，无需重启。私有化单机且已挂载 daemon socket，或配置了带 TLS 的远程 tcp:// 时再启用。",
+	},
 	"auth.registration_mode": {
 		Type:     "string",
 		EnvName:  "", // No env fallback — handler passes cfg.Auth.RegistrationMode as default
@@ -143,6 +152,14 @@ var registry = map[string]settingSpec{
 		Category: "auth",
 		Description: "Default workspace policy after public registration succeeds. create_personal = automatically create a personal workspace and set the user as Owner;" +
 			"tenantless = only create the user and wait for an invitation or self-created workspace. Changes only affect newly registered users.",
+	},
+	"auth.complex_password_enabled": {
+		Type:     "bool",
+		EnvName:  "WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED",
+		Default:  false,
+		Category: "auth",
+		Description: "是否启用复杂密码。开启后密码必须包含大小写字母、数字和特殊字符。" +
+			"修改后立即生效，只影响新注册用户或新密码修改/重置操作。特殊字符包含：!@#$%^&*()_+-=[]{}|;:,.<>?",
 	},
 	// tenant.max_owned_per_user caps how many tenants a single non-superuser
 	// can create (and Own) via self-service POST /tenants. Read on every
@@ -199,6 +216,16 @@ var registry = map[string]settingSpec{
 		Description: "Whether to automatically generate a full_access API Key when creating a workspace and return its plaintext token in the create response." +
 			"Compatibility fallback for the legacy behavior of issuing a default API Key on workspace creation (rollback switch for a breaking change). " +
 			"Read live on every workspace creation; changes take effect immediately. Default false (do not auto-create; create explicitly via API Key management).",
+	},
+	// tenant.auto_accept_invitation: invite = auto-join switch (default false).
+	"tenant.auto_accept_invitation": {
+		Type:     "bool",
+		EnvName:  "WEKNORA_TENANT_AUTO_ACCEPT_INVITATION",
+		Default:  false,
+		Category: "tenant",
+		Description: "全局开关：开启后，空间管理员通过邮箱邀请已注册用户加入空间时，" +
+			"被邀请人将被立即自动加入（直接写入成员关系），无需在收件箱手动接受，也不再生成待接受的邀请记录。" +
+			"关闭时保持原有「发出邀请 → 被邀请人收件箱确认」流程。每次邀请时实时读取，修改后立即生效。默认 false。",
 	},
 	"asynq.core_concurrency": {
 		Type:            "int",
@@ -377,6 +404,7 @@ func (s *systemSettingService) preload(ctx context.Context) {
 	// Add new bridges here as more env vars get migrated.
 	s.applySSRFWhitelist(ctx)
 	s.applyModelMaxConcurrency(ctx)
+	s.applyDockerBackendEnabled(ctx)
 }
 
 // encodeDefault produces the JSONB encoding for a spec's built-in
@@ -470,6 +498,8 @@ func (s *systemSettingService) dispatchSideEffects(ctx context.Context, changedK
 		s.applySSRFWhitelist(ctx)
 	case "model.max_concurrency":
 		s.applyModelMaxConcurrency(ctx)
+	case sandbox.DockerBackendEnabledSettingKey:
+		s.applyDockerBackendEnabled(ctx)
 	}
 }
 
@@ -511,6 +541,12 @@ func (s *systemSettingService) applyModelMaxConcurrency(ctx context.Context) {
 	limit := int(s.GetInt(ctx, "model.max_concurrency", "WEKNORA_MODEL_MAX_CONCURRENCY", 32))
 	limiter.SetGlobalLimit(limit)
 	logger.Infof(ctx, "[system_settings] model.max_concurrency applied (limit=%d)", limit)
+}
+
+func (s *systemSettingService) applyDockerBackendEnabled(ctx context.Context) {
+	enabled := s.GetBool(ctx, sandbox.DockerBackendEnabledSettingKey, sandbox.DockerBackendEnabledEnv, false)
+	sandbox.SetDockerBackendEnabled(enabled)
+	logger.Infof(ctx, "[system_settings] sandbox.docker_enabled applied (enabled=%v)", enabled)
 }
 
 // publishChange fans the change out to peers. Best-effort: a Redis

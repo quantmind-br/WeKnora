@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/provider"
+	"github.com/Tencent/WeKnora/internal/models/providers"
+	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
 	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -32,7 +33,12 @@ type Config struct {
 	// MaxConcurrency caps concurrent background calls to this model; 0 falls
 	// back to the process-wide default (see limiter.GateN).
 	MaxConcurrency int
-	Extra          map[string]any
+	// Spec carries per-row catalog overrides (protocol, compat, levels). VLM
+	// calls now go through the chat factory, so the override has to travel
+	// with them — otherwise /models reports capabilities computed WITH the
+	// override while the actual request is built without it.
+	Spec  *types.ModelSpecOverride
+	Extra map[string]any
 	// CustomHeaders allows attaching custom HTTP headers to remote API calls (like OpenAI Python SDK's extra_headers).
 	CustomHeaders map[string]string
 	AppID         string
@@ -64,6 +70,7 @@ func ConfigFromModel(m *types.Model, appID, appSecret string) *Config {
 		InterfaceType:  ifType,
 		Provider:       m.Parameters.Provider,
 		MaxConcurrency: m.Parameters.MaxConcurrency,
+		Spec:           m.Parameters.Spec,
 		Extra:          stringMapToAnyMap(m.Parameters.ExtraConfig),
 		CustomHeaders:  m.Parameters.CustomHeaders,
 		AppID:          appID,
@@ -104,11 +111,11 @@ func newVLM(config *Config, ollamaService *ollama.OllamaService) (VLM, error) {
 		return NewOllamaVLM(config, ollamaService)
 	}
 
-	providerName := provider.ProviderName(config.Provider)
-	if providerName == "" {
-		providerName = provider.DetectProvider(config.BaseURL)
+	providerID := config.Provider
+	if providerID == "" {
+		providerID = modelruntime.DetectByURL(config.BaseURL)
 	}
-	if providerName == provider.ProviderWeKnoraCloud {
+	if providerID == providers.WeKnoraCloudID {
 		return NewWeKnoraCloudVLM(config)
 	}
 

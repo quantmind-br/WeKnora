@@ -1,12 +1,12 @@
 # Documentation Parsing Service — docreader
 
-After uploading a PDF, the system first needs to turn it into text that can be split and indexed — this is handled by an independent parsing service, docreader. As a user, you generally only need to know two things: **which formats are supported**, and **what levers you can pull when parsing isn't ideal**.
+Document parsing converts uploaded files into searchable text and extracts raw image references. WeKnora supports many formats, and you can choose the parsing engine per file type; scanned documents, images, and audio additionally require the corresponding vision or speech model.
 
 Supported formats:
 
 | Category | Formats |
 | --- | --- |
-| Documents | PDF, Word (doc/docx), PPT (ppt/pptx), Excel (xls/xlsx), EPUB |
+| Documents | PDF, Word (doc/docx), PPT (ppt/pptx), Excel (xls/xlsx), EPUB, XMind |
 | Text | txt, Markdown, CSV, JSON |
 | Web | Online URL scraping, local HTML / MHTML archives |
 | Images | jpg, png, gif, bmp, tiff, webp (requires a vision model to understand content) |
@@ -17,13 +17,13 @@ When parsing results aren't ideal, you can adjust:
 - **Poor PDF layout reconstruction, misaligned tables**: in the knowledge base's parsing settings, specify a different parsing engine for `pdf` (MarkItDown / OpenDataLoader / MinerU);
 - **Scanned documents with no text recognized**: confirm a vision model is configured, and force scanned-document mode if needed;
 - **Excel's first row is column names but is treated as data**: enable "First row as header" for `xlsx`/`xls`;
-- **A specific paragraph is split incorrectly**: no need to re-upload the whole document — just edit it directly in the chunk list; see the chunk editing section of [Knowledge Base and Knowledge Management](02-knowledge-base.md).
+- **Chunk content needs correcting**: edit the text in the chunk list; see [Knowledge Bases & Knowledge Management](02-knowledge-base.md#editing-chunks-and-adding-metadata).
 
-Below is the complete implementation description of docreader, for secondary development and troubleshooting reference.
+## Parsing Mechanism and Configuration Reference
 
-`docreader/` is WeKnora's independent Python document parsing microservice (a gRPC sidecar). Its sole responsibility is: **converting files/URLs of various formats into Markdown text + raw image references**, which the Go main service (App) then uses to complete downstream chunking, image persistence, OCR, VLM captioning, and vectorization.
+docreader is an independent Python gRPC service that converts files or URLs into Markdown and raw image references. The Go main service then handles chunking, image storage, OCR, image captioning, and vectorization.
 
-After the "lightweight refactoring," docreader itself **does not do OCR, VLM captioning, chunking, or object storage uploads** — all of that is done on the Go side. The interface description in `docreader/parser/base_parser.py`:
+The division of responsibilities between the parsing service and downstream processing is defined in `docreader/parser/base_parser.py`:
 
 ```python
 class BaseParser(ABC):
@@ -35,11 +35,9 @@ class BaseParser(ABC):
     """
 ```
 
----
+### 服务定位与对外接口 {#_1-服务定位与对外接口}
 
-## 1. Service Positioning and External Interface
-
-### 1.1 Interface Protocol: Pure gRPC (No HTTP)
+#### Interface Protocol: Pure gRPC (No HTTP) {#_1-1-interface-protocol-pure-grpc-no-http}
 
 The service entry point is `docreader/main.py`, which starts only a gRPC server (`grpc.server` + `ThreadPoolExecutor`), listening by default on port `50051`, and also registers the standard gRPC Health service (`grpc_health.v1`) for K8s / Docker health checks (paired with the `grpc_health_probe` binary in the image). **There is no HTTP interface at all**.
 
@@ -63,7 +61,7 @@ The value of `ReadStream` (see `main.py::ReadStream` and `_iter_image_refs`): ea
 
 `ListEngines` is kept for backward compatibility only — a comment explicitly notes that the engine list is now managed on the Go side by `internal/infrastructure/docparser/engine_registry.go` (`docparser.ListAllEngines`); the Go App no longer calls this RPC, and remote engines like MinerU are handled natively by Go.
 
-### 1.2 Authentication and TLS (auth.py)
+#### Authentication and TLS (auth.py) {#_1-2-authentication-and-tls-auth-py}
 
 `docreader/auth.py` provides two layers of security, both enabled via environment variables:
 
@@ -73,7 +71,7 @@ The value of `ReadStream` (see `main.py::ReadStream` and `_iter_image_refs`): ea
 
 The Go-side client, in `docreader/client/auth.go` (`LoadAuthConfigFromEnv` reads the same-named environment variables `GRPC_TLS_ENABLED/CERT/KEY/CA/SERVER_NAME` and `GRPC_AUTH_TOKEN`), and `docreader/client/client.go`'s `NewClient` builds a connection with round_robin load balancing and a message size limit from `MAX_FILE_SIZE_MB`.
 
-### 1.3 Interaction Timing with the Main Service
+#### Interaction Timing with the Main Service {#_1-3-interaction-timing-with-the-main-service}
 
 The Go App's `internal/application/service/knowledge_process.go` calls the parser at the docreader stage of the document ingestion pipeline (the timeout is controlled by the `docreader_call_timeout` config, preventing a hung docreader from tying up a worker for too long). Note: **md/markdown/txt/csv/json/images/audio are handled natively by the Go-side `SimpleFormatReader`, and do not go through docreader** (see `simpleFormats` in `internal/infrastructure/docparser/builtin_converter.go`).
 
@@ -107,9 +105,9 @@ sequenceDiagram
 
 ---
 
-## 2. Parser Registration and Dispatch Mechanism
+### Parser Registration and Dispatch Mechanism {#_2-parser-registration-and-dispatch-mechanism}
 
-### 2.1 Engine Registry (parser/registry.py)
+#### Engine Registry (parser/registry.py) {#_2-1-engine-registry-parser-registry-py}
 
 `ParserEngineRegistry` maintains a two-level mapping of `engine name → {file extension → parser class}`, and supports registering a `check_available` probe per engine (used by `ListEngines` to report availability and reasons for unavailability).
 
@@ -117,26 +115,26 @@ sequenceDiagram
 
 | Engine | File Types | Description |
 | --- | --- | --- |
-| `builtin` | `docx`(Docx2Parser), `doc`(DocParser), `pdf`(PDFParser), `md`/`markdown`(MarkdownParser), `xlsx`/`xls`(ExcelParser), `epub`(EPUBParser), `html`/`htm`(HTMLParser), `mhtml`(MHTMLParser), `jpg`/`jpeg`/`png`/`gif`/`bmp`/`tiff`/`webp`(ImageParser) | Built-in parsing engine |
-| `markitdown` | `md`, `markdown`, `pdf`, `docx`, `doc`, `pptx`, `ppt`, `xlsx`, `xls`, `csv` (all via MarkitdownParser) | Microsoft's MarkItDown library. **PPT/PPTX are only supported by this engine** |
+| `builtin` | `docx`(Docx2Parser), `doc`(DocParser), `pdf`(PDFParser), `md`/`markdown`(MarkdownParser), `xlsx`/`xls`(ExcelParser), `pptx`/`ppt`(MarkitdownParser), `epub`(EPUBParser), `html`/`htm`(HTMLParser), `mhtml`(MHTMLParser), `xmind`(XMindParser), `jpg`/`jpeg`/`png`/`gif`/`bmp`/`tiff`/`webp`(ImageParser) | Built-in parsing engine; PPT/PPTX reuse the MarkItDown parser |
+| `markitdown` | `md`, `markdown`, `pdf`, `docx`, `doc`, `pptx`, `ppt`, `xlsx`, `xls`, `csv` (all via MarkitdownParser) | Microsoft's MarkItDown library |
 | `opendataloader` | `pdf`(OpenDataLoaderParser) | OpenDataLoader PDF layout analysis, requires Java 11+; `check_available` probes java, Python packages, and hybrid service health |
 
 Dispatch rule (`get_parser_class`): if the engine requested doesn't support that file type, it **automatically falls back to the `builtin` engine**; if `builtin` doesn't support it either, a `ValueError("Unsupported file type")` is raised.
 
-### 2.2 Facade and File Magic-Number Correction (parser/parser.py)
+#### Facade and File Magic-Number Correction (parser/parser.py) {#_2-2-facade-and-file-magic-number-correction-parser-parser-py}
 
 `Parser` is the facade class: `parse_file()` goes through the registry, `parse_url()` always uses `WebParser`. One important defensive mechanism is `detect_effective_file_type()` — OOXML `.docx` is actually a ZIP container, while old-style `.doc` is an OLE Compound File; WPS/Word tolerates renaming `.doc` to `.docx`, so a "docx" detected with an OLE magic-number header (`b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"`) is force-routed to the DOC parser, avoiding feeding binary OLE data into the DOCX parser.
 
 Engine override parameters `engine_overrides` (from the proto's `parser_engine_overrides`) are passed as `**kwargs` into the parser constructor — for example, `pdf_force_scanned` is captured by `PDFParser.__init__`.
 
-### 2.3 Chained Parsers (parser/chain_parser.py)
+#### Chained Parsers (parser/chain_parser.py) {#_2-3-chained-parsers-parser-chain-parser-py}
 
 Two "chain of responsibility" combinators, both dynamically generating subclasses via the class factory `create(*parser_classes)`:
 
 - **`FirstParser`**: tries multiple parsers in order, returning the result from the first one that produces `document.is_valid()` (i.e. `content != ""`); exceptions are caught and the next one is tried. Typical use case: `Docx2Parser = FirstParser.create(MarkitdownParser, DocxParser)`.
 - **`PipelineParser`**: a pipeline where each parser's output text (re-encoded to bytes) becomes the next one's input, with `images`/`metadata` produced at each stage accumulated and merged. Typical use cases: `MarkdownParser = PipelineParser.create(MarkdownTableFormatter, MarkdownImageBase64)`, `WebParser = PipelineParser.create(StdWebParser, MarkdownParser)`, `MarkitdownParser = PipelineParser.create(StdMarkitdownParser, MarkdownParser)`.
 
-### 2.4 Concurrency Model (parser/concurrency.py and elsewhere)
+#### Concurrency Model (parser/concurrency.py and elsewhere) {#_2-4-concurrency-model-parser-concurrency-py-and-elsewhere}
 
 Concurrency control is layered into four levels:
 
@@ -150,9 +148,9 @@ Concurrency control is layered into four levels:
 
 ---
 
-## 3. Parsers in Detail
+### Parsers in Detail {#_3-parsers-in-detail}
 
-### 3.1 pdf_parser.py — PDFParser / PDFScannedParser (builtin engine's PDF)
+#### pdf_parser.py — PDFParser / PDFScannedParser (builtin engine's PDF) {#_3-1-pdf-parser-py-—-pdfparser-pdfscannedparser-builtin-engine-s-pdf}
 
 **Dependencies**: `pypdfium2` (+ Pillow). No external service is needed (MinerU / Docling, etc.) — docreader itself does no OCR.
 
@@ -172,7 +170,7 @@ Any exception falls back to **`PDFScannedParser`**: a fallback parser that rende
 
 **Limitations**: no table structure recognition (text-layer tables are output row by row); heading recognition is a font-size heuristic; scanned-page text relies entirely on Go-side OCR.
 
-### 3.2 doc_parser.py — DocParser (old-style .doc Word)
+#### doc_parser.py — DocParser (old-style .doc Word) {#_3-2-doc-parser-py-—-docparser-old-style-doc-word}
 
 Inherits from `Docx2Parser`, with a processing chain (tried in order):
 
@@ -180,9 +178,9 @@ Inherits from `Docx2Parser`, with a processing chain (tried in order):
 2. `_parse_with_antiword`: `antiword` command-line plain-text extraction (executed via `SandboxExecutor`, force-injecting proxy environment variables, defaulting to a `http://128.0.0.1:1` "black-hole proxy" to block unexpected outbound connections from the subprocess);
 3. `_parse_with_textract`: **disabled** (textract has an SSRF vulnerability; the code is kept but commented out).
 
-**Dependencies**: LibreOffice (soffice), antiword (already installed in the image); lookup paths support the `LIBREOFFICE_PATH`/`ANTIWORD_PATH` environment variables. **Limitation**: without LibreOffice, it degrades to antiword plain-text extraction (no images, no table structure).
+**Dependencies**: LibreOffice (soffice), antiword (already installed in the image); lookup paths support the `LIBREOFFICE_PATH`/`ANTIWORD_PATH` environment variables. External commands time out after 60 seconds by default; on timeout the whole process group is terminated (including child processes spawned by soffice), so leftover processes don't tie up the docreader worker. **Limitation**: without LibreOffice, it degrades to antiword plain-text extraction (no images, no table structure).
 
-### 3.3 The Difference Between docx2_parser.py and docx_parser.py
+#### The Difference Between docx2_parser.py and docx_parser.py {#_3-3-the-difference-between-docx2-parser-py-and-docx-parser-py}
 
 - **`Docx2Parser`** (the actual entry point for docx in the registry) has just 3 lines of core code: `FirstParser.create(MarkitdownParser, DocxParser)` — **tries MarkItDown first** (fast, good table-to-Markdown quality), falling back to the in-house `DocxParser` on failure or empty output.
 - **`DocxParser`** (docx_parser.py, 1500+ lines) is an in-house python-docx-based parser:
@@ -193,7 +191,7 @@ Inherits from `Docx2Parser`, with a processing chain (tried in order):
   - falls back to `_parse_using_simple_method` on overall failure (pure python-docx sequential extraction of paragraphs + table rows, no images).
   - page limit `DOCREADER_DOCX_MAX_PAGES` (default 0 = unlimited).
 
-### 3.4 excel_parser.py and Its Three Helper Modules (.xlsx / .xls)
+#### excel_parser.py and Its Three Helper Modules (.xlsx / .xls) {#_3-4-excel-parser-py-and-its-three-helper-modules-xlsx-xls}
 
 **`ExcelParser`** is based on pandas: reads a DataFrame per sheet, drops fully empty rows, and **converts each row into `column_name: value,column_name: value` key-value text**, with one `Chunk` per row (carrying start/end position). It strips out embedded-image function strings like WPS's `=DISPIMG("ID",mode)` and Office 365's `=_xlfn.IMAGE(...)` (`_IMAGE_FUNC_RE`). It does not extract images.
 
@@ -209,27 +207,27 @@ The three helper modules handle real-world messy files:
 
 Before XLSX is read, it always goes through `repair → fill_merged_cells` preprocessing, using `header=None` + A/B/C column letters as stable column names (for xls, it first tries treating the first row as a header, falling back to column letters when it encounters `Unnamed:` columns).
 
-### 3.5 ppt_convert.py / pptx_media.py (.ppt / .pptx, serving the markitdown engine)
+#### ppt_convert.py / pptx_media.py (.ppt / .pptx, serving the markitdown engine) {#_3-5-ppt-convert-py-pptx-media-py-ppt-pptx-serving-the-markitdown-engine}
 
 The PPT family **has no dedicated parser** — it's handled by `MarkitdownParser`, with these two modules serving as its pre/post-processing helpers:
 
 - **`ppt_convert.py`**: `normalize_ppt_bytes` determines by magic number (ZIP=pptx passes through directly; OLE=old-style ppt gets converted via LibreOffice `convert-to pptx`, independent profile + 3 retries). Without LibreOffice, it throws an error for .ppt directly, suggesting installation.
 - **`pptx_media.py`**: a remedy for PPTX media that MarkItDown can't inline (especially WMF/EMF/SVG vector graphics) — it unpacks all resources under `ppt/media/`, rasterizes them to PNG in order using Pillow (bitmaps) or ImageMagick `convert` (vector, a catch-all for any format), then replaces the unresolved `![](...)` references in the markdown, in order, with `images/<uuid>.png` and inlines the image data.
 
-### 3.6 image_parser.py — ImageParser (standalone image files)
+#### image_parser.py — ImageParser (standalone image files) {#_3-6-image-parser-py-—-imageparser-standalone-image-files}
 
 The simplest parser (29 lines): **does no OCR at all**. It inlines the whole image as base64 into `Document.images`, with the body text being just a single line, `![filename](images/filename)`. **The OCR engine lives on the Go side** — docreader's Dockerfile comments explicitly state that "OCR/PaddleOCR-related dependencies have been removed"; on the Go side, OCR and captioning are done via `internal/infrastructure/docparser/paddleocr_vl_converter.go` / `paddleocr_vl_cloud_converter.go` (PaddleOCR-VL) and `image_multimodal.go`. Also note: Go's `simpleFormats` has already absorbed image formats for native Go handling, so docreader's ImageParser mainly serves SDK scenarios that call the gRPC directly.
 
-### 3.7 markdown_parser.py — MarkdownParser (.md / .markdown)
+#### markdown_parser.py — MarkdownParser (.md / .markdown) {#_3-7-markdown-parser-py-—-markdownparser-md-markdown}
 
 `PipelineParser.create(MarkdownTableFormatter, MarkdownImageBase64)`:
 
 - **`MarkdownTableFormatter`**: after automatic encoding detection (`endecode.decode_bytes`: utf-8 → gb18030 → gb2312 → gbk → big5 → ascii → latin-1), it normalizes tables — unifying `| cell |` spacing and alignment markers, with `normalize_spurious_table_prefixes` fixing the fake empty/separator-row prefixes produced by MarkItDown, and adding a `| --- |` GFM separator row to headerless Word tables.
-- **`MarkdownImageBase64`**: extracts inline `![alt](data:image/xxx;base64,...)` images into `images/<uuid>.<ext>` references + `Document.images` data (MIME subtypes support hyphenated formats like `x-emf`).
+- **`MarkdownImageBase64`**: extracts inline `![alt](data:image/xxx;base64,...)` images into `images/<uuid>.<ext>` references + `Document.images` data (MIME subtypes support hyphenated formats like `x-emf`). Images that can't be decoded (for example, base64 immediately followed by a Chinese image caption) are skipped and logged, rather than failing the parse of the whole document.
 
 This parser is also a shared post-processing stage of the MarkitdownParser / WebParser pipelines.
 
-### 3.8 web_parser.py — WebParser (URL mode)
+#### web_parser.py — WebParser (URL mode) {#_3-8-web-parser-py-—-webparser-url-mode}
 
 `PipelineParser.create(StdWebParser, MarkdownParser)`. `StdWebParser` uses **Playwright (WebKit engine)** to render the page + **trafilatura** to extract the main content as Markdown:
 
@@ -239,11 +237,11 @@ This parser is also a shared post-processing stage of the MarkitdownParser / Web
 - **Fallback**: when trafilatura can't extract the main content, falls back to Playwright's visible text (≥50 characters) + page title.
 - Proxying goes through `DOCREADER_EXTERNAL_HTTPS_PROXY`. Metadata extracts `title`.
 
-### 3.9 mhtml_parser.py — MHTMLParser (.mhtml web archives)
+#### mhtml_parser.py — MHTMLParser (.mhtml web archives) {#_3-9-mhtml-parser-py-—-mhtmlparser-mhtml-web-archives}
 
 Uses the standard library's `email` module to parse the MIME structure: collects all `text/html` parts, **selecting the largest non-ad part** as the main content (filtered by a domain blacklist such as `googleads`/`doubleclick`); `image/*` parts are extracted into `images/...` (preferring the Content-Location filename, appending `_2` on conflict), with an alias table built from multiple spellings of `Content-Location`/`Content-ID`(`cid:`)/`X-Attachment-Id` (HTML-escaped, URL-encoded, basename, relative-path urljoin) to rewrite `<img src>`. HTML → Markdown uses BeautifulSoup (stripping script/style/noscript/iframe, unwrapping in-site links) + `markdownify`, followed by code-fence-aware blank-line normalization. If everything fails, it falls back to a ```` ```html ```` code block. Metadata: `source_format=mhtml`, `file_size`, `image_count`.
 
-### 3.10 html_parser.py — HTMLParser (.html / .htm static web page files)
+#### html_parser.py — HTMLParser (.html / .htm static web page files) {#_3-10-html-parser-py-—-htmlparser-html-htm-static-web-page-files}
 
 HTML files uploaded directly by the user go through this path, separate from `parse_url()`'s online scraping: `HTMLParser = PipelineParser.create(HTMLToMarkdownParser, MarkdownParser)`.
 
@@ -251,19 +249,23 @@ HTML files uploaded directly by the user go through this path, separate from `pa
 - HTML → Markdown reuses `MHTMLParser.html_to_markdown()`, but passes `extract_images=False` (a local HTML file has no MIME attachments to extract), `strip_internal_links=False` (keeps in-site links), and `fallback_to_raw_html=False` (returns empty rather than stuffing in an entire ```` ```html ```` block when conversion produces no content);
 - Remote images referenced in the body via `<img src="http://...">` are filled in on the Go side: `internal/infrastructure/docparser/image_resolver.go` downloads these remote images with SSRF validation and re-uploads them to object storage, then rewrites the references, so they go through the same OCR / captioning pipeline as locally uploaded images.
 
-### 3.11 epub_parser.py — EPUBParser (.epub e-books)
+#### xmind_parser.py — XMindParser (.xmind mind maps)
+
+Reads `content.json` (new format) or `content.xml` (old format) from the XMind archive, with a 32 MiB limit per content file. Each sheet is output as a `# sheet title` section, the topic hierarchy becomes an indented Markdown list, plain-text notes are attached as blockquotes under their topics, and multiple sheets are separated by `---`. Images are not extracted; parsing fails when there are no renderable topics.
+
+#### epub_parser.py — EPUBParser (.epub e-books) {#_3-11-epub-parser-py-—-epubparser-epub-e-books}
 
 The primary path uses **ebooklib** (read in via a temp file): extracts DC metadata (title/author/publisher/language/description/date/isbn), preferring to process chapters in TOC order (each chapter takes its first h1/h2 as the chapter title, outputting `## chapter title` + markdownify-converted body text), with all `ITEM_IMAGE` extracted into `images/<uuid>.<ext>` and rewritten into `<img src>` via multiple path-alias variants; EPUB internal links (inter-chapter jumps, `#fragment`) are unwrapped to plain text only. If ebooklib fails, it falls back to **reading the ZIP directly**: html/xhtml files sorted by `chapter(\d+)` and converted one by one. Metadata includes `chapter_count`/`image_count`.
 
-### 3.12 markitdown_parser.py — MarkitdownParser (markitdown engine)
+#### markitdown_parser.py — MarkitdownParser (markitdown engine) {#_3-12-markitdown-parser-py-—-markitdownparser-markitdown-engine}
 
 `PipelineParser.create(StdMarkitdownParser, MarkdownParser)`. `StdMarkitdownParser` wraps Microsoft's **MarkItDown** library (`markitdown[docx,pdf,xls,xlsx]`): ppt/pptx are first normalized via `normalize_ppt_bytes`; conversion is first attempted with `keep_data_uris=True` (images kept as data URIs, to be extracted downstream by `MarkdownImageBase64`), falling back to `keep_data_uris=False` on failure; after pptx conversion, if the markdown still has unresolved image references, `attach_pptx_media_to_markdown` is called to fill them in. The whole thing is throttled by `parser_worker_limit("markitdown", DOCREADER_MARKITDOWN_MAX_WORKERS=1)`. **Limitation**: MarkItDown's PDF handling goes through pdfminer text extraction, which is useless for scanned documents (a comment in `parse_local.py --scanned` also notes that pdfminer can hang); table/layout reconstruction is weaker than the builtin PDF routing.
 
-### 3.13 opendataloader_parser.py — OpenDataLoaderParser (opendataloader engine, PDF only)
+#### opendataloader_parser.py — OpenDataLoaderParser (opendataloader engine, PDF only) {#_3-13-opendataloader-parser-py-—-opendataloaderparser-opendataloader-engine-pdf-only}
 
 Wraps the Apache-2.0 **opendataloader-pdf** (a Java-implemented layout analysis tool): each `convert()` call spins up a JVM (throttled by `parser_worker_limit("opendataloader", 1)`), producing markdown + an external image directory; it then collects all images under the output tree and builds an alias table (angle-bracket-wrapped `<images/foo.png>`, HTML entities, basename, `imageFileN` numbering alignment) to rewrite markdown image references. It supports **hybrid mode** (`DOCREADER_ODL_HYBRID=docling-fast`, etc.): calling an independently deployed `opendataloader-pdf-hybrid` HTTP service (`DOCREADER_ODL_HYBRID_URL`, default `http://127.0.0.1:5002`, corresponding to `docker/Dockerfile.odl-hybrid` on the Docker side), with an availability probe that retries (a fast 2s×1 probe; a 5s×6 probe before parsing to tolerate service cold starts). Output text <20 characters is judged a failure, and it **falls back to builtin's `PDFScannedParser`**. Availability check: `java` on PATH (needs Java 11+; the image has openjdk-17-jre-headless installed) + Python packages installed + hybrid healthy.
 
-### 3.14 Parser Selection Decision Flow
+#### Parser Selection Decision Flow {#_3-14-parser-selection-decision-flow}
 
 ```mermaid
 flowchart TD
@@ -288,13 +290,15 @@ flowchart TD
     H -- "epub" --> EP["EPUBParser (ebooklib → ZIP fallback)"]
     H -- "html / htm" --> HT["HTMLParser (BeautifulSoup + markdownify)"]
     H -- "mhtml" --> MH["MHTMLParser"]
+    H -- "pptx / ppt" --> PT["MarkitdownParser (LibreOffice normalization + media image fill-in)"]
+    H -- "xmind" --> XM["XMindParser (topic outline + notes)"]
     H -- "jpg/png/gif/bmp/tiff/webp" --> IM["ImageParser (whole image inlined, no OCR)"]
     H -- "other" --> ERR["ValueError: Unsupported file type"]
 ```
 
 ---
 
-## 4. Image Processing and Multimodal Division of Labor
+### Image Processing and Multimodal Division of Labor {#_4-image-processing-and-multimodal-division-of-labor}
 
 The image contract on the docreader side is very simple: each parser returns images as `Document.images = {"images/<filename>": "<base64>"}`, with the markdown body referencing them relatively as `![...](images/<filename>)`.
 
@@ -303,11 +307,13 @@ The image contract on the docreader side is very simple: each parser returns ima
 - unary `Read`: `_resolve_images()` base64-decodes all images into **inline bytes** in `ImageRef.image_data`, returned all at once (`image_dir_path` is always empty — the historical "write to shared volume directory" pattern has been deprecated; a comment explicitly states *"The Go App is solely responsible for persisting images to the configured storage backend (local/minio/cos/tos)"*);
 - streaming `ReadStream`: `_iter_image_refs()` yields them one at a time, `pop`-ping to free memory as it sends.
 
-After the Go side takes over (`internal/infrastructure/docparser/image_resolver.go`): it uploads the inline bytes to object storage, rewrites the `images/...` references in markdown to storage URLs; then `internal/application/service/image_multimodal.go` decides based on the metadata's `image_source_type` — full-page images with `scanned_pdf` go through OCR (with a dedicated `ocr_prompt`), while regular illustrations go through VLM captioning. **There is no VLM call anywhere inside docreader**; the `vlm_config`/`storage_config` fields in `models/read_config.py` are just empty shells kept for backward compatibility with the old constructor signature ("Legacy config kept for backward compatibility").
+After the Go side takes over (`internal/infrastructure/docparser/image_resolver.go`): it uploads the inline bytes to object storage, rewrites the `images/...` references in markdown to storage URLs; then `internal/application/service/image_multimodal.go` decides based on the metadata's `image_source_type` — full-page images with `scanned_pdf` go through OCR (with a dedicated `ocr_prompt`), while regular illustrations go through VLM captioning. The custom image-parsing instructions configured on the knowledge base (`vlm_config.custom_instructions`) are only appended to the caption prompt, not the OCR prompt, so they don't interfere with OCR's output conventions (for example, an image with no text should be answered with `No text content`).
+
+Inline HTML `<table>` elements in each parsing engine's output (common with MinerU, PaddleOCR-VL, and VLM OCR) are uniformly converted into Markdown tables before chunking; tables that can't be converted, such as those with merged cells, stay as HTML, but each row is placed on its own line so the chunker can split at row boundaries. **There is no VLM call anywhere inside docreader**; the `vlm_config`/`storage_config` fields in `models/read_config.py` are just empty shells kept for backward compatibility with the old constructor signature ("Legacy config kept for backward compatibility").
 
 ---
 
-## 5. The Relationship Between the splitter/ Chunker and the Go-side Chunker
+### The Relationship Between the splitter/ Chunker and the Go-side Chunker {#_5-the-relationship-between-the-splitter-chunker-and-the-go-side-chunker}
 
 `docreader/splitter/splitter.py`'s `TextSplitter` is a recursive chunker with protected-pattern support:
 
@@ -319,9 +325,9 @@ The gRPC response no longer returns chunks (`ReadResponse` has no chunk field); 
 
 ---
 
-## 6. Full Configuration Reference
+### Full Configuration Reference {#_6-full-configuration-reference}
 
-### 6.1 config.py (`DocReaderConfig`, prints effective values at startup)
+#### config.py (`DocReaderConfig`, prints effective values at startup) {#_6-1-config-py-docreaderconfig-prints-effective-values-at-startup}
 
 | Environment Variable (alias) | Default | Description |
 | --- | --- | --- |
@@ -344,7 +350,7 @@ The gRPC response no longer returns chunks (`ReadResponse` has no chunk field); 
 | `DOCREADER_EXTERNAL_HTTP_PROXY` / `DOCREADER_EXTERNAL_HTTPS_PROXY` (`EXTERNAL_HTTP_PROXY`/`EXTERNAL_HTTPS_PROXY`) | empty | External proxy (WebParser, DOC conversion subprocess) |
 | `DOCREADER_IMAGE_OUTPUT_DIR` (`IMAGE_OUTPUT_DIR`) | `/tmp/docreader` | Temporary image directory (used as a fallback for local mode; the current main pipeline doesn't write to disk) |
 
-### 6.2 PDF Routing Details (pdf_parser.py module-level environment variables, common ones only)
+#### PDF Routing Details (pdf_parser.py module-level environment variables, common ones only) {#_6-2-pdf-routing-details-pdf-parser-py-module-level-environment-variables-common-ones-only}
 
 | Environment Variable | Default | Description |
 | --- | --- | --- |
@@ -360,21 +366,34 @@ The gRPC response no longer returns chunks (`ReadResponse` has no chunk field); 
 | `DOCREADER_PDF_RENDER_VECTOR_FIGURES` | true | Render vector chart regions to JPEG |
 | `DOCREADER_PDF_WORD_GAP_WIDTH_RATIO` / `_MARGIN_COL_WIDTH_RATIO` / `_MIN_HEADING_LINE_CHARS`, etc. | 0.4 / 0.12 / 8 | Layout-reconstruction fine-tuning parameters (see source constants section for details) |
 
-### 6.3 Security and Miscellaneous
+#### Go-side Parsing Timeouts
+
+The following environment variables apply to the Go main service, not the docreader container:
+
+| Environment Variable | Type | Default | Description |
+| --- | --- | --- | --- |
+| `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` | Go duration | `2h` | Total timeout for a single document processing task |
+| `WEKNORA_DOCREADER_CALL_TIMEOUT` | Go duration | `30m` | Timeout for a single docreader call; must be smaller than the document processing timeout |
+| `WEKNORA_PADDLEOCR_VL_TIMEOUT` | Go duration | `1000s` | HTTP request timeout for the self-hosted PaddleOCR-VL engine; empty, invalid, or non-positive values use the default |
+
+When processing large files, leave headroom at each level from the inside out, for example PaddleOCR-VL `90m`, docreader `100m`, document processing `2h`.
+
+#### Security and Miscellaneous {#_6-3-security-and-miscellaneous}
 
 | Environment Variable | Description |
 | --- | --- |
 | `GRPC_AUTH_TOKEN` | When set, enables token authentication (metadata `authorization: Bearer <token>`) |
 | `GRPC_TLS_ENABLED` / `GRPC_TLS_CERT` / `GRPC_TLS_KEY` / `GRPC_TLS_CA` / `GRPC_MTLS_REQUIRE_CLIENT_CERT` | TLS / mTLS; startup is refused if the configuration is invalid |
 | `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | SSRF whitelist (comma-separated, supports `*.suffix` and CIDR) |
+| `SSRF_DNS_WHITELIST_ONLY` | When set to `true`, only host names on the whitelist may be accessed, and hosts not on the whitelist are rejected before DNS resolution; shares the same switch as the Go main service |
 | `LOG_LEVEL` | Log level (default INFO; log format includes request_id and duration, see `utils/request.py`) |
 | `LIBREOFFICE_PATH` / `ANTIWORD_PATH` | Overrides for the soffice / antiword executable paths |
 
 ---
 
-## 7. Deployment and Scaling Recommendations
+### Deployment and Scaling Recommendations {#_7-deployment-and-scaling-recommendations}
 
-### 7.1 Image and System Dependencies (docker/Dockerfile.docreader)
+#### Image and System Dependencies (docker/Dockerfile.docreader) {#_7-1-image-and-system-dependencies-docker-dockerfile-docreader}
 
 Base image `python:3.10.18-bookworm`, a two-stage build (builder uses `uv sync --locked` to install dependencies + `scripts/generate_proto.sh` to generate pb code; runner copies the venv), `EXPOSE 50051`, `CMD ["uv", "run", "-m", "docreader.main"]`. Runtime system dependencies:
 
@@ -389,21 +408,94 @@ There are two more tools under `scripts/`: `generate_proto.sh` (uses grpc_tools.
 
 Python dependencies (locked via `pyproject.toml` + `uv.lock`): `grpcio`, `pypdfium2`, `markitdown[docx,pdf,xls,xlsx]`, `opendataloader-pdf`, `python-docx`, `pandas`/`openpyxl`/`xlrd`, `playwright`, `trafilatura`, `beautifulsoup4`/`markdownify`/`lxml`, `ebooklib`, `pillow`, `pydantic`, `textract` (disabled code path), etc.
 
-### 7.2 Scaling and Tuning
+#### Scaling and Tuning {#_7-2-scaling-and-tuning}
 
 - **Horizontal scaling preferred**: the pdfium global lock means **PDF parsing is serialized within a single instance**, so PDF throughput mainly relies on scaling replicas. The Go client dials `dns:///` + `round_robin`, and under K8s a headless service is enough to balance load across replicas.
 - **Single-instance vertical tuning**: with spare CPU, increase `DOCREADER_PDF_RENDER_PARALLELISM` (near-linear speedup for single-document rendering) and `DOCREADER_GRPC_MAX_WORKERS` (true concurrency for non-PDF formats); under memory constraints, prioritize ensuring the Go side uses `ReadStream` (the default behavior).
 - **Large files**: `MAX_FILE_SIZE_MB` needs to be adjusted **in sync on both the Go client and docreader**; the size of scanned-page images is controlled by the three knobs `DOCREADER_PDF_RENDER_MAX_EDGE`/`_DPI`/`_JPEG_QUALITY`.
 - **JVM/browser-class workload isolation**: OpenDataLoader spins up a JVM on every parse, and WebParser spins up WebKit every time — both are heavy processes; `DOCREADER_ODL_MAX_WORKERS` and `DOCREADER_MARKITDOWN_MAX_WORKERS` defaulting to 1 are conservative values, which can be relaxed or set to ≤0 to disable throttling when resources are ample. The ODL hybrid service (`Dockerfile.odl-hybrid`) should be deployed independently, with `DOCREADER_ODL_HYBRID_URL` configured accordingly.
-- **Timeout protection**: the Go side must configure `docreader_call_timeout` (`internal/config/config.go`), otherwise a hung docreader will tie up an ingestion worker for a long time.
+- **Timeout protection**: the Go-side `WEKNORA_DOCREADER_CALL_TIMEOUT` (config file key `docreader_call_timeout`, default 30 minutes) limits each docreader call, preventing a hung docreader from tying up an ingestion worker for a long time; when large files need longer to parse, raise the document processing timeout accordingly (see [Go-side Parsing Timeouts](#go-side-parsing-timeouts)).
 - **Security baseline**: enable `GRPC_AUTH_TOKEN` (≥16 bytes) + `GRPC_TLS_ENABLED` in production; without these, the service starts in plaintext + unauthenticated mode and prints a WARNING.
 
 ---
 
-## Appendix: Key Facts Quick Reference
+### anydoc Engine (In-Process Go Parsing, Bypassing docreader) {#_8-anydoc-engine-in-process-go-parsing-bypassing-docreader}
+
+`anydoc` is an optional Go-side parsing engine: it links [anydoc](https://github.com/firecrawl/anydoc) (a document conversion library written in Rust) into the WeKnora main process via cgo and converts office documents directly into Markdown. Unlike the docreader described in the rest of this page, it **doesn't go through the Python service, doesn't cross processes, and doesn't call external binaries** — a good fit for lightweight deployments that don't want to deploy docreader, or for scenarios sensitive to parsing latency.
+
+Supported file types: `doc`, `docx`, `docm`, `odt`, `rtf`, `ppt`, `pptx`, `pptm`, `odp`, `xls`, `xlsx`, `xlsm`, `ods`, `epub`, `csv`, `pdf`.
+
+#### Enabling It {#_8-1-enabling-it}
+
+The parsing library is a Rust static library and needs the Rust toolchain to build. The official Docker image (`wechatopenai/weknora-app`) and `docker compose build` **link anydoc by default**, so it can be selected directly on the settings page. A local `go build` does not link it by default: without `-tags anydoc`, the engine shows as unavailable in the "Parsing engine" list, and other engines are unaffected.
+
+```bash
+make build-anydoc                  # Build the static library + a binary with the anydoc tag
+# Equivalent to:
+scripts/build-anydoc-lib.sh && go build -tags anydoc ./cmd/server
+```
+
+The Docker image defaults to `WITH_ANYDOC=1`. To skip the Rust toolchain and shorten the build:
+
+```bash
+docker build -f docker/Dockerfile.app --build-arg WITH_ANYDOC=0 -t weknora-app .
+# Or set WITH_ANYDOC=0 in .env, then run docker compose build
+```
+
+Explicit parsing rules take precedence. When no rules are configured and anydoc is linked, the complex formats it supports go through anydoc by default; PDF is the exception and still goes through builtin by default (anydoc only extracts the PDF text layer and loses images, tables, and layout, while builtin can detect scanned pages page by page and hand them to OCR). Simple formats continue to use the Go SimpleFormatReader. When anydoc is not linked, PPT/PPTX fall back to markitdown by default. If you need a fixed engine, specify it explicitly in the knowledge base's parsing settings (including assigning `pdf` to anydoc), rather than relying on the deployment's build options.
+
+#### Capability Boundaries {#_8-2-capability-boundaries}
+
+- **Scanned PDFs**: anydoc only extracts the PDF text layer. Scanned documents without a text layer report "OCR required"; if DocReader (builtin) is connected, AnydocReader automatically hands the file to builtin, which renders each page as JPEG and marks it `image_source_type=scanned_pdf`, so it still goes through Go-side OCR afterward. When DocReader is not connected, the conversion fails; use `builtin`, `mineru`, or `paddleocr_vl` instead.
+- **Vertically merged cells are not backfilled**: docreader's `Docx2Parser` copies a vertically merged value into every row (see issue #2634), while anydoc outputs the value only in the starting row and leaves subsequent rows empty. For knowledge bases that depend on row-by-row table semantics, `builtin` is still more reliable.
+- **Image positions**: when image extraction is enabled, embedded images in the document model are first rewritten as `images/image-N.ext` links and then handed to anydoc's official GFM serializer, so images stay in their original paragraph/table/list positions. Setting the engine override parameter `anydoc_extract_images=false` disables image extraction and uses faster plain-text rendering (embedded images degrade to alt text).
+- **Does not handle URLs, images, or audio**: these remain the responsibility of `WebParser`, `SimpleFormatReader`, and the ASR pipeline.
+
+#### Code Locations {#_8-3-code-locations}
+
+| Path | Purpose |
+| --- | --- |
+| `internal/infrastructure/docparser/anydoc/` | Adapter layer: format mapping, availability checks, and the cgo / stub backends |
+| `internal/infrastructure/docparser/anydoc_reader.go` | `DocReader` implementation: assembling conversion results and image references |
+| `internal/infrastructure/docparser/engines.go` | Engine registration (metadata + Reader factory) |
+| `third_party/anydoc-go/` | Vendored upstream Go bindings and C ABI shim (see that directory's README for the source and local changes) |
+
+### MinerU Self-Hosted Engine (Direct Go Connection, Bypassing docreader) {#mineru-self-hosted}
+
+The `mineru` engine is called directly by the Go App against a self-hosted MinerU service (`internal/infrastructure/docparser/mineru_converter.go`). MinerU 4.0 removed the old `/file_parse` endpoint in favor of the V1 API, so before each parse WeKnora first requests `GET {mineru_endpoint}/v1/health` and chooses the protocol based on the result:
+
+| Probe result | Protocol | Flow |
+| --- | --- | --- |
+| `200` with `status=ok` | V1 (MinerU ≥ 4.0, `mineru_v1_client.go`) | `POST /v1/uploads` → upload the bytes to the returned `upload_url` → `POST /v1/uploads/{id}/complete` → `POST /v1/parse/jobs` (requesting only the `zip` artifact) → poll `GET /v1/parse/jobs/{id}` → `GET /v1/files/{id}/content` to download the zip, taking `markdown.md` and `images/` from it |
+| `404` / `405` | Legacy (MinerU ≤ 3.x) | `POST /file_parse`, synchronously returning Markdown and base64 images |
+| `503` with an error body | V1, but the service isn't ready | Fails immediately (commonly caused by a model preload failure), without falling back to the legacy protocol |
+
+Upgrading MinerU requires no WeKnora configuration changes. How parameters map between the two protocols:
+
+| Setting (`ParserEngineConfig`) | MinerU ≥ 4.0 | MinerU ≤ 3.x |
+| --- | --- | --- |
+| `mineru_endpoint` | V1 service address (e.g. `http://mineru:8000`) | Same |
+| `mineru_server_api_key` | Sent as `Authorization: Bearer` when the service is started with `--api-key` | Not used |
+| `mineru_tier` | `tier`: `flash` / `basic` / `standard` / `advanced`; leave empty to let the server choose the default tier (preferring `standard`) | Not used |
+| `mineru_parse_method` | `ocr_mode` (`auto` / `txt` / `ocr`) | `parse_method` |
+| `mineru_model`, `mineru_vlm_server_url`, `mineru_enable_formula`, `mineru_enable_table`, `mineru_language` | Ignored (4.0 removed these parameters; the VLM address is now configured in MinerU's `config.yaml`) | Sent as-is |
+
+A few details of the V1 flow:
+
+- Uploads include a `sha256sum`; when the server already has the same file, it is reused and the bytes are not sent again.
+- The API Key is attached only when `upload_url` has the same origin as `mineru_endpoint` (same scheme, host, and port); cross-origin addresses (such as pre-signed object storage URLs issued by the official API) are sent without the Key and still go through SSRF validation.
+- Polling starts at 2 seconds with exponential backoff, up to once every 30 seconds; the total duration is 1000 seconds, the same as the legacy protocol. On timeout or caller cancellation, `DELETE /v1/parse/jobs/{id}` is sent to cancel the server-side job.
+- The MinerU V1 service keeps uploads and job status in process memory, so after a service restart, jobs being polled return 404 and the current parse fails immediately.
+- On a V1 service, "Test connection" additionally requests the authenticated `GET /v1/parse/jobs?limit=1` to detect a missing or incorrect API Key (`/v1/health` itself does not check the Key).
+
+`mineru_cloud` (mineru.net) still uses the `/api/v4/file-urls/batch` batch endpoint and is not affected by the 4.0 self-hosted service changes.
+
+---
+
+### Appendix: Key Facts Quick Reference
 
 - **External interface**: gRPC only, port `50051` (`DOCREADER_GRPC_PORT`/`PORT`), RPCs: `Read` / `ReadStream` / `ListEngines` + the standard Health service.
-- **Full set of file formats directly supported by docreader**: `pdf`, `docx`, `doc`, `xlsx`, `xls` (the markitdown engine additionally includes `pptx`, `ppt`, `csv`), `md`/`markdown`, `epub`, `html`/`htm`, `mhtml`, images `jpg/jpeg/png/gif/bmp/tiff/webp`, and URL web scraping; `txt`/`csv`/`json`/images/audio are handled natively in the main pipeline by the Go-side `SimpleFormatReader`, without going through this service.
+- **Full set of file formats directly supported by docreader**: `pdf`, `docx`, `doc`, `xlsx`, `xls`, `pptx`, `ppt`, `xmind` (the markitdown engine additionally includes `csv`), `md`/`markdown`, `epub`, `html`/`htm`, `mhtml`, images `jpg/jpeg/png/gif/bmp/tiff/webp`, and URL web scraping; `txt`/`csv`/`json`/images/audio are handled natively in the main pipeline by the Go-side `SimpleFormatReader`, without going through this service.
 - **OCR / VLM**: docreader has zero OCR, zero VLM internally; scanned pages and illustrations are returned as images, with OCR (PaddleOCR-VL) and captioning done by the Go App.
 - **Image return**: inline bytes (`ImageRef.image_data`), with persistence to local/minio/cos/tos handled by Go.
 - **Chunking**: the production path is on the Go-side chunker; the Python `TextSplitter` (512/80) is kept only for the sidecar and aligned with Go.

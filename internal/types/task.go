@@ -42,6 +42,10 @@ const (
 	QueueSync           = "sync"
 	QueueMaintenance    = "low"
 	QueueWiki           = "wiki"
+	// QueueMemory carries debounced long-term memory distillation. It sits in
+	// the enrichment pool because it is a background LLM call whose latency
+	// nobody is waiting on.
+	QueueMemory = "memory"
 )
 
 // QueueDefinition is the single source of truth for queue topology. Worker
@@ -69,11 +73,12 @@ var queueDefinitions = []QueueDefinition{
 		TypeKnowledgePostProcess,
 	}},
 	{Name: QueueSummary, Pool: WorkerPoolEnrichment, Weight: 2, SharedWeight: 2, TaskTypes: []string{
-		TypeSummaryGeneration, TypeDataTableSummary, TypeKnowledgeAutoTag,
+		TypeSummaryGeneration, TypeDataTableSummary, TypeKnowledgeAutoTag, TypeKnowledgeBaseProfile,
 	}},
 	{Name: QueueMultimodal, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeImageMultimodal}},
 	{Name: QueueGraph, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeChunkExtract}},
 	{Name: QueueQuestion, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeQuestionGeneration}},
+	{Name: QueueMemory, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeMemoryExtract}},
 	{Name: QueueSync, Pool: WorkerPoolMaintenance, Weight: 2, TaskTypes: []string{TypeDataSourceSync}},
 	{Name: QueueMaintenance, Pool: WorkerPoolMaintenance, Weight: 1, TaskTypes: []string{
 		TypeFAQImport, TypeKBClone, TypeIndexDelete, TypeKBDelete,
@@ -242,12 +247,36 @@ const (
 	TypeImageMultimodal          = "image:multimodal"           // Image multimodal processing task (OCR + VLM Caption)
 	TypeKnowledgePostProcess     = "knowledge:post_process"     // Knowledge post-processing task (unified scheduling)
 	TypeKnowledgeAutoTag         = "knowledge:auto_tag"         // Automatically associate document with existing knowledge base tags
+	TypeKnowledgeBaseProfile     = "kb:profile"                 // Knowledge base description (profile) generation task
 	TypeManualProcess            = "manual:process"             // Manual knowledge update task (cleanup + reindexing)
 	TypeDataSourceSync           = "datasource:sync"            // Data source sync task
 	TypeWikiIngest               = "wiki:ingest"                // Wiki page sync task
 	TypeWikiFinalize             = "wiki:finalize"              // Wiki KB-level finalization task (debounce: index rebuild/dead link cleanup/cross-link)
 	TypeTemporaryDocumentProcess = "temporary_document:process" // Session temporary document parsing task
+	// TypeMemoryExtract is the long-term memory extraction task (runs asynchronously after a per-session-turn debounce)
+	TypeMemoryExtract = "memory:extract"
 )
+
+// MemoryExtractPayload carries everything the background distillation task
+// needs. Scope (tenant + subject) travels in the payload rather than being
+// read from the worker context: asynq and the Lite executor both start from a
+// bare context, so anything the request knew and the payload does not carry is
+// simply gone by the time the handler runs.
+type MemoryExtractPayload struct {
+	TracingContext
+	TenantID  uint64 `json:"tenant_id"`
+	SubjectID string `json:"subject_id"`
+	SessionID string `json:"session_id"`
+	// MessageID is the assistant message that closed the triggering turn. It
+	// bounds the extraction window and is stored as the source of any item
+	// produced, so every memory can be traced back to a real message.
+	MessageID string `json:"message_id"`
+	// ChatModelID is the model the conversation itself used. The extraction
+	// task falls back to it when MemoryConfig.ExtractModelID is blank, which
+	// is what the settings UI promises.
+	ChatModelID string `json:"chat_model_id,omitempty"`
+	Language    string `json:"language,omitempty"`
+}
 
 // ExtractChunkPayload represents the extract chunk task payload
 type ExtractChunkPayload struct {
@@ -379,6 +408,10 @@ type KBClonePayload struct {
 	SourceID  string        `json:"source_id"`
 	TargetID  string        `json:"target_id"`
 	Initiator TaskInitiator `json:"initiator,omitempty"`
+	// New clone destinations are reserved by the server at admission and
+	// created by the worker once. Retries retain both ID and creator.
+	CreateTarget bool   `json:"create_target,omitempty"`
+	CreatorID    string `json:"creator_id,omitempty"`
 }
 
 // IndexDeletePayload represents the index delete task payload
@@ -412,18 +445,20 @@ type KBDeletePayload struct {
 // KnowledgeListDeletePayload represents the batch knowledge delete task payload
 type KnowledgeListDeletePayload struct {
 	TracingContext
-	TenantID     uint64        `json:"tenant_id"`
-	KnowledgeIDs []string      `json:"knowledge_ids"`
-	Initiator    TaskInitiator `json:"initiator,omitempty"`
+	TenantID        uint64        `json:"tenant_id"`
+	KnowledgeIDs    []string      `json:"knowledge_ids"`
+	Initiator       TaskInitiator `json:"initiator,omitempty"`
+	KnowledgeBaseID string        `json:"knowledge_base_id,omitempty"`
 }
 
 // KnowledgeListReparsePayload represents the batch knowledge reparse task payload
 type KnowledgeListReparsePayload struct {
 	TracingContext
-	TenantID      uint64                     `json:"tenant_id"`
-	KnowledgeIDs  []string                   `json:"knowledge_ids"`
-	ProcessConfig *KnowledgeProcessOverrides `json:"process_config,omitempty"`
-	Initiator     TaskInitiator              `json:"initiator,omitempty"`
+	KnowledgeBaseID string                     `json:"knowledge_base_id,omitempty"`
+	TenantID        uint64                     `json:"tenant_id"`
+	KnowledgeIDs    []string                   `json:"knowledge_ids"`
+	ProcessConfig   *KnowledgeProcessOverrides `json:"process_config,omitempty"`
+	Initiator       TaskInitiator              `json:"initiator,omitempty"`
 }
 
 // KnowledgeMovePayload represents the knowledge move task payload
@@ -508,6 +543,17 @@ type KnowledgeAutoTagPayload struct {
 	KnowledgeBaseID string `json:"knowledge_base_id"`
 	Language        string `json:"language,omitempty"`
 	Attempt         int    `json:"attempt,omitempty"`
+}
+
+// KnowledgeBaseProfilePayload asks the worker to rebuild the generated
+// description of one knowledge base from its current document profiles.
+// Force bypasses the aggregate-hash short circuit (manual regeneration).
+type KnowledgeBaseProfilePayload struct {
+	TracingContext
+	TenantID        uint64 `json:"tenant_id"`
+	KnowledgeBaseID string `json:"knowledge_base_id"`
+	Language        string `json:"language,omitempty"`
+	Force           bool   `json:"force,omitempty"`
 }
 
 // KBCloneTaskStatus represents the status of a knowledge base clone task

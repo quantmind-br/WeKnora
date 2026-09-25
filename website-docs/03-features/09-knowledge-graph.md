@@ -1,21 +1,16 @@
 # Knowledge Graph
 
-Vector retrieval excels at finding "passages with similar meaning," but it's not well suited to answering "what is the relationship between A and B?" That's the gap the knowledge graph fills: when a document is ingested, an LLM extracts the entities and relationships within it and stores them as a graph; when a question is asked, the graph is traversed to pull in additional relevant chunks, which are handed to the model together with the rest of the context to produce an answer.
+The knowledge graph extracts entities and relationships when documents are ingested, and follows those relationships at question time to retrieve additional relevant chunks. It can be used together with vector and keyword retrieval to add relational context to answers.
 
-This is well suited to relationship-dense material (people, organizations, product lines, contract clauses that reference one another), but makes little difference for ordinary Q&A scenarios. The trade-off is that ingestion requires an extra LLM call and Neo4j must be deployed.
+This feature suits material with many relationships between people, organizations, products, or clauses. Enabling it adds model calls during ingestion and requires deploying Neo4j.
 
-<Screenshot
-  src="/screenshots/kg-graph.png"
-  caption="Knowledge graph view: entities and relationships"
-  hint="Shows the entity-relationship graph on the knowledge base's Graph tab; nodes can be clicked to view associated documents." />
-
-The graph storage backend is **Neo4j** (the only implementation, and it depends on the APOC plugin; there is no integration with other graph databases such as Nebula in the codebase).
+Graph storage uses Neo4j and depends on the APOC plugin.
 
 ## Enabling the configuration
 
 The knowledge graph feature requires **two levels of switches** to be satisfied simultaneously:
 
-### 1. Global switch: Neo4j environment variables
+### Global switch: Neo4j environment variables {#_1-global-switch-neo4j-environment-variables}
 
 `NEO4J_ENABLE` is the sole global switch for the knowledge graph (per the `docker-compose.yml` comment: `ENABLE_GRAPH_RAG` was superseded by `NEO4J_ENABLE` as of v0.1.6, and the Go main application no longer reads it).
 
@@ -30,7 +25,7 @@ On startup, `initNeo4jClient` retries up to 30 times (2s interval) to establish 
 
 The docker-compose `neo4j` service ships with APOC preinstalled: `NEO4JLABS_PLUGINS=["apoc"]` (graph writes rely on `apoc.merge.node` / `apoc.merge.relationship`, and deletions rely on `apoc.periodic.iterate`).
 
-### 2. Knowledge-base–level switch: IndexingStrategy + ExtractConfig
+### Knowledge-base–level switch: IndexingStrategy + ExtractConfig {#_2-knowledge-base–level-switch-indexingstrategy-extractconfig}
 
 `internal/types/knowledgebase.go`:
 
@@ -43,7 +38,7 @@ func (kb *KnowledgeBase) IsGraphEnabled() bool {
 }
 ```
 
-- `IndexingStrategy.GraphEnabled` (`internal/types/indexing_strategy.go`): the graph switch within the knowledge base's indexing strategy, `false` by default; the legacy field `ExtractConfig.Enabled` is synced one-way into `IndexingStrategy.GraphEnabled` on read (the legacy sync near line 635 of `knowledgebase.go`).
+- `IndexingStrategy.GraphEnabled` (`internal/types/indexing_strategy.go`): the graph switch within the knowledge base's indexing strategy, `false` by default; the legacy field `ExtractConfig.Enabled` is synced one-way into `IndexingStrategy.GraphEnabled` on read (the legacy sync in `knowledgebase.go`).
 - `ExtractConfig` (`internal/types/knowledgebase.go`) carries the few-shot configuration for extraction:
 
 | Name | Type | Default | Description |
@@ -55,7 +50,7 @@ func (kb *KnowledgeBase) IsGraphEnabled() bool {
 | `relations` | []*GraphRelation | nil | Example relationships (node1 / node2 / type) |
 | `custom_instructions` | string | empty | Domain-specific custom extraction instructions (appended to the system prompt; the structured output protocol remains under system control) |
 
-Configuration-wizard helper APIs (`internal/handler/initialization.go`, routes at `internal/router/router.go` lines 914-916):
+Configuration-wizard helper APIs (`internal/handler/initialization.go`, routes registered in `internal/router/routes_infra.go`; requires Admin, and API keys need the `manage_models` capability):
 
 - `POST /initialization/extract/text-relation` (`ExtractTextRelations`): runs a trial relationship extraction over a piece of text (≤5000 characters) using the selected tags, for previewing the results;
 - `POST /initialization/extract/fabri-text` / `fabri-tag` (`FabriText` / `FabriTag`): has the LLM generate example text / recommended tags, helping users quickly build up an `ExtractConfig`.
@@ -64,7 +59,11 @@ Configuration-wizard helper APIs (`internal/handler/initialization.go`, routes a
 
 ### Triggering and task orchestration
 
-Once document parsing completes, `internal/application/service/knowledge_post_process.go` counts each text chunk during the enrichment fan-out stage (`graphChunkCount = len(textChunks)` when `eff.GraphEnabled`), and calls `NewChunkExtractTask` in `internal/application/service/extract.go` to enqueue a task per chunk:
+Once document parsing completes, `internal/application/service/knowledge_post_process.go` uses `selectGraphChunks` during the enrichment fan-out stage to select the extraction input (`graphChunkCount = len(graphChunks)` when `eff.GraphEnabled`), and calls `NewChunkExtractTask` in `internal/application/service/extract.go` to enqueue a task per chunk. Selection rules:
+
+- Text chunks with body text are extracted; text chunks containing only image links are skipped;
+- When a parent text chunk has no body text (typically a page image from a scanned PDF), its `image_ocr` child chunk is used instead, so OCR text can also enter the graph;
+- `image_caption` child chunks are excluded, to avoid duplicating the OCR content.
 
 ```go
 func NewChunkExtractTask(...) (bool, error) {
@@ -87,7 +86,7 @@ The task runs on its own asynq `QueueGraph` queue, with one LLM call per chunk (
 
 1. Loads the chunk, the knowledge base, and file-level `ProcessOverrides`, then uses `ResolveProcessConfig` to resolve the effective `ExtractConfig` (skipped if not enabled).
 2. Assembles a structured prompt template: the system-protocol portion comes from `config.ExtractManager.ExtractGraph` (`extract.extract_graph` in `config/config.yaml`, a multi-step instruction covering entity extraction + attribute enrichment + relationship extraction), layered with the knowledge base's `custom_instructions`, `tags`, and the `ExtractConfig`'s few-shot examples (`Text/Nodes/Relations`).
-3. `chatpipeline.NewExtractor(chatModel, template).Extract(ctx, chunk.Content)` calls the Chat model (`temperature 0.3`, `max_tokens 4096`, thinking disabled), which `Formater.ParseGraph` parses into `types.GraphData` (`internal/types/extract_graph.go`):
+3. `chatpipeline.NewExtractor(chatModel, template).Extract(ctx, chunk.Content)` calls the Chat model (`temperature 0.3`, `max_tokens 8192`, thinking disabled; the output limit is large enough to hold many nodes and relationships, preventing the JSON from being truncated), which `Formater.ParseGraph` parses into `types.GraphData` (`internal/types/extract_graph.go`):
 
 ```go
 type GraphNode struct {
@@ -119,15 +118,18 @@ SET node.chunks = apoc.coll.union(node.chunks, row.chunks)
 ```
 
 - When a piece of knowledge or a knowledge base is deleted (`knowledge_delete.go`, `knowledgebase.go`), `DelGraph` is called, which uses `apoc.periodic.iterate` to delete edges and nodes in parallel batches of 1000.
+- `SearchNode` queries have two limits, preventing a very short or very common entity name from pulling back the entire graph:
+  - Only entities with at least one relationship can serve as expansion seeds, with at most 200 seed entities; they are ordered with exact name matches first, then shorter names, then alphabetically;
+  - At most 2000 (entity, relationship) rows are returned, using the same ordering, so truncation keeps the neighborhoods of the top-ranked seeds. When the row limit is hit, a Warn log is recorded indicating the results were truncated.
 
 ## Graph-augmented retrieval (GraphRAG)
 
 The traditional chat pipeline (`internal/application/service/chat_pipeline`) has two plugins:
 
 1. **PluginExtractEntity** (`extract_entity.go`, hooked into the `QUERY_UNDERSTAND` event): when `NEO4J_ENABLE=true`, it first filters down to the knowledge bases with `ExtractConfig.Enabled` (stored into `chatManage.EntityKBIDs` / `EntityKnowledge`), then uses the `ExtractManager.ExtractEntity` template plus the Chat model to extract entity names from the **user's query**, storing them into `chatManage.Entity`.
-2. **PluginSearchEntity** (`search_entity.go`, hooked into the `ENTITY_SEARCH` event): for each graph-enabled knowledge base / file, it calls `graphRepo.SearchNode` in parallel — a Cypher query using `n.name CONTAINS nodeText` to fuzzy-match entities and return their one-hop neighbors and relationships, merged into `chatManage.GraphResult`; afterward, `filterSeenChunk` pulls the `chunks` carried by the graph nodes (excluding ones already matched by vector retrieval), fetches the original text from `chunkRepo`, converts it to `SearchResult`, and merges it into the candidate set — implementing an "entity → associated chunk" graph-based supplementary recall.
+2. **PluginSearchEntity** (`search_entity.go`, hooked into the `ENTITY_SEARCH` event): for each graph-enabled knowledge base / file, it calls `graphRepo.SearchNode` in parallel — a Cypher query using `n.name CONTAINS nodeText` to fuzzy-match entities and return their one-hop neighbors and relationships, merged into `chatManage.GraphResult` (see below for the query limits); afterward, `filterSeenChunk` pulls the `chunks` carried by the graph nodes (excluding ones already matched by vector retrieval), fetches the original text from `chunkRepo`, converts it to `SearchResult`, and merges it into the candidate set — implementing an "entity → associated chunk" graph-based supplementary recall.
 
-Agent mode, meanwhile, provides a `query_knowledge_graph` tool (`internal/agent/tools/query_knowledge_graph.go`): it checks whether each knowledge base has the graph configured (`ExtractConfig.Nodes/Relations` non-empty), runs retrieval concurrently across multiple knowledge bases, deduplicates and ranks by chunk, and includes each knowledge base's graph configuration status (entity-type / relationship-type lists) in the output; knowledge bases without a graph configured fall back to plain hybrid retrieval results.
+Agent mode, meanwhile, provides a `query_knowledge_graph` tool (`internal/agent/tools/query_knowledge_graph.go`): it checks whether each knowledge base has the graph configured (`ExtractConfig.Nodes/Relations` non-empty), runs retrieval concurrently across multiple knowledge bases, deduplicates and ranks by chunk, and includes each knowledge base's graph configuration status (entity-type / relationship-type lists) in the output; knowledge bases without a graph configured fall back to plain hybrid retrieval results. The tool's capability requirement is `all_of: [graph]`, and it is offered to the model only when the Agent's scope contains a graph-enabled knowledge base — when `agent_service.go` assembles the tool allowlist, it removes the tool from scopes without a graph knowledge base, preventing the model from repeatedly calling a tool that can only return degraded results.
 
 ## Flow diagrams
 
@@ -137,7 +139,7 @@ Agent mode, meanwhile, provides a `query_knowledge_graph` tool (`internal/agent/
 flowchart TD
     A["Document parsing complete<br/>(knowledge_post_process)"] --> B{"kb.IsGraphEnabled() and<br/>NEO4J_ENABLE=true?"}
     B -->|"No"| Z["Skip graph extraction"]
-    B -->|"Yes"| C["Enqueue per text chunk<br/>asynq QueueGraph / TypeChunkExtract<br/>(MaxRetry=3, Timeout=30m)"]
+    B -->|"Yes"| C["selectGraphChunks selects input<br/>Enqueue per chunk<br/>asynq QueueGraph / TypeChunkExtract<br/>(MaxRetry=3, Timeout=30m)"]
     C --> D["ChunkExtractService.Handle"]
     D --> E["Assemble structured prompt:<br/>ExtractManager.ExtractGraph protocol<br/>+ ExtractConfig few-shot (text/nodes/relations)<br/>+ tags + custom_instructions"]
     E --> F["Chat model extraction<br/>(temp 0.3, thinking disabled)"]
@@ -156,7 +158,7 @@ flowchart TD
     U1 -->|"No"| SKIP["Skip, use regular retrieval"]
     U1 -->|"Yes"| U2["LLM extracts entity names from the query<br/>(ExtractManager.ExtractEntity template)"]
     U2 --> S["ENTITY_SEARCH:<br/>PluginSearchEntity"]
-    S --> S1["Parallel per knowledge base/file<br/>Neo4j SearchNode<br/>(name CONTAINS entity, returns one-hop neighbors)"]
+    S --> S1["Parallel per knowledge base/file<br/>Neo4j SearchNode<br/>(name CONTAINS entity, returns one-hop neighbors,<br/>seeds ≤200, rows ≤2000)"]
     S1 --> S2["Merge GraphResult<br/>(nodes + relations)"]
     S2 --> S3["filterSeenChunk:<br/>take node chunks, drop already-matched ones"]
     S3 --> S4["chunkRepo fetches original text<br/>converts to SearchResult and merges into candidate set"]

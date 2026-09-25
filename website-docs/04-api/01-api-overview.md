@@ -1,6 +1,6 @@
 # API Overview
 
-This section describes the general conventions of the WeKnora HTTP API: Base URL, authentication methods, response structure, error codes, pagination, SSE, and rate limiting.
+The WeKnora HTTP API uses the `/api/v1` prefix and supports JWT, API Key, and Embed token authentication; the built-in MCP Server endpoints additionally use endpoint tokens. Before calling the resource endpoints, choose credentials according to your client type, and follow the common conventions for responses, error handling, pagination, and streaming events.
 
 ## Base URL and version prefix
 
@@ -17,17 +17,17 @@ BASE=http://localhost:8080
 
 Authentication is handled uniformly by the `Auth` middleware in `internal/middleware/auth.go`, attempted in the following order:
 
-### 1. JWT Bearer (Web users)
+### JWT Bearer (Web users) {#_1-jwt-bearer-web-users}
 
 ```
 Authorization: Bearer <access_token>
 ```
 
-- Obtained via `POST /api/v1/auth/login` (or register / auto-setup / OIDC) to get a `token` and `refresh_token`; `POST /api/v1/auth/refresh` issues a new token.
+- Obtained via `POST /api/v1/auth/login` (or register / OIDC; the native desktop app uses auto-setup) to get a `token` and `refresh_token`; `POST /api/v1/auth/refresh` issues a new token.
 - Optional request header `X-Tenant-ID: <tenant_id>`: switches the target space outside the one referenced by the JWT (must be an active member of that space, or hold the `CanAccessAllTenants` cross-space super-admin attribute). A malformed or `0` value returns 400 directly.
 - If the JWT resolves no space at all and the endpoint is not on the "no space needed" whitelist (e.g., `/auth/me`, `/me/invitations`, etc.), a 409 `{"code":"TENANT_REQUIRED"}` is returned.
 
-### 2. API Key (machine principal)
+### API Key (machine principal) {#_2-api-key-machine-principal}
 
 ```
 X-API-Key: <api_key>
@@ -42,7 +42,7 @@ X-API-Key: <api_key>
   - `direct` mode: `X-External-User-ID: <external user ID>` (≤128 characters).
   - `signed_token` mode: `X-External-User-Token: <HS256 JWT>`, requires `aud=weknora`, `exp` (lifetime ≤24h), the `tenant_id` claim matching the target space, and `sub` being the external user ID.
 
-### 3. Embed publish token (anonymous embed endpoints)
+### Embed publish token (anonymous embed endpoints) {#_3-embed-publish-token-anonymous-embed-endpoints}
 
 The `/api/v1/embed/:channel_id/*` public routes use a separate `EmbedAuth` middleware (`internal/middleware/embed_auth.go`):
 
@@ -52,6 +52,16 @@ Authorization: Embed <publish_token or session_token>
 
 - `POST /embed/:channel_id/exchange` exchanges a publish token for a short-lived session token; session-level operations additionally require `X-Embed-Session: <sig>` (the signed handle returned when the session was created).
 - IM callback routes (`/api/v1/im/callback/:channel_id`) are registered before the global authentication middleware, using each IM platform's own signature verification.
+
+### MCP endpoint token (built-in MCP Server)
+
+`/mcp/:endpoint_id` (without the `/api/v1` prefix) is the MCP Streamable HTTP endpoint a space exposes externally, validated by `internal/middleware/mcp_endpoint_auth.go`:
+
+```
+Authorization: Bearer <endpoint_token>
+```
+
+The token is shown once when the endpoint is created under "Settings → Publish & Integrations → MCP Server", and can be rotated. Requests run as the machine principal of the space that owns the endpoint, with permissions limited to the tools and knowledge bases selected for the endpoint. The endpoint management API is `/api/v1/mcp-endpoints` (Viewer+ to read, Admin+ to change; an API Key needs `manage_channels`); for usage, see [MCP Integration](../03-features/08-mcp.md).
 
 ### Authentication flow diagram
 
@@ -166,16 +176,17 @@ Each event is `event: message`, with `data:` being the `types.StreamResponse` JS
 | Field | Type | Description |
 | --- | --- | --- |
 | `id` | string | Request ID |
-| `response_type` | string | `answer` / `references` / `thinking` / `tool_call` / `tool_result` / `reflection` / `session_title` / `agent_query` / `tool_approval_required` / `tool_approval_resolved` / `mcp_oauth_required` / `mcp_oauth_resolved` / `error` / `complete` |
+| `response_type` | string | `answer` / `references` / `thinking` / `tool_call` / `tool_result` / `command_output` / `reflection` / `session_title` / `agent_query` / `artifacts_pending` / `memory_recalled` / `user_message_injected` / `context_compacted` / `tool_approval_required` / `tool_approval_resolved` / `mcp_oauth_required` / `mcp_oauth_resolved` / `error` / `complete`; the skill installation record stream additionally has `install_prompt` / `install_output` |
 | `content` | string | Incremental text |
 | `done` | bool | Whether this event type has ended |
 | `knowledge_references` | []SearchResult | References carried by `references` events |
 | `tool_calls` | []LLMToolCall | Tool call events |
+| `data` | object | Additional event metadata (e.g. `success` for tool results, `truncated` for answers) |
 | `session_id` / `assistant_message_id` | string | Carried by `agent_query` events |
 | `usage` | TokenUsage | `prompt_tokens/completion_tokens/total_tokens/cache_*` |
 | `finish_reason` | string | Reason for ending |
 
-The stream terminates with `response_type:"complete"` (`done:true`); on error it terminates with `response_type:"error"` (`done:true`). `continue-stream` uses a replay-plus-100ms-polling resumption semantics for catching up on increments (`?message_id=` is required).
+The stream terminates with `response_type:"complete"` (`done:true`); on error it terminates with `response_type:"error"` (`done:true`). A failed tool execution is returned as `tool_result` (`data.success=false`); `error` only indicates that the whole round failed. When an answer is truncated by the output limit, the `answer` event carries `data.truncated=true`. `continue-stream` uses a replay-plus-100ms-polling resumption semantics for catching up on increments (`?message_id=` is required).
 
 ## File reference form (resource_urls)
 
@@ -188,7 +199,7 @@ Images/attachments referenced in answers and retrieval results are, by default, 
 
 Only `handle` (default) and `public` are valid values; passing any other value returns 400. The single-request parameter takes precedence over the environment variable, so even after setting the deployment default to `public`, you can still revert to `handle` for a single request via `?resource_urls=handle`.
 
-Endpoints supporting this parameter: `POST /knowledge-chat/{session_id}`, `POST /agent-chat/{session_id}`, `GET /sessions/continue-stream/{session_id}`, `GET /messages/{session_id}/load`, `POST /knowledge-search`. The rewrite covers the answer body, `knowledge_references` (including `image_info`), Agent execution steps and tool results, as well as image attachments on messages; in streaming responses, references truncated across chunks are buffered first and then rewritten, so the client always receives a complete link.
+Endpoints supporting this parameter: `POST /knowledge-chat/{session_id}`, `POST /agent-chat/{session_id}`, `GET /sessions/continue-stream/{session_id}`, `GET /messages/{session_id}/load`, `POST /knowledge-search`, `POST /knowledge-bases/{id}/hybrid-search` (GET also supported for compatibility). The rewrite covers the answer body, search result `content` / `image_info`, `knowledge_references`, Agent execution steps and tool results, as well as image attachments on messages; in streaming answers, references truncated across chunks are buffered first and then rewritten, so the client always receives a complete link.
 
 A few things to know before using this:
 
@@ -199,6 +210,111 @@ A few things to know before using this:
 - **Direct links for the same file are reused within their validity period**; repeated requests do not reissue credentials, allowing client and CDN caches to hit.
 
 For which form each channel (Web / IM / embedded widget / API) receives, and how to troubleshoot when images fail to load, see [External Access to Images and Files](../03-features/21-file-access.md).
+
+## Choosing a retrieval API {#retrieval-api}
+
+There are two public retrieval endpoints. Both require the API Key to have the `retrieve` (or full) permission, and both return a list of `SearchResult`.
+
+**Use `POST /knowledge-search` by default.** It follows the same retrieval flow as Q&A in the product (recall → rerank → merge → truncate), and returns the same chunks that Q&A on the page would use. `POST /knowledge-bases/{id}/hybrid-search` is a lower-level recall endpoint: it does not rerank by default and the scores are the recall scores, which suits scenarios where you need to see or control the raw recall results.
+
+### Choosing by scenario
+
+| I want to… | Use | Key request body fields |
+| --- | --- | --- |
+| Get retrieval results for my own RAG / agent, ranked the same as Q&A on the page | `knowledge-search` | `query` + `knowledge_base_ids`, leave the rest empty |
+| Search several knowledge bases at once that use different embedding models | `knowledge-search` | `knowledge_base_ids` |
+| Search only within certain documents or tags | `knowledge-search` | `knowledge_ids` / `tag_ids` |
+| Adjust the number of results or the recall thresholds, but still rerank | `knowledge-search` | `match_count`, `vector_threshold`, `keyword_threshold` |
+| Use a different rerank model, or change the rerank threshold | `knowledge-search` | `rerank.model_id`, `rerank.threshold` |
+| Skip rerank and get the recall results directly | `knowledge-search` or `hybrid-search` | For the former, pass `"rerank":{"enabled":false}`; for the latter, omit `rerank` |
+| Find out why the result is empty | `knowledge-search` | Check `meta.rerank.outcome` in the response |
+| I already computed the query vector myself | `hybrid-search` | `query_embedding` + `disable_keywords_match: true` |
+| Evaluate recall quality: fix one knowledge base and fixed parameters, and look at the raw recall scores | `hybrid-search` | Omit `rerank` |
+| Building on the evaluation above, compare the effect of adding rerank | `hybrid-search` | Add `rerank` to the same request |
+| Return parent chunks and adjacent chunks as separate result rows instead of merging them into the content | `hybrid-search` | This is the default; `skip_context_enrichment: true` turns it off |
+
+### Differences between the two
+
+| | `knowledge-search` | `hybrid-search` |
+| --- | --- | --- |
+| rerank | On by default (uses the space configuration); the `rerank` object can override or disable it | Off by default; enabled only when a `rerank` object is passed |
+| Multiple knowledge bases | Yes, and the embedding models can differ | `knowledge_base_ids` is allowed, but the embedding models must be the same, and the `{id}` in the path must be among them |
+| Precomputed vectors | Not supported | `query_embedding` |
+| Context chunks | Merged into the result's `content` | Returned as extra result rows |
+| When `match_count` is omitted | The space's configured `rerank_top_k` (default 10) | 50 |
+| `meta.rerank` | Always returned | Returned only when `rerank` is passed |
+
+The recall parameters (`vector_threshold`, `keyword_threshold`, `match_count`, `disable_keywords_match`, `disable_vector_match`) and the `rerank` object have the same meaning in both endpoints; parameters omitted in `knowledge-search` fall back to the space's retrieval configuration (`GET /tenants/kv/retrieval-config`).
+
+### The rerank object
+
+The `rerank` field has the same structure in both endpoints:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | bool | `true` | Set to `false` to disable rerank; results keep the recall order |
+| `model_id` | string | See below | Rerank model ID (a model with `type` `Rerank` in `GET /models`). If the ID does not exist, is not active, or is not a rerank model, 400 is returned; it never silently switches to another model |
+| `top_k` | int | The endpoint's result count | Maximum number of results kept after rerank; a negative number returns 400 |
+| `threshold` | float | `rerank_threshold` in the space's retrieval configuration (0.2 if not configured) | Lower bound for the model score; `0` and negative numbers are both valid |
+
+When `model_id` is not passed, the following are used in order: `rerank_model_id` in the space's retrieval configuration → the first rerank model in the space. If neither exists, no rerank is performed, results are returned in recall order, and `meta.rerank.outcome` is `no_model`.
+
+The rerank process shares one implementation (`internal/reranking`) with the Q&A pipeline and the smart-reasoning `search_knowledge` tool:
+
+1. The text sent to the model for scoring = document title + chunk content with Markdown markup removed + image captions and OCR text + generated questions. FAQ entries do not get a title.
+2. Results with a score not lower than `threshold` are kept. If none remain and `threshold` is higher than 0.3, the threshold is lowered to `max(threshold×0.7, 0.3)` and filtered again. If there are still none, only the top result is kept when its score is at least 0.15; otherwise an empty list is returned.
+3. Ranking score = `0.6×model score + 0.3×recall score + 0.1×source weight`; the result's `metadata` carries `model_score` and `base_score`.
+4. MMR (λ=0.7) selects `top_k` results from these to reduce duplicate content.
+
+When `hybrid-search` enables rerank, the candidate pool is the top `max(top_k, 50)` chunks after fusion, so the model has enough candidates to choose from even when `match_count` is small.
+
+When the rerank model fails to load or the call errors, the request does not fail; results are returned in recall order and the reason is recorded in `meta.rerank`.
+
+### meta.rerank diagnostics
+
+The `knowledge-search` response always carries `meta.rerank`; `hybrid-search` carries it only when the request includes a `rerank` object.
+
+```json
+{
+  "success": true,
+  "data": [],
+  "meta": {
+    "rerank": {
+      "applied": true,
+      "outcome": "all_below_threshold",
+      "model_id": "rr-1",
+      "model_source": "tenant",
+      "threshold": 0.3,
+      "effective_threshold": 0.3,
+      "top_score": 0.08,
+      "candidate_count": 24,
+      "result_count": 0
+    }
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `applied` | Whether the rerank scores determined the returned order |
+| `outcome` | See the table below |
+| `model_id` / `model_source` | The model used, and where it came from: `request` (specified in the request), `tenant` (space configuration), `auto` (selected automatically) |
+| `threshold` / `effective_threshold` | The requested threshold, and the threshold actually used after degradation |
+| `top_score` | The highest model score among the candidates |
+| `candidate_count` / `result_count` | Number of candidates sent to rerank / number of results returned |
+| `error` | Error message for `model_error` and `model_unavailable` |
+
+| `outcome` | Meaning |
+| --- | --- |
+| `ok` | Some results reached the threshold |
+| `threshold_degraded` | No results at the original threshold; results appeared only after lowering it |
+| `fallback_top1` | No threshold was met; only the top-scoring result was kept |
+| `all_below_threshold` | The model considers no candidate relevant, so the result is empty. Try rephrasing the question, or lower `rerank.threshold` |
+| `model_error` | The model call failed; results are returned in recall order |
+| `model_unavailable` | The model failed to load (configuration problems such as credentials or URL); results are returned in recall order |
+| `no_model` | The space has no rerank model; results are returned in recall order |
+| `disabled` | `rerank.enabled` is `false` in the request |
+| `no_candidates` | The recall stage returned no results |
 
 ## Rate limiting
 
@@ -224,5 +340,11 @@ There is no global rate limiting on other business endpoints; quota-related reje
 | Models and initialization | [02-api-model-system.md](./02-api-model-system.md) | `/models`, `/initialization`, `/evaluation`, `/weknoracloud` |
 | System and platform administration | [02-api-system.md](./02-api-system.md) | `/system`, `/system/admin` |
 | Infrastructure and data sources | [02-api-infra.md](./02-api-infra.md) | `/vector-stores`, `/storage-backends`, `/web-search-providers`, `/datasource` |
-| Agent, MCP, and skills | [02-api-agent-mcp.md](./02-api-agent-mcp.md) | `/agents`, `/mcp-services`, `/agent`, `/skills`, `/user/favorites` |
+| Agent and MCP | [02-api-agent-mcp.md](./02-api-agent-mcp.md) | `/agents`, `/mcp-services`, `/agent`, `/user/favorites` |
+| Built-in MCP Server | [MCP Integration](../03-features/08-mcp.md) | `/mcp-endpoints`, `/mcp/:endpoint_id` |
+| Local browser | [Local Browser](../05-clients/09-local-browser.md) | `/me/browser`, `/local-browser` |
+| Sandbox, skills, and personal variables | [02-api-sandbox-skills.md](./02-api-sandbox-skills.md) | `/sandbox-configs`, `/skills`, `/me/env-vars` |
+| Long-term memory | [02-api-memory.md](./02-api-memory.md) | `/memory`, `/tenants/kv/memory-config` |
 | IM, Embed, and file services | [02-api-channels.md](./02-api-channels.md) | `/im`, `/im-channels`, `/wechat`, `/embed-channels`, `/embed`, `/files`, `/r/:token` |
+
+For the new configuration and personal endpoints, see [Sandbox, Skills, and Personal Variables](02-api-sandbox-skills.md) and [Long-Term Memory](02-api-memory.md); for listing and downloading generated files, see [Sessions and Chat](02-api-chat.md).

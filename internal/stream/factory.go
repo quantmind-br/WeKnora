@@ -22,7 +22,10 @@ func NewStreamManager() (interfaces.StreamManager, error) {
 		if err != nil {
 			db = 0
 		}
-		ttl := time.Hour // Default 1 hour
+		// Default 1h. Live-run keys are refreshed while the turn is still
+		// streaming (AppendEvent / GetEvents / steer writes), so a run that
+		// lasts longer than this TTL does not look idle to /steer.
+		ttl := time.Hour
 		return NewRedisStreamManager(
 			os.Getenv("REDIS_ADDR"),
 			os.Getenv("REDIS_USERNAME"),

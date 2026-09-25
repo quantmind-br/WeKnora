@@ -20,10 +20,11 @@ import (
 
 // WikiPageHandler handles HTTP requests for wiki page operations
 type WikiPageHandler struct {
-	wikiService  interfaces.WikiPageService
-	kbService    interfaces.KnowledgeBaseService
-	lintService  *service.WikiLintService
-	auditService interfaces.AuditLogService
+	wikiService   interfaces.WikiPageService
+	kbService     interfaces.KnowledgeBaseService
+	lintService   *service.WikiLintService
+	auditService  interfaces.AuditLogService
+	memoryService interfaces.MemoryService
 }
 
 // NewWikiPageHandler creates a new wiki page handler
@@ -32,12 +33,14 @@ func NewWikiPageHandler(
 	kbService interfaces.KnowledgeBaseService,
 	lintService *service.WikiLintService,
 	auditService interfaces.AuditLogService,
+	memoryService interfaces.MemoryService,
 ) *WikiPageHandler {
 	return &WikiPageHandler{
-		wikiService:  wikiService,
-		kbService:    kbService,
-		lintService:  lintService,
-		auditService: auditService,
+		wikiService:   wikiService,
+		kbService:     kbService,
+		lintService:   lintService,
+		auditService:  auditService,
+		memoryService: memoryService,
 	}
 }
 
@@ -861,6 +864,9 @@ func (h *WikiPageHandler) GetGraph(c *gin.Context) {
 		Types:           typesFilter,
 		Limit:           limit,
 	}
+	if h.memoryService != nil {
+		req.FamiliarKnowledgeIDs = h.memoryService.FamiliarKnowledgeIDs(c.Request.Context())
+	}
 
 	graph, err := h.wikiService.GetGraph(c.Request.Context(), req)
 	if err != nil {
@@ -940,7 +946,7 @@ func (h *WikiPageHandler) ListIssues(c *gin.Context) {
 // @Security     Bearer
 // @Router       /knowledgebase/{kb_id}/wiki/issues/{issue_id}/status [put]
 func (h *WikiPageHandler) UpdateIssueStatus(c *gin.Context) {
-	_, _, err := h.validateWikiKB(c)
+	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -966,7 +972,11 @@ func (h *WikiPageHandler) UpdateIssueStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.wikiService.UpdateIssueStatus(c.Request.Context(), issueID, req.Status); err != nil {
+	if err := h.wikiService.UpdateIssueStatus(c.Request.Context(), kbID, issueID, req.Status); err != nil {
+		if stderrors.Is(err, repository.ErrWikiIssueNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Issue not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

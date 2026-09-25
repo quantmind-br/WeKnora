@@ -4,9 +4,9 @@
 The desktop app is not currently shipped with an installer in the Release, and needs to be built manually following [Installation & Deployment](../01-getting-started/02-installation.md).
 :::
 
-WeKnora provides a cross-platform desktop application called "WeKnora Lite" based on [Wails v2](https://wails.io), with source code located in `cmd/desktop/`. It runs the complete WeKnora backend (Gin service) within the desktop process, paired with SQLite (`sqlite_fts5`) and local file storage — just double-click to launch, with no Docker and no external database required. Retrieval, Q&A, knowledge base management, and other capabilities are identical to the [single-binary Lite](../01-getting-started/02-installation.md) edition; this page focuses on what's specific to the desktop form factor: window and lifecycle, data directory, ports and LAN binding, and update checking.
+The WeKnora Lite desktop app is built on [Wails v2](https://wails.io); it runs the Go backend within the desktop process, using SQLite and local file storage. Once launched, you can manage knowledge bases and run retrieval and Q&A, with no Docker and no external database required. The source code is located in `cmd/desktop/`, and the core capabilities are identical to the [single-binary Lite](../01-getting-started/02-installation.md) edition; the desktop edition additionally provides login-free startup, as well as a [host sandbox](../03-features/22-skills-sandbox.md#lite-host) for running agent commands on macOS.
 
-## 1. Overall Architecture
+## Overall Architecture {#_1-overall-architecture}
 
 The desktop app consists of three parts (all within the same process):
 
@@ -45,19 +45,20 @@ Determined by `desktopBackendListenAddr()` in `main.go`:
 - `migrateLegacyDesktopData()` performs a one-time migration of legacy data stored under `.app/Contents/Resources/data` to Application Support.
 - The working directory switches to `.app/Contents/Resources`, so that the bundled `config/config.yaml`, `.env`, `migrations/sqlite`, and `web/` frontend assets can be read.
 
-## 2. Main Source Files
+## Main Source Files {#_2-main-source-files}
 
 | File | Purpose |
 |------|------|
 | `cmd/desktop/main.go` | Main entry point (`//go:build !bindings`): starts the embedded Gin backend, builds the macOS menu, configures the Wails window and reverse proxy, injects DomReady JS |
 | `cmd/desktop/main_bindings.go` | Binding generation entry point (`//go:build bindings`): compiled separately with `-tags bindings` during the `wails build` frontend binding generation stage — only performs `Bind`, without starting Gin/database |
 | `cmd/desktop/app.go` | The `App` struct and all Wails binding methods |
-| `cmd/desktop/prefs.go` | Reading/writing desktop preferences (`desktop-prefs.json`) |
+| `cmd/desktop/prefs.go` | Reading/writing desktop preferences (`desktop-prefs.json`), including the approved project directories for the host sandbox |
+| `cmd/desktop/signing_key.go` | Generates and persists the signing key on first startup |
 | `cmd/desktop/update.go` | Update-check / download / install-and-restart logic based on GitHub Releases |
 | `cmd/desktop/wails.json` | Wails build configuration |
-| `cmd/desktop/build/` | Packaging assets: `appicon.png` (app icon), `darwin/Info.plist` (macOS bundle template) |
+| `cmd/desktop/build/` | Packaging assets: `appicon.png` (app icon), `darwin/Info.plist` (macOS bundle template), `windows/installer/project.nsi` (Windows NSIS installer template) |
 
-## 3. Window Configuration and Frontend Injection
+## Window Configuration and Frontend Injection {#_3-window-configuration-and-frontend-injection}
 
 Key configuration in `wails.Run(&options.App{...})` (see `cmd/desktop/main.go`):
 
@@ -72,7 +73,7 @@ On `OnDomReady`, three pieces of JS are injected into the WebView:
 2. `dragHandlerJS`: custom window drag handling (bypassing Wails' CSS-variable-based drag detection, instead using `el.closest()` DOM traversal + a top 38px title bar region check, sending `drag` via the WKWebView message bridge); it also intercepts external `http(s)` links and `window.open`, opening them in the system browser instead (`BrowserOpenURL`).
 3. Injects `window.__WEKNORA_API_BASE__` (the real API root path `http://127.0.0.1:<port>/api/v1`) and an optional `window.__WEKNORA_API_LAN_BASE__` (LAN access address).
 
-## 4. Wails Binding Methods (Callable from Frontend)
+## Wails Binding Methods (Callable from Frontend) {#_4-wails-binding-methods-callable-from-frontend}
 
 The `App` struct (`cmd/desktop/app.go`) is exposed via `Bind`, callable from the frontend as `window.go.main.App.<methodName>`; the generated TypeScript bindings are located at `frontend/src/wailsjs/go/main/App.d.ts`:
 
@@ -87,8 +88,13 @@ The `App` struct (`cmd/desktop/app.go`) is exposed via `Bind`, callable from the
 | `GetDesktopListenPublicActive` | `(): Promise<boolean>` | Whether the current session is **actually** listening on all network interfaces (runtime state, not the saved preference) |
 | `CheckForUpdates` | `(): Promise<void>` | Manually triggers an update check (with dialog feedback such as "already up to date") |
 | `AutoCheckForUpdates` | `(): Promise<void>` | Silently checks for updates and automatically downloads in the background |
+| `GetAutoSetupToken` | `(): Promise<string>` | Returns the login-free credential for the current process; the frontend uses it to call `POST /api/v1/auth/auto-setup` |
+| `PickProjectDir` | `(): Promise<string>` | Opens the system directory picker, adds the selected directory to the host sandbox's approved list, and returns it; empty if cancelled |
+| `GetProjectDirs` | `(): Promise<string[]>` | Reads the approved project directories |
+| `RemoveProjectDir` | `(dir: string): Promise<void>` | Removes a directory from the approved list |
+| `GetApprovalMode` / `SetApprovalMode` | `(): Promise<string>` / `(mode: string): Promise<void>` | Reads/writes the host sandbox approval mode; currently only `auto` is accepted |
 
-## 5. Preferences Storage (cmd/desktop/prefs.go)
+## Preferences Storage (cmd/desktop/prefs.go) {#_5-preferences-storage-cmd-desktop-prefs-go}
 
 Preferences are saved as a JSON file `desktop-prefs.json`, located at `os.UserConfigDir()/WeKnora Lite/desktop-prefs.json`:
 
@@ -102,10 +108,19 @@ File permissions are `0600`, with the following fields:
 |------|------|--------|------|
 | `http_port` | int | 0 | The port the embedded API service listens on; 0 or an invalid value (outside 1–65535) means a random free port is used on each startup |
 | `http_bind_public` | bool | false | Whether to listen on `0.0.0.0` (allowing LAN/public access to the embedded API) |
+| `project_dirs` | string[] | empty | Host project directories (absolute paths) approved via the system directory picker; only directories in this list can be bound to a session |
+| `approval_mode` | string | `auto` | Host sandbox approval mode; unknown values are treated as `auto`; `ask` and `full` are not yet available and are rejected on save |
 
-Read/write entry points: `LoadDesktopPrefsHTTPPort()` / `LoadDesktopHTTPBindPublic()` / `SaveDesktopHTTPPortPreference()` / `SaveDesktopHTTPBindPublicPreference()`; on read or parse failure, these silently fall back to zero values.
+Read/write entry points: `LoadDesktopPrefsHTTPPort()` / `LoadDesktopHTTPBindPublic()` / `SaveDesktopHTTPPortPreference()` / `SaveDesktopHTTPBindPublicPreference()`, plus `LoadProjectDirs()` / `LoadApprovalMode()` for the host sandbox; on read or parse failure, these silently fall back to zero values. `project_dirs` can only be appended via the directory picker (`PickProjectDir` or `POST /api/v1/system/host-project-dir`); manually entered paths are not treated as authorized.
 
-## 6. Auto-Update Mechanism (cmd/desktop/update.go)
+## Login-Free Startup and Signing Key
+
+The desktop edition does not require registration or login at startup:
+
+- Each startup generates a random credential that is handed only to the built-in frontend via the Wails binding `GetAutoSetupToken`. The frontend carries it in the `X-WeKnora-Desktop-Token` request header when calling `POST /api/v1/auth/auto-setup`; the first call creates the default user `admin@weknora.local` and a space, and subsequent calls issue a login token directly. Requests without this credential (including other devices on the LAN and ordinary browsers) are rejected.
+- When no valid `SYSTEM_SIGNING_KEY` (or non-default `SYSTEM_AES_KEY`) is configured, the first startup generates `signing.key` (permissions `0600`) in the preferences directory and uses it as `SYSTEM_SIGNING_KEY` for signing file presigned links, web embed sessions, and so on; it remains valid across restarts. It is used only for signing and does not replace the AES key that encrypts stored credentials.
+
+## Auto-Update Mechanism (cmd/desktop/update.go) {#_6-auto-update-mechanism-cmd-desktop-update-go}
 
 `checkUpdate(ctx, currentVersion, showUpToDate, autoDownload)` executes within a goroutine:
 
@@ -120,7 +135,7 @@ Read/write entry points: `LoadDesktopPrefsHTTPPort()` / `LoadDesktopHTTPBindPubl
 
 Trigger entry points: the macOS menu `Check for Updates...` (manual, shows the result), the binding method `CheckForUpdates()` (manual), and `AutoCheckForUpdates()` (silent + automatic download, called by the frontend `frontend/src/App.vue` when it detects that `window.go.main.App.AutoCheckForUpdates` exists).
 
-## 7. Wails Build Configuration (cmd/desktop/wails.json)
+## Wails Build Configuration (cmd/desktop/wails.json) {#_7-wails-build-configuration-cmd-desktop-wails-json}
 
 ```json
 {
@@ -128,6 +143,7 @@ Trigger entry points: the macOS menu `Check for Updates...` (manual, shows the r
   "outputfilename": "WeKnora Lite",
   "frontend:dir": "../../frontend",
   "wailsjsdir": "../../frontend/src",
+  "build:tags": "desktop",
   "info": { "companyName": "Tencent", "productName": "WeKnora Lite", "productVersion": "1.0.0" },
   "mac": { "category": "public.app-category.productivity", "titlebar": "hiddenInset" }
 }
@@ -135,17 +151,18 @@ Trigger entry points: the macOS menu `Check for Updates...` (manual, shows the r
 
 Key points:
 
+- `build:tags` is `desktop`: only programs compiled with this tag include the Lite host sandbox; tags passed via `wails build -tags ...` are merged with it.
 - `frontend:dir` points to the repository's `frontend/`; `wailsjsdir` points to `frontend/src`, so Wails' auto-generated bindings are output to `frontend/src/wailsjs/` (`go/main/App.js`, `App.d.ts`, and `runtime/`).
-- **No `frontend:build` command is configured**: the frontend build is not driven by Wails, but is instead run separately by a packaging script (see the next section); the WebView content is also not a Wails static asset, but is reverse-proxied to the embedded backend.
-- `cmd/desktop/build/` contains only `appicon.png` (app icon) and `darwin/Info.plist` (a Go template for the macOS bundle, declaring `CFBundleIdentifier: com.wails.WeKnora Lite`, a minimum system version of 10.13, Retina support, etc.); the output of `wails build` is written to `cmd/desktop/build/bin/`.
+- **Frontend build**: the packaging script builds the frontend separately, and `frontend:build` is not set in the Wails configuration. The WebView accesses the embedded backend through a reverse proxy.
+- `cmd/desktop/build/` contains `appicon.png` (app icon), `darwin/Info.plist` (a Go template for the macOS bundle, declaring `CFBundleIdentifier: com.wails.WeKnora Lite`, a minimum system version of 10.13, Retina support, etc.), and the Windows installer template `windows/installer/project.nsi` (which additionally installs third-party license files); the output of `wails build` is written to `cmd/desktop/build/bin/`.
 
-## 8. How the Frontend Detects the Desktop Environment
+## How the Frontend Detects the Desktop Environment {#_8-how-the-frontend-detects-the-desktop-environment}
 
 - `dragHandlerJS` adds a `wails-desktop` class to `document.documentElement`, which the frontend CSS can use for desktop-specific styling.
 - The `window.go.main.App.*` bindings injected by Wails (generated bindings in `frontend/src/wailsjs/go/main/`) and `window.runtime` (`frontend/src/wailsjs/runtime/`, e.g. `BrowserOpenURL`, `EventsEmit`) only exist in the desktop environment; the frontend determines this via feature detection. For example, `frontend/src/composables/useApiBaseUrlDisplay.ts` polls `window.__WEKNORA_API_BASE__` or calls `window.go.main.App.GetAPIBaseURL()` to obtain the real API address (in a browser environment it falls back to a configured value / `window.location.origin`); `frontend/src/App.vue` triggers a silent update check when it detects that `window.go.main.App.AutoCheckForUpdates` exists.
 - The settings pages `frontend/src/views/settings/GeneralSettings.vue` and `frontend/src/views/integrations/ApiIntegrationSettings.vue` also use these bindings to display/modify desktop-specific options such as the port and LAN listening.
 
-## 9. Build Method
+## Build Method {#_9-build-method}
 
 The macOS packaging script is `scripts/package-mac-app.sh` (the root `Makefile` has no desktop-related target):
 
@@ -166,7 +183,7 @@ Script flow:
    cd cmd/desktop && wails build -clean -tags "sqlite_fts5" -ldflags="$LDFLAGS" -o "WeKnora Lite"
    ```
 
-   This command's "binding generation" stage compiles `main_bindings.go` separately using `-tags bindings` (without connecting to a database), and refreshes the binding files under `frontend/src/wailsjs/`.
-3. **Assembling the Output**: Copies `cmd/desktop/build/bin/WeKnora Lite.app` into `dist/`, and places `.env` (from `.env.lite.example`), `config/`, `migrations/sqlite/`, and the `web/` frontend assets into `.app/Contents/Resources/`.
+   The effective build tags are `desktop` from `wails.json` plus `sqlite_fts5` from the command line. This command's "binding generation" stage compiles `main_bindings.go` separately using `-tags bindings` (without connecting to a database), and refreshes the binding files under `frontend/src/wailsjs/`.
+3. **Assembling the Output**: Copies `cmd/desktop/build/bin/WeKnora Lite.app` into `dist/`, and places the third-party licenses (`scripts/copy-licenses.sh`), `.env` (from `.env.lite.example`), `config/`, `migrations/sqlite/`, and the `web/` frontend assets into `.app/Contents/Resources/`.
 
 The final output is `dist/WeKnora Lite.app`, which runs by double-clicking. Windows/Linux builds can also be produced using `wails build` under `cmd/desktop` (the update mechanism has already been adapted for `.exe` / `xdg-open` on those platforms), but the repository currently only provides the macOS packaging script and `build/darwin` assets.

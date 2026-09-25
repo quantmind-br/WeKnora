@@ -135,6 +135,21 @@ Below are usage examples for various MCP tools:
 }
 ```
 
+#### Update Manual Knowledge
+```json
+{
+  "tool": "update_knowledge_from_text",
+  "arguments": {
+    "knowledge_id": "know_789012",
+    "title": "Attention Mechanism Summary (Revised)",
+    "content": "# Attention Mechanism\n\nHere is the revised Markdown content...",
+    "status": "publish"
+  }
+}
+```
+
+Omitting `title` or passing an empty string keeps the original title; set `status` to `draft` to only save the content without re-indexing.
+
 #### List Knowledge
 ```json
 {

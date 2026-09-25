@@ -49,12 +49,13 @@ const (
 	EventAgentComplete EventType = "agent.complete" // Agent completed
 
 	// Agent streaming events (for real-time feedback)
-	EventAgentThought     EventType = "thought"      // Agent thinking process
-	EventAgentToolCall    EventType = "tool_call"    // Tool call notification
-	EventAgentToolResult  EventType = "tool_result"  // Tool result
-	EventAgentReflection  EventType = "reflection"   // Agent reflection
-	EventAgentReferences  EventType = "references"   // Knowledge reference
-	EventAgentFinalAnswer EventType = "final_answer" // Final answer
+	EventAgentThought       EventType = "thought"        // Agent thinking process
+	EventAgentCommandOutput EventType = "command_output" // bounded command output
+	EventAgentToolCall      EventType = "tool_call"      // Tool call notification
+	EventAgentToolResult    EventType = "tool_result"    // Tool result
+	EventAgentReflection    EventType = "reflection"     // Agent reflection
+	EventAgentReferences    EventType = "references"     // Knowledge reference
+	EventAgentFinalAnswer   EventType = "final_answer"   // Final answer
 
 	// MCP tool human approval (issue #1173)
 	EventToolApprovalRequired EventType = "tool_approval_required"
@@ -69,6 +70,19 @@ const (
 
 	// Error events
 	EventError EventType = "error" // Error event
+
+	// Long-term memory recalled for this turn. Emitted once, before the answer
+	// streams, so the UI can show which memories the answer saw.
+	EventMemoryRecalled EventType = "memory_recalled"
+
+	// EventContextCompacted is emitted when older conversation was summarized
+	// away to fit the context window.
+	EventContextCompacted EventType = "context_compacted"
+
+	// EventUserMessageInjected is emitted when a message the user appended
+	// while the run was in flight was accepted into the running turn (see
+	// agent drainSteerMessages).
+	EventUserMessageInjected EventType = "user_message_injected"
 
 	// Session events
 	EventSessionTitle EventType = "session_title" // Session title update

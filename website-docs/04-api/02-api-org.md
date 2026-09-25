@@ -1,6 +1,6 @@
 # API Reference: Organizations & Sharing
 
-Route registration: `RegisterOrganizationRoutes` in `internal/router/router.go`. Handler: `internal/handler/organization.go`.
+Manages organization members and the sharing of knowledge bases and agents. Organizations use workspaces as their member unit.
 
 An Organization uses "spaces" (tenants) as its member unit. The API key policy for the organization route group is `manage_spaces` or full-access; KB/Agent share management is available only to full-access keys.
 
@@ -119,7 +119,7 @@ curl $BASE/api/v1/organizations/org-1 -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/organizations/:id
 
-Purpose: Update an organization (the service layer verifies the caller's space is the organization owner). Permission: Admin+. Request body fields are the same as creation (all optional).
+Purpose: Update an organization (the service layer verifies the caller's space is an organization admin, not limited to the owner). Permission: Admin+. Request body fields are the same as creation (all optional).
 
 Response: 200 `{"success":true,"data":{OrganizationResponse}}`
 
@@ -140,7 +140,7 @@ curl -X DELETE $BASE/api/v1/organizations/org-1 -H "Authorization: Bearer $TOKEN
 
 ### POST /api/v1/organizations/:id/leave
 
-Purpose: Have the current space leave the organization. Permission: Admin+. No request body.
+Purpose: Have the current space leave the organization. Permission: Admin+. No request body. Knowledge bases and Agents this space shared into the organization are revoked along with it.
 
 Response: 200 `{"success":true,"message":"Left organization successfully"}`
 
@@ -176,25 +176,24 @@ curl -X POST $BASE/api/v1/organizations/org-1/invite-code -H "Authorization: Bea
 
 ### GET /api/v1/organizations/:id/search-tenants
 
-Purpose: Search for spaces that can be invited (returns candidates grouped by space). Permission: Admin+.
+Purpose: Resolve an invitable space by space ID. Permission: Admin+, and the caller's space must be an organization admin. Since v0.8.2 only a complete space ID is accepted; cross-space search by space name is no longer supported, and the `limit` parameter has been removed.
 
 | Query Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `q` | string | Yes | Space name keyword |
-| `limit` | int | No | Default 10, maximum 50 |
+| `q` | string | Yes | Complete space ID |
 
-Response: 200 `{"success":true,"data":[{"tenant_id","tenant_name"}]}`
+Response: 200 `{"success":true,"data":[{"tenant_id","tenant_name"}]}`. Returns an empty array when `q` isn't a valid ID, the space doesn't exist, or it's already an organization member; otherwise returns the single candidate.
 
 ```bash
-curl "$BASE/api/v1/organizations/org-1/search-tenants?q=demo" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/organizations/org-1/search-tenants?q=10002" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### GET /api/v1/organizations/:id/search-users
 
-Purpose: Deprecated alias, behaves the same as `search-tenants` (returns space-grouped results). Permission: Admin+. Parameters same as above.
+Purpose: Deprecated alias, behaves the same as `search-tenants`. Permission: Admin+. Parameters same as above.
 
 ```bash
-curl "$BASE/api/v1/organizations/org-1/search-users?q=demo" -H "Authorization: Bearer $TOKEN"
+curl "$BASE/api/v1/organizations/org-1/search-users?q=10002" -H "Authorization: Bearer $TOKEN"
 ```
 
 ### POST /api/v1/organizations/:id/invite
@@ -205,7 +204,7 @@ Purpose: Directly invite a space to join the organization. Permission: Admin+.
 | --- | --- | --- | --- |
 | `tenant_id` | uint64 | One of two | Target space ID (recommended) |
 | `user_id` | string | One of two | Compatibility path: user ID (resolved to their space) |
-| `representative_user_id` | string | No | Representative user for this space |
+| `representative_user_id` | string | No | Ignored, kept only for compatibility: directly added spaces have no representative user attached, so the inviter can't choose which user in the other space has their information shown in the member list |
 | `role` | string | Yes | Role within the organization |
 
 Response: 200 `{"success":true,"message":"Member added successfully"}`
@@ -217,7 +216,7 @@ curl -X POST $BASE/api/v1/organizations/org-1/invite -H "Authorization: Bearer $
 
 ### GET /api/v1/organizations/:id/members
 
-Purpose: List of organization members (spaces). Permission: Viewer+.
+Purpose: List of organization members (spaces). Permission: Viewer+. `email` is only returned for the caller's own space's row; other spaces only return the username and avatar.
 
 Response: 200 `{"success":true,"data":{"members":[{id,user_id,representative_user_id,role,tenant_id,tenant_name,username,email,avatar,joined_at}],"total":N}}`
 
@@ -238,7 +237,7 @@ curl -X PUT $BASE/api/v1/organizations/org-1/members/2 -H "Authorization: Bearer
 
 ### DELETE /api/v1/organizations/:id/members/:tenant_id
 
-Purpose: Remove a member space (including self-removal). Permission: Admin+.
+Purpose: Remove a member space (including self-removal). Permission: Admin+. Knowledge bases and Agents the removed space shared into the organization are revoked along with it.
 
 Response: 200 `{"success":true,"message":"Member removed successfully"}`
 
@@ -347,6 +346,14 @@ curl $BASE/api/v1/knowledge-bases/kb-1/shares -H "Authorization: Bearer $TOKEN"
 
 Purpose: Modify share permissions. Permission: KB creator OR Admin+. Request body: `{"permission":"editor"}` (required).
 
+Service-layer rules (shared with share removal):
+
+- The original sharer must operate within the space that owns the KB, with a space role of Contributor+;
+- Admin+ users of the space that owns the KB can manage all shares of that space;
+- Admin+ users of a space whose role in the target organization is admin can only **lower** the permission or remove the share; they can't raise it above its current value.
+
+`share_id` must belong to the KB in the path; otherwise 404.
+
 Response: 200 `{"success":true,"message":"Share permission updated successfully"}`
 
 ```bash
@@ -356,7 +363,7 @@ curl -X PUT $BASE/api/v1/knowledge-bases/kb-1/shares/s-1 -H "Authorization: Bear
 
 ### DELETE /api/v1/knowledge-bases/:id/shares/:share_id
 
-Purpose: Cancel a share. Permission: KB creator OR Admin+.
+Purpose: Cancel a share. Permission: KB creator OR Admin+; the service-layer rules are the same as above. `share_id` must belong to the KB in the path; otherwise 404.
 
 Response: 200 `{"success":true,"message":"Share removed successfully"}`
 
@@ -370,7 +377,7 @@ API key: full-access only. Handler: `internal/handler/organization.go`
 
 ### POST /api/v1/agents/:id/shares
 
-Purpose: Share an Agent with an organization. Permission: Agent creator OR Admin+. Request body is the same as KB sharing (`organization_id` + `permission`, required).
+Purpose: Share an Agent with an organization. Permission: Agent creator OR Admin+. Request body is the same as KB sharing (`organization_id` + `permission`, required). Built-in agents can't be shared (400): every space has a built-in agent with the same ID, so recipients couldn't tell them apart. The Agent's knowledge base scope is opened up to organization members, so the caller must be allowed to share each of those knowledge bases directly (knowledge base creator or Admin+), and only Admin+ can share with `kb_selection_mode: all`; otherwise 403.
 
 Response: 201 `{"success":true,"data":{AgentShare}}`
 
@@ -391,7 +398,7 @@ curl $BASE/api/v1/agents/agent-1/shares -H "Authorization: Bearer $TOKEN"
 
 ### DELETE /api/v1/agents/:id/shares/:share_id
 
-Purpose: Cancel an Agent share. Permission: Agent creator OR Admin+.
+Purpose: Cancel an Agent share. Permission: Agent creator OR Admin+; the service-layer rules are the same as for canceling a KB share. `share_id` must belong to the Agent in the path; otherwise 404.
 
 Response: 200 `{"success":true,"message":"Share removed successfully"}`
 
@@ -438,3 +445,7 @@ Response: 200 `{"success":true}`
 curl -X POST $BASE/api/v1/shared-agents/disabled -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"agent_id":"agent-1","disabled":true}'
 ```
+
+## 实现参考
+
+路由注册：`internal/router/routes_agent.go` 的 `RegisterOrganizationRoutes`。Handler：`internal/handler/organization.go`。

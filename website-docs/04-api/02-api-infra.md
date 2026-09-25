@@ -1,6 +1,6 @@
 # API Reference: Infrastructure & Data Sources
 
-Route registration: `RegisterVectorStoreRoutes`, `RegisterStorageBackendRoutes`, `RegisterWebSearchRoutes`, `RegisterWebSearchProviderRoutes`, `RegisterDataSourceRoutes` in `internal/router/router.go`. Handlers: `internal/handler/vectorstore.go`, `internal/handler/storagebackend.go`, `internal/handler/web_search.go`, `internal/handler/web_search_provider.go`, `internal/handler/web_search_provider_credentials.go`, `internal/handler/datasource.go`, `internal/handler/datasource_credentials.go`.
+Registers and manages vector stores, file storage, web search services, and data sources, and provides connection testing and sync operations.
 
 Common conventions: read access requires Viewer+, write/connection-test access requires Admin+ (since credential probing reaches external systems). API key capabilities: vector stores `manage_vector_stores`, storage backends `manage_storage_backends`, web search `manage_web_search`, data sources `manage_datasources` (all support full-access).
 
@@ -101,13 +101,13 @@ Request body (shared by Create/Update/TestRaw as `storageBackendRequest`):
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `name` | string | Yes (`binding:"required"`) | Name |
-| `provider` | string | Yes (`binding:"required"`) | Provider (minio/cos/tos/s3/oss/ks3/obs…) |
-| `config` | object | No | Provider configuration (credentials masked in responses) |
-| `status` | string | No | Status |
+| `provider` | string | Yes (`binding:"required"`) | Provider: `local`/`minio`/`cos`/`tos`/`s3`/`oss`/`ks3`/`obs`, restricted by `STORAGE_ALLOW_LIST` |
+| `config` | object | No | Provider configuration; see [Storage Backends](../03-features/19-storage-backends.md#connection-parameters) for the fields (credentials masked in responses) |
+| `status` | string | No | `active` (default)/`disabled` |
 
 ### GET /api/v1/storage-backends/types
 
-Purpose: allowed storage types. Permission: Viewer+. Response: 200 `{"success":true,"data":[...]}`
+Purpose: list of provider names allowed by `STORAGE_ALLOW_LIST` (all providers when unset). Permission: Viewer+. Response: 200 `{"success":true,"data":["local","minio",...]}`
 
 ```bash
 curl $BASE/api/v1/storage-backends/types -H "Authorization: Bearer $TOKEN"
@@ -181,6 +181,8 @@ curl -X PUT $BASE/api/v1/storage-backends/sb-1/default -H "Authorization: Bearer
 ```
 
 ## Web Search (/api/v1/web-search and /api/v1/web-search-providers)
+
+当前注册 14 个搜索提供商，包括 Metaso、Exa、Bocha、Brave、Serply。各自的 api_key 与 extra_config 参数见[联网搜索](../03-features/11-web-search.md)。
 
 ### GET /api/v1/web-search/providers
 
@@ -298,6 +300,8 @@ curl -X POST $BASE/api/v1/web-search-providers/wsp-1/test -H "Authorization: Bea
 
 External content connectors (Feishu/Notion/Yuque, etc.); sync jobs write into a KB. Handler: `internal/handler/datasource.go`. Most responses in this group are raw objects/arrays (no `success` wrapper).
 
+当前已注册类型为 feishu、lark、feishu_drive、lark_drive、notion、confluence、yuque、dingtalk、ima、rss、gitlab。各连接器的 credentials、资源选择与同步限制见[数据源导入](../03-features/10-datasource.md)。sync_deletions 开启后会真实删除该数据源归属下的已删除知识；source_created_at/source_updated_at 保存在知识 metadata 中。
+
 ### GET /api/v1/datasource/types
 
 Purpose: catalog of available connectors. Permission: Viewer+.
@@ -321,7 +325,7 @@ Response: 200 `{"status":"connected"}`; on failure 400 `{"error":"..."}`
 
 ```bash
 curl -X POST $BASE/api/v1/datasource/validate-credentials -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"type":"notion","credentials":{"token":"secret"}}'
+  -H 'Content-Type: application/json' -d '{"type":"notion","credentials":{"api_key":"ntn_xxx"}}'
 ```
 
 ### POST /api/v1/datasource
@@ -393,7 +397,7 @@ Response: 200 `{"success":true,"data":{"fields":{"credentials":{"configured":boo
 
 ```bash
 curl -X PUT $BASE/api/v1/datasource/ds-1/credentials -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"credentials":{"token":"secret"}}'
+  -H 'Content-Type: application/json' -d '{"credentials":{"api_key":"ntn_xxx"}}'
 ```
 
 ### DELETE /api/v1/datasource/:id/credentials/:field
@@ -468,3 +472,7 @@ Purpose: a single sync log entry. Permission: Viewer+. Response: 200 `SyncLog`; 
 ```bash
 curl $BASE/api/v1/datasource/logs/log-1 -H "Authorization: Bearer $TOKEN"
 ```
+
+## 实现参考
+
+路由注册：`internal/router/routes_infra.go` 的 `RegisterVectorStoreRoutes`、`RegisterStorageBackendRoutes`、`RegisterWebSearchRoutes`、`RegisterWebSearchProviderRoutes`、`RegisterDataSourceRoutes`。Handler：`internal/handler/vectorstore.go`、`internal/handler/storagebackend.go`、`internal/handler/web_search.go`、`internal/handler/web_search_provider.go`、`internal/handler/web_search_provider_credentials.go`、`internal/handler/datasource.go`、`internal/handler/datasource_credentials.go`。

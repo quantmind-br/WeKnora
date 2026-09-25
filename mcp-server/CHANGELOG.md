@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Added the `create_knowledge_from_text` tool: creates knowledge entries from manual Markdown text by calling the existing `/knowledge-bases/{id}/knowledge/manual` endpoint, completing the "text" portion of #323. Defaults to `status="publish"`, so entries enter the parsing/indexing pipeline and become searchable immediately after creation; pass `status="draft"` to save without indexing.
+- Added the `update_knowledge_from_text` tool: updates manual Markdown knowledge via the existing `PUT /knowledge/manual/{id}` endpoint; re-indexes by default and can also save as a draft, completing #2378.
 - Added the existing `create_knowledge_from_file` to the README tool list.
 
 ## [1.1.1] - 2026-07-30

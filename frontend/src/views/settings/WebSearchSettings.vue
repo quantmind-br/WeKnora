@@ -7,9 +7,7 @@
 
     <h3 class="list-section-title">{{ t('webSearchSettings.providersTitle') }}</h3>
 
-    <!-- Provider List — same shape as ModelSettings cards: left identity badge + title / subtitle / proxy URL three-part layout.
-         Same reason as Models for not reusing SettingCard: each page has slightly different top-right toolbar needs (no controls here,
-         Mcp has a toggle), SettingCard still serves other consumers. -->
+    <!-- Provider cards keep their page-specific actions beside the provider details. -->
     <div v-if="providerEntities.length === 0 && !authStore.hasRole('admin')" class="empty-state">
       <t-empty :description="t('webSearchSettings.noProvidersDesc')" />
     </div>
@@ -716,30 +714,20 @@ onMounted(async () => {
 </script>
 
 <style lang="less" scoped>
+@import (reference) '@/components/css/provider-card.less';
+
+@import (reference) '@/components/css/settings-section.less';
+
 .websearch-settings {
   width: 100%;
 }
 
 .section-header {
-  margin-bottom: 28px;
-
-  h2 {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--td-text-color-primary);
-    margin: 0 0 8px 0;
-  }
-
-  .section-description {
-    font-size: 14px;
-    color: var(--td-text-color-secondary);
-    margin: 0;
-    line-height: 1.6;
-  }
+  .settings-section-header();
 }
 
 .list-section-title {
-  font-size: 16px;
+  font-size: var(--app-text-xl);
   font-weight: 600;
   color: var(--td-text-color-primary);
   margin: 0 0 16px 0;
@@ -760,55 +748,23 @@ onMounted(async () => {
 // For now, the two stylesheets are maintained separately to avoid premature abstraction; if Mcp / a fourth consumer shows up later,
 // extract the shared pieces into a base class under components/settings/.
 .provider-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 14px 14px 12px;
-  border: 1px solid var(--td-component-stroke);
-  border-radius: 10px;
-  background: var(--td-bg-color-container);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-  min-width: 0;
+  .provider-card();
 
   &--clickable {
-    cursor: pointer;
+    .provider-card-interactive();
 
-    &:hover {
-      border-color: var(--td-brand-color-3, var(--td-brand-color));
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
-    }
 
-    &:focus-visible {
-      outline: 2px solid var(--td-brand-color);
-      outline-offset: 2px;
-    }
   }
 
   &--add {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 68px;
-    border-style: dashed;
-    background: transparent;
-    color: var(--td-text-color-placeholder);
-    cursor: pointer;
-    font: inherit;
-    text-align: center;
+    .provider-card-add();
 
     &:hover,
     &:focus-visible {
-      color: var(--td-brand-color);
-      border-color: var(--td-brand-color);
-      background: color-mix(in srgb, var(--td-brand-color) 6%, transparent);
       box-shadow: none;
     }
 
-    &:focus-visible {
-      outline: 2px solid var(--td-brand-color);
-      outline-offset: 2px;
-    }
+
 
     &__icon {
       display: flex;
@@ -816,14 +772,14 @@ onMounted(async () => {
       justify-content: center;
       width: 32px;
       height: 32px;
-      border-radius: 8px;
+      border-radius: var(--app-radius-md);
       background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
       color: var(--td-brand-color);
-      font-size: 18px;
+      font-size: var(--app-text-2xl);
     }
 
     &__label {
-      font-size: 13px;
+      font-size: var(--app-text-md);
       font-weight: 500;
       line-height: 1.4;
     }
@@ -835,131 +791,59 @@ onMounted(async () => {
 }
 
 .provider-card__badge {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 1px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  // Default color, overridden by provider modifiers
-  background: rgba(0, 82, 217, 0.1);
-  color: #0052D9;
+  .provider-card-badge();
+  .provider-card-badge-color(#0052d9);
 }
 
 // Real brand logo: white background + thin border, logo tinted with currentColor via mask-image (keeps the brand color).
 // Add an extra .provider-card wrapper layer to override the specific `.provider-card--<id> .provider-card__badge` rule.
-.provider-card .provider-card__badge--logo {
-  background: var(--td-bg-color-container, #fff);
-  box-shadow: inset 0 0 0 1px var(--td-component-stroke);
-}
-
-.provider-card .provider-card__badge--mono::before {
-  content: '';
-  width: 22px;
-  height: 22px;
-  background-color: currentColor;
-  -webkit-mask-image: var(--logo-url);
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  mask-image: var(--logo-url);
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-}
-
 .provider-card__badge-img {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  display: block;
+  .provider-card-badge-img();
 }
 
 // Badge colors for each search source — not required to match the official logo exactly, just pick a low-saturation shade in the same color family.
 .provider-card--duckduckgo .provider-card__badge {
-  background: rgba(222, 88, 51, 0.12);
-  color: #DE5833;
+  .provider-card-badge-color(#de5833);
 }
 .provider-card--bing .provider-card__badge {
-  background: rgba(0, 137, 255, 0.12);
-  color: #0089FF;
+  .provider-card-badge-color(#0089ff);
 }
 .provider-card--google .provider-card__badge {
-  background: rgba(66, 133, 244, 0.12);
-  color: #4285F4;
+  .provider-card-badge-color(#4285f4);
 }
 .provider-card--tavily .provider-card__badge {
-  background: rgba(98, 53, 187, 0.12);
-  color: #6235BB;
+  .provider-card-badge-color(#6235bb);
 }
 .provider-card--baidu .provider-card__badge {
-  // Baidu's official primary color (the blue in the search box's "du" logo), #2932E1. Low-saturation version uses 12% alpha
-  // Light background, consistent with other providers. Previously mistakenly set to red (confused with sibling products like Baidu Maps).
-  background: rgba(41, 50, 225, 0.12);
-  color: #2932E1;
+  .provider-card-badge-color(#2932e1);
 }
 .provider-card--searxng .provider-card__badge {
-  background: rgba(33, 86, 137, 0.12);
-  color: #215689;
+  .provider-card-badge-color(#215689);
 }
 .provider-card--ollama .provider-card__badge {
-  background: rgba(70, 70, 70, 0.12);
-  color: #464646;
+  .provider-card-badge-color(#464646);
 }
 .provider-card--keenable .provider-card__badge {
-  background: rgba(20, 158, 130, 0.12);
-  color: #149E82;
+  .provider-card-badge-color(#149e82);
 }
 .provider-card--zhipu .provider-card__badge {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563EB;
+  .provider-card-badge-color(#2563eb);
 }
 
 .provider-card__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  .provider-card-body();
 }
 
 .provider-card__header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+  .provider-card-header();
 }
 
 .provider-card__title {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--td-text-color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  .provider-card-title();
 }
 
 .provider-card__more {
-  flex-shrink: 0;
-  color: var(--td-text-color-placeholder);
-  padding: 2px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-
-  &:hover,
-  &:focus-visible {
-    background: var(--td-bg-color-secondarycontainer);
-    color: var(--td-text-color-primary);
-  }
+  .provider-card-more();
 }
 
 .provider-card:hover .provider-card__more,
@@ -969,14 +853,7 @@ onMounted(async () => {
 }
 
 .provider-card__subtitle {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--td-text-color-secondary);
-  min-width: 0;
+  .provider-card-subtitle();
 }
 
 .provider-card__type {
@@ -996,7 +873,7 @@ onMounted(async () => {
 
 .provider-card__url {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--app-text-xs);
   line-height: 1.4;
   color: var(--td-text-color-placeholder);
   white-space: nowrap;
@@ -1010,7 +887,7 @@ onMounted(async () => {
   text-align: center;
 
   :deep(.t-empty__description) {
-    font-size: 14px;
+    font-size: var(--app-text-base);
     color: var(--td-text-color-placeholder);
     margin-bottom: 16px;
   }
@@ -1031,7 +908,7 @@ onMounted(async () => {
 .form-label {
   display: block;
   margin-bottom: 6px;
-  font-size: 13px;
+  font-size: var(--app-text-md);
   font-weight: 500;
   color: var(--td-text-color-primary);
   line-height: 1.4;
@@ -1047,7 +924,7 @@ onMounted(async () => {
 
 .form-desc {
   margin: 4px 0 0 0;
-  font-size: 12px;
+  font-size: var(--app-text-sm);
   line-height: 1.5;
   color: var(--td-text-color-placeholder);
 
@@ -1061,7 +938,7 @@ onMounted(async () => {
 :deep(.t-textarea),
 :deep(.t-input-number) {
   width: 100%;
-  font-size: 13px;
+  font-size: var(--app-text-md);
 }
 
 // Hide t-form's default form-item container — we use our own .form-item / .form-label instead.
@@ -1077,7 +954,7 @@ onMounted(async () => {
 
 // ---- Status icon for the footer-left test button (same style as ModelEditorDialog/MCP) ----
 .status-icon {
-  font-size: 16px;
+  font-size: var(--app-text-xl);
   flex-shrink: 0;
 
   &.available {
@@ -1113,7 +990,7 @@ onMounted(async () => {
 }
 
 .header-icon__text {
-  font-size: 15px;
+  font-size: var(--app-text-lg);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -1122,28 +999,28 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--app-text-md);
   font-weight: 500;
   color: var(--td-brand-color);
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: color var(--app-motion-fast) ease;
 
   &:hover {
     color: var(--td-brand-color-active);
   }
 
   .link-icon {
-    font-size: 14px;
+    font-size: var(--app-text-base);
   }
 
   &--inline {
     margin-left: 6px;
-    font-size: 12px;
+    font-size: var(--app-text-sm);
     font-weight: 500;
     vertical-align: baseline;
 
     .link-icon {
-      font-size: 12px;
+      font-size: var(--app-text-sm);
     }
   }
 }
@@ -1161,7 +1038,7 @@ onMounted(async () => {
 // For colored logos, give the header-icon container a white background + 1px border to avoid the brand color's light background pressing
 // against the colored icon and hurting contrast.
 .websearch-drawer .setting-drawer__header-icon:has(.header-icon__img) {
-  background: var(--td-bg-color-container, #fff);
+  background: var(--td-bg-color-container);
   box-shadow: inset 0 0 0 1px var(--td-component-stroke);
 }
 

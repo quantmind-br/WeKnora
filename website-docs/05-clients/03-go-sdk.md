@@ -1,6 +1,6 @@
 # Go SDK
 
-The official WeKnora Go SDK lives in the repository's `client/` directory. It is a standalone Go module that wraps CRUD operations for all major resources under the WeKnora server's `/api/v1/*` API, along with SSE streaming chat capabilities. The server itself and the official CLI (`weknora`) are both built on top of this SDK.
+The Go SDK wraps CRUD operations for the main resources such as knowledge bases, documents, and sessions, along with SSE streaming Q&A. Its source lives in `client/` and is provided as a standalone Go module; the official CLI and related server-side calls reuse this SDK.
 
 ## Installation
 
@@ -104,6 +104,9 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `Login` | Email/password login, returns JWT access/refresh tokens |
 | `GetCurrentUser` | Retrieves the current logged-in principal and tenant info (`GET /api/v1/auth/me`) |
 | `RefreshToken` | Exchanges a refresh token for a new access token |
+| `SwitchTenant` | Switches to the specified space and reissues the token pair, also recording it as the default space for the next login (`POST /api/v1/auth/switch-tenant`) |
+| `ChangePassword` | Changes the current user's password; on success, the server revokes all of that user's sessions, so the caller should discard its local tokens |
+| `GetAuthConfig` | Reads the public authentication configuration: registration mode and whether complex passwords are enabled (`GET /api/v1/auth/config`, no authentication required) |
 
 ### KnowledgeBase — `client/knowledgebase.go`
 
@@ -115,7 +118,7 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `UpdateKnowledgeBase` | Updates a knowledge base |
 | `DeleteKnowledgeBase` | Deletes a knowledge base |
 | `ClearKnowledgeBaseContents` | Clears a knowledge base's contents |
-| `HybridSearch` | Performs hybrid search (vector + keyword) within a knowledge base |
+| `HybridSearch` | Performs hybrid search (vector + keyword) within a knowledge base; can take `ResourceURLOptions` to return direct file links |
 | `TogglePinKnowledgeBase` | Pins/unpins a knowledge base |
 | `ListMoveTargets` | Lists knowledge bases that knowledge can be moved to |
 | `CopyKnowledgeBase` | Copies a knowledge base |
@@ -131,10 +134,12 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `GetKnowledge` | Gets knowledge details |
 | `GetKnowledgeBatch` | Gets multiple pieces of knowledge in batch |
 | `ListKnowledge` | Lists knowledge with pagination |
-| `ListKnowledgeWithFilter` | Lists knowledge with filter conditions |
+| `ListKnowledgeWithFilter` | Lists knowledge with filter conditions (`KnowledgeListFilter`: tags, keyword, file type, parse status, source, time range, folder) |
 | `DeleteKnowledge` | Deletes knowledge |
 | `DownloadKnowledgeFile` | Downloads a knowledge item's original file to a local path |
 | `OpenKnowledgeFile` | Opens a knowledge item's original file as a stream (returns the filename plus an `io.ReadCloser`) |
+| `DownloadKnowledgeFiles` / `OpenKnowledgeFilesArchive` | Packages the original files of multiple documents in the same knowledge base as a ZIP and downloads it to a local path / reads it as a stream (`POST /api/v1/knowledge-bases/{id}/knowledge/batch-download`; at most 200 IDs and 512 MiB in total per call; requires Contributor and write permission on that knowledge base); uses the streaming HTTP client, so it isn't bound by the 30-second default timeout |
+| `ListKnowledgeFolders` / `MoveKnowledgeToFolder` / `RenameKnowledgeFolder` | Knowledge base folder tree, moving documents into a folder (an empty `FolderPath` moves them back to the root), renaming a folder and all of its sub-paths |
 | `UpdateKnowledge` | Updates knowledge |
 | `ReparseKnowledge` | Re-parses knowledge |
 | `CancelKnowledgeParse` | Cancels a parsing task |
@@ -147,6 +152,8 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `GetKnowledgeMoveProgress` | Queries the progress of a move task |
 | `PreviewKnowledgeFile` | Previews a knowledge file (returns the raw `*http.Response`) |
 | `BatchUpdateKnowledgeTags` | Batch-updates knowledge tags |
+
+Since v0.8.2, the server's knowledge list endpoint supports the `sort_by` (`updated_at` / `created_at` / `file_name`) and `sort_order` (`asc` / `desc`) parameters, still defaulting to `created_at desc`; `KnowledgeListFilter` doesn't yet provide matching fields, so use a `Raw` call when you need custom sorting. See the [Knowledge API](../04-api/02-api-knowledge.md) for parameter details.
 
 ### Chunk — `client/chunk.go`
 
@@ -210,6 +217,11 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `GetAgentPlaceholders` | Gets an Agent's configuration placeholders |
 | `GetSuggestedQuestions` | Gets an Agent's suggested questions |
 
+Two request field changes since v0.8.2:
+
+- `UpdateAgentRequest.Avatar` changed from `string` to `*string`: when `nil`, the field is not sent and the existing avatar is kept; pointing to an empty string clears the avatar. After upgrading the SDK, adjust your assignment code (for example, `Avatar: &avatar`).
+- The suggested question type `SuggestedQuestion` gains `KnowledgeID` (the source document). When a user clicks a suggested question to ask it, you can pass the source back in `QuestionOrigin` (`KnowledgeBaseID`, `KnowledgeID`) of `KnowledgeQARequest` / `AgentQARequest`, and the server will prioritize retrieving from that source before answering; it only serves as a hint and does not widen the retrieval scope of the request itself.
+
 ### Model — `client/model.go`
 
 | Method | Description |
@@ -248,12 +260,14 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `CreateOrganization` / `ListMyOrganizations` / `GetOrganization` / `UpdateOrganization` / `DeleteOrganization` | Organization CRUD |
 | `SearchOrganizations` / `PreviewOrganizationByInviteCode` | Search organizations / preview an organization by invite code |
 | `JoinOrganizationByInviteCode` / `SubmitJoinRequest` / `JoinByOrganizationID` / `LeaveOrganization` / `RequestRoleUpgrade` | Join/leave organizations, request role upgrades |
-| `GenerateInviteCode` / `SearchUsersForInvite` / `InviteMember` | Member invitations |
+| `GenerateInviteCode` / `SearchUsersForInvite` / `InviteMember` | Member invitations (see the note below for the limitations of `SearchUsersForInvite`) |
 | `ListOrgMembers` / `UpdateMemberRole` / `RemoveMember` | Member management |
 | `ListJoinRequests` / `ReviewJoinRequest` | Join-request approval |
 | `ShareKnowledgeBase` / `ListKBShares` / `UpdateSharePermission` / `RemoveKBShare` | Knowledge base sharing |
 | `ShareAgent` / `ListAgentShares` / `RemoveAgentShare` | Agent sharing |
 | `ListOrgShares` / `ListOrgAgentShares` / `ListSharedKnowledgeBases` / `ListSharedAgents` | Queries for shared resources |
+
+自 v0.8.2 起，服务端邀请候选只按**完整空间 ID** 精确解析（`GET /api/v1/organizations/{id}/search-tenants?q=<空间ID>`），不再按空间名、用户名或邮箱搜索。`SearchUsersForInvite` 调用的是已废弃的 `search-users` 别名，并以 `keyword` 参数传值，服务端读取的是 `q`，因此该方法目前拿不到候选。需要查找候选时，请用 `Raw` 直接调用 `search-tenants`。
 
 ### FAQ — `client/faq.go`
 
@@ -289,7 +303,19 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | `CreateMCPService` / `ListMCPServices` / `GetMCPService` / `UpdateMCPService` / `DeleteMCPService` | MCP service CRUD |
 | `TestMCPService` | Connectivity test |
 | `GetMCPServiceTools` / `GetMCPServiceResources` | Lists MCP tools/resources |
+| `GetMCPMetadata` | Reads the saved tool catalog without connecting upstream; returns `nil` if it has never been synced, and `Stale=true` means the saved connection doesn't match the current configuration |
+| `RefreshMCPMetadata` | Connects upstream and replaces the saved tool catalog as a whole; OAuth services save a snapshot per caller (Viewer+), while statically authenticated services write a space-level snapshot (requires Admin or an API Key that can manage MCP services) |
 | `ResolveToolApproval` | Handles tool-call approval |
+
+`MCPService` list items carry `Catalog` (tool count, whether it's stale, sync time) and `UsageInstructions` fields.
+
+### MCP Endpoint (WeKnora as an MCP Server) — `client/mcp_endpoint.go`
+
+| Method | Description |
+|---|---|
+| `ListMCPEndpoints` / `GetMCPEndpoint` / `CreateMCPEndpoint` / `UpdateMCPEndpoint` / `DeleteMCPEndpoint` | CRUD for the MCP endpoints a workspace publishes externally; the `Token` in the create response is returned only once |
+| `RotateMCPEndpointToken` | Rotates the endpoint token; the old token stops working immediately |
+| `GetMCPEndpointToolCatalog` | The endpoint's selectable tool catalog, groups, and default selections |
 
 ### Initialization and Model Detection — `client/initialization.go`
 
@@ -306,6 +332,7 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | Method | Description |
 |---|---|
 | `GetSystemInfo` | Gets system info (version, etc.) |
+| `GetDeploymentCapabilities` | Gets the deployment capability snapshot (`GET /api/v1/system/capabilities`, the edition plus each capability's supported / reason) |
 | `ListParserEngines` / `CheckParserEngines` | Lists/checks document-parsing engines |
 | `ReconnectDocReader` | Reconnects the DocReader service |
 | `GetStorageEngineStatus` / `CheckStorageEngine` | Storage engine status/check |
@@ -315,11 +342,38 @@ The following are all public methods of `Client`; internal methods (`buildReques
 | Method | Description | Source file |
 |---|---|---|
 | `StartEvaluation` / `GetEvaluationResult` | Starts an evaluation task / queries evaluation results | `client/evaluation.go` |
-| `ListSkills` | Lists built-in Agent skills | `client/skill.go` |
+| `ListSkills(ctx, sandboxConfigID)` | Lists the skills callable under the given sandbox configuration, returning the skill list and an availability flag | `client/skill.go` |
 | `GetWebSearchProviders` | Lists available web search providers | `client/web_search.go` |
 | `Raw` | Raw HTTP escape hatch (Experimental) | `client/client.go` |
 
-In total, roughly 170 public methods, covering about 20 resource categories.
+In total, more than 220 public methods, covering more than 20 resource categories.
+
+### Memory, Sandbox Skills, and Personal Variables
+
+| File | Methods and purpose |
+| --- | --- |
+| `client/memory.go` | GetMemorySettings / UpdateMemorySettings; List/Create/Update/DeleteMemoryItem; Confirm/RejectMemoryItem; ClearMemoryItems |
+| `client/memory.go` | ListMemoryTopics / PromoteMemoryTopic / DeleteMemoryTopic; ListMemoryDocuments / DeleteMemoryDocument; ExportMemory / ConsolidateMemory |
+| `client/skill.go` | InstallSandboxSkillFromSource / UploadSandboxSkill / ReinstallSandboxSkill / StopSandboxSkill, managing the installation flow |
+| `client/skill.go` | UpdateSandboxSkill / SetSandboxSkillEnabled / SetSandboxSkillEnvValues; ListSandboxSkillFiles / GetSandboxSkillFile |
+| `client/env_var.go` | ListMyEnvVars; SetMySkillEnvVar / DeleteMySkillEnvVar; SetMySandboxEnvVar / DeleteMySandboxEnvVar |
+| `client/tenant.go` | UpdateTenantAPIKey, changes the full authorization configuration of an existing Key without rotating the token |
+
+Space skill variables are set by administrators, while personal variables are used only for the caller themselves; listings do not return plaintext values. Permissions for the memory and skill methods are still checked by the backend endpoints; the SDK does not bypass these constraints.
+
+```go
+items, total, err := c.ListMemoryItems(ctx, "active", 50, 0)
+_ = items
+_ = total
+_ = err
+
+skills, available, err := c.ListSkills(ctx, "sandbox-config-id")
+_ = skills
+_ = available
+_ = err
+```
+
+System administrators create users with `POST /system/admin/users/create`; the current SDK has no dedicated method for this endpoint, so use the Raw escape hatch described earlier or an HTTP client; see the [System API](../04-api/02-api-system.md) for the response. For the full set of new contracts, see the [Long-term Memory API](../04-api/02-api-memory.md) and the [Sandbox and Skills API](../04-api/02-api-sandbox-skills.md).
 
 ## Streaming Chat (SSE)
 

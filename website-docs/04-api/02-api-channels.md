@@ -1,6 +1,6 @@
 # API Reference: IM, Embed, and File Services
 
-Route registration: `RegisterIMRoutes`, `RegisterIMChannelRoutes`, `RegisterEmbedChannelRoutes`, `RegisterEmbedPublicRoutes`, `serveFilesWithResources`, `servePresignedFiles`, `servePresignedPreview`, `serveResourceGrants` in `internal/router/router.go`. Handlers: `internal/handler/im.go`, `internal/handler/wechat_qrcode.go`, `internal/handler/embed_channel.go`.
+Manages IM and web embed channels, and provides channel callback, visitor session, and file access endpoints. The admin side, IM platform callbacks, and Embed visitors each use their own authentication method.
 
 ## IM Callback (no global authentication)
 
@@ -18,6 +18,8 @@ curl -X POST $BASE/api/v1/im/callback/ch-1 -H 'Content-Type: application/json' -
 
 API key: `manage_channels`/full. IM channels carry external bot credentials: listing requires Viewer+, changes/toggling/QR login require Admin+.
 
+飞书/Lark credentials.api_base_url 同时影响 HTTP API 和 WebSocket bootstrap；云之家支持 session_mode=thread。配置示例及网络要求见[IM 集成](../03-features/12-im-integration.md)。IM/Embed 的记忆偏好来自绑定 Agent 的 config.memory_enabled，当前渠道接口没有单独的 memory_enabled 参数。
+
 ### POST /api/v1/agents/:id/im-channels
 
 Purpose: Create an IM channel for an Agent. Permission: Admin+.
@@ -26,9 +28,11 @@ Purpose: Create an IM channel for an Agent. Permission: Admin+.
 | --- | --- | --- | --- |
 | `platform` | string | Yes | `wecom/feishu/lark/slack/telegram/dingtalk/mattermost/wechat/qqbot/yunzhijia` |
 | `name` | string | No | Display name |
-| `mode` | string | No | `websocket` (default)/`webhook`/`longpoll` (wechat forces longpoll) |
+| `mode` | string | No | `websocket` (default; mattermost/yunzhijia default to `webhook`)/`webhook`/`longpoll` (wechat forces longpoll) |
 | `output_mode` | string | No | `stream` (default)/`full` (wechat forces full) |
-| `knowledge_base_id` | string | No | Associated KB |
+| `locale` | string | No | Reply language: `zh-CN`/`en-US`/`ja-JP`/`ko-KR`/`ru-RU`; empty (default) uses the deployment default language (`WEKNORA_LANGUAGE`, `zh-CN` when unset); other values return 400 |
+| `session_mode` | string | No | `user` (default)/`thread` |
+| `knowledge_base_id` | string | No | KB into which attachments are additionally ingested; must belong to this space, otherwise 400 |
 | `credentials` | object | No | Platform credentials |
 | `enabled` | bool | No | Default true |
 
@@ -36,7 +40,7 @@ Response: 200 `{"data":{IMChannel}}`; returns 409 if a bot already exists on the
 
 ```bash
 curl -X POST $BASE/api/v1/agents/agent-1/im-channels -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"platform":"feishu","name":"Feishu Support"}'
+  -H 'Content-Type: application/json' -d '{"platform":"feishu","name":"Feishu Support","locale":"en-US"}'
 ```
 
 ### GET /api/v1/agents/:id/im-channels
@@ -61,7 +65,7 @@ curl $BASE/api/v1/im-channels -H "Authorization: Bearer $TOKEN"
 
 ### PUT /api/v1/im-channels/:id
 
-Purpose: Update a channel (partial update: `name/mode/output_mode/knowledge_base_id/credentials/enabled/agent_id` are all optional). Permission: Admin+.
+Purpose: Update a channel (partial update: `name/mode/output_mode/locale/session_mode/knowledge_base_id/credentials/enabled/agent_id` are all optional; passing an empty string for `knowledge_base_id` removes the association, and passing an empty string for `locale` restores the default language). Permission: Admin+.
 
 Response: 200 `{"data":{IMChannel}}`
 
@@ -131,7 +135,7 @@ Purpose: Create a web embed channel for an Agent. Permission: Admin+.
 | `header_title_mode` | string | No | `channel` (default)/`session` |
 | `show_suggested_questions` | bool | No | Default true |
 | `allow_web_search` / `allow_file_upload` | bool | No | Default false |
-| `default_locale` | string | No | `zh-CN/en-US/ko-KR/ru-RU`/empty (follows browser) |
+| `default_locale` | string | No | `zh-CN/en-US/ko-KR/ja-JP/ru-RU`/empty (follows browser) |
 | `webhook_url` / `webhook_secret` | string | No | Visitor event webhook |
 | `agent_id` | string | No | Bound Agent |
 
@@ -221,6 +225,22 @@ Response: 200 `{"success":true,"data":{"session_count":N}}`
 
 ```bash
 curl $BASE/api/v1/embed-channels/ec-1/stats -H "Authorization: Bearer $TOKEN"
+```
+
+## Embed Page Frame Policy
+
+### GET /api/v1/embed-frame-policy
+
+Purpose: Lets an Nginx `auth_request` subrequest fetch the channel's `Content-Security-Policy: frame-ancestors` before serving the `/embed/:channel_id` page. No token required; it returns only the policy header, not the channel configuration; the response carries `Cache-Control: no-store`.
+
+| Request header | Required | Description |
+| --- | --- | --- |
+| `X-Embed-Page-URI` | Yes | Relative URI of the embed page, such as `/embed/<channel_id>` |
+
+Response: 204 with the CSP header; 403 when the channel doesn't exist, is disabled, the path is invalid, or the allowlist is empty.
+
+```bash
+curl -i $BASE/api/v1/embed-frame-policy -H "X-Embed-Page-URI: /embed/ec-1"
 ```
 
 ## Embed Public Routes (/api/v1/embed/:channel_id, EmbedAuth)
@@ -389,7 +409,7 @@ curl "$BASE/api/v1/embed/ec-1/files?file_path=local://1/exports/chart.png" \
 
 ## File Services
 
-Implemented in `internal/router/router.go` (not in the handler package).
+Implemented in `internal/router/files.go` (not in the handler package).
 
 ### GET /files
 
@@ -426,6 +446,8 @@ curl "$BASE/api/v1/files/presigned?file_path=local://1/x.png&tenant_id=1&expires
 
 Purpose: Diagnostic endpoint: returns the presigned HTTP URL that would be generated for a given path. Permission: Admin+, explicitly denies API key principals (`DenyAPIKeyPrincipal`). Query parameter: `file_path` (required).
 
+`file_path` must belong to the current space, just like `/files`: a `resource://` handle requires the resource to belong to this space, and a storage path requires its tenant segment to be this space's ID; otherwise 403 is returned and no URL is issued.
+
 Response: 200 `{"file_path","provider","url","rewritten":bool,"hint"}`
 
 ```bash
@@ -441,3 +463,7 @@ Response: 200 file stream (`Cache-Control: private, max-age=300`).
 ```bash
 curl $BASE/r/abc123 -o file.png
 ```
+
+## 实现参考
+
+路由注册：`internal/router/routes_agent.go` 的 `RegisterIMRoutes`、`RegisterIMChannelRoutes`、`RegisterEmbedChannelRoutes`、`RegisterEmbedPublicRoutes`；`internal/router/files.go` 的 `serveFilesWithResources`、`servePresignedFiles`、`servePresignedPreview`、`serveResourceGrants`。Handler：`internal/handler/im.go`、`internal/handler/wechat_qrcode.go`、`internal/handler/embed_channel.go`。

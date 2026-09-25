@@ -51,6 +51,8 @@ spec:
               value: {{ .Values.app.env.GIN_MODE | quote }}
             - name: TZ
               value: {{ .Values.app.env.TZ | quote }}
+            - name: MAX_FILE_SIZE_MB
+              value: {{ .Values.global.maxFileSizeMB | quote }}
             # Database configuration
             - name: DB_DRIVER
               value: "postgres"
@@ -119,6 +121,11 @@ spec:
               value: {{ .Values.app.env.AUTO_RECOVER_DIRTY | quote }}
             - name: CONCURRENCY_POOL_SIZE
               value: {{ .Values.app.env.CONCURRENCY_POOL_SIZE | quote }}
+            # Docker sandbox is off unless the deployer opts in. A workspace
+            # admin who can save a Docker config can create containers on
+            # whatever Engine API this process can reach (often host root).
+            - name: WEKNORA_SANDBOX_DOCKER_ENABLED
+              value: {{ .Values.app.env.WEKNORA_SANDBOX_DOCKER_ENABLED | default "false" | quote }}
             {{- if .Values.neo4j.enabled }}
             # Neo4j configuration (for GraphRAG)
             # NEO4J_ENABLE is the single switch for the knowledge graph (the Go code reads it, not ENABLE_GRAPH_RAG).

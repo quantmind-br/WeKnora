@@ -1,35 +1,18 @@
 # Retrieval-Augmented Question Answering Pipeline (RAG Pipeline)
 
-This document fully describes the end-to-end flow of a "knowledge Q&A" request in WeKnora, from the HTTP entry point to the streamed answer being persisted: SSE session assembly → event-driven Pipeline (intent recognition / query rewriting / parallel retrieval / rerank / fusion merge / filtering / data analysis / context assembly / streaming generation) → citation expansion → streaming output and disconnect-resume.
+A knowledge Q&A request enters the event-driven RAG pipeline, goes through intent recognition, query rewriting, retrieval, reranking, and context assembly, and then an answer is generated. The answer is returned as an SSE stream with citations expanded on output; the stream manager handles event recovery after a disconnect.
 
-Source locations for each stage:
-
-| Stage | Source location |
-|------|----------|
-| HTTP entry / SSE assembly | `internal/handler/session/qa.go`, `helpers.go`, `stream.go` |
-| EventBus → stream event bridge | `internal/handler/session/agent_stream_handler.go` |
-| Pipeline orchestration | `internal/application/service/session_knowledge_qa.go` |
-| Plugin framework and all stage plugins | `internal/application/service/chat_pipeline/` |
-| Plugin registration (DI container) | `internal/container/container.go` |
-| Event/state types | `internal/types/chat_manage.go`, `internal/types/chat.go`, `internal/event/event.go` |
-| Cross-database hybrid retrieval | `internal/application/service/knowledgebase_search*.go` |
-| Stream manager (disconnect-resume) | `internal/stream/` (`factory.go`, `memory_manager.go`, `redis_manager.go`) |
-| Session / message management | `internal/application/service/session.go`, `message.go` |
-| Citation aliasing and expansion | `internal/llmreference/`, `internal/llmresource/` |
-| Text utilities | `internal/searchutil/` |
-| Prompt templates | `config/prompt_templates/`, `internal/config/config.go` |
-
-## 1. Overall Architecture
+## Overall Architecture {#_1-overall-architecture}
 
 WeKnora's Q&A pipeline is an **Event-Driven Plugin Pipeline**: each stage is a plugin implementing the `Plugin` interface, registered on the `EventManager`; the orchestrator (`KnowledgeQAByEvent`) triggers events one by one from a dynamically assembled `EventType` list, and plugins are chained together via a chain of responsibility (`next()`). Generated results are not written directly to the HTTP response — instead, events are published through a per-request independent `EventBus`, which the `AgentStreamHandler` lands into a shared `StreamManager` (in-memory or Redis); the HTTP layer polls every 100ms to push events to the SSE client. This design naturally supports **disconnect/reconnect resumption** and **distributed multi-replica deployment**.
 
 ```mermaid
 flowchart TD
     subgraph HTTP["HTTP Layer (internal/handler/session)"]
-        A1["POST /sessions/:id/knowledge-qa"]
-        A2["POST /sessions/:id/agent-qa"]
-        A3["GET /sessions/continue-stream/:id"]
-        A4["POST /sessions/:id/stop"]
+        A1["POST /knowledge-chat/:session_id"]
+        A2["POST /agent-chat/:session_id"]
+        A3["GET /sessions/continue-stream/:session_id"]
+        A4["POST /sessions/:session_id/stop"]
     end
 
     subgraph Setup["SSE Assembly (qa.go executeQA / setupSSEStream)"]
@@ -42,6 +25,7 @@ flowchart TD
 
     subgraph Pipeline["Event-Driven Pipeline (session_knowledge_qa.go)"]
         C0["LOAD_HISTORY"]
+        CM["MEMORY_RECALL long-term memory recall"]
         C1["QUERY_UNDERSTAND rewrite+intent+entities"]
         C2["CHUNK_SEARCH_PARALLEL parallel retrieval"]
         C3["CHUNK_RERANK rerank+Wiki weighting"]
@@ -62,15 +46,15 @@ flowchart TD
 
     A1 --> Setup
     A2 --> Setup
-    Setup --> C0 --> C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9
+    Setup --> C0 --> CM --> C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9
     C9 --> D1 --> D2 --> D3 --> D4
     A3 --> D3
     A4 --> D3
 ```
 
-## 2. Event-Driven Plugin Framework
+## Event-Driven Plugin Framework {#_2-event-driven-plugin-framework}
 
-### 2.1 Plugin Interface and Chain of Responsibility
+### Plugin Interface and Chain of Responsibility {#_2-1-plugin-interface-and-chain-of-responsibility}
 
 `internal/application/service/chat_pipeline/chat_pipeline.go` defines the core abstraction:
 
@@ -86,7 +70,7 @@ The `EventManager` maintains an `eventType → []Plugin` mapping. During `Regist
 
 Errors propagate via `*PluginError`; predefined errors include `ErrSearchNothing` (retrieval returned nothing, triggers a fallback response instead of failing), `ErrRerank`, `ErrGetChatModel`, `ErrModelCall`, etc. (`chat_pipeline.go`).
 
-### 2.2 Registration Order (container.go)
+### Registration Order (container.go) {#_2-2-registration-order-container-go}
 
 All plugins are constructed and self-register in the DI container via `container.Invoke` (`internal/container/container.go`); the registration order is the execution order on the same event chain:
 
@@ -103,10 +87,12 @@ must(container.Invoke(chatpipeline.NewPluginChatCompletionStream)) // CHAT_COMPL
 must(container.Invoke(chatpipeline.NewPluginFilterTopK))           // FILTER_TOP_K
 must(container.Invoke(chatpipeline.NewPluginQueryUnderstand))      // QUERY_UNDERSTAND (outer chain layer)
 must(container.Invoke(chatpipeline.NewPluginLoadHistory))          // LOAD_HISTORY
+must(container.Invoke(chatpipeline.NewPluginMemoryRecall))         // MEMORY_RECALL
 must(container.Invoke(chatpipeline.NewPluginExtractEntity))        // QUERY_UNDERSTAND (inner chain layer)
 must(container.Invoke(chatpipeline.NewPluginSearchEntity))         // ENTITY_SEARCH
 must(container.Invoke(chatpipeline.NewPluginSearchParallel))       // CHUNK_SEARCH_PARALLEL
-must(container.Invoke(chatpipeline.NewPluginWikiBoost))            // CHUNK_RERANK (inner chain layer)
+must(container.Invoke(chatpipeline.NewPluginWikiBoost))            // CHUNK_RERANK (middle chain layer)
+must(container.Invoke(chatpipeline.NewPluginMemoryAffinity))       // CHUNK_RERANK (innermost chain layer)
 ```
 
 Full mapping of events to plugins (including same-event chain order):
@@ -114,11 +100,12 @@ Full mapping of events to plugins (including same-event chain order):
 | EventType | Plugin (in chain order) | Source file |
 |-----------|---------------|--------|
 | `load_history` | PluginLoadHistory | `load_history.go` |
+| `memory_recall` | PluginMemoryRecall | `memory_recall.go` |
 | `query_understand` | PluginQueryUnderstand → PluginExtractEntity | `query_understand.go`, `extract_entity.go` |
 | `chunk_search` | PluginSearch | `search.go`, `query_expansion.go` |
 | `chunk_search_parallel` | PluginSearchParallel (internally composes PluginSearch + PluginSearchEntity) | `search_parallel.go` |
 | `entity_search` | PluginSearchEntity | `search_entity.go` |
-| `chunk_rerank` | PluginRerank → PluginWikiBoost | `rerank.go`, `wiki_boost.go` |
+| `chunk_rerank` | PluginRerank → PluginWikiBoost → PluginMemoryAffinity | `rerank.go`, `wiki_boost.go`, `memory_affinity.go` |
 | `web_fetch` | PluginWebFetch | `web_fetch.go` |
 | `chunk_merge` | PluginMerge | `merge.go`, `merge_overlap.go`, `merge_expand.go`, `merge_faq.go`, `merge_history.go` |
 | `data_analysis` | PluginDataAnalysis | `data_analysis.go` |
@@ -127,7 +114,7 @@ Full mapping of events to plugins (including same-event chain order):
 | `chat_completion_stream` | PluginChatCompletionStream | `chat_completion_stream.go` |
 | `filter_top_k` | PluginFilterTopK | `filter_top_k.go` |
 
-### 2.3 ChatManage: The State Object That Spans the Whole Flow
+### ChatManage: The State Object That Spans the Whole Flow {#_2-3-chatmanage-the-state-object-that-spans-the-whole-flow}
 
 `ChatManage` in `internal/types/chat_manage.go` is composed of three embedded parts:
 
@@ -137,7 +124,7 @@ Full mapping of events to plugins (including same-event chain order):
 
 `ChatManage.Clone()` provides a deep copy (avoiding concurrent read/write on shared slices during parallel retrieval), but does **not** copy `PipelineContext`.
 
-### 2.4 Dynamic Pipeline Assembly (PipelineBuilder)
+### Dynamic Pipeline Assembly (PipelineBuilder) {#_2-4-dynamic-pipeline-assembly-pipelinebuilder}
 
 `KnowledgeQA` in `session_knowledge_qa.go` dynamically assembles the event list based on request characteristics:
 
@@ -145,15 +132,17 @@ Full mapping of events to plugins (including same-event chain order):
 // Pure chat (no KB and Web search not enabled)
 pipeline = types.NewPipelineBuilder().
     AddIf(hasHistory, types.LOAD_HISTORY).
+    Add(types.MEMORY_RECALL).
     Add(types.CHAT_COMPLETION_STREAM).Build()
 
 // RAG
 pipeline = types.NewPipelineBuilder().
     AddIf(hasHistory, types.LOAD_HISTORY).
+    Add(types.MEMORY_RECALL).
     Add(types.QUERY_UNDERSTAND).
     Add(types.CHUNK_SEARCH_PARALLEL).
     Add(types.CHUNK_RERANK).
-    AddIf(req.WebSearchEnabled, types.WEB_FETCH).
+    AddIf(webSearchEnabled, types.WEB_FETCH).
     Add(types.CHUNK_MERGE).
     Add(types.FILTER_TOP_K).
     AddIf(chatManage.DataAnalysisEnabled, types.DATA_ANALYSIS).
@@ -163,7 +152,7 @@ pipeline = types.NewPipelineBuilder().
 
 The `types.Pipeline` map also retains static presets such as `chat` / `chat_stream` / `chat_history_stream` / `rag` / `rag_stream`, for callers that don't need dynamic assembly.
 
-### 2.5 Orchestrator: KnowledgeQAByEvent
+### Orchestrator: KnowledgeQAByEvent {#_2-5-orchestrator-knowledgeqabyevent}
 
 `KnowledgeQAByEvent` (`session_knowledge_qa.go`) triggers `eventManager.Trigger` one stage at a time, and does a substantial amount of surrounding work:
 
@@ -173,9 +162,9 @@ The `types.Pipeline` map also retains static presets such as `chat` / `chat_stre
 - **Cancellation priority**: at the end of each stage, `ctx.Err()` is checked first (a user stop cancels the context); this must happen before the `ErrSearchNothing` check, otherwise a stop would be misinterpreted as "retrieval returned nothing" and a fallback response would be written.
 - **Fallback**: `ErrSearchNothing` → `handleFallbackResponse`: `FallbackStrategyFixed` sends the fixed copy `FallbackResponse` directly; `FallbackStrategyModel` lets the model answer freely using `FallbackPrompt`.
 
-## 3. Detailed Look at Each Stage Plugin
+## Detailed Look at Each Stage Plugin {#_3-detailed-look-at-each-stage-plugin}
 
-### 3.1 LOAD_HISTORY — Loading Session History
+### LOAD_HISTORY — Loading Session History {#_3-1-load-history-—-loading-session-history}
 
 `load_history.go`. `MaxRounds <= 0` means the Agent has explicitly disabled multi-turn (`MultiTurnEnabled=false`), and the stage is skipped directly — it does **not** fall back to a global default. Otherwise `loadAndProcessHistory` (`common.go`) is called:
 
@@ -185,7 +174,11 @@ The `types.Pipeline` map also retains static presets such as `chat` / `chat_stre
 
 Note: replaying history plays back the user message's original `Content`, not `RenderedContent` (to avoid mixing old context envelopes into the current protocol); historical references are injected separately via `merge_history.go`.
 
-### 3.2 QUERY_UNDERSTAND — Query Rewriting + Intent Recognition (+ Entity Extraction)
+### MEMORY_RECALL — Recalling Long-Term Memory {#_3-1a-memory-recall}
+
+`memory_recall.go`. When long-term memory is enabled for the space, the caller's memories are recalled based on the current question and written into `chatManage.MemoryPrompt`, and a `memory_recalled` event is emitted so the frontend can show which memories were used in this turn. This stage doesn't call a model, and its failure doesn't block Q&A. For enabling and managing memory, see [Cross-session Long-term Memory](../03-features/23-memory.md).
+
+### QUERY_UNDERSTAND — Query Rewriting + Intent Recognition (+ Entity Extraction) {#_3-2-query-understand-—-query-rewriting-intent-recognition-entity-extraction}
 
 Two plugins are chained on the same event:
 
@@ -201,7 +194,7 @@ Two plugins are chained on the same event:
 
 **PluginExtractEntity** (`extract_entity.go`) runs in the inner chain layer: only when `NEO4J_ENABLE=true` and there is a knowledge base within the retrieval scope with `ExtractConfig.Enabled`, it calls the LLM via `config.ExtractManager.ExtractEntity`'s template (`graph_extraction.yaml`) to extract query entities, writing them into `chatManage.Entity` / `EntityKBIDs` / `EntityKnowledge`, for use by `ENTITY_SEARCH`.
 
-### 3.3 CHUNK_SEARCH_PARALLEL — Parallel Retrieval (chunk + graph entities)
+### CHUNK_SEARCH_PARALLEL — Parallel Retrieval (chunk + graph entities) {#_3-3-chunk-search-parallel-—-parallel-retrieval-chunk-graph-entities}
 
 `search_parallel.go`. If `NeedsRetrieval()` is false, the stage is skipped directly. Otherwise `chatManage` is `Clone()`d twice, and `RunParallel` executes concurrently:
 
@@ -219,7 +212,7 @@ The two result sets are merged and deduplicated by `removeDuplicateResults` (by 
 
 **Query expansion** (`query_expansion.go`): triggered when `EnableQueryExpansion` is set and the initial recall count is below `EmbeddingTopK`. This does not call an LLM — it locally generates query variants (stop-word removal, word-order adjustment, key-phrase extraction, etc.). Chinese word segmentation goes through `types.Jieba.CutForSearch`: contiguous Chinese-character spans are handed whole to jieba for word segmentation, while mixed Chinese/English/numeric text is segmented by switching per script rather than degrading to "one Chinese character = one token"; stop-word and length filtering count by rune, avoiding multi-byte characters being misjudged as single characters. Each (variant × SearchTarget) combination executes `HybridSearch` concurrently (semaphore capped at 16), with the keyword threshold relaxed to 0.8× the original value, and TopK expanded to `max(EmbeddingTopK, RerankTopK) * 2`.
 
-### 3.4 CHUNK_RERANK — Reranking, Composite Scoring, MMR, Wiki Weighting
+### CHUNK_RERANK — Reranking, Composite Scoring, MMR, Wiki Weighting {#_3-4-chunk-rerank-—-reranking-composite-scoring-mmr-wiki-weighting}
 
 **PluginRerank** (`rerank.go`, 720 lines):
 
@@ -233,13 +226,15 @@ The two result sets are merged and deduplicated by `removeDuplicateResults` (by 
 5. **FAQ weighting**: when `FAQPriorityEnabled` and `FAQScoreBoost > 1.0`, FAQ chunk scores are multiplied by the boost (capped at 1.0), recorded as `Metadata["faq_boosted"]`.
 6. **MMR diversity selection** `applyMMR` (λ=0.7, k=`RerankTopK`): `mmr = 0.7*relevance - 0.3*max_jaccard_redundancy`, using `searchutil.TokenizeSimple` + `Jaccard` to precompute token sets in parallel, greedily selecting `RerankResult` iteratively.
 
-**PluginWikiBoost** (`wiki_boost.go`) is registered in the inner chain layer of the same event; its OnEvent calls `next()` first (waiting for reranking to complete) and does post-processing afterward: if the `RerankResult` contains a `wiki_page`-type chunk and the retrieval targets do include a KB with Wiki enabled, scores are multiplied by `wikiBoostFactor = 1.3` and stably re-sorted — Wiki pages are LLM-presynthesized knowledge, prioritized over raw chunks.
+**PluginMemoryAffinity** (`memory_affinity.go`) is registered in the innermost chain layer, and likewise calls `next()` first and post-processes afterward: documents cited at least twice in the caller's past answers get a weight that grows logarithmically with the usage count, capped at ×1.15, used only to break ties between close candidates. WikiBoost's post-hoc weighting comes after that.
 
-### 3.5 WEB_FETCH — Full Web Page Fetching
+**PluginWikiBoost** (`wiki_boost.go`) is registered in the middle chain layer of the same event; its OnEvent calls `next()` first (waiting for reranking to complete) and does post-processing afterward: if the `RerankResult` contains a `wiki_page`-type chunk and the retrieval targets do include a KB with Wiki enabled, scores are multiplied by `wikiBoostFactor = 1.3` and stably re-sorted — Wiki pages are LLM-presynthesized knowledge, prioritized over raw chunks.
+
+### WEB_FETCH — Full Web Page Fetching {#_3-5-web-fetch-—-full-web-page-fetching}
 
 `web_fetch.go`. Only runs when `WebFetchEnabled && WebSearchEnabled`. Takes the top `WebFetchTopN` (default 3) web results from `RerankResult` and fetches their body content in parallel via `web_fetch.FetchURLContent(ctx, url)`, replacing the summary snippet (truncated to 8000 bytes). Positioned after reranking and before merging — so fetch cost is paid only for high-scoring web pages that will actually make it into the context.
 
-### 3.6 CHUNK_MERGE — Eight-Step Fusion Merge
+### CHUNK_MERGE — Eight-Step Fusion Merge {#_3-6-chunk-merge-—-eight-step-fusion-merge}
 
 The comment on `OnEvent` in `merge.go` itself describes the flow:
 
@@ -258,15 +253,15 @@ The result is written into `chatManage.MergeResult`.
 Since chunks support manual editing, parser coordinates like `StartAt` / `EndAt` can no longer reliably represent "where the current content sits in the original text" — a single edit can make the interval length mismatch the body length. As a result, the merge stage has fully switched to using **current body text + `ChunkIndex` sequence number** to determine adjacency and containment relations (`JoinChunkContent` / `ContainsChunkContent` perform text-level dedup and concatenation); source coordinates are retained only for citation positioning. `FILTER_TOP_K`'s tiebreaker key has also been changed from `StartAt`/`EndAt` to `ChunkIndex`.
 :::
 
-### 3.7 FILTER_TOP_K — Deterministic Sorting and Truncation
+### FILTER_TOP_K — Deterministic Sorting and Truncation {#_3-7-filter-top-k-—-deterministic-sorting-and-truncation}
 
 `filter_top_k.go`. Runs `sortSearchResultsDeterministically` on `MergeResult` (falling back in order to `RerankResult`/`SearchResult` if absent) — sorting descending by score, with `KnowledgeID`/`ChunkType`/`ChunkIndex`/`ID` as a stable tiebreaker (the merge stage's map iteration can scramble order, and this restores globally reproducible ordering), then truncates to `RerankTopK`.
 
-### 3.8 DATA_ANALYSIS — DuckDB Tabular Data Analysis
+### DATA_ANALYSIS — DuckDB Tabular Data Analysis {#_3-8-data-analysis-—-duckdb-tabular-data-analysis}
 
 `data_analysis.go`. Disabled by default (`DataAnalysisEnabled` comes from Agent configuration). If `MergeResult` includes a CSV/Excel file: `table_column`/`table_summary`-type chunks are filtered out first, the first data file is taken, `tools.NewDataAnalysisTool` loads the file into DuckDB to obtain the schema, and the LLM decides whether data analysis is needed and generates DuckDB SQL (structured output `DataAnalysisInput`); after execution, the result is appended to `MergeResult` as a synthetic SearchResult of type `MatchTypeDataAnalysis` with score=1.0.
 
-### 3.9 INTO_CHAT_MESSAGE — Context Assembly
+### INTO_CHAT_MESSAGE — Context Assembly {#_3-9-into-chat-message-—-context-assembly}
 
 `into_chat_message.go`:
 
@@ -278,30 +273,32 @@ Since chunks support manual editing, parser coordinates like `StartAt` / `EndAt`
 - Renders `SummaryConfig.ContextTemplate` (from `config/prompt_templates/context_template.yaml`), with placeholders `{query}` / `{contexts}` / `{language}`; appends image descriptions (for non-vision models), quoted context `QuotedContext`, and attachment prompts;
 - The assembled `UserContent` is **asynchronously written back** to the user message's `RenderedContent` (`persistRenderedContent`), for auditing and debugging; `RenderedContexts` stores the plain contexts string for citation substitution.
 
-### 3.10 CHAT_COMPLETION / CHAT_COMPLETION_STREAM — Generation
+### CHAT_COMPLETION / CHAT_COMPLETION_STREAM — Generation {#_3-10-chat-completion-chat-completion-stream-—-generation}
 
 The two plugins share helper functions in `common.go`:
 
 - `prepareChatModel`: fetches the chat model and assembles `ChatOptions` (Temperature/TopP/Seed/MaxTokens/Thinking, etc.) from `SummaryConfig`;
 - `prepareMessagesWithHistory`: the system prompt is `SystemPromptOverride` (intent override) or `SummaryConfig.Prompt` (`system_prompt.yaml`); after rendering placeholders, if the retrieved context contains Markdown images, a "retrieved image output requirement" paragraph is appended (`appendRetrievedImageOutputRequirement`); history Q/A pairs are then appended in chronological order, followed by the current user message (with `Images` attached for vision models).
 
-`prepareMessagesWithReferences` in `references.go` performs **citation alias substitution** on top of this (see §7 for details): it replaces the positionally-numbered contexts in `RenderedContexts` with a per-request-isolated chunk alias view generated by `llmreference.Registry`, and appends the citation protocol to the end of the system prompt.
+`prepareMessagesWithModelContext` in `references.go` performs **citation alias substitution** on top of this (see [Citation Generation Mechanism](#_7-citation-generation-mechanism) for details): it replaces the positionally-numbered contexts in `RenderedContexts` with a per-request-isolated chunk alias view generated by `modelcontext.Registry`, and appends the citation protocol to the end of the system prompt.
 
 **Streaming version** (`chat_completion_stream.go`) requires the `EventBus` to exist; after calling `chatModel.ChatStream`, it starts a goroutine to consume the response channel:
 
-- `ResponseTypeThinking` → after double-decoding through `llmresource.StreamDecoder` (restoring res:// resource aliases) and `llmreference.StreamExpander` (expanding ref citation tags), it's emitted as `EventAgentThought`;
-- `ResponseTypeAnswer` → likewise double-decoded and emitted as `EventAgentFinalAnswer`. A final answer marked `Done` is **forwarded only once**: some providers send a completion once by `finish_reason` and again at the stream-end sentinel — forwarding it twice would cause the answer event to be ordered after the session's complete event;
+- `ResponseTypeThinking` → after decoding through `modelcontext.StreamDecoder` (a single decoder that both restores res:// resource aliases and expands ref citation tags), it's emitted as `EventAgentThought`;
+- `ResponseTypeAnswer` → likewise decoded and emitted as `EventAgentFinalAnswer`. A final answer marked `Done` is **forwarded only once**: some providers send a completion once by `finish_reason` and again at the stream-end sentinel — forwarding it twice would cause the answer event to be ordered after the session's complete event;
+- **Truncation**: when `finish_reason` is `length` / `max_tokens` / `max_output_tokens` (case-insensitive), the answer event carries `truncated`, and the frontend shows a notice next to the answer that the content was truncated; if no text was produced before truncation, a fixed notice is used as the answer, suggesting narrowing the question or raising `max_completion_tokens`. The model fallback answer when retrieval returns nothing (`handleFallbackResponse`) is handled the same way;
 - `ResponseTypeError` → `EventError`;
 - When the channel closes or ctx is cancelled, `flushDecoders` flushes the decoders' buffered trailing bytes (so aliases spanning chunk boundaries aren't lost) before closing the thinking stream.
 
-**Non-streaming version** (`chat_completion.go`) calls `Chat` directly, then `resourceRefs.DecodeResponse` + `sourceRefs.ExpandResponse` restore the full text, and the result is written to `chatManage.ChatResponse`.
+**Non-streaming version** (`chat_completion.go`) calls `Chat` directly, then `modelContext.DecodeResponse` restores the full text in a single pass (resource handles and citation tags), and the result is written to `chatManage.ChatResponse`.
 
-## 4. Complete RAG Flow Diagram
+## Complete RAG Flow Diagram {#_4-complete-rag-flow-diagram}
 
 ```mermaid
 flowchart TD
-    Q["User query POST knowledge-qa"] --> P0["LOAD_HISTORY pair history by RequestID"]
-    P0 --> P1["QUERY_UNDERSTAND"]
+    Q["User query POST knowledge-chat"] --> P0["LOAD_HISTORY pair history by RequestID"]
+    P0 --> PM["MEMORY_RECALL inject long-term memory"]
+    PM --> P1["QUERY_UNDERSTAND"]
     P1 --> P1a["LLM rewrite + intent classification + image description"]
     P1a --> INT{"NeedsRetrieval check"}
     P1 --> P1b["ExtractEntity graph entity extraction NEO4J_ENABLE"]
@@ -322,7 +319,8 @@ flowchart TD
     P3a --> P3b["Rerank model scoring, threshold filter/downgrade/top1 fallback"]
     P3b --> P3c["composite score 0.6 model + 0.3 base + 0.1 source"]
     P3c --> P3d["FAQ boost + MMR lambda 0.7"]
-    P3d --> P3e["WikiBoost x1.3 post-hoc weighting"]
+    P3d --> P3m["MemoryAffinity frequently used documents up to x1.15"]
+    P3m --> P3e["WikiBoost x1.3 post-hoc weighting"]
     P3e --> P4["WEB_FETCH fetch full text of top N web pages"]
     P4 --> P5["CHUNK_MERGE eight-step fusion"]
     P5 --> P5a["historical reference injection + parent-chunk resolution"]
@@ -337,23 +335,24 @@ flowchart TD
     DEDUP -. "all empty" .-> FB
 ```
 
-## 5. Session and Message Management
+## Session and Message Management {#_5-session-and-message-management}
 
-### 5.1 Session Service (`session.go`)
+### Session Service (`session.go`) {#_5-1-session-service-session-go}
 
-- Full CRUD: `CreateSession` / `GetSession` (tenant + shared scope) / `GetOwnedSession` (strict ownership, used for destructive operations like stop) / paginated listing / `SetSessionPinned` / `UpdateSessionLastRequestState` (remembers input-bar state: Agent/model/KB/Web search selections, UI-only) / single delete, bulk delete, clear.
+- Full CRUD: `CreateSession` / `GetSession` (tenant + shared scope) / `GetOwnedSession` (strict ownership, used for destructive operations like stop) / paginated listing / `SetSessionPinned` / `UpdateSessionLastRequestState` (remembers input-bar state: Agent/model/KB/Web search/thinking effort selections, etc., UI-only) / single delete, bulk delete, clear.
+- **Fork and rewind**: `session_fork.go` copies the history into a new session (recording `parent_session_id` / `forked_from_message_id`), and `session_rewind.go` deletes the messages after the rewind point in place; both restore `/workspace` using the sandbox workspace git checkpoints written at the end of each turn (`workspace_checkpointer.go`). For the endpoints, see the [Sessions, Messages & Chat API](../04-api/02-api-chat.md).
 - **Title generation**: `GenerateTitleAsync` is triggered asynchronously during SSE assembly (when the session has no title), calling the same model used for the conversation via the `generate_session_title.yaml` template; the result flows out via the `EventSessionTitle` event (SSE `response_type=session_title`), and the HTTP layer waits up to another 3 seconds after complete to receive the title event.
 
-### 5.2 Message Service (`message.go`)
+### Message Service (`message.go`) {#_5-2-message-service-message-go}
 
 - User and assistant messages are linked into one round by the same `RequestID`; the user message is `IsCompleted=true` as soon as the request is made, while the assistant message has its content and references filled in by `completeAssistantMessage` after streaming ends (or is stopped).
 - `UpdateMessageRenderedContent` / `UpdateMessageImages` are called asynchronously by `INTO_CHAT_MESSAGE` and `QUERY_UNDERSTAND` respectively to write back.
 - `GetRecentMessagesBySession` is the data source for history loading.
 - Additional capabilities: `IndexMessageToKB` (writes the Q&A pair into a "chat history knowledge base" for cross-session search), `SearchMessages` (vector + rerank message search).
 
-## 6. Streaming Output Mechanism
+## Streaming Output Mechanism {#_6-streaming-output-mechanism}
 
-### 6.1 StreamManager: Append-Only Event Stream
+### StreamManager: Append-Only Event Stream {#_6-1-streammanager-append-only-event-stream}
 
 `internal/stream/factory.go` selects the implementation based on the `STREAM_MANAGER_TYPE` environment variable:
 
@@ -364,13 +363,13 @@ flowchart TD
 
 The interface has only two methods: `AppendEvent(ctx, sessionID, messageID, StreamEvent)` and `GetEvents(ctx, sessionID, messageID, fromOffset) (events, nextOffset, error)` — **producers only append, consumers pull by offset** — which lets any node at any time replay from the beginning.
 
-### 6.2 Event Flow: EventBus → AgentStreamHandler → StreamManager → SSE
+### Event Flow: EventBus → AgentStreamHandler → StreamManager → SSE {#_6-2-event-flow-eventbus-→-agentstreamhandler-→-streammanager-→-sse}
 
 1. `setupSSEStream` (`qa.go`) creates an **independent** `event.EventBus` and cancellable `asyncCtx` for each request;
 2. `AgentStreamHandler.Subscribe()` (`agent_stream_handler.go`) subscribes to `thought` / `tool_call` / `tool_result` / `references` / `final_answer` / `reflection` / `error` / `session_title` / `agent.complete` / tool approval / MCP OAuth events, converting them into `StreamEvent`s appended to StreamManager. It also accumulates `answerSegments` in memory (segmented by answer event ID; non-final-round "preambles" are marked superseded when a later tool_call appears, and are not persisted into the final answer) and `knowledgeRefs`, assembling the assistant message into storage when the stream ends;
 3. The HTTP layer's `handleAgentEventsForSSE` (`stream.go`) polls `GetEvents` with a 100ms ticker, wrapping each `StreamEvent` via `buildStreamResponse` into a `types.StreamResponse` and pushing it with `c.SSEvent("message", response)`; it ends upon receiving a `complete` event (for new sessions, it waits up to another 3s for the title event).
 
-### 6.3 SSE Protocol and response_type Event Types
+### SSE Protocol and response_type Event Types {#_6-3-sse-protocol-and-response-type-event-types}
 
 SSE headers are set by `setSSEHeaders` (`text/event-stream`, `no-cache`, `keep-alive`, `X-Accel-Buffering: no`). Each SSE `message` is a JSON `StreamResponse` (`internal/types/chat.go`):
 
@@ -388,30 +387,36 @@ type StreamResponse struct {
 }
 ```
 
-Full list of `response_type` values (`internal/types/chat.go`, plus `stop` which is used at the handler layer):
+Full list of `response_type` values (`internal/types/chat.go`, plus `stop` which is used at the handler layer; `steer` only exists in the server-side queued sublist and never appears in SSE):
 
 | response_type | Meaning |
 |---------------|------|
 | `agent_query` | Query accepted, carries `session_id` / `assistant_message_id` (the client uses this to get the message_id needed for resumption) |
 | `thinking` | Incremental thinking process (reasoning_content) |
-| `answer` | Incremental answer text |
+| `answer` | Incremental answer text; carries `data.truncated: true` when truncated by the model's single-output limit |
 | `references` | Knowledge citation list (`knowledge_references` field) |
-| `tool_call` / `tool_result` | Agent/progress tool calls and results (the RAG pipeline's `knowledge_search` and `query_understand` progress also use these two types) |
+| `tool_call` / `tool_result` | Agent/progress tool calls and results (the RAG pipeline's `knowledge_search` and `query_understand` progress also use these two types); a failed tool execution is also returned as `tool_result`, with `data.success=false` |
+| `command_output` / `install_output` | Incremental output during command execution / skill installation; only updates the in-progress tool card |
 | `reflection` | Agent reflection |
 | `session_title` | Asynchronously generated session title |
-| `error` | Error (`Done=true` indicates a terminal error) |
+| `error` | The whole turn failed (`Done=true` indicates a terminal error); a single tool failure doesn't use this type |
 | `complete` | Stream-end marker (the frontend uses this to wrap up, no longer relying on empty answer+done) |
 | `tool_approval_required` / `tool_approval_resolved` | Dangerous MCP tool approval request/result |
 | `mcp_oauth_required` / `mcp_oauth_resolved` | MCP OAuth authorization request/result |
+| `memory_recalled` | Long-term memories injected in this turn |
+| `artifacts_pending` | The answer has finished but sandbox artifacts are still being persisted; the file list arrives with `complete` |
+| `user_message_injected` | A message appended while running has been delivered to the agent and written to history |
+| `context_compacted` | The agent's context was compacted |
+| `install_prompt` | The first event of a skill installation record (the installation instruction) |
 | `stop` | User stop notification (constructed at the handler layer) |
 
-### 6.4 Disconnect Resumption (continue-stream) and Stop
+### Disconnect Resumption (continue-stream) and Stop {#_6-4-disconnect-resumption-continue-stream-and-stop}
 
-**Resumption**: `GET /sessions/continue-stream/:session_id?message_id=...` (`stream.go` ContinueStream). After validating the session and message, it calls `GetEvents` from offset 0 to **replay all historical events**; if a `complete` is already present it wraps up immediately, otherwise it continues polling every 100ms to push new events until complete — since the generation goroutine is completely decoupled from the SSE connection (events are written to StreamManager), a page refresh or network blip won't interrupt generation.
+**Resumption**: `GET /sessions/continue-stream/:session_id?message_id=...` (`stream.go` ContinueStream). After validating the session and message, it calls `GetEvents` from offset 0 to **replay all historical events** (`continue_stream_coalesce.go` merges consecutive unfinished answer/thinking/reflection increments under the same event ID into a single frame before sending, so a long answer isn't replayed as tens of thousands of frames); if a `complete` is already present it wraps up immediately, otherwise it continues polling every 100ms to push new events until complete — since the generation goroutine is completely decoupled from the SSE connection (events are written to StreamManager), a page refresh or network blip won't interrupt generation.
 
 **Stop**: `POST /sessions/:id/stop` (with strict ownership validation) appends a `stop` event to StreamManager; two paths consume it: the SSE polling loop detects it and sends `EventStop` to the EventBus; a separate `startStopWatcher` (300ms polling, independent of the client connection, with a 2-hour fallback timeout) ensures the stop can still cancel generation even after the client has disconnected. `setupStopEventHandler`, upon receiving `EventStop`, calls `cancel()` on asyncCtx, and uses `context.WithoutCancel` to preserve the partial content already streamed out.
 
-### 6.5 Streaming Q&A Sequence Diagram
+### Streaming Q&A Sequence Diagram {#_6-5-streaming-q-a-sequence-diagram}
 
 ```mermaid
 sequenceDiagram
@@ -423,7 +428,7 @@ sequenceDiagram
     participant P as Pipeline KnowledgeQAByEvent
     participant L as LLM ChatStream
 
-    C->>H: POST /sessions/:id/knowledge-qa
+    C->>H: POST /knowledge-chat/:session_id
     H->>H: Create user+assistant Message
     H->>M: AppendEvent agent_query
     H->>B: Create EventBus + asyncCtx
@@ -455,28 +460,28 @@ sequenceDiagram
     Note over C,M: after disconnect, GET continue-stream replays from offset 0 and resumes pushing
 ```
 
-## 7. Citation Generation Mechanism
+## Citation Generation Mechanism {#_7-citation-generation-mechanism}
 
-### 7.1 llmreference: Request-Scoped Source Aliasing and ref Expansion
+### Request-Level Source Aliases and ref Expansion (sources.go / citations.go) {#_7-1-request-level-source-aliases-and-ref-expansion}
 
-`internal/llmreference/registry.go`. Goal: **internal IDs never enter the model context, and the model's output citations can be safely expanded**.
+`internal/modelcontext/` (`sources.go`, `citations.go`, exposed uniformly through the `Registry` in `registry.go`; the former `internal/llmreference/` has been merged into this package). Goal: **internal IDs never enter the model context, and the model's output citations can be safely expanded**.
 
 - The `Registry` (one instance per answer, covering all of an Agent's tool rounds, never persisted across requests) assigns low-entropy aliases to sources: `cN` = knowledge chunk, `wN` = web page, `dN` = document, `bN` = knowledge base.
-- `ProtocolPrompt(citationsEnabled)` is appended to the system prompt: when citations are enabled, the model is required to cite inline using self-closing tags in the form `ref id="cN"` (custom kb/web tags are forbidden); when disabled (`PipelineRequest.CitationEnabled=false`, enabled by default) any citation output is forbidden.
-- `prepareMessagesWithReferences` in `references.go` registers `MergeResult` in FAQ-priority order via `RegisterSearchResults`, and uses `ModelOutput` (`model_output.go`) to render knowledge/web results into a compact XML view intended for the model (`display_type=search_results` / `web_search_results`), **replacing** the message's original `RenderedContexts`.
-- `ref` tags in the model's output are expanded into public-facing tags by `ExpandText` / `StreamExpander` (streaming, handles tags split across chunks): chunk → `kb` tag (carrying attributes like chunk_id, knowledge_id), web page → `web url title` tag; unknown aliases are fail-closed and simply removed. The frontend renders superscript citations based on this.
+- `ProtocolPrompt()` is appended to the system prompt (whether citations are enabled is decided at `NewRegistry(citationsEnabled)`): when citations are enabled, the model is required to cite inline using self-closing tags in the form `ref id="cN"` (custom kb/web tags are forbidden); when disabled (`PipelineRequest.CitationEnabled=false`, enabled by default) any citation output is forbidden.
+- `prepareMessagesWithModelContext` in `references.go` registers `MergeResult` in FAQ-priority order via `RegisterSearchResults`, and uses `ModelToolResult` (which goes through `ModelOutput` in `model_output.go` internally) to render knowledge/web results into a compact XML view intended for the model (`display_type=search_results` / `web_search_results`), **replacing** the message's original `RenderedContexts`.
+- `ref` tags in the model's output are expanded into public-facing tags by `ExpandText` / `StreamDecoder` (streaming, handles tags split across chunks): chunk → `kb` tag (carrying attributes like chunk_id, knowledge_id), web page → `web url title` tag; unknown aliases are fail-closed and simply removed. The frontend renders superscript citations based on this.
 - Independently of inline citations, `MergeResult` is always pushed in full as a `references` SSE event (driving the "retrieved results" panel), even when inline citations are disabled.
 
-### 7.2 llmresource: Storage Resource Handle Aliasing
+### Storage Resource Handle Aliases (resources.go) {#_7-2-storage-resource-handle-aliases}
 
-`internal/llmresource/registry.go` addresses a different problem: high-entropy storage handles such as `resource://`, `minio://`, `cos://`, as well as wiki `summary/<uuid>` slugs, are prone to being mangled by the model when it repeats a URL after it has entered the model context. `EncodeMessages` replaces them with low-entropy aliases in the form `res://0001`; on streaming output, `StreamDecoder` restores them (`Flush` ensures aliases spanning chunk boundaries aren't truncated or lost), and tool-call parameters have the real handles filled back in after decoding as well.
+`internal/modelcontext/resources.go` (formerly `internal/llmresource/`) addresses a different problem: high-entropy storage handles such as `resource://`, `minio://`, `cos://`, as well as wiki `summary/<uuid>` slugs, are prone to being mangled by the model when it repeats a URL after it has entered the model context. `EncodeMessages` on the same `Registry` replaces them with low-entropy aliases in the form `res://0001` (resource handles are encoded before source aliases, an order fixed inside `Registry`; see the type comment in `registry.go`); on streaming output, `StreamDecoder` restores them (`Flush` ensures aliases spanning chunk boundaries aren't truncated or lost), and tool-call parameters have the real handles filled back in via `DecodeToolCalls`.
 
-## 8. Cross-Database Concurrent Retrieval and Fusion (HybridSearch)
+## Cross-Database Concurrent Retrieval and Fusion (HybridSearch) {#_8-cross-database-concurrent-retrieval-and-fusion-hybridsearch}
 
 `internal/application/service/knowledgebase_search.go` is the convergence point for all retrieval (shared by the chat pipeline, Agent tools, and the search API):
 
 1. **Authorization and validation**: batch-loads KBs (including cross-tenant Organization-shared KBs), authorizing each individually via `authorizeKBAccess`; `validateSameEmbeddingModel` rejects multi-KB retrieval across different embedding spaces (wiki/graph KBs without a vector store are exempt).
-2. **Over-recall**: `matchCount = max(MatchCount*5, 50) * len(KBs)`, capped at 500.
+2. **Input normalization + over-recall**: a `MatchCount <= 0` (it's 0 after JSON deserialization when the caller omits it) is first normalized by `normalizedMatchCount` to `types.DefaultRetrievalTopK` (50), so that the over-recall floor, the FAQ iteration trigger condition, and the final truncation all read the same value — otherwise the truncation would cut the result set to `[:0]`, and a negative value would even panic out of bounds; then `matchCount = max(MatchCount*5, 50) * len(KBs)`, capped at `maxRetrievalPoolSize` (500).
 3. **Query vector computed only once**, propagated to all store groups via `params.QueryEmbedding`.
 4. **storeGroup grouping** (`knowledgebase_search_storegroup.go`): grouped by `(VectorStoreID, owning tenant)`; each group resolves a `CompositeRetrieveEngine` via `retriever.CreateRetrieveEngineForKB`. `buildRetrievalParams` routes by each KB's type within the group: FAQ KBs go through the FAQ vector index (`KnowledgeType=faq`, no keyword index), document KBs go through the default vector index + keyword index.
 5. **Fan-out** (`knowledgebase_search_fanout.go`): a single group is queried directly with zero overhead; multiple groups run concurrently via `errgroup` (capped at 4), each group timing out at `MULTI_STORE_RETRIEVE_TIMEOUT_SEC` (default 30s), with an all-or-nothing failure policy; when results span engine types, `EngineAwareNormalizer` normalizes vector scores to [0,1] (see the retrieval engine documentation for details).
@@ -484,15 +489,15 @@ sequenceDiagram
    - Vector-only or keyword-only → `deduplicateByScore` (keeps the highest score per chunk);
    - Hybrid → **weighted RRF**: `score = vectorWeight/(k+vectorRank) + keywordWeight/(k+keywordRank)`, where `k` and the weights come from the tenant's `RetrievalConfig` (with defaults), and rank is based on each retriever's own returned order (1-indexed), making it immune to score-scale differences.
 7. **FAQ hit strategy** (`knowledgebase_search_faq.go`, FAQ-type KBs only):
-   - **Iterative retrieval**: if, after deduplication, results fall short of `MatchCount` and the first round already maxed out its TopK → up to 5 rounds of doubling TopK starting from `TopK*3`, applied consistently across store groups, with chunk data cached to avoid redundant lookups;
+   - **Iterative retrieval**: if, after deduplication, results fall short of `MatchCount` and the first round already maxed out its TopK → up to 5 rounds of doubling TopK starting from `TopK*3`, applied consistently across store groups, with chunk data cached to avoid redundant lookups; both the seed and each round's growth are capped at `maxRetrievalPoolSize`, stopping once the cap is hit (further iterations would only resend the same query);
    - **Negative-question filtering**: an exact match (lowercased, whitespace-stripped) between the query and an FAQ's `NegativeQuestions` excludes that entry — supporting operational configuration like "don't use this FAQ to answer this question."
 8. After truncating to `MatchCount`, `processSearchResults` fills in chunk metadata (in the pipeline scenario `SkipContextEnrichment=true`, leaving context assembly to the merge stage).
 
-The pipeline-side companion FAQ strategies (Agent config `FAQPriorityEnabled` / `FAQScoreBoost` / `FAQDirectAnswerThreshold`) are covered in §3.4 and §3.9.
+The pipeline-side companion FAQ strategies (Agent config `FAQPriorityEnabled` / `FAQScoreBoost` / `FAQDirectAnswerThreshold`) are covered in [CHUNK_RERANK — Reranking, Composite Scoring, MMR, Wiki Weighting](#_3-4-chunk-rerank-—-reranking-composite-scoring-mmr-wiki-weighting) and [INTO_CHAT_MESSAGE — Context Assembly](#_3-9-into-chat-message-—-context-assembly).
 
-## 9. Keyword Extraction and searchutil
+## Keyword Extraction and searchutil {#_9-keyword-extraction-and-searchutil}
 
-`config/prompt_templates/keywords_extraction.yaml` provides a system+user template pair for "extract up to 5 keywords from the question," loaded via the `prompt_templates` loader in `internal/config/config.go` and exposed to the frontend configuration through the tenant template API (`internal/handler/tenant.go`). Query expansion within the pipeline (§3.3), by contrast, uses LLM-free local heuristics to generate keyword variants.
+`config/prompt_templates/keywords_extraction.yaml` provides a system+user template pair for "extract up to 5 keywords from the question," loaded via the `prompt_templates` loader in `internal/config/config.go` and exposed to the frontend configuration through the tenant template API (`internal/handler/tenant.go`). Query expansion within the pipeline ([CHUNK_SEARCH_PARALLEL — Parallel Retrieval (chunk + graph entities)](#_3-3-chunk-search-parallel-—-parallel-retrieval-chunk-graph-entities)), by contrast, uses LLM-free local heuristics to generate keyword variants.
 
 `internal/searchutil/` is a pure-function library shared by retrieval and merging:
 
@@ -505,7 +510,7 @@ The pipeline-side companion FAQ strategies (Agent config `FAQPriorityEnabled` / 
 | `conversion.go` | `ConvertWebSearchResults` | Converting web search results to SearchResult |
 | `normalize.go` | `NormalizeKeywordScores` | Keyword score normalization utility |
 
-## 10. Prompt Templates and Code Mapping
+## Prompt Templates and Code Mapping {#_10-prompt-templates-and-code-mapping}
 
 Templates are loaded by `loadPromptTemplates` in `internal/config/config.go` from the `config/prompt_templates/` directory into `PromptTemplatesConfig`; each yaml is a list of templates with `id`/`i18n`/`default`, and config items such as `system_prompt_id` / `context_template_id` resolve default template text by id.
 
@@ -519,7 +524,27 @@ Templates are loaded by `loadPromptTemplates` in `internal/config/config.go` fro
 | `generate_session_title.yaml` | — | Asynchronous session title generation (`session.go GenerateTitle`) |
 | `keywords_extraction.yaml` | `PromptTemplates.KeywordsExtraction` | Keyword extraction template (exposed via tenant template API) |
 | `generate_questions.yaml` / `generate_summary.yaml` | — | Ingestion enrichment (question generation/summarization, see the document ingestion documentation) |
+| `generate_kb_description.yaml` | `Conversation.GenerateKBDescriptionPrompt` | Generates the knowledge base description from document profiles |
 | `graph_extraction.yaml` | `ExtractManager.ExtractEntity/ExtractGraph` | Query entity extraction (`extract_entity.go`) and graph construction |
 | `agent_system_prompt.yaml` | — | Agent-mode system prompt (see the Agent documentation) |
 
-Placeholders are uniformly rendered via `types.RenderPromptPlaceholders` (`{query}`, `{contexts}`, `{conversation}`, `{language}`, etc.). The citation protocol (§7.1) is appended at the system level and is **not** part of any user-editable template.
+Placeholders are uniformly rendered via `types.RenderPromptPlaceholders` (`{query}`, `{contexts}`, `{conversation}`, `{language}`, etc.). The citation protocol ([Request-Level Source Aliases and ref Expansion](#_7-1-request-level-source-aliases-and-ref-expansion)) is appended at the system level and is **not** part of any user-editable template.
+
+## Implementation Reference
+
+Source locations for each stage:
+
+| Stage | Source location |
+|------|----------|
+| HTTP entry / SSE assembly | `internal/handler/session/qa.go`, `helpers.go`, `stream.go` |
+| EventBus → stream event bridge | `internal/handler/session/agent_stream_handler.go` |
+| Pipeline orchestration | `internal/application/service/session_knowledge_qa.go` |
+| Plugin framework and all stage plugins | `internal/application/service/chat_pipeline/` |
+| Plugin registration (DI container) | `internal/container/container.go` |
+| Event/state types | `internal/types/chat_manage.go`, `internal/types/chat.go`, `internal/event/event.go` |
+| Cross-database hybrid retrieval | `internal/application/service/knowledgebase_search*.go` |
+| Stream manager (disconnect-resume) | `internal/stream/` (`factory.go`, `memory_manager.go`, `redis_manager.go`) |
+| Session / message management | `internal/application/service/session.go`, `message.go` |
+| Citation aliasing and expansion | `internal/modelcontext/` (`sources.go`, `citations.go`, `resources.go`, `stream.go`) |
+| Text utilities | `internal/searchutil/` |
+| Prompt templates | `config/prompt_templates/`, `internal/config/config.go` |

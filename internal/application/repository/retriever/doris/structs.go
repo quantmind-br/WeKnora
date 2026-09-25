@@ -16,7 +16,8 @@ import (
 // Compatibility mode is determined by DORIS_COMPAT_MODE:
 //   - legacy：UNIQUE KEY(id) + cosine_distance ANN + Stream Load partial update
 //   - inner_product_duplicate：DUPLICATE KEY(id) + normalized inner product + delete/insert rewrite
-// this setting cannot be swapped directly after the embedding tables are created; these tables must be rebuilt before switching modes.
+//
+// This setting cannot be swapped directly after the embedding tables are created; these tables must be rebuilt before switching modes.
 //
 // Like Qdrant/Milvus/Weaviate, initializedTables caches dimensions that have "already been ensured to exist,"
 // avoiding a SHOW TABLES call on every write.
@@ -32,9 +33,9 @@ type dorisRepository struct {
 	password string
 	database string
 
-	tableBaseName  string
-	bucketsNum     int // 0 -> default 10
-	replicationNum int // 0 -> default 1
+	tableBaseName       string
+	bucketsNum          int // 0 -> default 10
+	replicationNum      int // 0 -> default 1
 	compatModeRequested dorisCompatMode
 	compatModeResolved  dorisCompatMode
 	compatResolveOnce   sync.Once
