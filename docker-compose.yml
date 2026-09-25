@@ -632,6 +632,62 @@ services:
       - minio
       - full
 
+  garage:
+    image: weknora-garage:local
+    build:
+      context: .
+      dockerfile: docker/garage/Dockerfile
+    container_name: WeKnora-garage
+    volumes:
+      - garage_data:/var/lib/garage
+      - ./docker/garage/garage.toml.template:/etc/garage.toml.template:ro
+    environment:
+      - GARAGE_RPC_SECRET=${GARAGE_RPC_SECRET:-}
+      - GARAGE_ADMIN_TOKEN=${GARAGE_ADMIN_TOKEN:-}
+    expose:
+      - "3900"
+      - "3901"
+      - "3903"
+    healthcheck:
+      test: ["CMD", "garage", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    profiles:
+      - garage
+      - full
+
+  garage-init:
+    image: weknora-garage:local
+    build:
+      context: .
+      dockerfile: docker/garage/Dockerfile
+    container_name: WeKnora-garage-init
+    entrypoint: ["/usr/local/bin/init.sh"]
+    volumes:
+      - garage_data:/var/lib/garage
+      - ./docker/garage/garage.toml.template:/etc/garage.toml.template:ro
+    environment:
+      - GARAGE_RPC_SECRET=${GARAGE_RPC_SECRET:-}
+      - GARAGE_ADMIN_TOKEN=${GARAGE_ADMIN_TOKEN:-}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:-}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-weknora}
+      - GARAGE_CAPACITY=${GARAGE_CAPACITY:-50G}
+    # Share the garage network namespace so the CLI talks to the node as local.
+    network_mode: service:garage
+    depends_on:
+      garage:
+        condition: service_started
+    restart: "no"
+    profiles:
+      - garage
+      - full
+
   neo4j:
     image: neo4j:2025.10.1
     container_name: WeKnora-neo4j
@@ -1040,6 +1096,7 @@ volumes:
   data-files:
   docreader-tmp:
   minio_data:
+  garage_data:
   neo4j-data:
   qdrant_data:
   milvus_data:
