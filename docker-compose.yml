@@ -307,7 +307,7 @@ services:
       # Image domain whitelist for preserving original URLs (comma-separated, not replaced with provider://)
       - IMAGE_HOST_KEEP_URL=${IMAGE_HOST_KEEP_URL:-}
       # Always allow the optional searxng sidecar, bundled vector stores, and
-      # the default MinIO storage host (compose service names). User-controlled
+      # the bundled MinIO / Garage storage hosts (compose service names). User-controlled
       # endpoints are SSRF-validated and these private docker-network hosts
       # would otherwise be rejected; whitelisting them keeps the
       # out-of-box experience. Merged on top of SSRF_WHITELIST so user
@@ -316,7 +316,7 @@ services:
       # DB host would skip the 5432 port block.)
       # doris-be: Stream Load follows FE→BE redirects that must receive Basic
       # credentials on whitelisted BE hosts.
-      - SSRF_WHITELIST_EXTRA=${SSRF_WHITELIST_EXTRA:-searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio}
+      - SSRF_WHITELIST_EXTRA=${SSRF_WHITELIST_EXTRA:-searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio,garage}
       # Allow only whitelisted outbound traffic (disabled by default). Before enabling it, add every address that must be reachable to the whitelist;
       # see "Before Enabling SSRF_DNS_WHITELIST_ONLY" in website-docs/01-getting-started/04-configuration.md.
       - SSRF_DNS_WHITELIST_ONLY=${SSRF_DNS_WHITELIST_ONLY:-}
