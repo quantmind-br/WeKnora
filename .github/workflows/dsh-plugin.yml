@@ -42,6 +42,12 @@ env:
   # The harness release this plugin is verified against. Bump it together with
   # the compatibility note in packages/dsh-weknora/README.md.
   DSH_PINNED_SPEC: "@deepseek-ai/dsh@0.1.0-rc.8"
+  # The harness pins its @deepseek-ai/cordis* dependencies with caret ranges,
+  # and the cordis 4.0.3 / plugin releases of 2026-09-22 break rc.8 at boot
+  # ("user patch-layer watching requires the Cordis HMR service"). Resolve the
+  # pinned install as of this date so a cold cache reproduces the verified
+  # dependency set. Bump it together with DSH_PINNED_SPEC.
+  DSH_PINNED_DEPS_BEFORE: "2026-09-21"
   # The contract's Go half lives in this repository's module. app.yml runs it
   # only for a Go diff, so a change to the fixture or to the plugin alone would
   # otherwise skip the side that checks WeKnora still serves those calls.
@@ -137,7 +143,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/dsh-e2e-install
-          key: dsh-e2e-${{ env.DSH_PINNED_SPEC }}
+          key: dsh-e2e-${{ env.DSH_PINNED_SPEC }}-${{ env.DSH_PINNED_DEPS_BEFORE }}
 
       - name: Install dependencies
         run: npm ci || npm install
@@ -150,6 +156,7 @@ jobs:
           DSH_PACKAGE_SPEC: ${{ env.DSH_PINNED_SPEC }}
           DSH_INSTALL_DIR: ${{ github.workspace }}/.cache/dsh-e2e-install
           DSH_E2E_LOG: ${{ runner.temp }}/dsh-weknora-e2e.log
+          npm_config_before: ${{ env.DSH_PINNED_DEPS_BEFORE }}
         run: node test/e2e/run-in-dsh.mjs
 
       - name: Upload the transcript
