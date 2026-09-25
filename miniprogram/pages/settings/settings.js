@@ -22,14 +22,14 @@ function buildViewModel(locale, languageIndex) {
 
 Page({
   data: {
-    settingsTitle: "连接 WeKnora",
-    settingsSubtitle: "填写 WeKnora API 地址与租户 API Key。",
-    apiBaseUrlLabel: "API 地址",
+    settingsTitle: "Connect WeKnora",
+    settingsSubtitle: "Use your WeKnora API endpoint and tenant API key.",
+    apiBaseUrlLabel: "API Base URL",
     apiBaseUrlPlaceholder: "https://your-weknora.example.com",
     apiKeyLabel: "API Key",
     apiKeyPlaceholder: "sk-...",
-    languageLabel: "界面语言",
-    saveSettingsText: "保存设置",
+    languageLabel: "Language",
+    saveSettingsText: "Save settings",
     displayLanguageLabel: "中文",
     baseUrl: "",
     apiKey: "",
@@ -74,7 +74,7 @@ Page({
       });
       this.refreshI18n();
     } catch (error) {
-      // keep fallback Chinese copy
+      // keep fallback English copy
     }
   },
 

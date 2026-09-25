@@ -15,8 +15,9 @@
 //     /apps/anthropic and the DashScope-native API under /api/v1. This
 //     package configures OpenAI Chat Completions, which is what the model
 //     pages document first;
-//   - output cap is `max_completion_tokens` ("模型输出的最大长度，包含思维链和
-//     模型回答"). The parameter table marks `max_tokens` 即将废弃 and names
+//   - output cap is `max_completion_tokens` ("maximum length of the model
+//     output, including the chain of thought and the model answer"). The
+//     parameter table marks `max_tokens` as soon to be deprecated and names
 //     this field its successor. `max_tokens` is still accepted today, but
 //     following a vendor that has announced a replacement is the cheaper
 //     side of the bet: the deprecated field disappears on DashScope's
@@ -29,15 +30,17 @@
 //     explicitly whenever it deviates from that default, so those families
 //     carry thinking_always_send in models.json;
 //   - with `enable_thinking: true` the commercial Qwen models only support
-//     streaming ("模型开启思考模式时仅支持增量流式输出"), so the hybrid
+//     streaming ("only incremental streaming output is supported when the
+//     model has thinking mode enabled"), so the hybrid
 //     families also carry thinking_disable_on_non_stream;
-//   - always-on reasoners (仅思考模式): qwq-plus, deepseek-r1 /
+//   - always-on reasoners (thinking-only mode): qwq-plus, deepseek-r1 /
 //     deepseek-r1-0528, qwen3.8-2.4t-a95b, qwen3.7-max-preview,
 //     qwen3.7-max-2026-05-17, qwen3-next-80b-a3b-thinking. Those carry
 //     "off": null;
 //   - `reasoning_effort` IS accepted in the compatible mode, but only on some
-//     families: qwen3.8 takes low | medium | xhigh (default xhigh; "不支持
-//     reasoning_effort 与 thinking_budget 同时设置，同时设置会报错", which
+//     families: qwen3.8 takes low | medium | xhigh (default xhigh; "setting
+//     reasoning_effort and thinking_budget together is not supported and
+//     returns an error", which
 //     those entries carry as thinking_budget_excludes_effort so the budget
 //     yields to the level), DeepSeek-V4 takes high | max
 //     (plus low on the dated -0813 / -0731 snapshots), glm-5.3 takes
@@ -73,7 +76,7 @@
 // entries in models.json come from the Model Studio model pages, which the
 // public docs render behind a console table we cannot quote; they are left as
 // they were. The same holds for kimi-k3 / kimi-k2.6 / glm-5.3 hosted here and
-// for qwq-32b's "off": null, which the 仅思考模式 list does not spell out.
+// for qwq-32b's "off": null, which the thinking-only-mode list does not spell out.
 package providers
 
 import (
@@ -163,8 +166,8 @@ func newAliyunProvider() *Definition {
 			// Text models: the OpenAI-compatible endpoint
 			// (https://help.aliyun.com/zh/model-studio/embedding-interfaces-compatible-with-openai),
 			// which takes model, input, dimensions and encoding_format.
-			// Multimodal models "不支持OpenAI兼容接口" and override the protocol
-			// in models.json. The native APIs' text_type / instruct are not
+			// Multimodal models "do not support the OpenAI-compatible API" and
+			// override the protocol in models.json. The native APIs' text_type / instruct are not
 			// declared: both change the document vectors
 			// (Tencent/WeKnora#1401).
 			Embeddings: api.EmbeddingsCompat{

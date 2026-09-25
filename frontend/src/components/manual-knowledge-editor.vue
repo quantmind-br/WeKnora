@@ -1139,7 +1139,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   color: var(--td-text-color-placeholder);
 
-  /* 状态标签保持整行，窄抽屉里让后面的时间先省略 */
+  /* Keep the status tag whole; in a narrow drawer the time after it is ellipsized first */
   :deep(.t-tag) {
     flex-shrink: 0;
     white-space: nowrap;
@@ -1177,7 +1177,7 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ---------- 文档头：标题 + 存入位置 ---------- */
+/* ---------- Document head: title + save location ---------- */
 .doc-head {
   flex-shrink: 0;
   display: flex;
@@ -1185,13 +1185,13 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-/* 标题按“文档标题”排版，不做成表单控件；hover/聚焦才显出输入框的边界 */
+/* The title is typeset as a "document title", not a form control; the input border only shows on hover/focus */
 :deep(.doc-title) {
   flex: 1 1 auto;
   min-width: 0;
   padding: 0;
   background: transparent;
-  /* 负外边距抵掉内边距：文字和下方编辑卡左对齐，hover 底色仍有呼吸空间 */
+  /* Negative margin cancels the padding: the text left-aligns with the editor card below, while the hover background still has breathing room */
   margin: 0 -8px;
 
   .t-input {
@@ -1232,8 +1232,8 @@ onBeforeUnmount(() => {
 }
 
 :deep(.doc-meta__kb) {
-  /* TDesign 的 select 根节点是块级；这里让它收到内容宽度，
-     否则框比文字宽，箭头够不到右边缘，看着就是没对齐 */
+  /* TDesign's select root is block-level; shrink it to the content width here,
+     otherwise the box is wider than the text, the arrow doesn't reach the right edge, and it looks misaligned */
   flex: 0 1 auto;
   width: auto;
   min-width: 0;
@@ -1293,7 +1293,7 @@ onBeforeUnmount(() => {
 /* ---------- Editing area ---------- */
 .editor-area {
   flex: 1;
-  /* 视口很矮时不再继续压缩，改由抽屉主体滚动 */
+  /* On very short viewports stop shrinking and let the drawer body scroll instead */
   min-height: 260px;
   display: flex;
   flex-direction: column;
@@ -1343,7 +1343,7 @@ onBeforeUnmount(() => {
   border-left: 1px solid var(--td-component-stroke);
 }
 
-/* 编辑 / 分屏 / 预览：一组分段控件，当前视图一眼可见 */
+/* Edit / Split / Preview: one segmented control, so the current view is visible at a glance */
 .view-switch {
   display: flex;
   align-items: center;
@@ -1392,7 +1392,7 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 快捷键速查：和视图切换同处工具栏右端，省掉一整条状态栏 */
+/* Keyboard shortcut reference: sits at the right end of the toolbar next to the view switch, saving a whole status bar */
 .toolbar-shortcuts {
   display: flex;
   align-items: center;
@@ -1522,7 +1522,7 @@ onBeforeUnmount(() => {
   background: var(--td-bg-color-container);
 }
 
-/* 分屏时两栏之间给一道分隔线，预览栏底色略沉，区分“源码 / 成稿” */
+/* In split view, add a divider between the panes and a slightly darker preview background to separate "source / rendered" */
 .editor-area--split {
   .editor-pane--preview {
     border-left: 1px solid var(--td-component-stroke);
@@ -1587,7 +1587,7 @@ onBeforeUnmount(() => {
     overflow: auto;
   }
 
-  /* 与 chat-markdown.less 的引用块一致：中性描边、无底色 */
+  /* Matches the blockquote in chat-markdown.less: neutral border, no background */
   :deep(blockquote) {
     border-left: 2px solid var(--td-component-stroke);
     padding: 6px 0 6px 14px;
@@ -1653,10 +1653,10 @@ onBeforeUnmount(() => {
 }
 
 .manual-editor-drawer {
-  /* 没有副标题的抽屉不需要 65px 的头：收一圈内边距、缩小图标徽章，
-     把高度还给正文。只作用于本抽屉，不动共用的 SettingDrawer。 */
+  /* A drawer without a subtitle doesn't need a 65px header: trim the padding, shrink the icon badge,
+     and give the height back to the body. Scoped to this drawer only; the shared SettingDrawer is untouched. */
   .t-drawer__header {
-    /* TDesign 给 header 兜了 56px 的 min-height，不解开就只是白留一圈空 */
+    /* TDesign gives the header a fallback min-height of 56px; without undoing it there is just a band of empty space */
     min-height: 0;
     padding: 9px 18px;
   }

@@ -29,7 +29,7 @@ function itemText(dir: string, file: string): string {
     .trim()
 }
 
-/** 版本号按数字比较，v0.10.0 排在 v0.9.0 之后 */
+/** Compare version numbers numerically, so v0.10.0 sorts after v0.9.0 */
 function compareVersions(a: string, b: string): number {
   const parts = (f: string) => f.replace(/^v|\.md$/g, '').split('.').map(Number)
   const [x, y] = [parts(a), parts(b)]
@@ -75,7 +75,7 @@ export default withMermaid(
     title: 'WeKnora',
     titleTemplate: ':title · WeKnora Docs',
     description: 'Official WeKnora documentation: deployment, configuration, feature guides, API reference and development',
-    lang: 'zh-CN',
+    lang: 'en-US',
     base: '/docs/',
     cleanUrls: true,
     appearance: { storageKey: 'vitepress-theme-appearance' },

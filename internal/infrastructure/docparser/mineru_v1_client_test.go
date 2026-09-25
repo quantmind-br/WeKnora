@@ -405,11 +405,11 @@ func TestPingMinerUV1(t *testing.T) {
 
 	ok, msg = PingMinerU(server.URL, "wrong")
 	assert.False(t, ok)
-	assert.Contains(t, msg, "API Key 无效")
+	assert.Contains(t, msg, "API Key is invalid")
 
 	ok, msg = PingMinerU(server.URL, "")
 	assert.False(t, ok)
-	assert.Contains(t, msg, "配置 API Key")
+	assert.Contains(t, msg, "configure the API Key")
 
 	open := &fakeMinerUV1{t: t}
 	openServer := httptest.NewServer(open.handler())

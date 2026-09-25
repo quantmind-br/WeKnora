@@ -41,13 +41,13 @@ func (s *downloadKnowledgeStub) GetKnowledgeFile(ctx context.Context, id string)
 		want = 7
 	}
 	if types.MustTenantIDFromContext(ctx) != want {
-		return nil, "", fmt.Errorf("错误的租户上下文")
+		return nil, "", fmt.Errorf("wrong tenant context")
 	}
 	s.opened = append(s.opened, id)
 	if s.failID == id {
-		return nil, "", fmt.Errorf("模拟存储读取失败")
+		return nil, "", fmt.Errorf("simulated storage read failure")
 	}
-	return io.NopCloser(strings.NewReader("原文-" + id)), s.names[id], nil
+	return io.NopCloser(strings.NewReader("original-" + id)), s.names[id], nil
 }
 
 type downloadKBStub struct {
@@ -138,12 +138,12 @@ func TestBatchDownloadKnowledgeProducesCompleteZIP(t *testing.T) {
 		content, err := io.ReadAll(file)
 		require.NoError(t, err)
 		require.NoError(t, file.Close())
-		require.Equal(t, "原文-"+[]string{"a", "b", "c"}[index], string(content))
+		require.Equal(t, "original-"+[]string{"a", "b", "c"}[index], string(content))
 	}
 	require.Equal(t, []string{"a", "b", "c"}, svc.opened)
 	entries, err := os.ReadDir(os.TempDir())
 	require.NoError(t, err)
-	require.Empty(t, entries, "请求完成后不应留下临时压缩包")
+	require.Empty(t, entries, "no temporary archive should remain after the request completes")
 }
 
 func TestBatchDownloadKnowledgeRejectsInvalidSelectionsBeforeReading(t *testing.T) {
@@ -157,43 +157,43 @@ func TestBatchDownloadKnowledgeRejectsInvalidSelectionsBeforeReading(t *testing.
 		status int
 	}{
 		{
-			name: "空列表", status: 400,
+			name: "empty list", status: 400,
 			kb: &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "空白ID", ids: []string{" "}, status: 400,
+			name: "blank ID", ids: []string{" "}, status: 400,
 			kb: &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "超出数量", ids: make([]string, maxBatchDownloadFiles+1), status: 400,
+			name: "too many IDs", ids: make([]string, maxBatchDownloadFiles+1), status: 400,
 			kb: &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "文档缺失", ids: []string{"missing"}, status: 404,
+			name: "missing document", ids: []string{"missing"}, status: 404,
 			kb: &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "跨知识库", ids: []string{"a"}, status: 404,
+			name: "other knowledge base", ids: []string{"a"}, status: 404,
 			item: &types.Knowledge{ID: "a", TenantID: 7, KnowledgeBaseID: "other", FilePath: "secret"},
 			kb:   &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "跨租户", ids: []string{"a"}, status: 404,
+			name: "other tenant", ids: []string{"a"}, status: 404,
 			item: &types.Knowledge{ID: "a", TenantID: 8, KnowledgeBaseID: "kb-1", FilePath: "secret"},
 			kb:   &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "仅无原文件", ids: []string{"a"}, status: 400,
+			name: "only items without an original file", ids: []string{"a"}, status: 400,
 			item: &types.Knowledge{ID: "a", TenantID: 7, KnowledgeBaseID: "kb-1", Type: "url"},
 			kb:   &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 		},
 		{
-			name: "共享只读", ids: []string{"a"}, status: 403,
+			name: "shared read-only", ids: []string{"a"}, status: 403,
 			kb:    &types.KnowledgeBase{ID: "kb-1", TenantID: 8},
 			share: &downloadShareStub{permission: types.OrgRoleViewer},
 		},
 		{
-			name: "密钥无此库权限", ids: []string{"a"}, status: 403,
+			name: "API key lacks access to this knowledge base", ids: []string{"a"}, status: 403,
 			kb:    &types.KnowledgeBase{ID: "kb-1", TenantID: 7},
 			scope: &types.TenantAPIKeyScope{KnowledgeBaseIDs: types.StringArray{"other"}},
 		},
@@ -315,7 +315,7 @@ func TestKnowledgeDownloadArchiveStopsWhenCancelled(t *testing.T) {
 	var output bytes.Buffer
 	err := writeKnowledgeDownloadArchive(ctx, &output, []knowledgeDownloadEntry{{ID: "a"}},
 		func(context.Context, string) (io.ReadCloser, string, error) {
-			t.Fatal("取消后不应继续读取文件")
+			t.Fatal("files must not be read after cancellation")
 			return nil, "", nil
 		}, 100)
 	require.ErrorIs(t, err, context.Canceled)

@@ -364,50 +364,50 @@ graph TD
 
 \`\`\`mermaid
 sequenceDiagram
-    participant Driver as 驾驶员 (Driver)
-    participant HMI as 人机交互界面 (HMI/Cluster)
-    participant ADAS as 组合驾驶辅助系统 (ADAS ECU)
-    participant Sensor as 传感器/定位模块
-    participant Cloud as 云端服务平台 (可选)
+    participant Driver as Driver
+    participant HMI as Human-machine interface (HMI/Cluster)
+    participant ADAS as Combined driver assistance system (ADAS ECU)
+    participant Sensor as Sensor/positioning module
+    participant Cloud as Cloud service platform (optional)
 
-    Note over ADAS, Sensor: 阶段1：正常运行与监控
-    Driver->>Sensor: 车辆正常行驶中
-    Sensor->>ADAS: 状态数据 (环境、定位、车辆状态)
-    ADAS-->>Driver: 维持组合驾驶辅助状态 (显示图标正常)
+    Note over ADAS, Sensor: Stage 1: normal operation and monitoring
+    Driver->>Sensor: Vehicle driving normally
+    Sensor->>ADAS: Status data (environment, position, vehicle state)
+    ADAS-->>Driver: Keep driver assistance active (icon shown normally)
 
-    Note over ADAS, Sensor: 阶段2：触发接管条件
-    alt 系统检测到需接管场景
-        Sensor->>ADAS: 检测条件满足 (如: 地图数据缺失/限速变化/系统故障/驾驶员分心)
-        ADAS->>HMI: 发送接管请求信号 (HOR Signal)
+    Note over ADAS, Sensor: Stage 2: takeover condition triggered
+    alt System detects a takeover scenario
+        Sensor->>ADAS: Detection condition met (e.g. missing map data/speed limit change/system fault/driver distraction)
+        ADAS->>HMI: Send takeover request signal (HOR Signal)
         
-        Note right of HMI: 阶段3：分级提醒策略 (符合国标要求)
-        HMI-->>Driver: 视觉提示 (仪表盘图标闪烁/颜色变化)
-        HMI-->>Driver: 听觉提示 (轻柔蜂鸣声)
+        Note right of HMI: Stage 3: tiered alert strategy (meets national standard)
+        HMI-->>Driver: Visual cue (dashboard icon flashes/changes color)
+        HMI-->>Driver: Audible cue (soft beep)
         
-        ADAS->>HMI: 增强提醒 (若驾驶员无响应)
-        HMI-->>Driver: 强视觉警告 (红色边框/文字)
-        HMI-->>Driver: 强听觉警告 (连续急促蜂鸣)
-        HMI-->>Driver: 触觉提示 (方向盘震动/座椅振动)
+        ADAS->>HMI: Escalated alert (if the driver does not respond)
+        HMI-->>Driver: Strong visual warning (red border/text)
+        HMI-->>Driver: Strong audible warning (continuous rapid beeping)
+        HMI-->>Driver: Haptic cue (steering wheel/seat vibration)
     end
 
-    Note over Driver, ADAS: 阶段4：驾驶员响应处理
-    alt 驾驶员及时接管
-        Driver->>HMI: 手握方向盘动作 (Torque/Grip Detection)
-        HMI->>ADAS: 确认驾驶员介入信号
-        ADAS-->>Driver: 退出自动驾驶，切换至人工驾驶模式
-        ADAS->>HMI: 清除警告提示
-    else 驾驶员未响应
-        alt 达到最后接管时限 (e.g., T+5s)
-            ADAS->>ADAS: 启动最小风险策略 (MRM/MLR)
-            ADAS->>HMI: 触发紧急减速/停车提示
-            HMI-->>Driver: 紧急警告 (最高级别)
-            ADAS->>Sensor: 执行安全停车动作 (靠边、刹车、双闪)
+    Note over Driver, ADAS: Stage 4: handling the driver response
+    alt Driver takes over in time
+        Driver->>HMI: Hands on the steering wheel (Torque/Grip Detection)
+        HMI->>ADAS: Confirm driver intervention signal
+        ADAS-->>Driver: Exit automated driving, switch to manual driving mode
+        ADAS->>HMI: Clear warnings
+    else Driver does not respond
+        alt Final takeover deadline reached (e.g., T+5s)
+            ADAS->>ADAS: Start minimal risk maneuver (MRM/MLR)
+            ADAS->>HMI: Trigger emergency deceleration/stop alert
+            HMI-->>Driver: Emergency warning (highest level)
+            ADAS->>Sensor: Perform safe stop (pull over, brake, hazard lights)
         end
     end
 
-    Note over Cloud, Driver: 阶段5：数据记录与上报
-    ADAS->>Cloud: 上传接管事件数据 (时间、原因、驾驶员响应)
-    Note right of Cloud: 用于事故定责与算法优化
+    Note over Cloud, Driver: Stage 5: data logging and reporting
+    ADAS->>Cloud: Upload takeover event data (time, cause, driver response)
+    Note right of Cloud: Used for accident liability and algorithm tuning
 \`\`\`
 
 Done.`;

@@ -446,6 +446,6 @@ curl -X POST $BASE/api/v1/shared-agents/disabled -H "Authorization: Bearer $TOKE
   -H 'Content-Type: application/json' -d '{"agent_id":"agent-1","disabled":true}'
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_agent.go` 的 `RegisterOrganizationRoutes`。Handler：`internal/handler/organization.go`。
+Route registration: `RegisterOrganizationRoutes` in `internal/router/routes_agent.go`. Handler: `internal/handler/organization.go`.

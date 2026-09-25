@@ -162,7 +162,7 @@ func TestEndStreamFinalizesCardSummary(t *testing.T) {
 	if err := adapter.UpdateStreamContent(ctx, nil, cardID, "progress"); err != nil {
 		t.Fatalf("UpdateStreamContent: %v", err)
 	}
-	const finalContent = "  最终\n回答  ✅  "
+	const finalContent = "  final\nanswer  ✅  "
 	if err := adapter.FinalizeStream(ctx, nil, cardID, finalContent); err != nil {
 		t.Fatalf("FinalizeStream: %v", err)
 	}
@@ -211,8 +211,8 @@ func TestEndStreamFinalizesCardSummary(t *testing.T) {
 	if settings.Config == nil || settings.Config.StreamingMode == nil || *settings.Config.StreamingMode {
 		t.Fatalf("final settings did not disable streaming under config: %s", requests[2].settings)
 	}
-	if settings.Config.Summary.Content != "最终 回答 ✅" {
-		t.Errorf("summary = %q, want %q", settings.Config.Summary.Content, "最终 回答 ✅")
+	if settings.Config.Summary.Content != "final answer ✅" {
+		t.Errorf("summary = %q, want %q", settings.Config.Summary.Content, "final answer ✅")
 	}
 
 	if err := adapter.EndStream(ctx, nil, "missing-card"); err == nil {
@@ -328,13 +328,13 @@ func TestEndStreamFinalizeOnlyUsesFinalContent(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	if err := adapter.FinalizeStream(ctx, nil, cardID, "最终答案"); err != nil {
+	if err := adapter.FinalizeStream(ctx, nil, cardID, "Final answer"); err != nil {
 		t.Fatalf("FinalizeStream: %v", err)
 	}
 	if err := adapter.EndStream(ctx, nil, cardID); err != nil {
 		t.Fatalf("EndStream: %v", err)
 	}
-	assertStreamingClosed(t, finalSettings, "最终答案")
+	assertStreamingClosed(t, finalSettings, "Final answer")
 }
 
 func TestEndStreamOmitsEmptySummary(t *testing.T) {
@@ -385,9 +385,9 @@ func TestCardSummaryPreview(t *testing.T) {
 		in   string
 		want string
 	}{
-		{name: "collapse whitespace", in: "  最终\n回答\t✅  ", want: "最终 回答 ✅"},
-		{name: "image keeps alt only", in: "![架构图](https://cdn.example/a.png?sig=secret) 说明", want: "架构图 说明"},
-		{name: "link keeps text only", in: "见 [文档](https://cdn.example/a.png?sig=secret) 说明", want: "见 文档 说明"},
+		{name: "collapse whitespace", in: "  final\nanswer\t✅  ", want: "final answer ✅"},
+		{name: "image keeps alt only", in: "![Architecture diagram](https://cdn.example/a.png?sig=secret) notes", want: "Architecture diagram notes"},
+		{name: "link keeps text only", in: "See [docs](https://cdn.example/a.png?sig=secret) notes", want: "See docs notes"},
 		{name: "unicode limit", in: strings.Repeat("界", 121), want: strings.Repeat("界", 120)},
 		{name: "empty", in: " \n\t ", want: ""},
 	}

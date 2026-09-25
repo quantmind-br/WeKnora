@@ -1,17 +1,17 @@
-# 文档已迁至 website-docs
+# Documentation has moved to website-docs
 
-产品、部署、API 和开发文档统一维护在 [website-docs](../website-docs/README.md)。已迁移、重复和过时的旧手写文档已删除；历史内容可从 Git 历史查看。
+Product, deployment, API and development documentation is maintained in [website-docs](../website-docs/README.md). Legacy hand-written documents that were migrated, duplicated or outdated have been deleted; their history is available in Git.
 
-- [常见问题与升级排障](../website-docs/01-getting-started/05-troubleshooting.md)
-- [API 参考](../website-docs/04-api/01-api-overview.md)
-- [开发指南](../website-docs/06-development/01-dev-guide.md)
-- [迁移对应表与剩余依赖](../website-docs/MIGRATION.md)
+- [FAQ and upgrade troubleshooting](../website-docs/01-getting-started/05-troubleshooting.md)
+- [API reference](../website-docs/04-api/01-api-overview.md)
+- [Development guide](../website-docs/06-development/01-dev-guide.md)
+- [Migration mapping and remaining dependencies](../website-docs/MIGRATION.md)
 
-本目录仅保留以下工程资源及本入口说明：
+This directory only keeps the following engineering resources and this entry note:
 
-- `docs.go`、`swagger.json`、`swagger.yaml` 与契约测试：参与后端编译和测试，生成物仍由 `make docs` 更新。
-- `LITE.md`：Lite 发布包复制为离线 README。
-- `images/`、`assets/`：README、Helm 等仍使用的图片资源。
-- `poc/docker-sandbox/`：独立 Go 实验模块，保留源码和运行说明，不作为当前产品指南。
+- `docs.go`, `swagger.json`, `swagger.yaml` and the contract tests: part of the backend build and tests; the generated files are still updated by `make docs`.
+- `LITE.md`: copied into the Lite release package as the offline README.
+- `images/`, `assets/`: image resources still used by the README, Helm, etc.
+- `poc/docker-sandbox/`: a standalone Go experiment module; its source and run instructions are kept, but it is not a current product guide.
 
-这些资源尚有编译、发布或历史实验用途，不能直接整目录删除。新的产品说明不要再放入此处。
+These resources are still used for builds, releases or historical experiments, so the directory cannot simply be deleted. Do not put new product documentation here.

@@ -76,7 +76,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   const SEARCHABLE_ORGANIZATION_TTL_MS = 5 * 60_000
   let sharedKbLoadedAt = 0
   let sharedAgentsLoadedAt = 0
-  /** 共享智能体含按请求语言本地化的内置名称；切换 UI 语言后缓存随之失效 */
+  /** Shared agents include built-in names localized to the request language; the cache is invalidated when the UI language changes */
   let sharedAgentsLoadedLocale = ''
   let sharedAgentsInflightLocale = ''
   let searchableOrganizationsQuery = ''

@@ -367,7 +367,7 @@
         </div>
       </div>
 
-      <!-- 音频处理（ASR）设置 -->
+      <!-- Audio processing (ASR) settings -->
       <div v-if="!isFAQ" v-show="currentSection === 'asr'" class="section">
         <div v-if="formData" class="kb-multimodal-settings">
           <div class="section-header">
@@ -376,7 +376,7 @@
           </div>
 
           <div class="settings-group">
-            <!-- ASR 开关 -->
+            <!-- ASR toggle -->
             <div class="setting-row">
               <div class="setting-info">
                 <label>{{ $t('knowledgeEditor.asr.label') }}</label>
@@ -390,7 +390,7 @@
               </div>
             </div>
 
-            <!-- ASR 模型选择 -->
+            <!-- ASR model selection -->
             <div v-if="formData.asrConfig.enabled" class="setting-row">
               <div class="setting-info">
                 <label>{{ $t('knowledgeEditor.asr.modelLabel') }} <span class="required">*</span></label>
@@ -411,7 +411,7 @@
         </div>
       </div>
 
-      <!-- 知识图谱 -->
+      <!-- Knowledge graph -->
       <div v-if="!isFAQ && currentSection === 'graph'" class="section">
         <GraphSettings
           v-if="formData"
@@ -422,7 +422,7 @@
         />
       </div>
 
-      <!-- 高级设置 -->
+      <!-- Advanced settings -->
       <div v-if="!isFAQ" v-show="currentSection === 'advanced'" class="section">
         <KBAdvancedSettings
           ref="advancedSettingsRef"
@@ -440,17 +440,17 @@
         />
       </div>
 
-      <!-- 数据源管理（仅编辑模式） -->
+      <!-- Data source management (edit mode only) -->
       <div v-if="editorMode === 'edit' && activeKbId && currentSection === 'datasource'" class="section">
         <DataSourceSettings :kb-id="activeKbId" @count="dsCount = $event" />
       </div>
 
-      <!-- 共享设置（仅编辑模式） -->
+      <!-- Sharing settings (edit mode only) -->
       <div v-if="editorMode === 'edit' && activeKbId && currentSection === 'share'" class="section">
         <KBShareSettings :kb-id="activeKbId" :can-share="canShareKB" />
       </div>
 
-      <!-- 活动记录（仅编辑模式，KB 所属租户内 Owner/Admin） -->
+      <!-- Activity log (edit mode only, Owner/Admin within the KB's tenant) -->
       <div v-if="editorMode === 'edit' && activeKbId && canViewActivity && currentSection === 'activity'" class="section">
         <KnowledgeBaseActivitySettings :kb-id="activeKbId" :active="currentSection === 'activity'" />
       </div>
@@ -652,8 +652,8 @@ const DEFAULT_CHUNKING_PRESET = {
   enableParentChild: true,
 } as const
 
-// 这些分区的操作在点击时即时生效（共享 / 数据源 / 活动记录），不经过底部「保存」，
-// 因此底部只显示「关闭」并提示，避免用户以为需要再点保存或以为「取消」能撤销。
+// Actions in these sections take effect immediately on click (sharing / data sources / activity log), without the footer "Save",
+// so the footer only shows "Close" plus a hint, so users don't think they still need to save or that "Cancel" can undo them.
 const INSTANT_SECTIONS = new Set(['datasource', 'share', 'activity'])
 const isInstantSection = computed(() => INSTANT_SECTIONS.has(currentSection.value))
 

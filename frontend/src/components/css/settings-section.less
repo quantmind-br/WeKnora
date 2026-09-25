@@ -1,6 +1,6 @@
-// 设置区（views/settings、views/system、views/integrations）各页面共用的版式 mixin：
-// 页面标题块、设置行、行内说明 / 控件列、行内保存状态。
-// 页面保留自己的 class 名，只把重复声明换成 mixin 调用，需要偏离时在调用后覆盖。
+// Layout mixins shared by the settings area pages (views/settings, views/system, views/integrations):
+// page title block, setting row, inline description / control column, inline save state.
+// Pages keep their own class names and only swap repeated declarations for mixin calls; override after the call when a page needs to deviate.
 //
 //   @import (reference) '@/components/css/settings-section.less';
 //   .section-header { .settings-section-header(); }
@@ -26,7 +26,7 @@
     line-height: 1.5;
   }
 
-  // 标题左、操作按钮右
+  // Title on the left, action buttons on the right
   &__top {
     display: flex;
     align-items: center;
@@ -81,7 +81,7 @@
   gap: 8px;
 }
 
-// 改即存设置项的行内反馈（替代 toast）
+// Inline feedback for save-on-change settings (replaces the toast)
 .setting-save-state() {
   display: inline-flex;
   align-items: center;

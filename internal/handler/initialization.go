@@ -381,7 +381,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 			return
 		}
 	} else if kbStorageBindingChanged(kb, req.StorageBackendID, req.StorageProvider) {
-		_ = c.Error(errors.NewForbiddenError("只有知识库所属空间可以修改存储配置"))
+		_ = c.Error(errors.NewForbiddenError("Only the workspace that owns the knowledge base can change its storage configuration"))
 		return
 	}
 
@@ -467,7 +467,7 @@ func kbSettingsAccess(c *gin.Context, kb *types.KnowledgeBase) (bool, error) {
 	grant, ok := middleware.KBAccessFromContext(c)
 	if !ok || grant.KnowledgeBase == nil || grant.KnowledgeBase.ID != kb.ID ||
 		!grant.Permission.HasPermission(types.OrgRoleAdmin) {
-		return false, errors.NewForbiddenError("修改共享知识库的设置需要管理员共享权限")
+		return false, errors.NewForbiddenError("Changing the settings of a shared knowledge base requires admin share permission")
 	}
 	return false, nil
 }
@@ -646,7 +646,7 @@ func (h *InitializationHandler) getKnowledgeBaseForInitialization(ctx context.Co
 	// without this check it could repoint the owner's models at its own
 	// endpoint and key.
 	if kb.TenantID != types.CallerFromContext(ctx).TenantID {
-		return nil, errors.NewForbiddenError("只有知识库所属空间可以初始化知识库")
+		return nil, errors.NewForbiddenError("Only the workspace that owns the knowledge base can initialize it")
 	}
 	return kb, nil
 }
@@ -855,7 +855,7 @@ func (h *InitializationHandler) processInitializationModels(
 
 		if existingModel != nil {
 			if !h.canUpdateTenantModels(ctx) {
-				return nil, errors.NewForbiddenError("修改已有模型配置需要空间管理员权限")
+				return nil, errors.NewForbiddenError("Modifying an existing model configuration requires workspace admin permission")
 			}
 			existingModel.Name = model.Name
 			existingModel.Source = model.Source
@@ -2401,7 +2401,7 @@ func (h *InitializationHandler) TestMultimodalFunction(c *gin.Context) {
 	if err != nil {
 		if isRequestBodyTooLarge(err) {
 			logger.Error(ctx, "File size too large")
-			c.Error(errors.NewBadRequestError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
+			c.Error(errors.NewBadRequestError(fmt.Sprintf("Image file size cannot exceed %dMB", maxSizeMB)))
 			return
 		}
 		logger.Error(ctx, "Failed to get uploaded image", err)

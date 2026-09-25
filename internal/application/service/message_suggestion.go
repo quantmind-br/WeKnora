@@ -480,9 +480,9 @@ func (s *messageSuggestionService) generateFromKnowledge(
 		// starts with CurrentQuery and IsContentContained adds +1, so a
 		// candidate identical to the question just asked is actively promoted
 		// to the top of the knowledge pool.
-		// Typical trigger: the user asks "介绍一下X" while X has an
+		// Typical trigger: the user asks "Tell me about X" while X has an
 		// entity/summary wiki page, which wikiSuggestionFromPage turns into
-		// the very same "介绍一下X".
+		// the very same "Tell me about X".
 		// Skip via continue rather than filtering afterwards so that later
 		// candidates can backfill and the configured count is preserved.
 		if text == "" || suggestionMatchesQuery(text, generationContext.CurrentQuery) {

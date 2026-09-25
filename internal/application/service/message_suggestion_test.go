@@ -81,14 +81,14 @@ func TestSuggestionMatchesQueryIgnoresPunctuationAndCase(t *testing.T) {
 // Removing the echo must not collapse the hybrid layout: the knowledge slot
 // should be filled by the next knowledge candidate, not stolen by the model.
 func TestMergeHybridKeepsLayoutAfterEchoRemoved(t *testing.T) {
-	const currentQuery = "介绍一下手冲咖啡"
+	const currentQuery = "Tell me about pour-over coffee"
 	model := types.SuggestionItems{
-		{ID: "m1", Text: "手冲咖啡适合用什么水温？", Source: "model"},
-		{ID: "m2", Text: "如何选择咖啡豆？", Source: "model"},
+		{ID: "m1", Text: "What water temperature suits pour-over coffee?", Source: "model"},
+		{ID: "m2", Text: "How do I choose coffee beans?", Source: "model"},
 	}
 	knowledge := filterSuggestionItemsAgainstQuery(types.SuggestionItems{
 		{ID: "k-echo", Text: currentQuery, Source: "wiki"},
-		{ID: "k2", Text: "咖啡豆应该如何保存？", Source: "wiki"},
+		{ID: "k2", Text: "How should coffee beans be stored?", Source: "wiki"},
 	}, currentQuery)
 
 	got := mergeHybridSuggestionItems(model, knowledge, 3)

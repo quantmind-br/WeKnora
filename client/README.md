@@ -92,10 +92,10 @@ if err != nil {
     // Handle error
 }
 
-// 将同一知识库中的原始文件打包下载为 ZIP（最多 200 个 ID，合计 512 MiB）
+// Download original files from the same knowledge base as a ZIP (at most 200 IDs, 512 MiB in total)
 err = apiClient.DownloadKnowledgeFiles(context.Background(), kb.ID, []string{knowledge.ID}, "knowledge-files.zip")
 if err != nil {
-    // 处理错误
+    // Handle error
 }
 ```
 

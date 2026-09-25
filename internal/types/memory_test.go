@@ -37,11 +37,11 @@ func TestNormalizeMemoryKeyDistinguishesDifferentTopics(t *testing.T) {
 func TestSanitizeMemoryContentCollapsesStructure(t *testing.T) {
 	// A memory is injected into the system prompt, so it must not be able to
 	// introduce line structure of its own.
-	got := SanitizeMemoryContent("第一行\n\n第二行\t结尾  ")
+	got := SanitizeMemoryContent("first line\n\nsecond line\tend  ")
 	if strings.ContainsAny(got, "\n\r\t") {
 		t.Fatalf("sanitized content still contains structure: %q", got)
 	}
-	if got != "第一行 第二行 结尾" {
+	if got != "first line second line end" {
 		t.Fatalf("unexpected sanitized content: %q", got)
 	}
 }
@@ -55,12 +55,12 @@ func TestSanitizeMemoryContentEnforcesLengthBudget(t *testing.T) {
 
 func TestRenderMemoryBlockGroupsAndRespectsBudget(t *testing.T) {
 	items := []*MemoryItem{
-		{Kind: MemoryKindProfile, Content: "在一家做医疗影像的公司写后端"},
-		{Kind: MemoryKindPreference, Content: "回答请直接给结论，不要铺垫"},
-		{Kind: MemoryKindPreference, Content: strings.Repeat("很长的偏好", 300)},
+		{Kind: MemoryKindProfile, Content: "Writes backend code at a medical imaging company"},
+		{Kind: MemoryKindPreference, Content: "Lead with the conclusion, no preamble"},
+		{Kind: MemoryKindPreference, Content: strings.Repeat("a very long preference ", 300)},
 	}
 	block := RenderMemoryBlock(items)
-	if !strings.Contains(block, "在一家做医疗影像的公司写后端") {
+	if !strings.Contains(block, "Writes backend code at a medical imaging company") {
 		t.Fatalf("profile item missing from block: %q", block)
 	}
 	if !strings.Contains(block, "About the user:") || !strings.Contains(block, "Preferences:") {
@@ -78,7 +78,7 @@ func TestWrapMemoryForPromptEmptyInput(t *testing.T) {
 }
 
 func TestWrapMemoryForPromptLabelsContentAsData(t *testing.T) {
-	got := WrapMemoryForPrompt("About the user:\n- 写 Go", "")
+	got := WrapMemoryForPrompt("About the user:\n- Writes Go", "")
 	if !strings.Contains(got, "<user_memory>") || !strings.Contains(got, "</user_memory>") {
 		t.Fatalf("memory is not delimited: %q", got)
 	}
@@ -183,12 +183,12 @@ func TestIsMostlyRedacted(t *testing.T) {
 }
 
 func TestMemoryFingerprintIgnoresFormatting(t *testing.T) {
-	a := MemoryFingerprint("生产数据库是 PostgreSQL 17，部署在法兰克福")
-	b := MemoryFingerprint("生产数据库是 postgresql 17 部署在法兰克福")
+	a := MemoryFingerprint("The production database is PostgreSQL 17, deployed in Frankfurt")
+	b := MemoryFingerprint("the production  database is postgresql 17 deployed in frankfurt")
 	if a != b {
 		t.Fatal("a fingerprint must survive spacing, case and punctuation changes")
 	}
-	if a == MemoryFingerprint("生产数据库是 MySQL 8") {
+	if a == MemoryFingerprint("The production database is MySQL 8") {
 		t.Fatal("different statements must not share a fingerprint")
 	}
 	if MemoryFingerprint("   ") != "" {

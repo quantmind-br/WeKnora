@@ -364,11 +364,11 @@ func oidcCallbackURL(c *gin.Context) string {
 }
 
 // OIDCStart godoc
-// @Summary      发起 OIDC 登录（直接 302）
-// @Description  与 /auth/oidc/url 不同，此端点直接 302 重定向到 OIDC Provider 的授权页，
-// @Description  无需前端 JS 介入。适用于外部平台（如企业门户）直接给出一个链接即可
-// @Description  触发 OIDC 授权码流程，借助 IdP 的 SSO session 实现免再次输密码。
-// @Tags         认证
+// @Summary      Start OIDC login (direct 302)
+// @Description  Unlike /auth/oidc/url, this endpoint issues a direct 302 redirect to the OIDC Provider's authorization page,
+// @Description  with no frontend JS involved. Suited to external platforms (e.g. an enterprise portal) that only need to provide a link
+// @Description  to trigger the OIDC authorization code flow, reusing the IdP's SSO session so the password need not be entered again.
+// @Tags         Authentication
 // @Success      302
 // @Router       /auth/oidc/start [get]
 func (h *AuthHandler) OIDCStart(c *gin.Context) {

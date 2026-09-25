@@ -99,15 +99,15 @@ func newQianfanProvider() *Definition {
 		Compat: VendorCompat{
 			Embeddings: api.EmbeddingsCompat{
 				// https://cloud.baidu.com/doc/qianfan-api/s/Fm7u3ropn: model,
-				// input, user, encoding_format ("当前只支持float"). The model list
+				// input, user, encoding_format ("only float is currently supported"). The model list
 				// (https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j) caps a request
 				// at 16 texts; tao-8k takes one.
 				SendEncodingFormat: api.Ptr(true),
 				MaxBatchSize:       api.Ptr(16),
 			},
 			Rerank: api.RerankCompat{
-				// "文本数量不超过64"; query "长度不超过1600个字符"; each document
-				// "长度不超过4096个字符".
+				// "no more than 64 texts"; query "no longer than 1600 characters";
+				// each document "no longer than 4096 characters".
 				MaxDocuments:     api.Ptr(64),
 				MaxQueryChars:    api.Ptr(1600),
 				MaxDocumentChars: api.Ptr(4096),

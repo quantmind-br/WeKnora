@@ -45,7 +45,7 @@
               class="expand-icon" />
           </div>
 
-          <!-- 子菜单 -->
+          <!-- Submenu -->
           <Transition name="submenu">
             <div v-if="item.children && expandedMenus.includes(item.key)" class="submenu">
               <div v-for="(child, childIndex) in item.children" :key="childIndex"
@@ -62,9 +62,9 @@
       'content-wrapper--wide': currentSection === 'members',
       'content-wrapper--full': SYSTEM_ADMIN_SECTIONS.has(currentSection) || isIntegrationSection(currentSection),
     }">
-      <!-- 角色不允许访问当前 section（deep-link 进来 / 跨空间切换后角色降级）—— 优先于具体 section 渲染。
-           正常导航走 navItems filter 不会到这里，但 watch(navItems) 的 fallback 会在角色降级
-           的瞬间触发；这一段做兜底兼容旧 URL。 -->
+      <!-- Role not allowed to access the current section (deep-linked in / role downgraded after switching spaces) — takes precedence over rendering the specific section.
+           Normal navigation goes through the navItems filter and never reaches here, but the watch(navItems) fallback fires
+           the moment the role is downgraded; this block is a fallback for compatibility with old URLs. -->
       <div v-if="!canSeeSection(currentSection)" class="section role-denied">
         <div class="role-denied-icon">
           <t-icon name="lock-on" size="48px" />
@@ -73,12 +73,12 @@
         <div class="role-denied-desc">{{ $t('settings.roleDenied.desc') }}</div>
       </div>
       <template v-else>
-        <!-- 常规设置 -->
+        <!-- General settings -->
         <div v-if="currentSection === 'general'" class="section">
           <GeneralSettings />
         </div>
 
-        <!-- Ollama 设置 -->
+        <!-- Ollama settings -->
         <div v-if="currentSection === 'ollama'" class="section">
           <OllamaSettings />
         </div>
@@ -88,62 +88,62 @@
           <WeKnoraCloudSettings />
         </div>
 
-        <!-- 模型配置 -->
+        <!-- Model configuration -->
         <div v-if="currentSection === 'models'" class="section">
           <ModelSettings />
         </div>
 
-        <!-- 网络搜索配置 -->
+        <!-- Web search configuration -->
         <div v-if="currentSection === 'websearch'" class="section">
           <WebSearchSettings />
         </div>
 
-        <!-- 消息管理 -->
+        <!-- Message management -->
         <div v-if="currentSection === 'chathistory'" class="section">
           <ChatHistorySettings />
         </div>
 
-        <!-- 长期记忆（空间级开关） -->
+        <!-- Long-term memory (space-level toggle) -->
         <div v-if="currentSection === 'memory'" class="section">
           <MemoryWorkspaceSettings />
         </div>
 
-        <!-- 我的记忆（个人记忆管理） -->
+        <!-- My memory (personal memory management) -->
         <div v-if="currentSection === 'mymemory'" class="section">
           <MemorySettings />
         </div>
 
-        <!-- 沙箱密钥（成员自己的技能 / 沙箱密钥） -->
+        <!-- Sandbox secrets (the member's own skill / sandbox secrets) -->
         <div v-if="currentSection === 'envvars'" class="section">
           <EnvVarSettings />
         </div>
 
-        <!-- 向量数据库引擎 -->
+        <!-- Vector database engine -->
         <div v-if="currentSection === 'vectorstore'" class="section">
           <VectorStoreSettings />
         </div>
 
-        <!-- 解析引擎 -->
+        <!-- Parsing engine -->
         <div v-if="currentSection === 'parser'" class="section">
           <ParserEngineSettings />
         </div>
 
-        <!-- 存储引擎 -->
+        <!-- Storage engine -->
         <div v-if="currentSection === 'storage'" class="section">
           <StorageBackendSettings />
         </div>
 
-        <!-- 沙箱 -->
+        <!-- Sandbox -->
         <div v-if="currentSection === 'sandbox'" class="section">
           <SandboxSettings />
         </div>
 
-        <!-- 系统信息 -->
+        <!-- System information -->
         <div v-if="currentSection === 'system'" class="section">
           <SystemInfo />
         </div>
 
-        <!-- 系统管理员可见的全局运行时设置 -->
+        <!-- Global runtime settings visible to system admins -->
         <div v-if="currentSection === 'system-global'" class="section">
           <SystemSettings />
         </div>
@@ -152,7 +152,7 @@
           <ModelCatalog />
         </div>
 
-        <!-- 系统管理员可见的任务队列运行状态 -->
+        <!-- Task queue runtime status visible to system admins -->
         <div v-if="currentSection === 'runtime-queues'" class="section">
           <RuntimeQueues />
         </div>
@@ -165,23 +165,23 @@
           <SystemAuditLog />
         </div>
 
-        <!-- 用户信息（账户基础信息：ID / 用户名 / 邮箱 / 注册时间）。
-           用户的基本信息不该跟 owner 权限绑定。 -->
+        <!-- User info (basic account info: ID / username / email / registration time).
+           A user's basic info shouldn't be tied to owner permissions. -->
         <div v-if="currentSection === 'userprofile'" class="section">
           <UserProfile />
         </div>
 
-        <!-- 空间信息 -->
+        <!-- Space info -->
         <div v-if="currentSection === 'tenant'" class="section">
           <TenantInfo />
         </div>
 
-        <!-- 成员管理 (#1303 PR 3) -->
+        <!-- Member management (#1303 PR 3) -->
         <div v-if="currentSection === 'members'" class="section">
           <TenantMembers />
         </div>
 
-        <!-- 发布集成 -->
+        <!-- Publish integration -->
         <div v-if="isIntegrationSection(currentSection)" class="section">
           <IntegrationSettingsSection :tab="integrationTabFromSection(currentSection)" />
         </div>

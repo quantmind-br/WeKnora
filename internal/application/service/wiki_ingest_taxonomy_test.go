@@ -9,17 +9,17 @@ import (
 
 func TestFormatExistingTaxonomyForPrompt(t *testing.T) {
 	got := formatExistingTaxonomyForPrompt([][]string{
-		{"春节", "传统习俗"},
-		{"春节", "文化习俗", "节日习俗"},
-		{"春节习俗"},
-		{"产品定位"},
+		{"Spring Festival", "Traditional customs"},
+		{"Spring Festival", "Cultural customs", "Festival customs"},
+		{"Spring Festival customs"},
+		{"Product positioning"},
 	})
-	want := "产品定位\n" +
-		"春节\n" +
-		"  传统习俗\n" +
-		"  文化习俗\n" +
-		"    节日习俗\n" +
-		"春节习俗"
+	want := "Product positioning\n" +
+		"Spring Festival\n" +
+		"  Cultural customs\n" +
+		"    Festival customs\n" +
+		"  Traditional customs\n" +
+		"Spring Festival customs"
 	if got != want {
 		t.Fatalf("formatExistingTaxonomyForPrompt():\n%q\nwant:\n%q", got, want)
 	}
@@ -33,8 +33,8 @@ func TestFormatExistingTaxonomyForPromptEmpty(t *testing.T) {
 
 func TestParseTaxonomyAssignments(t *testing.T) {
 	raw := "```json\n{\"assignments\":[" +
-		"{\"slug\":\"entity/zhang-san\",\"path\":[\"人物\"]}," +
-		"{\"slug\":\"concept/spring\",\"path\":[\"节日\",\"传统节日\"]}," +
+		"{\"slug\":\"entity/zhang-san\",\"path\":[\"People\"]}," +
+		"{\"slug\":\"concept/spring\",\"path\":[\"Festivals\",\"Traditional festivals\"]}," +
 		"{\"slug\":\"  \",\"path\":[\"X\"]}," +
 		"{\"slug\":\"entity/unclassified\",\"path\":[]}" +
 		"]}\n```"
@@ -43,11 +43,11 @@ func TestParseTaxonomyAssignments(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("parseTaxonomyAssignments() returned %d entries, want 3 (blank slug dropped): %v", len(got), got)
 	}
-	if strings.Join(got["entity/zhang-san"], "/") != "人物" {
-		t.Fatalf("zhang-san path = %v, want [人物]", got["entity/zhang-san"])
+	if strings.Join(got["entity/zhang-san"], "/") != "People" {
+		t.Fatalf("zhang-san path = %v, want [People]", got["entity/zhang-san"])
 	}
-	if strings.Join(got["concept/spring"], "/") != "节日/传统节日" {
-		t.Fatalf("spring path = %v, want [节日 传统节日]", got["concept/spring"])
+	if strings.Join(got["concept/spring"], "/") != "Festivals/Traditional festivals" {
+		t.Fatalf("spring path = %v, want [Festivals Traditional festivals]", got["concept/spring"])
 	}
 	if p, ok := got["entity/unclassified"]; !ok || len(p) != 0 {
 		t.Fatalf("unclassified path = %v (ok=%v), want empty slice present", p, ok)
@@ -77,9 +77,9 @@ func TestCosineSimilarity(t *testing.T) {
 
 func TestSelectFoldersByVectors(t *testing.T) {
 	deeper := [][]string{
-		{"AI", "厂商"}, // 0
-		{"AI", "模型"}, // 1
-		{"地理", "城市"}, // 2
+		{"AI", "Vendors"},       // 0
+		{"AI", "Models"},        // 1
+		{"Geography", "Cities"}, // 2
 	}
 	folderVecs := [][]float32{
 		{1, 0, 0},
@@ -94,8 +94,8 @@ func TestSelectFoldersByVectors(t *testing.T) {
 		t.Fatalf("selectFoldersByVectors() returned %d folders, want 2: %v", len(got), got)
 	}
 	// Input order preserved: folders 0 and 1, not the orthogonal 2.
-	if strings.Join(got[0], "/") != "AI/厂商" || strings.Join(got[1], "/") != "AI/模型" {
-		t.Fatalf("selectFoldersByVectors() = %v, want [[AI 厂商] [AI 模型]]", got)
+	if strings.Join(got[0], "/") != "AI/Vendors" || strings.Join(got[1], "/") != "AI/Models" {
+		t.Fatalf("selectFoldersByVectors() = %v, want [[AI Vendors] [AI Models]]", got)
 	}
 }
 

@@ -14,35 +14,35 @@ import (
 )
 
 // GetMCPMetadata godoc
-// @Summary      读取已保存的 MCP 工具目录
-// @Description  只读数据库，不连接上游。未同步时 data 为 null；连接配置变更后 stale 为 true。OAuth 目录按当前授权主体隔离。
-// @Tags         MCP服务
+// @Summary      Read the saved MCP tool catalog
+// @Description  Reads only the database and never connects upstream. data is null until synced; stale is true after the connection config changes. OAuth catalogs are isolated per current authorized principal.
+// @Tags         MCP Services
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "MCP服务ID"
-// @Success      200  {object}  map[string]interface{}  "目录快照"
-// @Failure      400  {object}  errors.AppError         "请求参数错误"
-// @Failure      401  {object}  errors.AppError         "OAuth 目录缺少授权主体"
-// @Failure      404  {object}  errors.AppError         "服务不存在"
+// @Param        id   path      string  true  "MCP Service ID"
+// @Success      200  {object}  map[string]interface{}  "Catalog snapshot"
+// @Failure      400  {object}  errors.AppError         "Invalid request parameters"
+// @Failure      401  {object}  errors.AppError         "OAuth catalog is missing an authorized principal"
+// @Failure      404  {object}  errors.AppError         "Service does not exist"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /mcp-services/{id}/metadata [get]
 func (h *MCPServiceHandler) GetMCPMetadata(c *gin.Context) { h.mcpMetadata(c, false) }
 
 // RefreshMCPMetadata godoc
-// @Summary      同步 MCP 工具目录
-// @Description  显式连接上游并原子替换完整目录。OAuth 服务写入当前用户的快照，Viewer 及以上可调用；静态认证写入租户共享快照，需要 Admin。
-// @Tags         MCP服务
+// @Summary      Sync the MCP tool catalog
+// @Description  Explicitly connects upstream and atomically replaces the full catalog. OAuth services write the current user's snapshot and can be called by Viewer and above; static authentication writes the tenant-shared snapshot and requires Admin.
+// @Tags         MCP Services
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "MCP服务ID"
-// @Success      200  {object}  map[string]interface{}  "同步后的目录快照"
-// @Failure      400  {object}  errors.AppError         "目录不完整或校验失败"
-// @Failure      401  {object}  errors.AppError         "OAuth 目录缺少授权主体"
-// @Failure      403  {object}  errors.AppError         "静态认证目录需要管理员刷新"
-// @Failure      404  {object}  errors.AppError         "服务不存在"
-// @Failure      409  {object}  errors.AppError         "刷新期间连接配置已变更"
-// @Failure      503  {object}  errors.AppError         "元数据存储不可用"
+// @Param        id   path      string  true  "MCP Service ID"
+// @Success      200  {object}  map[string]interface{}  "Catalog snapshot after sync"
+// @Failure      400  {object}  errors.AppError         "Catalog is incomplete or failed validation"
+// @Failure      401  {object}  errors.AppError         "OAuth catalog is missing an authorized principal"
+// @Failure      403  {object}  errors.AppError         "Static-auth catalogs must be refreshed by an admin"
+// @Failure      404  {object}  errors.AppError         "Service does not exist"
+// @Failure      409  {object}  errors.AppError         "Connection config changed during refresh"
+// @Failure      503  {object}  errors.AppError         "Metadata store is unavailable"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /mcp-services/{id}/metadata/refresh [post]

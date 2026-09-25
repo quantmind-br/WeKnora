@@ -132,8 +132,8 @@ var registry = map[string]settingSpec{
 		EnvName:  sandbox.DockerBackendEnabledEnv,
 		Default:  false,
 		Category: "security",
-		Description: "是否允许 Docker 沙箱后端。本机 docker.sock 等同宿主机 root，默认关闭。" +
-			"仅系统管理员可打开；打开后立即生效，无需重启。私有化单机且已挂载 daemon socket，或配置了带 TLS 的远程 tcp:// 时再启用。",
+		Description: "Whether to allow the Docker sandbox backend. A local docker.sock is equivalent to root on the host, so it is off by default. " +
+			"Only a system admin can turn it on; it takes effect immediately without a restart. Enable it only on a private single-node install that mounts the daemon socket or uses a TLS-protected remote tcp:// endpoint.",
 	},
 	"auth.registration_mode": {
 		Type:     "string",
@@ -158,8 +158,8 @@ var registry = map[string]settingSpec{
 		EnvName:  "WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED",
 		Default:  false,
 		Category: "auth",
-		Description: "是否启用复杂密码。开启后密码必须包含大小写字母、数字和特殊字符。" +
-			"修改后立即生效，只影响新注册用户或新密码修改/重置操作。特殊字符包含：!@#$%^&*()_+-=[]{}|;:,.<>?",
+		Description: "Whether to require complex passwords. When enabled, passwords must contain uppercase and lowercase letters, digits, and special characters. " +
+			"Changes take effect immediately and only apply to newly registered users or new password changes/resets. Special characters include: !@#$%^&*()_+-=[]{}|;:,.<>?",
 	},
 	// tenant.max_owned_per_user caps how many tenants a single non-superuser
 	// can create (and Own) via self-service POST /tenants. Read on every
@@ -223,9 +223,9 @@ var registry = map[string]settingSpec{
 		EnvName:  "WEKNORA_TENANT_AUTO_ACCEPT_INVITATION",
 		Default:  false,
 		Category: "tenant",
-		Description: "全局开关：开启后，空间管理员通过邮箱邀请已注册用户加入空间时，" +
-			"被邀请人将被立即自动加入（直接写入成员关系），无需在收件箱手动接受，也不再生成待接受的邀请记录。" +
-			"关闭时保持原有「发出邀请 → 被邀请人收件箱确认」流程。每次邀请时实时读取，修改后立即生效。默认 false。",
+		Description: "Global switch: when enabled, a registered user invited by email to a space by a space admin " +
+			"joins immediately (the membership is written directly), with no manual acceptance from the inbox and no pending invitation record. " +
+			"When disabled, the original \"send invitation → invitee confirms in inbox\" flow is kept. Read live on every invitation; changes take effect immediately. Default false.",
 	},
 	"asynq.core_concurrency": {
 		Type:            "int",

@@ -182,7 +182,7 @@ curl -X PUT $BASE/api/v1/storage-backends/sb-1/default -H "Authorization: Bearer
 
 ## Web Search (/api/v1/web-search and /api/v1/web-search-providers)
 
-当前注册 14 个搜索提供商，包括 Metaso、Exa、Bocha、Brave、Serply。各自的 api_key 与 extra_config 参数见[联网搜索](../03-features/11-web-search.md)。
+There are currently 14 registered search providers, including Metaso, Exa, Bocha, Brave, and Serply. See [Web Search](../03-features/11-web-search.md) for each provider's api_key and extra_config parameters.
 
 ### GET /api/v1/web-search/providers
 
@@ -300,7 +300,7 @@ curl -X POST $BASE/api/v1/web-search-providers/wsp-1/test -H "Authorization: Bea
 
 External content connectors (Feishu/Notion/Yuque, etc.); sync jobs write into a KB. Handler: `internal/handler/datasource.go`. Most responses in this group are raw objects/arrays (no `success` wrapper).
 
-当前已注册类型为 feishu、lark、feishu_drive、lark_drive、notion、confluence、yuque、dingtalk、ima、rss、gitlab。各连接器的 credentials、资源选择与同步限制见[数据源导入](../03-features/10-datasource.md)。sync_deletions 开启后会真实删除该数据源归属下的已删除知识；source_created_at/source_updated_at 保存在知识 metadata 中。
+The currently registered types are feishu, lark, feishu_drive, lark_drive, notion, confluence, yuque, dingtalk, ima, rss, and gitlab. See [Data Source Import](../03-features/10-datasource.md) for each connector's credentials, resource selection, and sync limits. With sync_deletions enabled, knowledge that was deleted at the source and belongs to this data source is actually deleted; source_created_at/source_updated_at are stored in the knowledge metadata.
 
 ### GET /api/v1/datasource/types
 
@@ -473,6 +473,6 @@ Purpose: a single sync log entry. Permission: Viewer+. Response: 200 `SyncLog`; 
 curl $BASE/api/v1/datasource/logs/log-1 -H "Authorization: Bearer $TOKEN"
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_infra.go` 的 `RegisterVectorStoreRoutes`、`RegisterStorageBackendRoutes`、`RegisterWebSearchRoutes`、`RegisterWebSearchProviderRoutes`、`RegisterDataSourceRoutes`。Handler：`internal/handler/vectorstore.go`、`internal/handler/storagebackend.go`、`internal/handler/web_search.go`、`internal/handler/web_search_provider.go`、`internal/handler/web_search_provider_credentials.go`、`internal/handler/datasource.go`、`internal/handler/datasource_credentials.go`。
+Route registration: `RegisterVectorStoreRoutes`, `RegisterStorageBackendRoutes`, `RegisterWebSearchRoutes`, `RegisterWebSearchProviderRoutes`, and `RegisterDataSourceRoutes` in `internal/router/routes_infra.go`. Handlers: `internal/handler/vectorstore.go`, `internal/handler/storagebackend.go`, `internal/handler/web_search.go`, `internal/handler/web_search_provider.go`, `internal/handler/web_search_provider_credentials.go`, `internal/handler/datasource.go`, `internal/handler/datasource_credentials.go`.

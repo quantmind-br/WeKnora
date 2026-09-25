@@ -556,9 +556,11 @@ const handleCancel = () => {
   }
 
   .t-drawer__header {
-    // 72px 的抽屉头在一屏设置里太重：图标 32px、上下各 14px，再加标题与副标题
-    // 两行。收到 60px（图标 28px、内边距 10px）够了，标题字号刻意不动——再小
-    // 就和正文里的字段标签一样大，层级会塌。
+    // A 72px drawer header is too heavy on a screen of settings: a 32px icon, 14px
+    // above and below, plus two lines of title and subtitle. Shrinking it to 60px
+    // (28px icon, 10px padding) is enough. The title font size is deliberately left
+    // alone: any smaller and it matches the field labels in the body, and the
+    // hierarchy collapses.
     padding: 10px 18px;
     border-bottom: 1px solid var(--td-component-stroke);
   }

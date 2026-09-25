@@ -35,7 +35,7 @@ class BaseParser(ABC):
     """
 ```
 
-### 服务定位与对外接口 {#_1-服务定位与对外接口}
+### Service Positioning and External Interface {#_1-service-positioning-and-external-interface}
 
 #### Interface Protocol: Pure gRPC (No HTTP) {#_1-1-interface-protocol-pure-grpc-no-http}
 

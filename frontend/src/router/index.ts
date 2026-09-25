@@ -417,8 +417,8 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // 部署能力只描述“后端是否提供该功能”，不反映服务健康或是否已配置。
-  // 探测失败时 Store 会 fail-open，真正的权限和可用性仍由后端接口校验。
+  // Deployment capabilities only describe "whether the backend provides this feature", not service health or whether it is configured.
+  // If probing fails the store fails open; actual permissions and availability are still validated by the backend APIs.
   const deploymentCapabilities = useDeploymentCapabilitiesStore()
   await deploymentCapabilities.ensureLoaded()
   const requiredCapability = to.meta.requiredCapability as DeploymentCapabilityKey | undefined

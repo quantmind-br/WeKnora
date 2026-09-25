@@ -395,11 +395,11 @@ func TestStabilizeExtractedIdentitiesCoalescesEvidence(t *testing.T) {
 	items := []extractedItem{
 		{
 			Name: "孔 子", Slug: "entity/kong-zi", Aliases: []string{"孔丘"},
-			Description: "思想家", Details: "短", SourceChunks: []string{"chunk-1"},
+			Description: "thinker", Details: "short", SourceChunks: []string{"chunk-1"},
 		},
 		{
 			Name: "孔子", Slug: "entity/confucius", Aliases: []string{"Confucius"},
-			Description: "中国古代思想家、教育家", Details: "更完整的说明", SourceChunks: []string{"chunk-2"},
+			Description: "ancient Chinese thinker and educator", Details: "a more complete explanation", SourceChunks: []string{"chunk-2"},
 		},
 	}
 	got := svc.stabilizeExtractedIdentities(
@@ -414,7 +414,7 @@ func TestStabilizeExtractedIdentitiesCoalescesEvidence(t *testing.T) {
 	if got[0].Name != "孔子" {
 		t.Fatalf("compact display name not preferred: %#v", got[0])
 	}
-	if got[0].Description != "中国古代思想家、教育家" || got[0].Details != "更完整的说明" {
+	if got[0].Description != "ancient Chinese thinker and educator" || got[0].Details != "a more complete explanation" {
 		t.Fatalf("richer fallback text not preserved: %#v", got[0])
 	}
 	if len(got[0].SourceChunks) != 2 {

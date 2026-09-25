@@ -15,7 +15,7 @@ const TITLE_BOUNDARIES = ['，', '。', '；', '：', '？', '！', '、', ',', 
 /**
  * Turn the asked question into a document title.
  *
- * A question mark and a hard cut mid-word ("……的多样性和创新...") both read as
+ * A question mark and a hard cut mid-word ("...the diversity and innov...") both read as
  * an unfinished sentence in a knowledge list, so we drop the trailing
  * punctuation and, when the question is too long, cut it on the last clause
  * boundary instead of appending an ellipsis.

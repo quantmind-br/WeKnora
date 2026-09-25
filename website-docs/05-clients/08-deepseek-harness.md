@@ -1,8 +1,8 @@
-# DeepSeek Harness 插件
+# DeepSeek Harness Plugin
 
-DeepSeek Harness（dsh）插件通过 REST API 连接已有 WeKnora 部署，支持检索原文、读取完整文档和生成带引用的回答。插件源码位于 `packages/dsh-weknora`。
+The DeepSeek Harness (dsh) plugin connects to an existing WeKnora deployment through the REST API and supports retrieving source passages, reading complete documents and generating answers with citations. The plugin source lives in `packages/dsh-weknora`.
 
-## 安装与连接
+## Installation and connection
 
 ```sh
 dsh plugin --profile web add @wxg-prc-cpg/dsh-weknora
@@ -14,26 +14,26 @@ export WEKNORA_RESOURCE_URLS=public
 dsh web
 ```
 
-也可在仓库根目录运行 `dsh plugin --profile web add ./packages/dsh-weknora`。插件自身要求 Node ≥20.11；仓库验证的 dsh 运行环境需要带 zstd 的 Node（≥22.15 或 ≥24）和 pnpm ≥10。已验证版本为 dsh 0.1.0-rc.8 / WeKnora 0.8.0，其他版本需按其插件接口确认兼容性。
+You can also run `dsh plugin --profile web add ./packages/dsh-weknora` from the repository root. The plugin itself requires Node ≥20.11; the dsh runtime verified in the repository needs a Node build with zstd (≥22.15 or ≥24) and pnpm ≥10. The verified versions are dsh 0.1.0-rc.8 / WeKnora 0.8.0; for other versions, confirm compatibility against their plugin interface.
 
-服务地址可包含 `/api/v1`，未包含时自动补全。API Key 通过 `X-API-Key` 发送，需要 `retrieve` 能力；调用 `ask` 还需 `chat`。使用平台 Key 时，需配置 `tenantId`，请求将其作为 `X-Tenant-ID` 发送。
+The service address may include `/api/v1`; it is appended automatically when missing. The API Key is sent via `X-API-Key` and needs the `retrieve` capability; calling `ask` also needs `chat`. When using a platform Key, configure `tenantId`, which requests send as `X-Tenant-ID`.
 
-## 四个工具
+## Four tools
 
-| 工具 | 用途 |
+| Tool | Purpose |
 | --- | --- |
-| `weknora_list_knowledge_bases` | 列出可见知识库及 ID |
-| `weknora_search` | 混合检索片段，同时匹配文档标题；返回知识 ID、分块序号与得分 |
-| `weknora_read_document` | 按文档读取有序正文，首屏含标题/摘要，长文可翻页 |
-| `weknora_ask` | 在 WeKnora 创建或续接会话，返回答案、引用和服务端工具过程 |
+| `weknora_list_knowledge_bases` | List visible knowledge bases and their IDs |
+| `weknora_search` | Hybrid retrieval of passages that also matches document titles; returns the knowledge ID, chunk index and score |
+| `weknora_read_document` | Read a document's ordered body; the first page includes the title/summary, and long documents can be paged |
+| `weknora_ask` | Create or continue a session in WeKnora, returning the answer, citations and the server-side tool steps |
 
-`search` 返回检索证据，供 dsh 生成回答；`ask` 在 WeKnora 服务端调用模型并创建会话和消息，适合综合多篇资料。两者均不修改知识库内容。
+`search` returns retrieval evidence for dsh to generate an answer; `ask` calls the model on the WeKnora server and creates a session and messages, which suits synthesizing multiple sources. Neither modifies knowledge base content.
 
-未指定知识库范围时，插件解析该凭据可见的全部知识库，进程内缓存并供 search/ask 共用。配置 agentId 后 ask 走 Agent 流程，知识范围由该 Agent 在服务端解析。
+When no knowledge base scope is specified, the plugin resolves all knowledge bases visible to the credential, caches them in-process and shares them between search/ask. With agentId configured, ask goes through the agent flow, and the knowledge scope is resolved on the server by that agent.
 
-## Profile 配置
+## Profile configuration
 
-在 `$DSH_HOME/profiles/<name>/cordis.patch.yml` 中设置：
+Set the following in `$DSH_HOME/profiles/<name>/cordis.patch.yml`:
 
 ```yaml
 - id: weknora
@@ -55,20 +55,20 @@ dsh web
       ask: true
 ```
 
-配置更新会整体替换该行 `config`，应包含需要保留的字段。`tools.*` 默认全部启用。连接多个部署时，分别设置不同的 `toolPrefix`；名称须以小写字母开头，且仅含小写字母、数字和下划线。
+A configuration update replaces that entry's `config` as a whole, so include every field you want to keep. All `tools.*` are enabled by default. When connecting multiple deployments, set a different `toolPrefix` for each; the name must start with a lowercase letter and contain only lowercase letters, digits and underscores.
 
-## 引用图片与排查
+## Cited images and troubleshooting
 
-`resourceUrls` 默认为 `public`，请求服务端将资源句柄转换为可加载链接。限定知识库的 API Key 收到 403 时，插件会自动改用 `handle`，并在后续调用中保持该模式。`resource://` 句柄不能直接在浏览器中加载，外链部署要求见[文件访问](../03-features/21-file-access.md)。
+`resourceUrls` defaults to `public`, which asks the server to convert resource handles into loadable links. When an API Key scoped to specific knowledge bases receives 403, the plugin automatically switches to `handle` and keeps that mode for subsequent calls. `resource://` handles cannot be loaded directly in a browser; for external link deployment requirements, see [File Access](../03-features/21-file-access.md).
 
-| 现象 | 检查 |
+| Symptom | Check |
 | --- | --- |
-| 加载阶段配置错误 | 根据逐字段错误修正 baseUrl、参数范围、toolPrefix |
-| 检索 401/403 | Key 是否有效、有 retrieve 能力及目标空间/知识库授权 |
-| ask 被拒绝 | Key 是否另有 chat，平台 Key 是否提供 tenantId |
-| 没有图片直链 | 是否为限定知识库 Key，或部署未配置可访问外链 |
-| 长问题超时 | 调整 chatTimeoutMs，并检查 WeKnora 模型调用 |
+| Configuration error at load time | Fix baseUrl, parameter ranges and toolPrefix according to the per-field errors |
+| Retrieval 401/403 | Whether the Key is valid, has the retrieve capability and is authorized for the target space/knowledge base |
+| ask is rejected | Whether the Key also has chat, and whether a platform Key provides tenantId |
+| No direct image links | Whether it is a knowledge-base-scoped Key, or the deployment has not configured accessible external links |
+| Long questions time out | Adjust chatTimeoutMs and check WeKnora's model calls |
 
-## 实现参考
+## Implementation reference
 
-`packages/dsh-weknora/src/`、`test/fixtures/api-contract.json`、`contract/contract_test.go`。
+`packages/dsh-weknora/src/`, `test/fixtures/api-contract.json`, `contract/contract_test.go`.

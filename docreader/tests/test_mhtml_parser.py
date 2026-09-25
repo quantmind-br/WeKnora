@@ -62,11 +62,11 @@ def _mhtml_with_table_image_and_caption() -> bytes:
     main.set_content(
         "<html><body>"
         "<table>"
-        "<tr><th>体验方向</th><th>代表内容</th></tr>"
-        "<tr><td>赛季制建立</td><td>BP、Rank</td></tr>"
+        "<tr><th>Experience focus</th><th>Representative content</th></tr>"
+        "<tr><td>Season system introduced</td><td>BP, Rank</td></tr>"
         "</table>"
-        '<img src="cid:test-image" alt="图片" title="图片">'
-        "<p>高机动性身法与独特枪械反馈</p>"
+        '<img src="cid:test-image" alt="Image" title="Image">'
+        "<p>High-mobility movement and distinctive gunplay feedback</p>"
         "</body></html>",
         subtype="html",
     )
@@ -185,13 +185,13 @@ class MHTMLParserTest(unittest.TestCase):
 
         self.assertEqual(len(document.images), 1)
         image_ref = next(iter(document.images))
-        self.assertIn(f'![图片]({image_ref} "图片")', document.content)
+        self.assertIn(f'![Image]({image_ref} "Image")', document.content)
         self.assertIn(
-            f"| 赛季制建立 | BP、Rank |\n\n![图片]({image_ref} \"图片\")",
+            f"| Season system introduced | BP, Rank |\n\n![Image]({image_ref} \"Image\")",
             document.content,
         )
         self.assertIn(
-            f'![图片]({image_ref} "图片")\n\n高机动性身法与独特枪械反馈',
+            f'![Image]({image_ref} "Image")\n\nHigh-mobility movement and distinctive gunplay feedback',
             document.content,
         )
 

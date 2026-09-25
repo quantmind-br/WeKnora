@@ -1281,7 +1281,7 @@ func (s *knowledgeService) DeleteFAQEntries(ctx context.Context,
 			}
 			if knowledge == nil || knowledge.TenantID != tenantID || knowledge.KnowledgeBaseID != kb.ID ||
 				knowledge.Type != types.KnowledgeTypeFAQ {
-				return werrors.NewForbiddenError("FAQ 文档不属于当前知识库")
+				return werrors.NewForbiddenError("FAQ document does not belong to the current knowledge base")
 			}
 			knowledges[chunk.KnowledgeID] = knowledge
 		}
@@ -1507,7 +1507,7 @@ func (s *knowledgeService) validateFAQKnowledgeBase(ctx context.Context, kbID st
 		return nil, err
 	}
 	if kb == nil || kb.ID != kbID {
-		return nil, werrors.NewNotFoundError("知识库不存在")
+		return nil, werrors.NewNotFoundError("Knowledge base not found")
 	}
 	kb.EnsureDefaults()
 	if kb.Type != types.KnowledgeBaseTypeFAQ {

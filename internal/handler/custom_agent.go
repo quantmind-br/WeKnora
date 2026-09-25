@@ -747,7 +747,7 @@ func (h *CustomAgentHandler) validateAgentSandboxConfig(
 	configID := strings.TrimSpace(cfg.SandboxConfigID)
 	if h.desktop {
 		if configID != "" {
-			return errors.NewBadRequestError("Lite 不支持为智能体绑定沙箱配置")
+			return errors.NewBadRequestError("Lite does not support binding a sandbox config to an agent")
 		}
 		return nil
 	}
@@ -765,7 +765,7 @@ func (h *CustomAgentHandler) validateAgentSandboxConfig(
 			WithDetails(err.Error())
 	}
 	if stored == nil {
-		return errors.NewBadRequestError("所选沙箱后端配置不存在，请重新选择")
+		return errors.NewBadRequestError("The selected sandbox backend config does not exist; please choose another one")
 	}
 	return nil
 }

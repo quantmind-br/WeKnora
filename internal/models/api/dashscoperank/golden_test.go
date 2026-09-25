@@ -18,8 +18,8 @@ import (
 const documentedResponse = `{
   "output": {
     "results": [
-      {"document": {"text": "上海气候"}, "index": 1, "relevance_score": 0.7314},
-      {"document": {"text": "北京美食"}, "index": 0, "relevance_score": 0.0002}
+      {"document": {"text": "Shanghai climate"}, "index": 1, "relevance_score": 0.7314},
+      {"document": {"text": "Beijing cuisine"}, "index": 0, "relevance_score": 0.0002}
     ]
   },
   "usage": {"total_tokens": 24},
@@ -38,14 +38,14 @@ func newClient(t *testing.T, url string, settings api.RerankSettings) *Client {
 
 func TestRequestBodyMatchesTheDocumentedSchema(t *testing.T) {
 	c := newClient(t, endpointURL, api.RerankSettings{SendReturnDocs: true})
-	body, err := c.BuildRequestBody("上海天气", []string{"北京美食", "上海气候"})
+	body, err := c.BuildRequestBody("Shanghai weather", []string{"Beijing cuisine", "Shanghai climate"})
 	require.NoError(t, err)
 
 	assert.Equal(t, map[string]any{
 		"model": "gte-rerank-v2",
 		"input": map[string]any{
-			"query":     "上海天气",
-			"documents": []any{"北京美食", "上海气候"},
+			"query":     "Shanghai weather",
+			"documents": []any{"Beijing cuisine", "Shanghai climate"},
 		},
 		"parameters": map[string]any{
 			"return_documents": true,
@@ -72,12 +72,12 @@ func TestDecodesTheDocumentedResponse(t *testing.T) {
 	defer server.Close()
 
 	c := newClient(t, server.URL, api.RerankSettings{})
-	got, err := c.Rerank(context.Background(), "上海天气", []string{"北京美食", "上海气候"})
+	got, err := c.Rerank(context.Background(), "Shanghai weather", []string{"Beijing cuisine", "Shanghai climate"})
 	require.NoError(t, err)
 
 	assert.Equal(t, []api.RerankResult{
-		{Index: 1, Score: 0.7314, Text: "上海气候"},
-		{Index: 0, Score: 0.0002, Text: "北京美食"},
+		{Index: 1, Score: 0.7314, Text: "Shanghai climate"},
+		{Index: 0, Score: 0.0002, Text: "Beijing cuisine"},
 	}, got)
 }
 

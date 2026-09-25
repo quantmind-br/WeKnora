@@ -129,12 +129,12 @@ func TestCalculateFAQContentHash_TraditionalSimplifiedInvariant(t *testing.T) {
 
 func TestCalculateFAQContentHash_SortInvariant(t *testing.T) {
 	meta1 := &FAQChunkMetadata{
-		StandardQuestion: "问题",
+		StandardQuestion: "question",
 		SimilarQuestions: []string{"a", "b", "c"},
 		Answers:          []string{"x", "y", "z"},
 	}
 	meta2 := &FAQChunkMetadata{
-		StandardQuestion: "问题",
+		StandardQuestion: "question",
 		SimilarQuestions: []string{"c", "a", "b"},
 		Answers:          []string{"z", "x", "y"},
 	}

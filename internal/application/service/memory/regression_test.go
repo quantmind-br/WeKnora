@@ -37,7 +37,7 @@ type memoryScenario struct {
 func TestCrossSessionMemoryScenarios(t *testing.T) {
 	scenarios := []memoryScenario{
 		{
-			name:      "记住个人画像并在新会话里带上",
+			name:      "remembers the profile and carries it into a new session",
 			userTurns: []string{"我是做医疗影像的后端工程师，主要写 Go"},
 			extracted: []map[string]any{
 				{
@@ -49,7 +49,7 @@ func TestCrossSessionMemoryScenarios(t *testing.T) {
 			wantInPrompt: []string{"医疗影像", "后端工程师"},
 		},
 		{
-			name:      "偏好常驻，与问题内容无关也会带上",
+			name:      "preferences are resident and carried even when unrelated to the question",
 			userTurns: []string{"以后回答直接给结论，不要长篇铺垫"},
 			extracted: []map[string]any{
 				{"action": "add", "kind": "preference", "topic": "回答风格", "content": "回答直接给结论，不要铺垫"},
@@ -58,7 +58,7 @@ func TestCrossSessionMemoryScenarios(t *testing.T) {
 			wantInPrompt: []string{"直接给结论"},
 		},
 		{
-			name: "事实按问题相关性召回，不相关的不进上下文",
+			name: "facts are recalled by relevance to the question; unrelated ones stay out of context",
 			userTurns: []string{
 				"我们生产库是 PostgreSQL 17，跑在法兰克福",
 				"前端是 Vue 3 加 Vite",
@@ -75,7 +75,7 @@ func TestCrossSessionMemoryScenarios(t *testing.T) {
 			wantAbsent:   []string{"Vue 3"},
 		},
 		{
-			name: "修正矛盾信息后只保留最新的",
+			name: "after a contradiction is corrected only the latest is kept",
 			userTurns: []string{
 				"我们用的是 MySQL",
 				"更正一下，我们上个月已经迁到 PostgreSQL 了",
@@ -89,7 +89,7 @@ func TestCrossSessionMemoryScenarios(t *testing.T) {
 			wantAbsent:   []string{"MySQL"},
 		},
 		{
-			name:      "在办事项可以跨会话续接",
+			name:      "ongoing tasks carry over across sessions",
 			userTurns: []string{"这周在重构订单服务的支付流程，还没弄完"},
 			extracted: []map[string]any{
 				{
@@ -101,7 +101,7 @@ func TestCrossSessionMemoryScenarios(t *testing.T) {
 			wantInPrompt: []string{"支付流程"},
 		},
 		{
-			name: "事情做完后不再被召回",
+			name: "a finished task is no longer recalled",
 			userTurns: []string{
 				"在重构订单服务的支付流程",
 				"支付流程重构已经上线了",
@@ -114,7 +114,7 @@ func TestCrossSessionMemoryScenarios(t *testing.T) {
 			wantAbsent: []string{"在重构订单服务的支付流程"},
 		},
 		{
-			name:      "一次性的提问不该被记成长期事实",
+			name:      "a one-off question must not be stored as a long-term fact",
 			userTurns: []string{"Go 的 map 是并发安全的吗"},
 			// A well-behaved extraction returns nothing here, which is the
 			// normal outcome; the assertion is that we store nothing either.

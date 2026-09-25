@@ -7,25 +7,30 @@
 //   - the data-plane base URL is https://ark.cn-beijing.volces.com/api/v3
 //     (chat completions at /chat/completions) with Bearer API-key auth; AK/SK
 //     signing is the alternative and is what the managed rerank service uses;
-//   - output cap stays `max_completion_tokens` ("控制模型输出的最大长度（包括
-//     模型回答和模型思维链内容长度）"), which is explicitly "不可与
-//     max_tokens 字段同时设置". Its documented range is [1, 65536];
+//   - output cap stays `max_completion_tokens` ("controls the maximum length
+//     of the model output (including the model answer and the chain of
+//     thought)"), which explicitly "cannot be set together with the
+//     max_tokens field". Its documented range is [1, 65536];
 //     `max_tokens` defaults to 4096 and covers the answer only;
 //   - thinking is switched with `thinking: {"type": ...}` where the type is
-//     enabled | disabled | auto — Ark does accept "auto" ("模型自行判断是否
-//     需要进行深度思考"), although only doubao-seed-1-6-250615 lists it as
-//     supported today. Every model tagged 深度思考 defaults to enabled;
+//     enabled | disabled | auto — Ark does accept "auto" ("the model decides
+//     on its own whether deep thinking is needed"), although only
+//     doubao-seed-1-6-250615 lists it as supported today. Every model tagged
+//     "deep thinking" defaults to enabled;
 //   - `reasoning_effort` takes none | minimal | low | medium | high | xhigh |
-//     max and "所有支持该字段的模型均接受全部 7 档取值"; each model then maps
+//     max and "every model that supports this field accepts all 7 levels";
+//     each model then maps
 //     the rungs it does not implement onto equivalents (Seed 2.x folds
 //     xhigh/max into high, glm-5-3-flash folds them into max, and on most
 //     models `minimal` switches thinking off). The vendor map therefore
 //     passes all seven through verbatim;
 //   - doubao-seed-1-6-flash-250828 and doubao-seed-1-6-vision-250815 are
 //     absent from the reasoning_effort table, so those entries turn it off;
-//   - glm-5-3-flash-260828 "始终启用思考，不再支持禁用思考", so it carries
+//   - glm-5-3-flash-260828 "always has thinking enabled; disabling thinking
+//     is no longer supported", so it carries
 //     "off": null;
-//   - temperature is [0, 2] but is "固定为 1，手动指定的参数值将被忽略" on
+//   - temperature is [0, 2] but is "fixed at 1; manually specified values
+//     are ignored" on
 //     doubao-seed-2-0-pro-260215 and doubao-seed-2-0-lite-260215;
 //   - tool_choice takes none / auto / required / a named function, and
 //     parallel_tool_calls (default true, false only on doubao-seed-1.6 and
@@ -43,10 +48,10 @@
 //   - embeddings post to /api/v3/embeddings/multimodal with `dimensions`
 //     defaulting to 2048, and answer one fused vector for the whole input
 //     (https://docs.volcengine.com/docs/ark/multimodal-vectorization-api).
-//     It is the only embedding API the current docs list, and the 向量化 model
+//     It is the only embedding API the current docs list, and the vectorization model
 //     list names only the two doubao-embedding-vision snapshots. The text
 //     endpoint, /api/v3/embeddings in the OpenAI shape, now sits under
-//     下线文档归档 (retired documentation), so doubao-embedding-large-text was
+//     the retired documentation archive, so doubao-embedding-large-text was
 //     removed from models.json; rows that still name a doubao-embedding text
 //     model are routed to that endpoint by pattern;
 //   - rerank is the VikingDB Knowledge Base service signed with AK/SK at
@@ -217,7 +222,7 @@ func newVolcengineProvider() *Definition {
 				MaxBatchSize:       api.Ptr(1),
 			},
 			Rerank: api.RerankCompat{
-				// datas "数组长度不超过 200"
+				// datas "array length must not exceed 200"
 				// (https://docs.volcengine.com/docs/vector_database_vikingdb/Rerank).
 				// The pre-catalog client split at 50, a constant of its own
 				// rather than a documented ceiling.

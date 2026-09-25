@@ -131,7 +131,7 @@ Purpose: fork a new session from a historical message; the source session stays 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `message_id` | string | Yes | Fork point. User message: copies the history before it, and the client usually prefills that question into the input box; assistant message: copies the history up to and including that answer |
-| `title` | string | No | Title of the new session; defaults to "source title (branch)" |
+| `title` | string | No | Title of the new session; defaults to `<original title> (Branch)` |
 
 Copied messages keep their original timeline and generated files; the new session records `parent_session_id` and `forked_from_message_id`. When the source session is bound to a sandbox, the system snapshots the sandbox, and the new session starts from the workspace state of the round corresponding to the fork point the first time it uses the sandbox. When the workspace cannot be carried over, the fork still succeeds but returns `degraded: true` and a reason:
 
@@ -406,9 +406,9 @@ curl -N -X POST $BASE/api/v1/knowledge-chat/s-1 -H "X-API-Key: $API_KEY" \
 
 Purpose: Agent Q&A (SSE streaming, including `thinking/tool_call/tool_result/tool_approval_required/mcp_oauth_required` and other events). Request body is the same as above.
 
-- 工具执行失败以 `tool_result` 事件返回（`data.success: false`，`data.error` 为原因），智能体会继续处理；`error` 事件只表示整轮执行失败。
-- 智能体中途接收追加消息时发出 `user_message_injected`；命令执行过程中以 `command_output` 更新工具卡片输出。
-- 同一会话已有智能推理回答在生成时返回 409，此时应改用 [steer 接口](#steer)追加消息。
+- A failed tool execution is returned as a `tool_result` event (`data.success: false`, with the reason in `data.error`), and the agent keeps going; an `error` event only means the whole round failed.
+- When the agent receives an appended message mid-run, it emits `user_message_injected`; while a command is running, `command_output` updates the tool card's output.
+- Returns 409 when an agent reasoning answer is already being generated in the same session; in that case, use the [steer endpoint](#steer) to append the message instead.
 
 ```bash
 curl -N -X POST $BASE/api/v1/agent-chat/s-1 -H "Authorization: Bearer $TOKEN" \

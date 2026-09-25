@@ -322,7 +322,7 @@ test('failed connection test does not prevent saving', async () => {
 // errors would otherwise look like a successful save to the editor.
 const settingsSource = readFileSync(new URL('../views/settings/ModelSettings.vue', import.meta.url), 'utf8')
 const saveStart = settingsSource.indexOf('const handleModelSave =')
-const saveEnd = settingsSource.indexOf('// 删除模型', saveStart)
+const saveEnd = settingsSource.indexOf('// Delete model', saveStart)
 const saveScript = ts.transpileModule(settingsSource.slice(saveStart, saveEnd), {
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText
@@ -751,7 +751,7 @@ test('switching vendor clears a connection result that described the old one', a
 // A VLM entry is a chat model that accepts images, so the backend — which
 // already scopes the provider list to the requested model type — returns it
 // typed "chat". Re-filtering on that type in the editor emptied the picker
-// for every vendor under 视觉.
+// for every vendor under Vision.
 const vlmProviders = [{
   value: 'vendor-v', label: 'Vendor V', description: '', order: 1, modelTypes: ['chat', 'vllm'],
   defaultUrls: { chat: 'https://v.example.com/v1', vllm: 'https://v.example.com/v1' },
@@ -834,7 +834,7 @@ test('rerank and asr pickers list their own entries', async () => {
 // TDesign hides a select's popup when it has no options, which takes the
 // creatable "create" row with it: the field accepts keystrokes but offers no
 // way to commit them, and a blur throws the text away. That is every vendor
-// with no catalog for the current type — 自定义 (OpenAI 兼容接口) above all.
+// with no catalog for the current type — Custom (OpenAI-compatible API) above all.
 test('a vendor with no catalog falls back to a plain text field', async () => {
   const f = await fixture({ providers: switchProviders })
   try {

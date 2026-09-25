@@ -18,7 +18,7 @@ curl -X POST $BASE/api/v1/im/callback/ch-1 -H 'Content-Type: application/json' -
 
 API key: `manage_channels`/full. IM channels carry external bot credentials: listing requires Viewer+, changes/toggling/QR login require Admin+.
 
-飞书/Lark credentials.api_base_url 同时影响 HTTP API 和 WebSocket bootstrap；云之家支持 session_mode=thread。配置示例及网络要求见[IM 集成](../03-features/12-im-integration.md)。IM/Embed 的记忆偏好来自绑定 Agent 的 config.memory_enabled，当前渠道接口没有单独的 memory_enabled 参数。
+For Feishu/Lark, credentials.api_base_url affects both the HTTP API and the WebSocket bootstrap; Yunzhijia supports session_mode=thread. See [IM Integration](../03-features/12-im-integration.md) for configuration examples and network requirements. The memory preference of IM/Embed comes from config.memory_enabled of the bound Agent; the channel endpoints currently have no separate memory_enabled parameter.
 
 ### POST /api/v1/agents/:id/im-channels
 
@@ -464,6 +464,6 @@ Response: 200 file stream (`Cache-Control: private, max-age=300`).
 curl $BASE/r/abc123 -o file.png
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_agent.go` 的 `RegisterIMRoutes`、`RegisterIMChannelRoutes`、`RegisterEmbedChannelRoutes`、`RegisterEmbedPublicRoutes`；`internal/router/files.go` 的 `serveFilesWithResources`、`servePresignedFiles`、`servePresignedPreview`、`serveResourceGrants`。Handler：`internal/handler/im.go`、`internal/handler/wechat_qrcode.go`、`internal/handler/embed_channel.go`。
+Route registration: `RegisterIMRoutes`, `RegisterIMChannelRoutes`, `RegisterEmbedChannelRoutes`, and `RegisterEmbedPublicRoutes` in `internal/router/routes_agent.go`; `serveFilesWithResources`, `servePresignedFiles`, `servePresignedPreview`, and `serveResourceGrants` in `internal/router/files.go`. Handlers: `internal/handler/im.go`, `internal/handler/wechat_qrcode.go`, `internal/handler/embed_channel.go`.

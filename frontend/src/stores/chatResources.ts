@@ -46,8 +46,8 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   // whether it's still the latest, to avoid mistakenly clearing an in-flight handle.
   let kbAllGen = 0
   let agentsAllGen = 0
-  // 模型列表同样用代际挡住过期的 inflight：设置页保存后会 replaceModels，
-  // 不能让保存前发出的 ensureModels 把旧列表写回来。
+  // The model list also uses a generation counter to block stale in-flight requests: saving in settings calls replaceModels,
+  // and an ensureModels issued before the save must not write the old list back.
   let modelsGen = 0
 
   const agentKbCache = new Map<string, { at: number; data: any[] }>()
@@ -58,9 +58,9 @@ export const useChatResourcesStore = defineStore('chatResources', () => {
   const validKnowledgeBases = computed(() => rawKnowledgeBases.value.filter(isKbModelReady))
   const chatModels = computed(() => allModels.value.filter((m) => m.type === 'KnowledgeQA'))
 
-  // 内置智能体名称/描述由后端按 Accept-Language 本地化返回；切换 UI 语言后
-  // 旧缓存必须立即失效，否则要等 TTL 过期或强刷才能看到正确语言。
-  // agentsLoadedLocale 必须是「请求发起时」的语言，不能在 await 之后再读当前语言。
+  // Built-in agent names/descriptions are localized by the backend according to Accept-Language; after switching the UI language
+  // the old cache must be invalidated immediately, otherwise the correct language only shows after the TTL expires or a hard refresh.
+  // agentsLoadedLocale must be the language "at the time the request was issued"; do not read the current language after the await.
   let agentsLoadedLocale = ''
   let agentsAllInflightLocale = ''
 

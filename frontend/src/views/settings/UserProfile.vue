@@ -434,7 +434,7 @@ onMounted(loadInfo)
 </style>
 
 <style lang="less">
-/* t-popup 挂到 body，需全局样式；z-index 需高于设置全屏遮罩（2000）。 */
+/* t-popup is attached to body, so it needs global styles; z-index must be above the full-screen settings overlay (2000). */
 .user-profile-password-popup-overlay {
   z-index: 3050 !important;
 

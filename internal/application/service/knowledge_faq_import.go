@@ -57,7 +57,7 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	if taskID == "" {
 		taskID = secutils.GenerateTaskID("faq_import", tenantID, kbID)
 	} else if err := secutils.ValidateTaskID(taskID); err != nil {
-		return "", werrors.NewBadRequestError("task_id 格式不合法")
+		return "", werrors.NewBadRequestError("Invalid task_id format")
 	}
 
 	var knowledgeID string

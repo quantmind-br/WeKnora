@@ -466,11 +466,11 @@ const vendorIcon = (model: any): string => {
 // What the vendor chip on a card shows. Keeps the chip text uniformly
 // short so cards line up:
 //   local  → "Ollama"
-// remote → provider's localized short name (e.g. "腾讯云 LKEAP",
-// "阿里云 DashScope"). For the catch-all "generic" provider
-// we render a single short word ("自定义" / "Custom") — the
-// editor dropdown's longer "自定义 (OpenAI兼容接口)" label
-// blows out the card chip row, and the "OpenAI 兼容" framing
+// remote → provider's localized short name (e.g. "Tencent Cloud LKEAP",
+// "Alibaba Cloud DashScope"). For the catch-all "generic" provider
+// we render a single short word ("Custom") — the
+// editor dropdown's longer "Custom (OpenAI-compatible API)" label
+// blows out the card chip row, and the "OpenAI-compatible" framing
 //            isn't meaningful to most end users (they didn't pick "I
 //            want OpenAI compatibility", they just pasted a base URL).
 const vendorLabel = (model: any): string => {
@@ -508,13 +508,13 @@ const emptyHint = computed(() => {
 // Load model list
 const loadModels = async () => {
   loading.value = true
-  // 厂商图标 / 本地化名称来自目录 store；与模型列表并行加载，失败不影响卡片渲染。
+  // Provider icons / localized names come from the catalog store; loaded in parallel with the model list, and a failure doesn't affect card rendering.
   void providersStore.ensureLoaded('').catch(() => {})
   try {
     const models = await listModels()
     allModels.value = models
-    // 设置页自己 listModels 之后立刻写回空间级缓存。否则对话输入栏 /
-    // 智能体编辑器会继续拿 60s TTL 里的旧 context_window，刷新页面才对。
+    // After the settings page runs its own listModels, write back to the space-level cache immediately. Otherwise the chat input bar /
+    // agent editor keeps using the stale context_window within the 60s TTL until the page is refreshed.
     chatResources.replaceModels(models)
   } catch (error: any) {
     console.error('Failed to load model list:', error)

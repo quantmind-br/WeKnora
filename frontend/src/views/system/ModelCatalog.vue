@@ -135,7 +135,7 @@
       </div>
     </template>
 
-    <!-- 编辑单个模型：保存即发布 -->
+    <!-- Edit a single model: saving publishes -->
     <SettingDrawer :visible="editVisible" :title="selected ? (selected.model.id || selected.model.match || '') : ''"
       :description="selected ? t('modelCatalog.editDescription', { provider: providerLabel(selected.provider), type: typeLabel(selected.model.type) }) : ''"
       icon="layers" width="560px" storage-key="setting-drawer:width:model-catalog-edit"
@@ -219,7 +219,7 @@
       </template>
     </SettingDrawer>
 
-    <!-- 添加目录模型 -->
+    <!-- Add a catalog model -->
     <SettingDrawer :visible="addVisible" :title="t('modelCatalog.add')" :description="t('modelCatalog.addDescription')"
       icon="add" width="520px" storage-key="setting-drawer:width:model-catalog-add" :close-on-overlay-click="false"
       :confirm-text="t('modelCatalog.save')" :confirm-loading="saving" @update:visible="addVisible = $event"
@@ -253,7 +253,7 @@
       </section>
     </SettingDrawer>
 
-    <!-- 高级：直接编辑管理员修改（models.json 格式） -->
+    <!-- Advanced: edit the admin overrides directly (models.json format) -->
     <SettingDrawer :visible="jsonVisible" :title="t('modelCatalog.jsonEditor')"
       :description="t('modelCatalog.jsonDescription')" icon="code" width="720px" :max-width="1200" maximizable
       storage-key="setting-drawer:width:model-catalog-json" :close-on-overlay-click="false"
@@ -295,7 +295,7 @@
       </template>
     </SettingDrawer>
 
-    <!-- 版本历史：恢复即发布 -->
+    <!-- Version history: restoring publishes -->
     <SettingDrawer :visible="historyVisible" :title="t('modelCatalog.history')"
       :description="t('modelCatalog.historyDescription')" icon="history" width="560px"
       storage-key="setting-drawer:width:model-catalog-history" hide-footer @update:visible="historyVisible = $event">
@@ -373,7 +373,7 @@ const typeFilter = ref<string>()
 const onlyModified = ref(false)
 const page = ref(1)
 
-// ---------- 目录列表 ----------
+// ---------- Catalog list ----------
 
 const layerIndexes = computed(() => Object.fromEntries((['builtin', 'deployment', 'effective'] as const).map(layer => [
   layer, new Map(catalogRows(state.value?.[layer] || []).map(row => [row.key, row.model])),
@@ -430,7 +430,7 @@ const columns = computed<TableProps['columns']>(() => [
   { colKey: 'actions', title: '', width: 64, align: 'right' },
 ])
 
-// ---------- 加载与发布 ----------
+// ---------- Load and publish ----------
 
 async function load() {
   loading.value = true
@@ -474,7 +474,7 @@ async function commit(overlay: CatalogOverlay, message = t('modelCatalog.publish
   }
 }
 
-// ---------- 编辑单个模型 ----------
+// ---------- Edit a single model ----------
 
 const CHAT = ['KnowledgeQA']
 const fieldDefs = computed<FieldDef[]>(() => [
@@ -606,7 +606,7 @@ function layerValue(layer: Layer, field: FieldDef) {
   return displayField(field.kind, fieldValue(layer, selected.value, field.key))
 }
 
-// ---------- 添加模型 ----------
+// ---------- Add model ----------
 
 const addVisible = ref(false)
 const emptyAddForm = () => ({
@@ -656,7 +656,7 @@ async function saveAdd() {
   }
 }
 
-// ---------- JSON 编辑 ----------
+// ---------- JSON editing ----------
 
 const jsonVisible = ref(false)
 const draft = ref(emptyOverlay)
@@ -739,7 +739,7 @@ function exportOverlay() {
   URL.revokeObjectURL(url)
 }
 
-// ---------- 版本历史 ----------
+// ---------- Version history ----------
 
 const historyVisible = ref(false)
 
@@ -760,7 +760,7 @@ async function restoreRevision(overlay: CatalogOverlay) {
   if (await commit(overlay, t('modelCatalog.restored'))) historyVisible.value = false
 }
 
-// ---------- 更多菜单 ----------
+// ---------- More menu ----------
 
 const moreOptions = computed(() => [
   { content: t('modelCatalog.jsonEditor'), value: 'json' },
@@ -1059,7 +1059,7 @@ onMounted(load)
   font-weight: 400;
 }
 
-// ---------- 抽屉内容 ----------
+// ---------- Drawer content ----------
 
 .drawer-hint {
   margin: 0;

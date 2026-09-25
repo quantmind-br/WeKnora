@@ -457,6 +457,6 @@ curl -X PUT $BASE/api/v1/knowledgebase/kb-1/wiki/issues/i-1/status -H "Authoriza
   -H 'Content-Type: application/json' -d '{"status":"resolved"}'
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_knowledge.go` 的 `RegisterFAQRoutes` 与 `RegisterWikiPageRoutes`。Handler：`internal/handler/faq.go`、`internal/handler/wiki_page.go`。
+Route registration: `RegisterFAQRoutes` and `RegisterWikiPageRoutes` in `internal/router/routes_knowledge.go`. Handlers: `internal/handler/faq.go`, `internal/handler/wiki_page.go`.

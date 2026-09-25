@@ -21,8 +21,8 @@ const zhipuResponse = `{
   "request_id": "8305283656248111323",
   "created": 1769040000,
   "results": [
-    {"index": 1, "relevance_score": 0.9819, "document": "上海气候"},
-    {"index": 0, "relevance_score": 0.0021, "document": "北京美食"}
+    {"index": 1, "relevance_score": 0.9819, "document": "Shanghai climate"},
+    {"index": 0, "relevance_score": 0.0021, "document": "Beijing cuisine"}
   ],
   "usage": {"prompt_tokens": 24, "total_tokens": 24}
 }`
@@ -33,8 +33,8 @@ const zhipuResponse = `{
 const jinaResponse = `{
   "model": "jina-reranker-v3.5",
   "results": [
-    {"index": 0, "relevance_score": 0.95, "document": {"text": "上海气候"}},
-    {"index": 1, "relevance_score": 0.11, "document": {"text": "北京美食"}}
+    {"index": 0, "relevance_score": 0.95, "document": {"text": "Shanghai climate"}},
+    {"index": 1, "relevance_score": 0.11, "document": {"text": "Beijing cuisine"}}
   ],
   "usage": {"total_tokens": 32}
 }`
@@ -63,13 +63,13 @@ func serve(t *testing.T, payload string) (*httptest.Server, *string, *map[string
 
 func TestRequestBodyCarriesOnlyWhatTheVendorDeclares(t *testing.T) {
 	c := newClient(t, "https://example.invalid/v1", api.RerankSettings{})
-	body, err := c.BuildRequestBody("上海天气", []string{"上海气候", "北京美食"})
+	body, err := c.BuildRequestBody("Shanghai weather", []string{"Shanghai climate", "Beijing cuisine"})
 	require.NoError(t, err)
 
 	assert.Equal(t, map[string]any{
 		"model":     "rerank",
-		"query":     "上海天气",
-		"documents": []any{"上海气候", "北京美食"},
+		"query":     "Shanghai weather",
+		"documents": []any{"Shanghai climate", "Beijing cuisine"},
 	}, body, "optional fields must be absent unless the vendor asked for them")
 }
 
@@ -88,12 +88,12 @@ func TestDecodesAStringDocument(t *testing.T) {
 	defer server.Close()
 
 	c := newClient(t, server.URL, api.RerankSettings{})
-	got, err := c.Rerank(context.Background(), "上海天气", []string{"北京美食", "上海气候"})
+	got, err := c.Rerank(context.Background(), "Shanghai weather", []string{"Beijing cuisine", "Shanghai climate"})
 	require.NoError(t, err)
 
 	assert.Equal(t, []api.RerankResult{
-		{Index: 1, Score: 0.9819, Text: "上海气候"},
-		{Index: 0, Score: 0.0021, Text: "北京美食"},
+		{Index: 1, Score: 0.9819, Text: "Shanghai climate"},
+		{Index: 0, Score: 0.0021, Text: "Beijing cuisine"},
 	}, got)
 }
 
@@ -102,12 +102,12 @@ func TestDecodesAnObjectDocument(t *testing.T) {
 	defer server.Close()
 
 	c := newClient(t, server.URL, api.RerankSettings{})
-	got, err := c.Rerank(context.Background(), "上海天气", []string{"上海气候", "北京美食"})
+	got, err := c.Rerank(context.Background(), "Shanghai weather", []string{"Shanghai climate", "Beijing cuisine"})
 	require.NoError(t, err)
 
 	assert.Equal(t, []api.RerankResult{
-		{Index: 0, Score: 0.95, Text: "上海气候"},
-		{Index: 1, Score: 0.11, Text: "北京美食"},
+		{Index: 0, Score: 0.95, Text: "Shanghai climate"},
+		{Index: 1, Score: 0.11, Text: "Beijing cuisine"},
 	}, got)
 }
 

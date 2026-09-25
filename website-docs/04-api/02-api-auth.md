@@ -99,7 +99,7 @@ Purpose: switch the current active tenant and reissue a token. Login required (c
 
 Response: 200, same as Login.
 
-换签成功会把目标空间写入账号级「最近活跃租户」偏好，下次登录（密码/OIDC/换设备）与 refresh 都回到该空间。refresh JWT 不含 `tenant_id`，因此偏好写入失败则整次换签失败、不会发出新 token。API 客户端无需再补发 `PUT /auth/me/preferences`。Web UI 切空间不走本接口。一次换签会改变该用户所有设备的下次落点。
+A successful switch writes the target space into the account-level "most recently active tenant" preference, so the next login (password/OIDC/a different device) and refresh both land in that space. The refresh JWT does not contain `tenant_id`, so if writing the preference fails, the whole switch fails and no new token is issued. API clients no longer need to send a follow-up `PUT /auth/me/preferences`. The Web UI does not use this endpoint to switch spaces. A single switch changes where the user lands next on all of their devices.
 
 ```bash
 curl -X POST $BASE/api/v1/auth/switch-tenant -H "Authorization: Bearer $TOKEN" \
@@ -118,7 +118,7 @@ curl $BASE/api/v1/auth/oidc/config
 
 ### GET /api/v1/auth/oidc/start
 
-免登录，直接返回 302 和指向 IdP 的 Location，可供企业门户链接使用。无需先请求 JSON 授权地址；回调由请求 origin 构造为 `/api/v1/auth/oidc/callback`。回调后的登录结果与原 OIDC 链路一致。
+No login required; it directly returns a 302 with a Location pointing to the IdP, so it can be used as a link from an enterprise portal. There is no need to request the JSON authorization URL first; the callback is built from the request origin as `/api/v1/auth/oidc/callback`. The login result after the callback is the same as in the original OIDC flow.
 
 ```bash
 curl -i "$BASE/api/v1/auth/oidc/start"
@@ -209,7 +209,7 @@ curl -X PUT $BASE/api/v1/auth/me/preferences -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"last_active_tenant_id":2}'
 ```
 
-密码策略由 `GET /auth/config` 提供。复杂模式允许的特殊字符集为 `!@#$%^&*()_+-=[]{}|;:,.<>?`；不能只根据结构体 binding 的长度标签推导完整校验规则。
+The password policy is provided by `GET /auth/config`. The special characters allowed in complex mode are `!@#$%^&*()_+-=[]{}|;:,.<>?`; the full validation rules cannot be derived from the length tags in the struct binding alone.
 
 ### POST /api/v1/auth/change-password
 
@@ -227,11 +227,11 @@ curl -X POST $BASE/api/v1/auth/change-password -H "Authorization: Bearer $TOKEN"
   -H 'Content-Type: application/json' -d '{"old_password":"old","new_password":"NewPass123!"}'
 ```
 
-修改密码必须提供正确的旧密码，新密码不能与旧密码相同。成功后撤销全部会话，需要重新登录。默认策略 8–32 位、字母和数字；复杂模式要求大小写字母、数字和特殊字符。错误详情可为 `invalid_old_password`、`password_policy`、`same_password`，均返回 400。
+Changing the password requires the correct old password, and the new password must differ from the old one. On success, all sessions are revoked and the user must log in again. The default policy is 8–32 characters with letters and digits; complex mode requires uppercase and lowercase letters, digits, and special characters. Error details can be `invalid_old_password`, `password_policy`, or `same_password`, all returned as 400.
 
 ### POST /api/v1/me/invitations/accept-by-token
 
-需登录，仅操作当前用户，无空间的新用户也可调用。请求 `{"token":"<invite-token>"}`；有效共享邀请使当前用户加入对应空间。无效、过期、撤销的链接返回 410；空 token 返回 400。成功响应为 `{success:true,data:{membership:{tenant_id,role,status,joined_at},tenant_name}}`，前端据此切换空间。
+Login required; it only acts on the current user and can be called even by a new user without a space. Request `{"token":"<invite-token>"}`; a valid shared invitation adds the current user to the corresponding space. An invalid, expired, or revoked link returns 410; an empty token returns 400. The success response is `{success:true,data:{membership:{tenant_id,role,status,joined_at},tenant_name}}`, which the frontend uses to switch spaces.
 
 ```bash
 curl -X POST "$BASE/api/v1/me/invitations/accept-by-token" \
@@ -287,6 +287,6 @@ Response: 200 `{"success":true}`
 curl -X POST $BASE/api/v1/me/invitations/12/decline -H "Authorization: Bearer $TOKEN"
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_auth_tenant.go` 的 `RegisterAuthRoutes` 与 `RegisterMyInvitationRoutes`。Handler：`internal/handler/auth.go`、`internal/handler/auth_register_by_invite.go`、`internal/handler/tenant_invitation.go`。
+Route registration: `RegisterAuthRoutes` and `RegisterMyInvitationRoutes` in `internal/router/routes_auth_tenant.go`. Handlers: `internal/handler/auth.go`, `internal/handler/auth_register_by_invite.go`, `internal/handler/tenant_invitation.go`.

@@ -99,9 +99,9 @@ func TestVectorSearchHonoursKindAndLifecycleFilters(t *testing.T) {
 // found has to be added to that slice. Dropping it instead would make the
 // wider search pointless.
 func TestMergeVectorHitsGrowsThePoolWithWhatItDidNotHold(t *testing.T) {
-	inPool := &types.MemoryItem{ID: "a", Content: "已经在候选池里"}
-	outsidePool := &types.MemoryItem{ID: "b", Content: "候选池没有的记忆"}
-	excluded := &types.MemoryItem{ID: "c", Content: "常驻块已经写过"}
+	inPool := &types.MemoryItem{ID: "a", Content: "already in the candidate pool"}
+	outsidePool := &types.MemoryItem{ID: "b", Content: "a memory the candidate pool lacks"}
+	excluded := &types.MemoryItem{ID: "c", Content: "already written in the resident block"}
 
 	// Room to spare, so an append that forgot to copy would overwrite the
 	// caller's slice rather than allocate.
@@ -138,7 +138,7 @@ func TestLexicalPoolCoversEveryLiveMemory(t *testing.T) {
 	tenantRepo.set(1, cfg)
 	scope := scopeFor(t, ctx)
 
-	for _, content := range []string{"第一条记忆", "第二条记忆", "第三条记忆", "第四条记忆", "第五条记忆"} {
+	for _, content := range []string{"memory one", "memory two", "memory three", "memory four", "memory five"} {
 		_, err := svc.Remember(ctx, types.MemoryItem{
 			Kind: types.MemoryKindFact, Topic: content, Content: content,
 		})
@@ -168,8 +168,8 @@ func TestExtractionSeesTheMemoryItWouldDuplicateEvenWhenUnimportant(t *testing.T
 		{ID: "embed-1", Type: types.ModelTypeEmbedding, Status: types.ModelStatusActive},
 	}
 	models.embedder = &stubEmbedder{vectors: map[string][]float32{
-		"连接数": {1, 0, 0},
-		"生产库": {1, 0, 0},
+		"connection limit":    {1, 0, 0},
+		"production database": {1, 0, 0},
 	}}
 	models.response = `{"memories":[]}`
 
@@ -177,8 +177,8 @@ func TestExtractionSeesTheMemoryItWouldDuplicateEvenWhenUnimportant(t *testing.T
 	for i := 0; i <= extractRelevantCandidates; i++ {
 		_, err := svc.Remember(ctx, types.MemoryItem{
 			Kind: types.MemoryKindFact, Importance: 5,
-			Topic:   fmt.Sprintf("话题%d", i),
-			Content: fmt.Sprintf("与本次提问无关的第 %d 条记忆", i),
+			Topic:   fmt.Sprintf("subject %d", i),
+			Content: fmt.Sprintf("memory number %d, unrelated to this question", i),
 		})
 		require.NoError(t, err)
 	}
@@ -186,18 +186,18 @@ func TestExtractionSeesTheMemoryItWouldDuplicateEvenWhenUnimportant(t *testing.T
 	// every importance-ordered window excludes it.
 	_, err := svc.Remember(ctx, types.MemoryItem{
 		Kind: types.MemoryKindFact, Importance: 1,
-		Topic: "生产库", Content: "生产库连接数上限是 200",
+		Topic: "production database", Content: "the production database connection limit is 200",
 	})
 	require.NoError(t, err)
 
 	messages.set("session-1", []*types.Message{
-		userMessage("session-1", "生产库连接数上限昨天调成 500 了", time.Now().Add(-time.Hour)),
+		userMessage("session-1", "the production database connection limit was raised to 500 yesterday", time.Now().Add(-time.Hour)),
 	})
 	svc.ScheduleExtraction(ctx, "session-1", "message-1", "model-1")
 	drainExtractions(t, svc, enqueuer)
 
 	notes := existingNotesBlock(models.lastPromptContaining("What the user said:"))
-	require.Contains(t, notes, "生产库连接数上限是 200",
+	require.Contains(t, notes, "the production database connection limit is 200",
 		"the model cannot supersede a memory it was never shown")
 	require.LessOrEqual(t, strings.Count(notes, "\n["), extractRelevantCandidates,
 		"and it still must not be shown the whole store")

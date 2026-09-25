@@ -157,9 +157,9 @@ curl -X POST $BASE/api/v1/tenants/1/api-keys -H "Authorization: Bearer $TOKEN" \
 
 ### PUT /api/v1/tenants/:id/api-keys/:key_id
 
-Owner，仅 JWT。更新已有 Key 的 name、full_access、knowledge_base_ids、capabilities、expires_at_unix，授权字段按整份配置提交；不是只改一个字段的 PATCH。expires_at_unix 省略或 null 会清除已有到期时间。更改权限后使用同一 token，新授权在后续认证时生效，不重新返回明文。
+Purpose: update an existing key's name, full_access, knowledge_base_ids, capabilities, and expires_at_unix. Permissions: Owner, JWT only. The authorization fields are submitted as a complete configuration; this is not a PATCH that changes a single field. Omitting expires_at_unix or setting it to null clears any existing expiry. After the permissions change, the same token keeps working and the new authorization takes effect on subsequent authentication; the plaintext is not returned again.
 
-返回 200 `{success,data:APIKeyResponse}`，Key 脱敏；非法能力/知识库范围返回 400，不存在返回 404。
+Returns 200 `{success,data:APIKeyResponse}` with the key masked; invalid capabilities or knowledge base scope return 400, and a key that does not exist returns 404.
 
 ```bash
 curl -X PUT "$BASE/api/v1/tenants/1/api-keys/5" \
@@ -380,6 +380,6 @@ Response: 200 `{"success":true,"data":[AuditLog],"next_cursor":N}`. `details` is
 curl $BASE/api/v1/knowledge-bases/kb-1/activity -H "Authorization: Bearer $TOKEN"
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_auth_tenant.go` 的 `RegisterTenantRoutes`。Handler：`internal/handler/tenant.go`、`internal/handler/tenant_member.go`、`internal/handler/tenant_invitation.go`、`internal/handler/tenant_invite_link.go`、`internal/handler/audit_log.go`。
+Route registration: `RegisterTenantRoutes` in `internal/router/routes_auth_tenant.go`. Handlers: `internal/handler/tenant.go`, `internal/handler/tenant_member.go`, `internal/handler/tenant_invitation.go`, `internal/handler/tenant_invite_link.go`, `internal/handler/audit_log.go`.

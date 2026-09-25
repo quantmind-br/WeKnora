@@ -1259,10 +1259,10 @@ func FormatSSRFError(label, rawURL string, err error) string {
 	}
 	if errors.Is(err, ErrSSRFHostNotWhitelisted) {
 		return fmt.Sprintf(
-			"%s 未通过安全校验：服务端开启了「仅允许白名单出站」（SSRF_DNS_WHITELIST_ONLY），"+
-				"%s 不在白名单内，因此在解析域名之前就被拒绝。如该地址确实可信，请联系运维把它加入 "+
-				"SSRF_WHITELIST_EXTRA（支持精确域名 / *.example.com 通配 / IP / CIDR），"+
-				"示例：SSRF_WHITELIST_EXTRA=%s,*.example.com,10.0.0.0/8",
+			"%s failed the security check: the server allows only whitelisted outbound traffic (SSRF_DNS_WHITELIST_ONLY), "+
+				"and %s is not on the whitelist, so it was rejected before the domain name was resolved. If this address is trusted, ask ops to add it to "+
+				"SSRF_WHITELIST_EXTRA (exact domain / *.example.com wildcard / IP / CIDR are supported), "+
+				"e.g. SSRF_WHITELIST_EXTRA=%s,*.example.com,10.0.0.0/8",
 			label, host, host,
 		)
 	}

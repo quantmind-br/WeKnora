@@ -445,7 +445,7 @@ func TestComputeGraphSubset_OverviewTruncatesByLinkCount(t *testing.T) {
 
 func TestComputeGraphSubset_MarksFamiliarSourcePages(t *testing.T) {
 	pages := makeGraphFixture()
-	pages[0].SourceRefs = types.StringArray{"doc-1|排班手册"}
+	pages[0].SourceRefs = types.StringArray{"doc-1|Shift scheduling handbook"}
 	pages[1].SourceRefs = types.StringArray{"doc-2"}
 
 	got, err := computeGraphSubset(pages, &types.WikiGraphRequest{

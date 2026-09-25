@@ -47,9 +47,9 @@ func TestRegistryProtocolOwnsResourceHandleRules(t *testing.T) {
 }
 
 func TestOutputFilesAreRenderedOnlyForLiveModelResults(t *testing.T) {
-	result := &types.ToolResult{Success: true, Output: "generated", OutputFiles: []string{"sandbox:比赛信息.pptx"}}
+	result := &types.ToolResult{Success: true, Output: "generated", OutputFiles: []string{"sandbox:match_info.pptx"}}
 	registry := NewRegistry(true)
-	require.Equal(t, "generated\nOutput files: `sandbox:比赛信息.pptx`", registry.ModelToolResultForTool("shell_exec", result))
+	require.Equal(t, "generated\nOutput files: `sandbox:match_info.pptx`", registry.ModelToolResultForTool("shell_exec", result))
 	require.Equal(t, "generated", result.Output)
 	encoded, err := json.Marshal(result)
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestOutputFilesAreRenderedOnlyForLiveModelResults(t *testing.T) {
 	require.Equal(t, "generated", registry.ModelToolResultForTool("shell_exec", &restored))
 	result.Success = false
 	result.Error = "timeout"
-	require.Contains(t, registry.ModelToolResultForTool("shell_exec", result), "sandbox:比赛信息.pptx")
+	require.Contains(t, registry.ModelToolResultForTool("shell_exec", result), "sandbox:match_info.pptx")
 }
 
 func TestEmptyOutputInspectionIsExplicitOnlyInLiveModelResults(t *testing.T) {
@@ -310,13 +310,13 @@ func TestRegistryCompactsKnownIDsInBuiltInValidationErrors(t *testing.T) {
 
 func TestModelToolResultForTool_failedSkillScriptKeepsStdout(t *testing.T) {
 	registry := NewRegistry(true)
-	stdout := `{"chart":{"success":false,"error":{"error":"X轴字段不存在：工作项目","available":["name","value"]}}}`
+	stdout := `{"chart":{"success":false,"error":{"error":"X-axis field does not exist: work_item","available":["name","value"]}}}`
 	got := registry.ModelToolResultForTool("execute_skill_script", &types.ToolResult{
 		Success: false,
 		Output:  "=== Script Execution: smart-charts/scripts/cli.py ===\n\n## Standard Output\n\n```\n" + stdout + "\n```\n",
 		Error:   "Script exited with code 1\n\n[Analyze the error above and try a different approach.]",
 	})
-	require.Contains(t, got, "X轴字段不存在：工作项目")
+	require.Contains(t, got, "X-axis field does not exist: work_item")
 	require.Contains(t, got, "available")
 	require.Contains(t, got, "Error: Script exited with code 1")
 }

@@ -8,14 +8,14 @@ Evaluation doesn't yet have a dedicated UI entry point. It's triggered via `POST
 
 When comparing configurations, keep the dataset fixed, adjust one variable at a time, and analyze the results against the same set of metrics.
 
-## 运行一次评估
+## Running an evaluation
 
 1. Use the built-in sample dataset, or prepare Parquet files in the format below and replace the files with the same names in `dataset/samples/` under the service working directory (`/app/dataset/samples/` inside the container).
 2. Choose a reference knowledge base, chat model, and rerank model, and create a task via `POST /api/v1/evaluation`. The reference knowledge base is used to copy configuration; the evaluation uses a separate knowledge base.
 3. Note the returned task ID and query the status and progress via `GET /api/v1/evaluation?task_id=...`.
 4. Once the task succeeds, compare the retrieval and generation metrics; if it fails, check the task error first, then adjust the configuration and run it again.
 
-创建任务需要 Admin 权限，查询结果需要 Viewer 权限；API Key 还需 `run_evaluations` 能力或 full-access。
+Creating a task requires Admin permission and querying results requires Viewer permission; an API Key additionally needs the `run_evaluations` capability or full access.
 
 ## Dataset format
 

@@ -12,7 +12,7 @@ const locales = [
   readFileSync(new URL('../../../i18n/locales/ru-RU.ts', import.meta.url), 'utf8'),
 ]
 
-test('FAQ 批量操作通过组件事件直接连接，不再依赖全局事件', () => {
+test('FAQ batch actions connect directly through component events instead of global events', () => {
   assert.match(manager, /import FAQBatchBar from '\.\/FAQBatchBar\.vue'/)
   assert.match(manager, /<FAQBatchBar[\s\S]*?@batch-tag="openBatchTagDialog"/)
   assert.match(manager, /@enable="handleBatchStatusChange\(true\)"/)
@@ -22,7 +22,7 @@ test('FAQ 批量操作通过组件事件直接连接，不再依赖全局事件'
   assert.doesNotMatch(manager, /faqSelectionChanged/)
 })
 
-test('批量操作条根据选择状态和权限展示有效操作', () => {
+test('the batch action bar shows the actions valid for the selection state and permissions', () => {
   assert.match(batchBar, /v-if="count > 0 && \(canEdit \|\| canManage\)"/)
   assert.match(batchBar, /v-if="canEdit && disabledCount > 0"/)
   assert.match(batchBar, /v-if="canEdit && enabledCount > 0"/)
@@ -31,7 +31,7 @@ test('批量操作条根据选择状态和权限展示有效操作', () => {
   assert.match(manager, /if \(!canSelectEntries\.value \|\| batchActionLoading\.value\) return/)
 })
 
-test('危险操作需要确认，所有批量请求都防止重复提交', () => {
+test('dangerous actions require confirmation and every batch request guards against duplicate submission', () => {
   assert.match(batchBar, /confirmBatchDelete/)
   assert.match(batchBar, /@confirm="emit\('delete'\)"/)
   assert.match(batchBar, /const actionLoading = computed/)
@@ -43,7 +43,7 @@ test('危险操作需要确认，所有批量请求都防止重复提交', () =>
   assert.match(manager, /finally \{\s*batchStatusAction\.value = null\s*\}/)
 })
 
-test('所有支持的语言都包含 FAQ 批量操作文案', () => {
+test('every supported language includes the FAQ batch action copy', () => {
   for (const locale of locales) {
     assert.match(locale, /batchEnable:/)
     assert.match(locale, /batchDisable:/)

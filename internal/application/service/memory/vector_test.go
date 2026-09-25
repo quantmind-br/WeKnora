@@ -260,8 +260,8 @@ func TestExtractionOnlySeesRelevantMemories(t *testing.T) {
 		{ID: "embed-1", Type: types.ModelTypeEmbedding, Status: types.ModelStatusActive},
 	}
 	models.embedder = &stubEmbedder{vectors: map[string][]float32{
-		"数据库": {1, 0, 0},
-		"生产库": {1, 0, 0},
+		"database":            {1, 0, 0},
+		"production database": {1, 0, 0},
 	}}
 	models.response = `{"memories":[]}`
 
@@ -269,14 +269,14 @@ func TestExtractionOnlySeesRelevantMemories(t *testing.T) {
 	for i := 0; i < extractRelevantCandidates*2; i++ {
 		_, err := svc.Remember(ctx, types.MemoryItem{
 			Kind:    types.MemoryKindFact,
-			Topic:   fmt.Sprintf("话题%d", i),
-			Content: fmt.Sprintf("与本次提问无关的第 %d 条记忆", i),
+			Topic:   fmt.Sprintf("subject %d", i),
+			Content: fmt.Sprintf("memory number %d, unrelated to this question", i),
 		})
 		require.NoError(t, err)
 	}
 
 	messages.set("session-1", []*types.Message{
-		userMessage("session-1", "生产库的连接数上限是多少", time.Now().Add(-time.Hour)),
+		userMessage("session-1", "what is the connection limit of the production database", time.Now().Add(-time.Hour)),
 	})
 	svc.ScheduleExtraction(ctx, "session-1", "message-1", "model-1")
 	drainExtractions(t, svc, enqueuer)

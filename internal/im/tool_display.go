@@ -689,9 +689,9 @@ func imDocumentListSummary(data map[string]interface{}) string {
 		listed = len(docs)
 	}
 	if total == 0 && listed == 0 {
-		return "知识库中没有文档"
+		return "No documents in the knowledge base"
 	}
-	return fmt.Sprintf("列出 %d / %d 个文档", listed, total)
+	return fmt.Sprintf("Listed %d / %d documents", listed, total)
 }
 
 func imKnowledgeChunksSummary(data map[string]interface{}) string {

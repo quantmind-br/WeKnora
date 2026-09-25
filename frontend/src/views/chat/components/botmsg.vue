@@ -105,7 +105,7 @@
                         <t-icon name="info-circle" />
                     </t-button>
                 </t-tooltip>
-                <!-- 输出被单次上限截断的提示 -->
+                <!-- Notice that the output was truncated by the per-response limit -->
                 <t-tooltip v-if="session.truncated" :content="$t('chat.truncatedHint')" placement="top">
                     <t-button size="small" variant="outline" shape="round" class="fallback-icon-btn">
                         <t-icon name="info-circle" />
@@ -253,7 +253,7 @@ const props = defineProps({
 
 const canFork = computed(() => props.canFork === true && !props.embeddedMode)
 const canRewind = computed(() => props.canRewind === true && !props.embeddedMode)
-const forkTooltip = '从这条回答继续分叉'
+const forkTooltip = 'Fork from this answer'
 const rewindTooltip = computed(() => t('chat.rewind.tooltip'))
 const emitFork = () => {
     const messageId = persistedAssistantId(props.session) || props.session?.id

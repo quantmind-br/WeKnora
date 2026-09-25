@@ -24,7 +24,7 @@ func TestChunkHasExtractableText(t *testing.T) {
 		{"prose", "第1章 総則", true},
 		{"prose around an image link", "See figure: ![fig](resource://x) below.", true},
 		{"image link followed by OCR text", "![page_1.jpg](resource://abc)\nSection 2: Definitions", true},
-		{"title containing right paren", `![a](images/a.png "阶段 1) 结果")`, false},
+		{"title containing right paren", `![a](images/a.png "Stage 1) result")`, false},
 		{"path with balanced parens", `![a](images/a_(1).png "title")`, false},
 		{"empty image wrapper", `<image url="x"><image_original>![a](x)</image_original></image>`, false},
 		{"wrapper with OCR body", `<image url="images/p1.png">
@@ -54,7 +54,7 @@ func TestSelectGraphChunks(t *testing.T) {
 		{ID: "ocr-figure", ChunkType: types.ChunkTypeImageOCR, ParentChunkID: "text-prose", Content: "ACME logo"},
 		{
 			ID: "text-title-paren", ChunkType: types.ChunkTypeText,
-			Content: `![a](images/a.png "阶段 1) 结果")`,
+			Content: `![a](images/a.png "Stage 1) result")`,
 		},
 		{ID: "ocr-orphan", ChunkType: types.ChunkTypeImageOCR, Content: "standalone OCR"},
 	}

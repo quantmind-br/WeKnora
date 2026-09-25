@@ -551,7 +551,7 @@ func (s *wikiPageService) GetIndexView(
 //   - WikiGraphModeOverview (default): returns the top `Limit` pages sorted
 //     by link_count (in+out), plus every edge that connects two surviving
 //     nodes. This is what the frontend fetches on the first graph open —
-// 40k-page wikis would otherwise ship ~30MB of JSON and crash the
+//     40k-page wikis would otherwise ship ~30MB of JSON and crash the
 //     browser trying to render 100k SVG elements.
 //
 //   - WikiGraphModeEgo: returns the BFS neighborhood of `Center` up to

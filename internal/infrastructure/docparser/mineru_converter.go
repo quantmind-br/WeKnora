@@ -429,7 +429,7 @@ func PingMinerU(endpoint, apiKey string) (bool, string) {
 
 	protocol, err := detectMinerUProtocol(ctx, client, endpoint)
 	if err != nil {
-		return false, fmt.Sprintf("MinerU 服务不可用: %v", err)
+		return false, fmt.Sprintf("MinerU service unavailable: %v", err)
 	}
 	if protocol == minerUProtocolV1 {
 		return pingMinerUV1Auth(ctx, client, endpoint, apiKey)
@@ -451,21 +451,21 @@ func PingMinerU(endpoint, apiKey string) (bool, string) {
 func pingMinerUV1Auth(ctx context.Context, client *http.Client, endpoint, apiKey string) (bool, string) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/v1/parse/jobs?limit=1", nil)
 	if err != nil {
-		return false, fmt.Sprintf("构建请求失败: %v", err)
+		return false, fmt.Sprintf("Failed to build request: %v", err)
 	}
 	if apiKey = strings.TrimSpace(apiKey); apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Sprintf("MinerU 服务不可达: %v", err)
+		return false, fmt.Sprintf("MinerU service unreachable: %v", err)
 	}
 	_ = resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized {
 		if apiKey == "" {
-			return false, "MinerU 服务已启用鉴权，请配置 API Key"
+			return false, "MinerU service has authentication enabled; please configure the API Key"
 		}
-		return false, "MinerU API Key 无效"
+		return false, "MinerU API Key is invalid"
 	}
 	return true, ""
 }

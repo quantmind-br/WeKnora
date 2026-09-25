@@ -342,7 +342,7 @@ err = retrieveEngine.BatchIndex(ctx, embeddingModel, indexInfoList)
 Once all multimodal work is complete (or there is none), `TypeKnowledgePostProcess` is enqueued. This task is the **orchestrator of the enrichment subtasks**, using an atomic counter to guarantee convergence to a final state:
 
 ```go
-willSpawnSummary  := eff.SummaryEnabled && len(textChunks) > 0   // 单次上传可关闭摘要
+willSpawnSummary  := eff.SummaryEnabled && len(textChunks) > 0   // summary can be disabled per upload
 willSpawnQuestion := len(textChunks) > 0 && kb.NeedsEmbeddingModel() && eff.QuestionGenerationConfig.Enabled
 willSpawnWiki     := kb.IndexingStrategy.WikiEnabled && len(textChunks) > 0
 graphChunks       := selectGraphChunks(textChunks)                // see below

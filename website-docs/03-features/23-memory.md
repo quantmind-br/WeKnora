@@ -1,75 +1,75 @@
-# 跨会话长期记忆
+# Cross-session Long-term Memory
 
-长期记忆保存调用者的资料、表达偏好、稳定事实和长期关注，供后续会话使用。数据按工作空间和调用者身份隔离，不同空间、IM 用户或嵌入访客分别维护个人记忆。
+Long-term memory stores the caller's profile, preferences, stable facts and long-term interests for use in later sessions. Data is isolated by workspace and caller identity: each space, IM user or embed visitor keeps its own personal memory.
 
-## 开启长期记忆 {#开启和使用}
+## Enabling long-term memory {#enable-and-use}
 
-1. 空间 Admin/Owner 在「设置 → 长期记忆」开启空间开关，默认关闭。
-2. 选择「仅明确记住」或「自动提取」；自动模式可指定抽取模型，留空沿用对话使用的模型。
-3. 个人记忆管理中可关闭自己的记忆，即使空间已开启也不会强制使用。
-4. 在对话里明确说明要记住的偏好，或使用记忆管理手工添加；之后可在另一会话检查是否应用。
-5. 定期查看待确认条目，确认、修改或拒绝推断；已失效的事项可删除。
+1. A space Admin/Owner turns on the space switch under "Settings → Long-term memory"; it is off by default.
+2. Choose "Explicit only" or "Distill automatically". In automatic mode you can specify an extraction model; leave it blank to use the model the conversation uses.
+3. Users can turn off their own memory in personal memory management; it is not forced on them even when the space has it enabled.
+4. State the preference to remember explicitly in a conversation, or add it by hand in memory management; then check in another session whether it is applied.
+5. Review pending items regularly and confirm, edit or reject inferences; items that no longer apply can be deleted.
 
-| 模式 | 行为 |
+| Mode | Behavior |
 | --- | --- |
-| `explicit_only` | 只记录明确要求记住的内容，不运行后台 LLM 蒸馏 |
-| `auto` | 额外在后台从对话提取，按延迟和最短间隔合并处理 |
+| `explicit_only` | Only records what is explicitly asked to be remembered; no background LLM distillation runs |
+| `auto` | Additionally extracts from conversations in the background, batching work by delay and minimum interval |
 
-智能体的 `memory_enabled=false` 可单独禁用记忆读写，省略则继承空间设置。IM/Embed 使用所绑定智能体的记忆偏好；API Key 必须 full-access 才能使用个人记忆管理接口。功能受空间、个人和当前请求的开关共同约束。
+An agent's `memory_enabled=false` disables memory reads and writes for that agent alone; omitting it inherits the space setting. IM/Embed use the memory preference of the bound agent; an API Key must be full-access to use the personal memory management endpoints. The feature is governed jointly by the space, personal and per-request switches.
 
-## 管理记忆
+## Managing memories
 
-| 操作 | 用途 |
+| Action | Purpose |
 | --- | --- |
-| 新增 / 编辑 | 直接维护个人资料、偏好、事实、事项或兴趣；手工编辑不再由后台抽取覆盖 |
-| 确认待确认项 | 推断条目从 pending 变为可用；未确认不会注入提示词。若推断用于修改已有记忆，确认前旧条目继续生效，确认时一并替换；推断已失效时确认会失败，需刷新列表 |
-| 拒绝 / 删除 | 撤销错误或不再需要的记忆，拒绝留下抑制记录，减少重复提取 |
-| 主题提升 | 把反复讨论的主题立即变为长期关注，也可停止跟踪主题 |
-| 文档偏好 | 查看反复引用的文档，移除不再需要的个性化检索偏好 |
-| 立即整理 | 合并近义条目、归档到期事项，不必等待后台整理 |
-| 导出 / 清空 | 下载自己的 JSON 记忆，或清空自己的记忆数据 |
+| Add / Edit | Maintain profile, preferences, facts, tasks or interests directly; manual edits are no longer overwritten by background extraction |
+| Confirm pending items | An inferred item goes from pending to usable; unconfirmed items are not injected into the prompt. If the inference modifies an existing memory, the old item stays in effect until confirmation and is replaced on confirm; confirmation fails if the inference is stale, in which case refresh the list |
+| Reject / Delete | Revoke memories that are wrong or no longer needed; rejecting leaves a suppression record that reduces repeated extraction |
+| Promote topic | Turn a repeatedly discussed topic into a long-term interest immediately, or stop tracking a topic |
+| Document preferences | View repeatedly cited documents and remove personalized retrieval preferences you no longer need |
+| Tidy up now | Merge near-duplicate items and archive expired tasks without waiting for background consolidation |
+| Export / Clear | Download your memories as JSON, or clear your memory data |
 
-记忆条目分为资料、偏好、事实、事项和兴趣。同一主题的新事实可替代旧事实。关闭个人开关会暂停使用，删除或清空会移除数据。接口中的类别与状态值见[记忆 API](../04-api/02-api-memory.md)。
+Memory items are classified as profile, preference, fact, task and interest. A new fact on the same topic can supersede an old one. Turning off the personal switch pauses usage; deleting or clearing removes the data. For the category and status values used by the API, see the [Memory API](../04-api/02-api-memory.md).
 
-## 对回答和检索的影响
+## Effect on answers and retrieval
 
-系统将资料、偏好和兴趣作为受长度限制的常驻上下文，按当前问题召回相关事实和事项。配置向量模型后，语义召回在该身份的全部记忆中按与问题的相关度排序，不受条目重要度影响；PostgreSQL 启用 pgvector 时在数据库内排序，其余环境在服务内计算。智能推理还可主动搜索记忆与历史对话。记忆仅影响问题理解和资料选择，不扩展知识库访问权限。
+The system treats profile, preferences and interests as length-limited resident context, and recalls relevant facts and tasks based on the current question. Once an embedding model is configured, semantic recall ranks all of that identity's memories by relevance to the question, regardless of item importance; with PostgreSQL and pgvector enabled the ranking happens in the database, otherwise it is computed in the service. Smart reasoning can also actively search memories and past conversations. Memory only affects question understanding and source selection; it does not extend knowledge base access permissions.
 
-开启检索个性化后，系统用主题帮助理解问题，并用反复引用的文档辅助排序。对话时间线会显示记忆相关步骤。后台任务按会话记录提取游标和待处理状态，短时间连续发问、批次截断或服务重启都不会遗漏消息。某段消息的模型输出持续无法解析时，最多重试三轮后跳过该段并继续处理后续消息，跳过的消息不会自动补提取。
+With retrieval personalization enabled, the system uses topics to help understand the question and uses repeatedly cited documents to assist ranking. The conversation timeline shows memory-related steps. Background tasks keep an extraction cursor and pending state per session, so rapid consecutive questions, batch truncation or a service restart do not cause messages to be missed. If the model output for a segment of messages keeps failing to parse, that segment is skipped after at most three retry rounds and processing continues with later messages; skipped messages are not re-extracted automatically.
 
-## 排查记忆未生效的问题 {#排查}
+## Troubleshooting memory that does not take effect {#troubleshooting}
 
-| 现象 | 检查 |
+| Symptom | Check |
 | --- | --- |
-| 没有使用记忆 | 空间开关、个人开关、智能体开关，确认是否换了空间或身份 |
-| 自动提取未出现 | write_mode、抽取延迟/最短间隔、模型连接与后台任务 |
-| 推断未影响回答 | 是否仍为 pending；确认后才会使用 |
-| 不再希望引用某文档 | 在文档偏好中移除；知识库权限仍独立控制 |
-| 立即整理未合并任何条目 | 查看返回的 skipped 原因，可能条目过少或无候选 |
+| Memory is not used | Space switch, personal switch, agent switch; check whether the space or identity changed |
+| Automatic extraction does not appear | write_mode, extraction delay/minimum interval, model connection and background tasks |
+| Inference does not affect answers | Whether it is still pending; it is used only after confirmation |
+| A document should no longer be cited | Remove it in document preferences; knowledge base permissions are still controlled independently |
+| Tidy up now merged nothing | Check the returned skipped reason; there may be too few items or no candidates |
 
-## 空间配置
+## Space configuration
 
-空间管理员可通过设置页维护记忆开关、提取模式和模型。配置保存在 `memory_config`，通过 `GET/PUT /tenants/kv/memory-config` 读取和更新，完整字段见[记忆 API](../04-api/02-api-memory.md)。
+Space admins can maintain the memory switch, extraction mode and models on the settings page. The configuration is stored in `memory_config` and is read and updated through `GET/PUT /tenants/kv/memory-config`; for all fields, see the [Memory API](../04-api/02-api-memory.md).
 
-| 名称 | 类型 | 默认值 | 说明 |
+| Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `enabled` | bool | `false` | 空间开关 |
-| `write_mode` | string | `explicit_only` | `explicit_only` / `auto`，其他值按 `explicit_only` 处理 |
-| `extract_model_id` | string | 空 | 抽取模型，空值沿用对话模型 |
-| `extract_delay_seconds` | int | `90` | 回答完成后延迟提取，合并短时间内的多轮消息；范围 5–3600 |
-| `extract_min_interval_seconds` | int | `300` | 同一人两次提取的最短间隔，控制调用频率，间隔内的消息顺延处理；最大 86400 |
-| `extract_instructions` | string | 空 | 空间自己的提取规则，最多 1000 字 |
-| `max_items` | int | `200` | 每个身份的活跃记忆上限，最大 2000；0 使用默认值 |
-| `interest_threshold` | int | `3` | 主题在多少个会话中出现后形成关注，最大 20 |
-| `embedding_model_id` | string | 空 | 记忆召回使用的向量模型；为空时只做词法匹配 |
-| `vector_recall` | bool | 省略即开启 | 配置了向量模型时是否启用语义召回 |
-| `retrieval_conditioning` | bool | 省略即开启 | 允许记忆影响问题理解和文档排序 |
+| `enabled` | bool | `false` | Space switch |
+| `write_mode` | string | `explicit_only` | `explicit_only` / `auto`; other values are treated as `explicit_only` |
+| `extract_model_id` | string | empty | Extraction model; an empty value uses the conversation model |
+| `extract_delay_seconds` | int | `90` | Delay extraction after an answer completes to batch multiple turns within a short time; range 5–3600 |
+| `extract_min_interval_seconds` | int | `300` | Minimum interval between two extractions for the same person, bounding call frequency; messages within the interval are deferred; max 86400 |
+| `extract_instructions` | string | empty | The space's own extraction rules, up to 1000 characters |
+| `max_items` | int | `200` | Active memory cap per identity, max 2000; 0 uses the default |
+| `interest_threshold` | int | `3` | Number of sessions a topic must appear in before it becomes an interest, max 20 |
+| `embedding_model_id` | string | empty | Embedding model used for memory recall; when empty only lexical matching is done |
+| `vector_recall` | bool | on when omitted | Whether to enable semantic recall when an embedding model is configured |
+| `retrieval_conditioning` | bool | on when omitted | Allows memory to influence question understanding and document ranking |
 
-提取模型用于后台归纳，向量模型用于匹配当前问题。记忆功能会增加对应的模型调用；模型被记忆配置引用时，删除模型会显示依赖详情。
+The extraction model is used for background distillation, and the embedding model for matching the current question. The memory feature adds the corresponding model calls; when a model is referenced by the memory configuration, deleting it shows the dependency details.
 
-## 实现参考
+## Implementation reference
 
-- `internal/application/service/memory/`：作用域、抽取、召回、主题、文档偏好、整理
-- `internal/handler/memory.go`、`internal/router/routes_memory.go`：个人 API
-- `internal/types/memory.go`：模型、预算、状态和配置
-- `frontend/src/views/settings/MemorySettings.vue`、`MemoryWorkspaceSettings.vue`
+- `internal/application/service/memory/`: scope, extraction, recall, topics, document preferences, consolidation
+- `internal/handler/memory.go`, `internal/router/routes_memory.go`: personal API
+- `internal/types/memory.go`: models, budgets, statuses and configuration
+- `frontend/src/views/settings/MemorySettings.vue`, `MemoryWorkspaceSettings.vue`

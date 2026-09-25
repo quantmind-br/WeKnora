@@ -26,7 +26,7 @@
             <div ref="scrollContainer" class="chat_scroll_box" @scroll="handleScroll">
                 <div class="chat_scroll_content">
                     <div class="msg_list" :class="{ 'is-embedded': embeddedMode }">
-                        <!-- 消息列表骨架屏 -->
+                        <!-- Message list skeleton -->
                         <div v-if="historyLoading && messagesList.length === 0" class="msg-skeleton-list">
                             <div class="msg-skeleton msg-skeleton-user">
                                 <t-skeleton animation="gradient"
@@ -45,11 +45,11 @@
                                     :row-col="[{ width: '70%', height: '16px' }, { width: '90%', height: '16px' }]" />
                             </div>
                         </div>
-                        <!-- 推荐问题卡片 - 仅在新会话（无消息）时展示 -->
+                        <!-- Suggested question cards - only shown for a new session (no messages) -->
                         <div v-if="!embeddedMode && messagesList.length === 0 && !loading"
                             class="suggested-questions-container"
                             :class="{ 'has-questions': suggestedQuestions.length > 0 || suggestedQuestionsLoading }">
-                            <!-- 骨架屏占位 -->
+                            <!-- Skeleton placeholder -->
                             <div v-if="suggestedQuestionsLoading && suggestedQuestions.length === 0"
                                 class="suggested-questions-inner">
                                 <div class="suggested-questions-title"><t-skeleton animation="gradient"
@@ -91,12 +91,12 @@
                             </transition>
                         </div>
                         <!--
-                      关键：必须用 session.id 作为 key，不能用 v-for 的索引。
-                      向上滚动加载历史时会插入一批消息（push/unshift）到列表，
-                      若用索引作 key 会让所有已渲染消息的 key 漂移，触发整个列表的销毁重建
-                      （botmsg / AgentStreamDisplay 全部重新挂载、markdown 重新渲染），
-                      这是历史加载时白屏 + layout shift 蔓延到 session 列表的根因。
-                      仅对极少数尚未拿到 id 的本地占位消息 fallback 到 role+created_at+index。
+                      Critical: must use session.id as the key, not the v-for index.
+                      Scrolling up to load history inserts a batch of messages (push/unshift) into the list,
+                      using the index as key would shift the keys of all already-rendered messages, triggering a full list destroy-and-rebuild
+                      (botmsg / AgentStreamDisplay all remount, markdown re-renders),
+                      this is the root cause of the white-screen-plus-layout-shift issue during history loading spreading to the session list.
+                      Only fall back to role+created_at+index for the rare local placeholder messages that don't have an id yet.
                     -->
                         <div v-for="(session, index) in messagesList"
                             :key="session.id || `${session.role}-${session.created_at}-${index}`" class="msg-item-wrapper"
@@ -418,7 +418,7 @@ async function handleFork(messageId) {
         usemenuStore.updataMenuChildren({
             id: data.session_id,
             path: `chat/${data.session_id}`,
-            title: `${sourceTitle}（分支）`,
+            title: `${sourceTitle} (Branch)`,
             parent_session_id: sourceSessionId,
             isMore: false,
             isNoTitle: false,
@@ -429,10 +429,10 @@ async function handleFork(messageId) {
         await router.push(`/platform/chat/${data.session_id}`)
     } catch (err) {
         if (err?.status === 409 || err?.$httpStatus === 409) {
-            MessagePlugin.warning('请等本轮回答结束后再分叉')
+            MessagePlugin.warning('Wait for this answer to finish before forking')
             return
         }
-        MessagePlugin.error('分叉失败，请重试')
+        MessagePlugin.error('Fork failed, please try again')
     } finally {
         forkInFlight = false
     }
@@ -1097,8 +1097,8 @@ const handleSteerMsg = async (value, mentionedItems = [], delivery = 'after', re
     if (composerLocked.value) return
     if (!session_id.value || !value?.trim()) return;
     if (!isReplying.value && !retryId) {
-        // 空闲时没有运行中的 turn 可排队：直接走正常发送，而不是把
-        // steering（服务端为 handleSteer/指定事务）当隐形 sendMsg 用。
+        // When idle there is no running turn to queue onto: go through the normal send instead of
+        // using steering (handleSteer / a targeted transaction on the server) as an invisible sendMsg.
         await sendMsg(value, '', mentionedItems);
         return;
     }
@@ -1785,8 +1785,8 @@ onBeforeRouteUpdate((to, from, next) => {
         }
     }
 
-    // 沙箱可视化右侧面板：宽度可拖拽调整（--sandbox-panel-width 由
-    // composable 持久化），聊天区 padding 跟随面板宽度让位。
+    // Sandbox visualization side panel: its width is drag-resizable (--sandbox-panel-width is
+    // persisted by the composable), and the chat area padding follows the panel width to make room.
     &.has-sandbox-panel:not(.is-embedded) {
         @media (min-width: 960px) {
             padding-right: var(--sandbox-panel-width, 420px);

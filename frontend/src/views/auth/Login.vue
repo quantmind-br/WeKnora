@@ -177,7 +177,7 @@
       <div class="form-panel">
         <!-- Login Card -->
         <div class="form-card" v-if="!isRegisterMode">
-          <!-- invite_only 模式下共享链接停在登录卡，同样需要邀请上下文。 -->
+          <!-- In invite_only mode a shared link stops at the login card, which also needs the invitation context. -->
           <div v-if="inviteLookup" class="invite-banner">
             <t-icon name="link" class="invite-banner__icon" />
             <div class="invite-banner__text">
@@ -637,7 +637,7 @@ const handleOIDCLogin = async () => {
       return
     }
 
-    // 跳转 IdP 会丢失 URL 中的 token，暂存到 sessionStorage，回调后由 App.vue 兑换。
+    // Redirecting to the IdP loses the token in the URL, so stash it in sessionStorage; App.vue redeems it after the callback.
     if (inviteToken.value) {
       sessionStorage.setItem('weknora_pending_invite_token', inviteToken.value)
     }
@@ -650,7 +650,7 @@ const handleOIDCLogin = async () => {
   }
 }
 
-// 用 token 加入空间并进入应用。会话此时已有效，故即便 token 失效也照常进入（避免困在登录页）。
+// Join the space with the token and enter the app. The session is already valid, so enter anyway even if the token is invalid (to avoid getting stuck on the login page).
 const acceptAndEnter = async (token: string) => {
   loading.value = true
   try {
@@ -684,7 +684,7 @@ const handleLogin = async () => {
 
     if (response.success) {
       if (inviteToken.value) {
-        // 从邀请链接登录：持久化会话后兑换 token 并进入对应空间。
+        // Signing in from an invitation link: persist the session, then redeem the token and enter that space.
         await persistLoginResponse(response, true)
         await acceptAndEnter(inviteToken.value)
         return
@@ -774,7 +774,7 @@ onMounted(async () => {
   if (tokenFromQuery) {
     inviteToken.value = tokenFromQuery
     inviteLookupLoading.value = true
-    // 1. 先校验 token：无效/过期则停在登录页报错，不进注册模式。
+    // 1. Validate the token first: if invalid/expired, stay on the login page with an error instead of entering registration mode.
     try {
       const resp = await getInvitationByToken(tokenFromQuery)
       if (resp.success && resp.data) {
@@ -794,13 +794,13 @@ onMounted(async () => {
       inviteLookupLoading.value = false
     }
 
-    // 2. 已登录则直接兑换 token 进入空间（两种模式通用）。
+    // 2. If already signed in, redeem the token and enter the space directly (same for both modes).
     if (authStore.isLoggedIn && (await authStore.refreshFromAuthMe())) {
       await acceptAndEnter(tokenFromQuery)
       return
     }
 
-    // 3. 未登录：按注册模式决定界面。invite_only 停在登录页、登录后再兑换；self_serve 保持注册流程。
+    // 3. Not signed in: the registration mode decides the UI. invite_only stays on the login page and redeems after sign-in; self_serve keeps the registration flow.
     const cfg = await getAuthConfig()
     const inviteOnly = cfg.registration_mode === 'invite_only'
     registrationEnabled.value = !inviteOnly

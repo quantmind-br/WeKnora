@@ -810,13 +810,13 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 }
 
 // GenerateKnowledgeBaseProfile godoc
-// @Summary      生成知识库描述
-// @Description  基于文档画像聚合，立即重新生成知识库的 AI 描述（不覆盖手写描述）
-// @Tags         知识库
+// @Summary      Generate knowledge base description
+// @Description  Immediately regenerates the knowledge base's AI description from aggregated document profiles (a hand-written description is not overwritten)
+// @Tags         Knowledge Base
 // @Produce      json
-// @Param        id   path      string  true  "知识库ID"
-// @Success      200  {object}  map[string]interface{}  "生成的知识库画像"
-// @Failure      400  {object}  errors.AppError         "知识库类型不支持或未配置模型"
+// @Param        id   path      string  true  "Knowledge Base ID"
+// @Success      200  {object}  map[string]interface{}  "Generated knowledge base profile"
+// @Failure      400  {object}  errors.AppError         "Knowledge base type not supported or no model configured"
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @Router       /knowledge-bases/{id}/profile/generate [post]

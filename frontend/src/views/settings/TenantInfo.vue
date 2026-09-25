@@ -758,8 +758,8 @@ onMounted(() => {
   .edit-btn {
     flex-shrink: 0;
   }
-  /* 反过来：内容列吃掉剩余空间，并允许收缩 + 内部换行，长字符串不会再撑爆行。
-     去掉原先的 min-width:280px 硬约束（短内容也不需要那么宽的展示槽）。 */
+  /* Conversely: the content column takes the remaining space and may shrink + wrap internally, so long strings no longer blow out the row.
+     Dropped the previous hard min-width:280px (short content does not need such a wide slot either). */
 }
 
 .inline-edit {

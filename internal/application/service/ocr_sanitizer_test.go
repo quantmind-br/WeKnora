@@ -34,23 +34,23 @@ func TestSanitizeOCRText(t *testing.T) {
 		},
 		{
 			name:  "valid markdown passes through",
-			input: "# 标题\n\n这是一段正文，包含一些内容。\n\n| 列1 | 列2 |\n| --- | --- |\n| 数据1 | 数据2 |",
-			want:  "# 标题\n\n这是一段正文，包含一些内容。\n\n| 列1 | 列2 |\n| --- | --- |\n| 数据1 | 数据2 |",
+			input: "# Title\n\nThis is a body paragraph with some content.\n\n| Col 1 | Col 2 |\n| --- | --- |\n| Data 1 | Data 2 |",
+			want:  "# Title\n\nThis is a body paragraph with some content.\n\n| Col 1 | Col 2 |\n| --- | --- |\n| Data 1 | Data 2 |",
 		},
 		{
 			name:  "code block wrapper stripped",
-			input: "```markdown\n# 文档标题\n\n正文内容在这里。\n```",
-			want:  "# 文档标题\n\n正文内容在这里。",
+			input: "```markdown\n# Document Title\n\nThe body content goes here.\n```",
+			want:  "# Document Title\n\nThe body content goes here.",
 		},
 		{
 			name:  "html code block wrapper stripped",
-			input: "```html\n<p>这是一段内容</p>\n```",
-			want:  "这是一段内容",
+			input: "```html\n<p>This is some content</p>\n```",
+			want:  "This is some content",
 		},
 		{
 			name:  "HTML document converted to markdown",
-			input: "<html><body><h1>标题</h1><p>这是一段很长的正文内容，用来测试 HTML 到 Markdown 的转换。</p></body></html>",
-			want:  "# 标题\n\n这是一段很长的正文内容，用来测试 HTML 到 Markdown 的转换。",
+			input: "<html><body><h1>Title</h1><p>This is a long body paragraph used to test HTML to Markdown conversion.</p></body></html>",
+			want:  "# Title\n\nThis is a long body paragraph used to test HTML to Markdown conversion.",
 		},
 		{
 			name:  "known empty reply - Chinese",
@@ -63,23 +63,23 @@ func TestSanitizeOCRText(t *testing.T) {
 			want:  "",
 		},
 		{
-			name:  "known empty reply - 图片中没有文字",
+			name:  "known empty reply - Chinese no text in image",
 			input: "图片中没有文字",
 			want:  "",
 		},
 		{
 			name:  "plain text with minimal HTML not converted",
-			input: "这是一段正常文本，价格 <100 元。",
-			want:  "这是一段正常文本，价格 <100 元。",
+			input: "This is normal text, price <100 yuan.",
+			want:  "This is normal text, price <100 yuan.",
 		},
 		{
 			name:  "multiple blank lines collapsed",
-			input: "段落一\n\n\n\n\n段落二",
-			want:  "段落一\n\n段落二",
+			input: "Paragraph one\n\n\n\n\nParagraph two",
+			want:  "Paragraph one\n\nParagraph two",
 		},
 		{
 			name:  "HTML with substantial text content is converted",
-			input: "<div><h2>报告摘要</h2><p>本季度营收同比增长 15%，净利润达到 2.3 亿元。</p><table><tr><th>指标</th><th>数值</th></tr><tr><td>营收</td><td>10亿</td></tr></table></div>",
+			input: "<div><h2>Report Summary</h2><p>Revenue grew 15% year over year this quarter, and net profit reached 230 million yuan.</p><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Revenue</td><td>1 billion</td></tr></table></div>",
 			want:  "", // placeholder; will be checked for non-empty
 		},
 	}
@@ -196,17 +196,17 @@ func TestLooksLikeHTML(t *testing.T) {
 // the mixed content does not satisfy looksLikeHTML, so the old HTML-to-markdown
 // path never ran and the raw <table> markup reached the chunker.
 func TestSanitizeOCRText_ConvertsInlineHTMLTable(t *testing.T) {
-	para := "本季度公司整体经营情况保持稳定，营收与利润两项核心指标均实现同比增长。" +
-		"为了便于管理层快速了解经营成果，下表汇总了报告期内的主要财务数据，" +
-		"供后续经营分析、预算编制以及年度考核等工作参考使用，" +
-		"请结合实际业务情况综合判断，切勿脱离业务背景单独解读其中任何一项数字。"
-	tail := "以上数据均来自财务部门审核后的正式报表，统计口径与上一报告期保持一致，" +
-		"未发生会计政策变更或追溯调整。如有疑问请与财务部门联系确认，" +
-		"最终解释权归公司财务部门所有。"
-	input := "# 报告\n\n" + para + "\n\n" +
-		`<table><tr><th>指标</th><th>数值</th></tr>` +
-		`<tr><td>营收</td><td>10亿</td></tr>` +
-		`<tr><td>利润</td><td>2.3亿</td></tr></table>` +
+	para := "The company's overall operations remained stable this quarter, and both core metrics, revenue and profit, grew year over year. " +
+		"To help management quickly understand the operating results, the table below summarizes the main financial data for the reporting period, " +
+		"for reference in subsequent operating analysis, budgeting and annual performance reviews. " +
+		"Please judge it together with the actual business situation and never interpret any single figure out of its business context."
+	tail := "All of the above data comes from the official statements audited by the finance department, and the statistical basis is consistent with the previous reporting period; " +
+		"there were no changes in accounting policy or retrospective adjustments. If you have questions, please confirm with the finance department. " +
+		"The finance department reserves the right of final interpretation."
+	input := "# Report\n\n" + para + "\n\n" +
+		`<table><tr><th>Metric</th><th>Value</th></tr>` +
+		`<tr><td>Revenue</td><td>1 billion</td></tr>` +
+		`<tr><td>Profit</td><td>230 million</td></tr></table>` +
 		"\n\n" + tail + "\n\n"
 
 	if looksLikeHTML(input) {
@@ -218,10 +218,10 @@ func TestSanitizeOCRText_ConvertsInlineHTMLTable(t *testing.T) {
 	if strings.Contains(got, "<table") {
 		t.Fatalf("expected inline HTML table to be converted, got:\n%s", got)
 	}
-	if !strings.Contains(got, "# 报告") || !strings.Contains(got, "最终解释权归公司财务部门所有。") {
+	if !strings.Contains(got, "# Report") || !strings.Contains(got, "The finance department reserves the right of final interpretation.") {
 		t.Fatalf("expected surrounding markdown to be preserved, got:\n%s", got)
 	}
-	for _, want := range []string{"指标", "数值", "营收", "10亿", "利润", "2.3亿"} {
+	for _, want := range []string{"Metric", "Value", "Revenue", "1 billion", "Profit", "230 million"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected converted table to retain %q, got:\n%s", want, got)
 		}
@@ -242,7 +242,7 @@ func TestIsKnownEmptyReply(t *testing.T) {
 		{"No Text", true},
 		{"NO CONTENT", true},
 		{"empty", true},
-		{"这是正常内容", false},
+		{"This is normal content", false},
 		{"", false},
 	}
 

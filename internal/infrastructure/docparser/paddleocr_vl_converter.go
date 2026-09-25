@@ -291,7 +291,7 @@ func PingPaddleOCRVL(endpoint string) (bool, string) {
 		return false, "PaddleOCR-VL endpoint is not configured"
 	}
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
-		return false, fmt.Sprintf("PaddleOCR-VL 端点未通过 SSRF 校验: %v", err)
+		return false, fmt.Sprintf("PaddleOCR-VL endpoint failed SSRF validation: %v", err)
 	}
 	client := utils.NewSSRFSafeHTTPClient(utils.SSRFSafeHTTPClientConfig{
 		Timeout:      5 * time.Second,

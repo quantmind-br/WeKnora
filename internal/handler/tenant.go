@@ -143,7 +143,7 @@ type tenantAPIKeyCreateRequest struct {
 	ExpiresAt        *int64   `json:"expires_at_unix"`
 }
 
-// tenantAPIKeyUpdateRequest 修改已创建 API Key 的配置，字段语义与创建接口一致。
+// tenantAPIKeyUpdateRequest updates the config of an existing API key; field semantics match the create endpoint.
 type tenantAPIKeyUpdateRequest struct {
 	Name             string   `json:"name"`
 	FullAccess       bool     `json:"full_access"`
@@ -722,8 +722,8 @@ func (h *TenantHandler) CreateAPIKey(c *gin.Context) {
 	})
 }
 
-// UpdateAPIKey 修改已创建租户 API Key 的授权范围和其他可配置属性。
-// 路由层要求当前租户 Owner；字段校验与创建接口保持一致。
+// UpdateAPIKey updates the authorization scope and other configurable attributes of an existing tenant API key.
+// The router requires the current tenant Owner; field validation matches the create endpoint.
 func (h *TenantHandler) UpdateAPIKey(c *gin.Context) {
 	ctx := c.Request.Context()
 	tenantID, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -826,8 +826,9 @@ func validateTenantAPIKeyRequest(
 	return validateTenantAPIKeyKnowledgeBaseIDs(ctx, kbService, tenantID, req.KnowledgeBaseIDs)
 }
 
-// validateTenantAPIKeyKnowledgeBaseIDs 校验白名单中的知识库真实存在且属于目标租户。
-// 入参是请求上下文、知识库服务、租户 ID 和待授权 ID；成功无返回值，失败返回可直接响应的应用错误。
+// validateTenantAPIKeyKnowledgeBaseIDs checks that every knowledge base in the allowlist exists and belongs to the target tenant.
+// Inputs are the request context, the knowledge base service, the tenant ID and the IDs to authorize; it returns nil on success
+// and an application error that can be sent to the client as-is on failure.
 func validateTenantAPIKeyKnowledgeBaseIDs(
 	ctx context.Context,
 	kbService interfaces.KnowledgeBaseService,
@@ -842,8 +843,9 @@ func validateTenantAPIKeyKnowledgeBaseIDs(
 	)
 }
 
-// validateTenantAPIKeyKnowledgeBaseIDsWithLookup 将归属校验与大型知识库服务接口解耦，便于覆盖边界测试。
-// lookup 输入知识库 ID 并返回真实知识库；函数输出 nil 或可直接响应的校验错误。
+// validateTenantAPIKeyKnowledgeBaseIDsWithLookup decouples the ownership check from the large knowledge base service
+// interface so boundary cases are easy to test. lookup takes a knowledge base ID and returns the actual knowledge base;
+// the function returns nil or a validation error that can be sent to the client as-is.
 func validateTenantAPIKeyKnowledgeBaseIDsWithLookup(
 	ctx context.Context,
 	tenantID uint64,

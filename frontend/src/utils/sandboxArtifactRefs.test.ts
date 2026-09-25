@@ -10,7 +10,7 @@ import {
   type ArtifactRefMeta,
 } from './sandboxArtifactRefs.ts'
 
-const labels = { previewHint: '点击预览', missingHint: '文件不可用', deletedHint: '文件已删除' }
+const labels = { previewHint: 'Click to preview', missingHint: 'File unavailable', deletedHint: 'File deleted' }
 
 test('inline file cards reuse the drawer icon and keep filenames escaped', () => {
   for (const name of ['report.pdf', 'table.xlsx', 'notes.docx', 'slides.pptx', 'chart.html', 'bad.<img src=x onerror=alert(1)>']) {
@@ -25,7 +25,7 @@ test('inline file cards reuse the drawer icon and keep filenames escaped', () =>
   assert.match(renderArtifactFileIcon('report.pdf'), />PDF<\/text>/)
 })
 
-// 22 位句柄，与后端 types.ResourceHandleLength 一致。
+// 22-character handle, matching the backend types.ResourceHandleLength.
 const handleFor = (i: number) => `art${i}`.padEnd(22, 'x')
 const refFor = (i: number) => `resource://${handleFor(i)}`
 
@@ -33,10 +33,10 @@ const artifacts: ArtifactRefMeta[] = [
   { index: 0, handle: refFor(0), file_name: '市场画像评分_e7edba.html', file_type: 'text/html' },
   { index: 1, handle: refFor(1), file_name: 'trend.png', file_type: 'image/png' },
   { index: 2, handle: refFor(2), file_name: 'diagram.svg', file_type: 'image/svg+xml' },
-  { index: 3, handle: refFor(3), file_name: '腾讯控股(00700) 成交量_838ccc.html', file_type: 'text/html' },
+  { index: 3, handle: refFor(3), file_name: 'Tencent(00700) volume_838ccc.html', file_type: 'text/html' },
 ]
 
-// 知识库检索图：形式与产物完全相同，但不属于这条消息。
+// A retrieved knowledge base image: same form as an artifact, but not part of this message.
 const foreignRef = `resource://${'z'.repeat(22)}`
 
 test('isArtifactRefHref matches handle and sandbox forms only', () => {
@@ -44,7 +44,7 @@ test('isArtifactRefHref matches handle and sandbox forms only', () => {
   assert.equal(isArtifactRefHref('sandbox:trend.png'), true)
   assert.equal(isArtifactRefHref('sandbox://trend.png'), true)
   assert.equal(isArtifactRefHref('https://example.com/trend.png'), false)
-  // 长度不对的不是句柄。
+  // Wrong length means it is not a handle.
   assert.equal(isArtifactRefHref('resource://tenant/1/trend.png'), false)
   assert.equal(isArtifactRefHref('trend.png'), false)
   assert.equal(isArtifactRefHref(''), false)
@@ -82,7 +82,7 @@ test('renderArtifactReference leaves ordinary images to the default renderer', (
 })
 
 test('a handle from outside this message falls back to protected-image rendering', () => {
-  // 知识库检索图与产物同形。此时必须交回默认渲染，而不是显示「文件不可用」。
+  // Retrieved knowledge base images look the same as artifacts. They must go back to default rendering instead of showing "File unavailable".
   assert.equal(
     renderArtifactReference({ href: foreignRef, artifacts, labels }),
     null,
@@ -96,20 +96,20 @@ test('a handle from outside this message falls back to protected-image rendering
 test('renderArtifactReference renders image artifacts inline', () => {
   const html = renderArtifactReference({
     href: refFor(1),
-    alt: '走势',
+    alt: 'Trend',
     artifacts,
     labels,
   })
   assert.ok(html?.includes('class="markdown-image artifact-ref-image"'))
   assert.ok(html?.includes('data-artifact-index="1"'))
   assert.ok(html?.includes('data-img-loading="1"'))
-  assert.ok(html?.includes('alt="走势"'))
+  assert.ok(html?.includes('alt="Trend"'))
 })
 
 test('renderArtifactReference renders non-image artifacts as a clickable card', () => {
   const html = renderArtifactReference({
     href: refFor(0),
-    alt: '市场画像评分',
+    alt: 'Market profile score',
     artifacts,
     labels,
   })
@@ -117,7 +117,7 @@ test('renderArtifactReference renders non-image artifacts as a clickable card', 
   assert.ok(html?.includes('data-artifact-index="0"'))
   assert.ok(html?.includes('role="button"'))
   assert.ok(html?.includes('市场画像评分_e7edba.html'))
-  assert.ok(html?.includes('点击预览'))
+  assert.ok(html?.includes('Click to preview'))
   assert.ok(!html?.includes('<img'))
 })
 
@@ -143,12 +143,12 @@ test('while streaming an unresolved reference shows the image skeleton', () => {
 test('after the turn ends an unresolved reference says so instead of hanging', () => {
   const html = renderArtifactReference({
     href: 'sandbox:市场画像评分_e7edba.html',
-    alt: '市场画像评分',
+    alt: 'Market profile score',
     artifacts: [],
     labels,
   })
   assert.ok(html?.includes('artifact-ref-card--pending'))
-  assert.ok(html?.includes('文件不可用'))
+  assert.ok(html?.includes('File unavailable'))
   assert.ok(!html?.includes('data-artifact-index'))
   assert.ok(!html?.includes('role="button"'))
 })
@@ -156,7 +156,7 @@ test('after the turn ends an unresolved reference says so instead of hanging', (
 test('an empty image destination is skipped instead of rendering a broken img', () => {
   const html = renderArtifactReference({
     href: '',
-    alt: '根目录示例文件',
+    alt: 'Root directory sample file',
     artifacts: [],
     labels,
   })
@@ -164,7 +164,7 @@ test('an empty image destination is skipped instead of rendering a broken img', 
 })
 
 test('file names with spaces and parentheses resolve end to end', () => {
-  const raw = '![成交量](sandbox:腾讯控股(00700) 成交量_838ccc.html)'
+  const raw = '![Volume](sandbox:Tencent(00700) volume_838ccc.html)'
   const normalized = normalizeSandboxArtifactRefs(raw)
 
   // marked would split the raw destination at the first space; after
@@ -173,18 +173,18 @@ test('file names with spaces and parentheses resolve end to end', () => {
   assert.ok(!href.includes(' '))
   assert.equal(resolveArtifactRef(href, artifacts)?.index, 3)
 
-  const html = renderArtifactReference({ href, alt: '成交量', artifacts, labels })
-  assert.ok(html?.includes('腾讯控股(00700) 成交量_838ccc.html'))
+  const html = renderArtifactReference({ href, alt: 'Volume', artifacts, labels })
+  assert.ok(html?.includes('Tencent(00700) volume_838ccc.html'))
   assert.ok(html?.includes('data-artifact-index="3"'))
 })
 
 test('normalizeSandboxArtifactRefs leaves everything else alone', () => {
   const untouched = [
-    '![远程](https://example.com/a(b).png)',
-    '![资源](resource://tenant/1/a.png)',
-    '腾讯控股(00700) 的成交量见下图。',
-    '写成 `![图](sandbox:a b.html)` 即可',
-    '```\n![图](sandbox:a b.html)\n```',
+    '![remote](https://example.com/a(b).png)',
+    '![resource](resource://tenant/1/a.png)',
+    'Tencent(00700) trading volume is shown in the chart below.',
+    'Just write `![chart](sandbox:a b.html)`',
+    '```\n![chart](sandbox:a b.html)\n```',
   ]
   for (const markdown of untouched) {
     assert.equal(normalizeSandboxArtifactRefs(markdown), markdown)
@@ -193,14 +193,14 @@ test('normalizeSandboxArtifactRefs leaves everything else alone', () => {
 
 test('normalizeSandboxArtifactRefs preserves a title and an unterminated tail', () => {
   assert.equal(
-    normalizeSandboxArtifactRefs('![图](sandbox:a b.html "说明")'),
-    '![图](sandbox:a%20b.html "说明")',
+    normalizeSandboxArtifactRefs('![chart](sandbox:a b.html "caption")'),
+    '![chart](sandbox:a%20b.html "caption")',
   )
   // Mid-stream the closing paren has not arrived yet; leave the tail for the
   // streaming placeholder guard rather than guessing where it ends.
   assert.equal(
-    normalizeSandboxArtifactRefs('![图](sandbox:腾讯控股(00700'),
-    '![图](sandbox:腾讯控股(00700',
+    normalizeSandboxArtifactRefs('![chart](sandbox:Tencent(00700'),
+    '![chart](sandbox:Tencent(00700',
   )
 })
 
@@ -217,14 +217,14 @@ test('artifact names are HTML-escaped', () => {
 test('a deleted artifact renders as a greyed, non-clickable card', () => {
   const html = renderArtifactReference({
     href: refFor(0),
-    alt: '市场画像评分',
+    alt: 'Market profile score',
     artifacts: artifacts.map((a, i) =>
       i === 0 ? { ...a, deleted_at: '2026-09-20T02:00:00Z' } : a,
     ),
     labels,
   })
   assert.ok(html?.includes('artifact-ref-card--deleted'))
-  assert.ok(html?.includes('文件已删除'))
+  assert.ok(html?.includes('File deleted'))
   assert.ok(html?.includes('市场画像评分_e7edba.html'), 'the name still says which file it was')
   // Not clickable: the bytes are gone, so opening the preview would 404.
   assert.ok(!html?.includes('data-artifact-index'))
@@ -238,7 +238,7 @@ test('a deleted image artifact degrades to the card instead of a broken img', ()
   // to fill, leaving a permanently blank image in the answer.
   const html = renderArtifactReference({
     href: refFor(1),
-    alt: '走势',
+    alt: 'Trend',
     artifacts: artifacts.map((a, i) =>
       i === 1 ? { ...a, deleted_at: '2026-09-20T02:00:00Z' } : a,
     ),

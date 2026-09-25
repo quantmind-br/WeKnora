@@ -66,10 +66,10 @@ test('mode-aware titles handle pending and failed proxy events', () => {
 })
 
 test('list and define views keep a one-line lead instead of dumping markdown', () => {
-  const markdown = '按条件查日志。\n\n## 使用场景\n用户给了模块名时再调用。'
-  assert.equal(mcpDescriptionLead(markdown), '按条件查日志。')
-  assert.equal(mcpDescriptionLead('根据过滤条件生成 URL。\n## 使用场景\n配合 lookup 使用。'), '根据过滤条件生成 URL。')
-  assert.equal(mcpDescriptionLead('## 返回值\nJSON 列表'), '返回值 JSON 列表')
+  const markdown = 'Query logs by filter.\n\n## When to use\nCall it once the user names a module.'
+  assert.equal(mcpDescriptionLead(markdown), 'Query logs by filter.')
+  assert.equal(mcpDescriptionLead('Build a URL from the filters.\n## When to use\nPair it with lookup.'), 'Build a URL from the filters.')
+  assert.equal(mcpDescriptionLead('## Returns\nJSON list'), 'Returns JSON list')
   assert.equal(mcpDescriptionNeedsExpand(markdown), true)
-  assert.equal(mcpDescriptionNeedsExpand('短描述'), false)
+  assert.equal(mcpDescriptionNeedsExpand('Short description'), false)
 })

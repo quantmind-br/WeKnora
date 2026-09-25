@@ -131,7 +131,7 @@ func TestMemoryAvailableTracksAllThreeSwitches(t *testing.T) {
 	ctx := enabledCtx(t, tenantRepo, 1, "alice")
 	require.True(t, svc.MemoryAvailable(ctx))
 
-	// The user's own toggle in 我的记忆.
+	// The user's own toggle in "My memory".
 	require.NoError(t, svc.SetEnabled(ctx, false))
 	require.False(t, svc.MemoryAvailable(ctx), "the user opted out")
 	require.NoError(t, svc.SetEnabled(ctx, true))

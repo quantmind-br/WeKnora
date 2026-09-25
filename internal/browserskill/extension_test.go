@@ -62,7 +62,7 @@ func TestRealExtension(t *testing.T) {
 		if r.URL.Path == "/login" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = io.WriteString(w, `<!doctype html><title>Fixture login</title>
-<button>看过</button>
+<button>Viewed</button>
 <form action="/login-complete" method="post">
 <label>Account <input id="login-account" name="account"></label>
 <label>Password <input id="login-password" type="password" name="password"></label>
@@ -576,7 +576,7 @@ func TestRealExtension(t *testing.T) {
 			"prompt": "Confirm this fixture step", "timeout_ms": 10000,
 			// This text exists before login. Legacy criteria must not complete
 			// the help RPC before the human confirms the actual login.
-			"completion_criteria": map[string]any{"any": []map[string]string{{"text_exists": "看过"}}},
+			"completion_criteria": map[string]any{"any": []map[string]string{{"text_exists": "Viewed"}}},
 		})
 		if e == nil && !strings.Contains(string(result), `"continued"`) {
 			e = fmt.Errorf("unexpected help outcome: %s", result)

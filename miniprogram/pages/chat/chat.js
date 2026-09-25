@@ -17,12 +17,12 @@ function buildViewModel() {
 
 Page({
   data: {
-    chatTitle: "知识问答",
-    chatSubtitle: "向当前选中的 WeKnora 知识库提问。",
-    questionLabel: "问题",
-    questionPlaceholder: "输入你的问题…",
-    askText: "向 WeKnora 提问",
-    answerLabel: "回答",
+    chatTitle: "Knowledge Chat",
+    chatSubtitle: "Ask the selected WeKnora knowledge base.",
+    questionLabel: "Question",
+    questionPlaceholder: "Ask something...",
+    askText: "Ask WeKnora",
+    answerLabel: "Answer",
     answer: "",
     displayAnswer: "",
     loading: false,
@@ -45,7 +45,7 @@ Page({
       applyNavTitle("navChat");
       this.applyI18n();
     } catch (error) {
-      // keep fallback Chinese copy
+      // keep fallback English copy
     }
   },
 

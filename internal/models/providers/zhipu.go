@@ -13,7 +13,7 @@
 //     `reasoning_content` from previous turns unless it is set to false, so
 //     replaying it is accepted but normally a no-op;
 //   - `reasoning_effort` takes none | minimal | low | medium | high | xhigh |
-//     max, defaults to max, and is only honoured by "GLM-5.2 及其以上模型" —
+//     max, defaults to max, and is only honoured by "GLM-5.2 and later models" —
 //     GLM-5.1, GLM-5, GLM-4.7, GLM-4.6 and GLM-4.5 ignore it, so those
 //     entries turn it off. The vendor-level map spells every rung, including
 //     off -> "none";
@@ -23,11 +23,12 @@
 //     platform's own, so GLM-5.2 keeps sending "minimal" and "low"
 //     verbatim: rewriting minimal to "low" here would turn the weakest rung
 //     into the strongest one, because the platform then folds it to high;
-//   - GLM-5.3 and GLM-5.3-Flash/FlashX always think: `thinking.type` "限制只
-//     能开启", so both carry "off": null
+//   - GLM-5.3 and GLM-5.3-Flash/FlashX always think: `thinking.type` "is
+//     restricted to enabled only", so both carry "off": null
 //     (https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3,
 //     https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash);
-//   - `tool_choice` is documented as "默认 auto 且仅支持 auto", so none /
+//   - `tool_choice` is documented as "defaults to auto and only supports
+//     auto", so none /
 //     required / named-function are never sent;
 //   - `response_format` takes text | json_object (no json_schema);
 //     temperature is [0.0, 1.0] and top_p is [0.01, 1.0], both two decimals;
@@ -45,7 +46,7 @@
 // parallel tool calls and seed allowed) are kept because nothing states they
 // are rejected.
 //
-// unverified: glm-5v-turbo is a vision model and the "GLM-5.2 及其以上" rule
+// unverified: glm-5v-turbo is a vision model and the "GLM-5.2 and later" rule
 // does not name it, so its supports_reasoning_effort:false is kept as-is.
 //
 // unverified: context windows, max output tokens and prices of individual
@@ -124,7 +125,7 @@ func newZhipuProvider() *Definition {
 				DimensionsField: api.Ptr("dimensions"),
 			},
 			Rerank: api.RerankCompat{
-				// The reference gives 最大长度为 4096 字符 for the query and for each
+				// The reference gives a maximum length of 4096 characters for the query and for each
 				// document, and caps documents at 128 per request.
 				SendReturnDocs:   api.Ptr(true),
 				MaxDocuments:     api.Ptr(128),
@@ -136,7 +137,7 @@ func newZhipuProvider() *Definition {
 				ThinkingFormat:          api.Ptr(api.ThinkingFormatThinkingType),
 				SupportsReasoningEffort: api.Ptr(true),
 				PromptCacheAccounting:   api.Ptr(true),
-				// "默认 auto 且仅支持 auto": none / required / named function
+				// "Defaults to auto and only supports auto": none / required / named function
 				// are rejected.
 				ToolChoiceModes: []string{"auto"},
 			},

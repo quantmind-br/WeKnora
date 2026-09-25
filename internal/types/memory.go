@@ -292,10 +292,10 @@ type MemoryItem struct {
 	Kind      string `json:"kind"       gorm:"type:varchar(32);not null"`
 	Content   string `json:"content"    gorm:"not null"`
 	// Topic is the readable subject the statement is about, as the extraction
-	// model named it ("在用的数据库"). It is kept verbatim next to the
+	// model named it ("database in use"). It is kept verbatim next to the
 	// normalized key because it is the best retrieval handle available: a
 	// question often names the topic while the statement itself only carries
-	// the value ("已经迁到 PostgreSQL").
+	// the value ("already migrated to PostgreSQL").
 	Topic string `json:"topic" gorm:"type:varchar(255);not null;default:''"`
 	// NormalizedKey identifies the topic this item is about. A new item with
 	// the same key as an active one supersedes it, which is how contradictions
@@ -370,9 +370,10 @@ type MemoryConfig struct {
 	// when an embedding model is reachable.
 	//
 	// Lexical matching alone cannot find a memory the user has re-worded, which
-	// is most of them: "回答直接给结论" and "别铺垫那么多" share no tokens. The
-	// cost is one embedding call per turn, bounded and degraded to lexical on
-	// failure, so the feature never becomes a reason a chat is slow.
+	// is most of them: "lead with the conclusion" and "skip the long preamble"
+	// share no tokens. The cost is one embedding call per turn, bounded and
+	// degraded to lexical on failure, so the feature never becomes a reason a
+	// chat is slow.
 	VectorRecall *bool `json:"vector_recall"`
 	// RetrievalConditioning lets memory shape retrieval — query rewriting and
 	// per-document ranking — rather than only being appended to the answer
@@ -542,8 +543,9 @@ func (c *MemoryConfig) MemoryEnabled() bool {
 
 // MemoryItemKey derives the conflict-detection key for a stored memory.
 //
-// A memory's identity is its topic, not its wording: "生产库用的是 MySQL" and
-// "生产库用的是 PostgreSQL" are the same note with a corrected value, and the
+// A memory's identity is its topic, not its wording: "the production database
+// is MySQL" and "the production database is PostgreSQL" are the same note with
+// a corrected value, and the
 // second has to replace the first rather than sit beside it. That only works if
 // two labels for the same subject produce the same key, which is why this uses
 // the topic normaliser rather than the character-bag key below — the same
@@ -592,7 +594,7 @@ func NormalizeMemoryKey(key, content string) string {
 	flush()
 
 	// Sorting and de-duplicating makes the key insensitive to word order, so
-	// "偏好 数据库" and "数据库 偏好" describe the same topic.
+	// "preference database" and "database preference" describe the same topic.
 	seen := make(map[string]struct{}, len(words))
 	unique := words[:0]
 	for _, w := range words {
@@ -652,7 +654,7 @@ var sensitivePatterns = []*regexp.Regexp{
 // RedactedMemoryPlaceholder replaces removed material. It is visible on purpose:
 // a user reading their memory list should be able to tell that something was
 // dropped rather than silently mangled.
-const RedactedMemoryPlaceholder = "【已隐藏】"
+const RedactedMemoryPlaceholder = "[redacted]"
 
 // RedactSensitive removes credentials and identity numbers from a statement.
 // The second return value reports whether anything was removed.
@@ -824,7 +826,8 @@ type MemoryTombstone struct {
 	//
 	// The fingerprint alone is not enough: distillation re-reads that same
 	// message minutes later and usually words the statement slightly
-	// differently ("生产库是 X" versus "我们的生产库是 X"), which hashes
+	// differently ("the production database is X" versus "our production
+	// database is X"), which hashes
 	// differently and slips through. Remembering the message is content-free
 	// and closes that path exactly, while anything the user says afterwards
 	// comes from a later message and is still allowed through.
@@ -1346,7 +1349,7 @@ func TopicLabelIsAnImprovement(canonical, incoming, proposed string) bool {
 //
 // A subject has to recur to be worth anything: it is counted, and only becomes
 // a memory once several conversations touch it. A label like
-// "v2.3版本orders接口分页参数默认值查询" can only ever match
+// "v2.3 orders API pagination parameter default value lookup" can only ever match
 // itself, so it is counted once and then sits at one hit forever — the counting
 // mechanism is dead and nothing says so.
 //

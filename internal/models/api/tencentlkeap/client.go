@@ -14,11 +14,11 @@ import (
 
 // SDK defaults follow the managed rerank service.
 const (
-	// LKEAPRerankEndpoint 腾讯云知识引擎原子能力 Rerank API 域名
+	// LKEAPRerankEndpoint is the Rerank API host of Tencent Cloud Knowledge Engine atomic capabilities
 	LKEAPRerankEndpoint = "lkeap.tencentcloudapi.com"
-	// LKEAPDefaultRegion RunRerank 支持的地域，默认广州
+	// LKEAPDefaultRegion is the region supported by RunRerank; defaults to Guangzhou
 	LKEAPDefaultRegion = "ap-guangzhou"
-	// LKEAPDefaultRerankModel 默认 rerank 模型名
+	// LKEAPDefaultRerankModel is the default rerank model name
 	LKEAPDefaultRerankModel = "lke-reranker-base"
 )
 

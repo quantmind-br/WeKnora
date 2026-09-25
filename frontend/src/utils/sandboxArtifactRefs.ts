@@ -1,46 +1,46 @@
 /**
- * 把回答正文里对「沙箱生成文件」的引用，接到 artifact 下载链路上。
+  * Wire references in the answer body to "files generated in the sandbox" into the artifact download path.
  *
- * 模型会用 Markdown 图片语法引用它在沙箱里生成的文件（提示词规定写成
- * `![说明](sandbox:文件名)`），服务端在落库前把它改写成该文件的稳定句柄
- * `resource://<handle>` —— 与知识库图片、聊天附件同一种引用形式。两种写法
- * 都指向同一份 `Message.Artifacts`：
+  * The model references files it generated in the sandbox with Markdown image syntax (the prompt requires
+  * `![caption](sandbox:file-name)`), and before persisting, the server rewrites that into the file's stable handle
+  * `resource://<handle>`, the same reference form used by knowledge base images and chat attachments. Both forms
+  * point at the same `Message.Artifacts`:
  *
- *   - `resource://<handle>` —— 落库后的权威形式，历史会话读到的就是它；
- *   - `sandbox:<文件名>`    —— 模型原始写法，本轮流式输出尚未改写时用到。
+  *   - `resource://<handle>` — the authoritative form after persistence; this is what history sessions read;
+  *   - `sandbox:<file-name>` — the model's raw form, used while this round's streamed output is not yet rewritten.
  *
- * 由于句柄形式与知识库图片完全一致，一条回答里同时出现「检索到的知识库图」
- * 和「技能生成的图」是常态。所以句柄对不上本消息产物列表时必须返回 null，
- * 交回默认的受保护图片渲染，而不是显示「文件不可用」。
+  * Because the handle form is identical to knowledge base images, one answer routinely contains both "retrieved knowledge base images"
+  * and "skill-generated images". So when a handle does not match this message's artifact list we must return null
+  * and hand it back to the default protected image rendering, rather than showing "File unavailable".
  *
- * 图片类产物内联显示（带鉴权拉取后换成 blob），其余类型（HTML 图表、CSV、
- * 文档等）渲染成一张卡片，点击后交给右侧沙箱面板的产物页预览——正文里塞一个
- * 1MB 的自包含 HTML iframe 既慢又不安全。
+  * Image artifacts are shown inline (fetched with auth, then swapped for a blob); other types (HTML charts, CSV,
+  * documents, etc.) render as a card that, when clicked, opens the artifact preview in the sandbox side panel. Stuffing
+  * a 1MB self-contained HTML iframe into the answer body is both slow and unsafe.
  *
- * 已被用户删除的产物在列表里是墓碑（带 deleted_at），渲染成一张置灰的不可点击
- * 卡片。调用方**不要**把墓碑过滤掉再传进来：过滤了句柄就对不上本条回答的产物，
- * 会被当成知识库图片走受保护图片渲染，最终显示成一张拉不出来的裂图。
+  * Artifacts the user has deleted are tombstones in the list (with deleted_at) and render as a greyed-out, non-clickable
+  * card. Callers must **not** filter tombstones out before passing the list in: once filtered, handles no longer match this answer's artifacts,
+  * so they get treated as knowledge base images, go through protected image rendering, and end up as a broken image that never loads.
  */
 
 import { escapeHTML } from './security.ts';
 import { renderArtifactFileIcon } from './artifactFileIcon';
 
-/** 与后端 artifactListItem / SSE publicArtifactViews 对齐的最小字段集。 */
+/** Minimal field set aligned with the backend artifactListItem / SSE publicArtifactViews. */
 export interface ArtifactRefMeta {
   index: number;
   file_name: string;
   file_type?: string;
-  /** `resource://<handle>`。后端未启用资源目录时为空，此时只能按文件名解析。 */
+  /** `resource://<handle>`. Empty when the backend has no resource directory enabled; then only the file name can resolve it. */
   handle?: string;
   /**
-   * 历史消息直接携带 `Message.Artifacts`，其中的存储引用叫 `url`。与 handle
-   * 同义，取其一即可。
+    * History messages carry `Message.Artifacts` directly, where the storage reference is called `url`. It means the same
+    * as handle; either one will do.
    */
   url?: string;
   /**
-   * 用户删除该文件的时间。墓碑条目**必须**留在传给渲染器的列表里：一是下标就是
-   * 下载地址，抽掉会让后面的文件整体错位；二是句柄只有对得上才知道它属于本条
-   * 回答，对不上会被当成知识库图片走受保护图片渲染，最后显示成一张裂图。
+    * When the user deleted the file. Tombstone entries **must** stay in the list passed to the renderer: first, the index is
+    * the download address, so removing one shifts every later file; second, only a matching handle tells us it belongs to this
+    * answer, and a mismatch gets treated as a knowledge base image through protected image rendering, ending up as a broken image.
    */
   deleted_at?: string | null;
 }
@@ -51,11 +51,11 @@ export interface ArtifactRefContext {
 }
 
 export interface ArtifactRefLabels {
-  /** 卡片副标题，如「点击预览」。 */
+  /** Card subtitle, e.g. "Click to preview". */
   previewHint: string;
-  /** 本轮已结束但引用对不上任何产物时的副标题，如「文件不可用」。 */
+  /** Subtitle when the round has ended but the reference matches no artifact, e.g. "File unavailable". */
   missingHint: string;
-  /** 文件已被用户删除时的副标题，如「文件已删除」。 */
+  /** Subtitle when the user has deleted the file, e.g. "File deleted". */
   deletedHint: string;
 }
 
@@ -82,18 +82,18 @@ function parseArtifactRef(href: string): ArtifactRef | null {
   try {
     name = decodeURIComponent(name);
   } catch {
-    // 保留原样：文件名里出现裸 % 时 decodeURIComponent 会抛错。
+    // Keep it as-is: decodeURIComponent throws when the file name contains a bare %.
   }
-  // 目录前缀不带信息量，产物是按文件名索引的。
+  // The directory prefix carries no information; artifacts are indexed by file name.
   name = name.split('/').pop() || '';
   return name ? { kind: 'name', name } : null;
 }
 
 /**
- * 该链接目标是否可能是沙箱产物引用。
+  * Whether this link target may be a sandbox artifact reference.
  *
- * 句柄形式与知识库图片同形，因此这里为真只说明「值得交给产物解析试一次」，
- * 不代表本消息真有这个文件。
+  * The handle form looks the same as knowledge base images, so true here only means "worth trying artifact resolution",
+  * not that this message really has the file.
  */
 export function isArtifactRefHref(href: string): boolean {
   return parseArtifactRef(href) !== null;
@@ -107,11 +107,11 @@ function artifactHandle(artifact: ArtifactRefMeta): string {
 const CODE_SPAN_OR_FENCE_RE = /(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]*`)/g;
 
 /**
- * 扫描一个 Markdown 链接目标，返回括号内的原文与右括号位置。
+  * Scan a Markdown link target and return the raw text inside the parentheses plus the closing parenthesis position.
  *
- * 用括号配对而不是正则，是因为技能生成的文件名经常带括号和空格
- * （`腾讯控股(00700) 成交量_838ccc.html`）。marked 会在第一个空格处把目标截断，
- * 于是引用永远匹配不上产物；而按深度扫描能准确找到真正闭合链接的那个右括号。
+  * Parenthesis matching is used instead of a regex because skill-generated file names often contain parentheses and spaces
+  * (`Tencent(00700) volume_838ccc.html`). marked truncates the target at the first space,
+  * so the reference never matches an artifact; scanning by depth finds exactly the parenthesis that really closes the link.
  */
 function scanLinkDestination(text: string, openIndex: number): { inner: string; end: number } | null {
   let depth = 1;
@@ -127,14 +127,14 @@ function scanLinkDestination(text: string, openIndex: number): { inner: string; 
   return null;
 }
 
-/** 把目标里可选的标题部分（`dest "title"`）拆出来。 */
+/** Split the optional title part (`dest "title"`) off the target. */
 function splitDestinationTitle(inner: string): { destination: string; title: string } {
   const match = inner.match(/^([\s\S]*?)(\s+(?:"[^"]*"|'[^']*'))$/);
   if (!match) return { destination: inner.trim(), title: '' };
   return { destination: match[1].trim(), title: match[2] };
 }
 
-/** `](` 之前必须是同一行上闭合的 `[...]`，否则这不是一个链接。 */
+/** What precedes `](` must be a `[...]` closed on the same line, otherwise this is not a link. */
 function hasLinkLabelBefore(text: string, closeBracketIndex: number): boolean {
   for (let i = closeBracketIndex - 1; i >= 0; i -= 1) {
     const ch = text[i];
@@ -184,11 +184,11 @@ function normalizeSegment(segment: string): string {
 }
 
 /**
- * 在 marked 解析前，把 `sandbox:` 引用的目标规整成不含空格的单个 token。
+  * Before marked parses, normalize the targets of `sandbox:` references into a single token without spaces.
  *
- * 不做这一步的话，带空格的文件名会被 marked 从空格处切开，目标只剩前半截，
- * 后半截漏成正文——正是「卡片名字被截断 + 尾巴变成裸文本」那个现象。
- * 代码块内的示例原样保留。
+  * Without this step, marked splits a file name with spaces at the space, leaving only the first half as the target
+  * and leaking the second half into the body text: exactly the "card name truncated + tail left as bare text" bug.
+  * Examples inside code blocks are left as-is.
  */
 export function normalizeSandboxArtifactRefs(markdown: string): string {
   if (!markdown || !markdown.includes('](')) return markdown;
@@ -201,7 +201,7 @@ export function normalizeSandboxArtifactRefs(markdown: string): string {
   return parts.join('');
 }
 
-/** 把引用解析成具体产物；解析不到（尚未收集完/文件名对不上）返回 null。 */
+/** Resolve a reference to a concrete artifact; returns null when it cannot be resolved (not collected yet / file name mismatch). */
 export function resolveArtifactRef(
   href: string,
   artifacts: ArtifactRefMeta[] | undefined | null,
@@ -222,7 +222,7 @@ function fileExtension(fileName: string): string {
 }
 
 /**
- * 是否按图片内联渲染。SVG 刻意排除：它是可执行内容，走卡片 + 预览的沙箱路径。
+  * Whether to render inline as an image. SVG is deliberately excluded: it is executable content, so it takes the card + sandboxed preview path.
  */
 function rendersAsImage(artifact: ArtifactRefMeta): boolean {
   const ext = fileExtension(artifact.file_name);
@@ -231,8 +231,8 @@ function rendersAsImage(artifact: ArtifactRefMeta): boolean {
   return type.startsWith('image/') && !type.includes('svg');
 }
 
-// blob URL 按 (会话, 消息, 下标) 缓存，并挂在 window 上：Vite 热更新会替换模块
-// 但不会重建文档，模块级 Map 会让已加载的图片退回占位图。
+// Blob URLs are cached per (session, message, index) and hung on window: Vite HMR replaces modules
+// but does not rebuild the document, and a module-level Map would make already-loaded images fall back to the placeholder.
 type ArtifactBlobState = { blobByKey: Map<string, string>; inflight: Map<string, Promise<string | null>> };
 
 const artifactBlobState: ArtifactBlobState = (() => {
@@ -247,16 +247,16 @@ function blobCacheKey(ctx: ArtifactRefContext, index: number): string {
   return `${ctx.sessionId}\u0000${ctx.messageId}\u0000${index}`;
 }
 
-// 与 chatMarkdownRenderer 的流式图片骨架同一个类名，样式复用。
+// Same class name as chatMarkdownRenderer's streaming image skeleton, so the styles are shared.
 const STREAMING_PLACEHOLDER =
   '<span class="streaming-image-loading"><span class="streaming-image-loading__skeleton"></span></span>';
 
 /**
- * 卡片的三种状态：
- *   - `ready`   —— 正常，可点击打开预览；
- *   - `pending` —— 本轮已结束但引用对不上任何产物（模型引用了不存在的文件）；
- *   - `deleted` —— 文件确实生成过，但已被用户删除，字节已回收。
- * 后两种都不可点击，但要能区分开：一个是「从来没有过」，一个是「你自己删掉了」。
+  * The card's three states:
+  *   - `ready`   — normal, clickable to open the preview;
+  *   - `pending` — the round has ended but the reference matches no artifact (the model referenced a file that does not exist);
+  *   - `deleted` — the file really was generated, but the user deleted it and its bytes were reclaimed.
+  * The last two are both non-clickable, but must be told apart: one "never existed", the other "you deleted it yourself".
  */
 type ArtifactCardVariant = 'ready' | 'pending' | 'deleted';
 
@@ -268,8 +268,8 @@ function renderCard(
 ): string {
   const safeName = escapeHTML(fileName);
   const safeHint = escapeHTML(hint);
-  // 卡片必须是内联元素：marked 会把图片包在 <p> 里，块级元素会被 HTML 解析器
-  // 提到段落外面，破坏正文结构。
+  // The card must be an inline element: marked wraps images in <p>, and a block element would be hoisted
+  // out of the paragraph by the HTML parser, breaking the body structure.
   const interactive = variant === 'ready' && index !== null
     ? ` data-artifact-index="${index}" role="button" tabindex="0"`
     : '';
@@ -290,7 +290,7 @@ function renderImage(
   ctx: ArtifactRefContext | null,
 ): string {
   const safeAlt = escapeHTML(alt || artifact.file_name || '');
-  // 已经拉取过就直接给 blob：流式重渲染会重建 <img>，否则每帧都会闪回占位图。
+  // If it was already fetched, use the blob directly: streaming re-renders rebuild <img>, otherwise every frame would flash back to the placeholder.
   const cached = ctx ? artifactBlobState.blobByKey.get(blobCacheKey(ctx, artifact.index)) : undefined;
   const src = cached || TRANSPARENT_PIXEL;
   const loading = cached ? '' : ' data-img-loading="1"';
@@ -301,11 +301,11 @@ function renderImage(
 }
 
 /**
- * 渲染一个 Markdown 图片/链接目标。
+  * Render a Markdown image/link target.
  *
- * 返回 null 表示这不是沙箱产物引用，调用方应回落到默认渲染（普通图片、
- * `resource://` 受保护图片、外链等一律不受影响）。
- * 返回空字符串表示目标为空，调用方不应再画裂图。
+  * Returns null when this is not a sandbox artifact reference; the caller should fall back to default rendering (plain images,
+  * `resource://` protected images, external links, etc. are all unaffected).
+  * Returns an empty string when the target is empty; the caller should not draw a broken image.
  */
 export function renderArtifactReference(args: {
   href: string;
@@ -313,7 +313,7 @@ export function renderArtifactReference(args: {
   artifacts?: ArtifactRefMeta[] | null;
   labels: ArtifactRefLabels;
   context?: ArtifactRefContext | null;
-  /** 本轮回答还在生成中。产物要到本轮结束才会收集，此时解析不到是正常的。 */
+  /** This round's answer is still being generated. Artifacts are only collected when the round ends, so failing to resolve now is normal. */
   streaming?: boolean;
 }): string | null {
   const href = (args.href || '').trim();
@@ -323,22 +323,22 @@ export function renderArtifactReference(args: {
 
   const artifact = resolveArtifactRef(href, args.artifacts);
   if (!artifact) {
-    // 句柄对不上本消息的产物，说明这是别的受保护文件（知识库检索图、
-    // 附件图……）。交回默认渲染，由 hydrateProtectedFileImages 带鉴权拉取。
+    // The handle does not match this message's artifacts, so it is some other protected file (a retrieved knowledge base image,
+    // an attachment image...). Hand it back to default rendering; hydrateProtectedFileImages fetches it with auth.
     if (ref.kind === 'handle') return null;
-    // 产物列表要到本轮结束才随 complete 事件到达，流式期间必然解析不到。
-    // 这时给骨架屏而不是卡片：既避免半截文件名闪一下，也不会把「生成中」
-    // 这种状态留在一个其实已经结束的回答里。
+    // The artifact list only arrives with the complete event at the end of the round, so it can never resolve while streaming.
+    // Show a skeleton instead of a card here: it avoids flashing a half file name, and does not leave a "generating"
+    // state behind in an answer that has actually finished.
     if (args.streaming) return STREAMING_PLACEHOLDER;
-    // 本轮已结束仍对不上，说明模型引用了并不存在的文件。如实说明，不要
-    // 继续显示「生成中」。
+    // Still no match after the round ended means the model referenced a file that does not exist. Say so plainly instead of
+    // continuing to show "generating".
     const fallbackName = ref.name || (args.alt || '').trim();
     if (!fallbackName) return '';
     return renderCard(fallbackName, args.labels.missingHint, null, 'pending');
   }
 
-  // 用户删过的文件字节已经回收，下载会 404。图片类产物同样降级成卡片：走
-  // renderImage 只会拉取失败，留下一张永远加载不出来的裂图。
+  // Bytes of files the user deleted have been reclaimed, so the download would 404. Image artifacts degrade to a card too: going through
+  // renderImage would only fail to fetch and leave a broken image that never loads.
   if (artifact.deleted_at) {
     const name = artifact.file_name || (args.alt || '').trim();
     if (!name) return '';
@@ -380,10 +380,10 @@ async function loadArtifactBlobURL(ctx: ArtifactRefContext, index: number): Prom
 }
 
 /**
- * 把正文里的产物图片换成带鉴权拉取的 blob。
+  * Replace artifact images in the body with blobs fetched with auth.
  *
- * 与 hydrateProtectedFileImages 同样是幂等的：已换过的元素带 authHydrated 标记，
- * 相同文件的并发请求共享同一个 Promise。
+  * Idempotent like hydrateProtectedFileImages: elements already swapped carry the authHydrated marker,
+  * and concurrent requests for the same file share one Promise.
  */
 export async function hydrateArtifactImages(
   root: ParentNode | null | undefined,
@@ -412,7 +412,7 @@ export async function hydrateArtifactImages(
 }
 
 /**
- * 从点击/键盘事件里取出被激活的产物卡片下标；返回 null 表示事件与卡片无关。
+  * Get the index of the artifact card activated by a click/keyboard event; returns null when the event is unrelated to a card.
  */
 export function artifactIndexFromEventTarget(target: EventTarget | null): number | null {
   if (!(target instanceof Element)) return null;

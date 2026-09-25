@@ -99,11 +99,12 @@ func newMinimaxProvider() *Definition {
 				// (and the same page on platform.minimax.cn): multipart model
 				// (asr-1.0) + file on /v1/speech_to_text rather than the OpenAI
 				// path, answering {text, duration, trace_id} for the default
-				// json. At most 50 MB and 500 seconds; "超出会返回 400 而不会被截断".
+				// json. At most 50 MB and 500 seconds; "exceeding either returns 400
+				// rather than being truncated".
 				Path:         api.Ptr("/speech_to_text"),
 				MaxFileBytes: api.Ptr(50 << 20),
 				// "wav / aiff / flac / alac(m4a) / mp3 / aac / opus / ogg";
-				// "不支持无容器的裸 PCM 数据". The language hint is a request
+				// "raw PCM data without a container is not supported". The language hint is a request
 				// header, a BCP-47 tag, not a form field.
 				Formats:       []string{"wav", "aiff", "flac", "m4a", "mp3", "aac", "opus", "ogg"},
 				LanguageParam: api.Ptr(api.LanguageHeader),

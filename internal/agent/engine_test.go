@@ -124,7 +124,7 @@ func TestStreamLLMSummarySlugSurvivesDocumentCompaction(t *testing.T) {
 
 	toolMsg := chat.Message{
 		Role:    "tool",
-		Content: `<link>[[` + summarySlug + `|Weknora 试错记录.md - Summary]]</link>`,
+		Content: `<link>[[` + summarySlug + `|Weknora trial-and-error notes.md - Summary]]</link>`,
 	}
 	result, err := engine.streamLLMToEventBus(context.Background(),
 		[]chat.Message{toolMsg}, nil, nil)
@@ -148,32 +148,32 @@ func TestStreamLLMSummarySlugSurvivesDocumentCompaction(t *testing.T) {
 // unrelated FAQ entries injected by the bound-KB directory.
 func TestStreamMCPAnswerRejectsUnretrievedKnowledgeCitations(t *testing.T) {
 	model := &mockChat{responses: []mockResponse{{chunks: []types.StreamResponse{
-		{ResponseType: types.ResponseTypeAnswer, Content: `KM文章<ref id="c`},
-		{ResponseType: types.ResponseTypeAnswer, Content: `3"/><ref id="c1"/><ref id="c2"/> 正确来源<ref id="w`},
+		{ResponseType: types.ResponseTypeAnswer, Content: `KM article<ref id="c`},
+		{ResponseType: types.ResponseTypeAnswer, Content: `3"/><ref id="c1"/><ref id="c2"/> correct source<ref id="w`},
 		{ResponseType: types.ResponseTypeAnswer, Content: `1"/>`, Done: true, FinishReason: "stop"},
 	}}}}
 	engine := newTestEngine(t, model)
 	engine.knowledgeBasesInfo = []*KnowledgeBaseInfo{{
 		ID: "faq-kb", Name: "FAQ TEST", Type: "faq", RecentDocs: []RecentDocInfo{
-			{ChunkID: "faq-1", Title: "什么是 WeKnora？", FAQStandardQuestion: "什么是 WeKnora？"},
-			{ChunkID: "faq-2", Title: "如何创建知识库？", FAQStandardQuestion: "如何创建知识库？"},
+			{ChunkID: "faq-1", Title: "What is WeKnora?", FAQStandardQuestion: "What is WeKnora?"},
+			{ChunkID: "faq-2", Title: "How do I create a knowledge base?", FAQStandardQuestion: "How do I create a knowledge base?"},
 		},
 	}}
-	userTurn := engine.RenderUserTurnContent("session", "KM上有趣的事情")
+	userTurn := engine.RenderUserTurnContent("session", "Interesting things on KM")
 	const article = "https://km.woa.com/articles/show/669504?jumpfrom=kmmcp"
 	toolResult := engine.modelContext.ModelToolResultForTool("call_mcp_tool", &types.ToolResult{
-		Success: true, Output: "标题: AI玩法\n摘要: Computer Use 案例\n链接: " + article,
+		Success: true, Output: "Title: AI tricks\nSummary: Computer Use case\nLink: " + article,
 	})
 	var emitted strings.Builder
 	result, err := engine.streamLLMToEventBus(context.Background(), []chat.Message{
-		{Role: "assistant", Content: `物业工作<kb doc="9月13日周报.docx" chunk_id="weekly-report" />`},
+		{Role: "assistant", Content: `Property management work<kb doc="Weekly report Sep 13.docx" chunk_id="weekly-report" />`},
 		{Role: "user", Content: userTurn},
 		{Role: "tool", Name: "call_mcp_tool", Content: toolResult},
 	}, nil, func(chunk *types.StreamResponse, _ string) {
 		emitted.WriteString(chunk.Content)
 	})
 	require.NoError(t, err)
-	want := `KM文章 正确来源<web url="` + article + `" title="" />`
+	want := `KM article correct source<web url="` + article + `" title="" />`
 	require.Equal(t, want, result.Content)
 	require.Equal(t, want, emitted.String(), "invalid references must not reach SSE even transiently")
 	require.Contains(t, model.calls[0][2].Content, `<source id="w1"`)
@@ -186,7 +186,7 @@ func TestStreamMCPAnswerRejectsUnretrievedKnowledgeCitations(t *testing.T) {
 // as the final answer and dropped the call, so the stream error must surface.
 func TestStreamLLMToEventBus_ErrorAfterContent_IsNotASuccessfulTurn(t *testing.T) {
 	model := &mockChat{responses: []mockResponse{{chunks: []types.StreamResponse{
-		{ResponseType: types.ResponseTypeAnswer, Content: "非常好，我已经获取了骨架模板。"},
+		{ResponseType: types.ResponseTypeAnswer, Content: "Great, I have the skeleton template now."},
 		{
 			ResponseType: types.ResponseTypeError,
 			Content:      "context deadline exceeded",

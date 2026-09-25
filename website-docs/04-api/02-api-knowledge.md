@@ -35,35 +35,35 @@ curl -X POST $BASE/api/v1/knowledge-bases -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"name":"Product documentation","type":"document"}'
 ```
 
-### 自动标签与 AI 描述配置
+### Auto-Tagging and AI Description Configuration
 
-创建知识库时 `auto_tag_config`、`profile_config` 位于顶层；更新时放在 `config.auto_tag_config`、`config.profile_config`。两者仅 document 知识库支持，默认 enabled=false。
+When creating a knowledge base, `auto_tag_config` and `profile_config` are top-level fields; when updating, put them in `config.auto_tag_config` and `config.profile_config`. Both are supported only for document knowledge bases and default to enabled=false.
 
-`auto_tag_config`（自动标签）：
+`auto_tag_config` (auto-tagging):
 
-| 字段 | 类型 | 默认值 | 说明 |
+| Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `enabled` | bool | false | 解析后异步从已有标签中选择 |
-| `model_id` | string | 空 | 为空时使用知识库 `summary_model_id` |
-| `max_tags` | int | 3 | 每篇最多关联数量，上限 10 |
-| `skip_if_tagged` | bool | true | 已有标签则跳过；false 允许补充标签 |
+| `enabled` | bool | false | After parsing, asynchronously selects from existing tags |
+| `model_id` | string | empty | When empty, the knowledge base's `summary_model_id` is used |
+| `max_tags` | int | 3 | Maximum number of tags associated per document, up to 10 |
+| `skip_if_tagged` | bool | true | Skip documents that already have tags; false allows adding more tags |
 
-开启后对新解析/重新解析的文档生效，不自动扫描全部旧文档。无候选标签或无可用模型时不阻断入库。
+Once enabled, it applies to newly parsed/re-parsed documents and does not automatically scan all existing documents. Missing candidate tags or no available model does not block ingestion.
 
-`profile_config`（AI 知识库描述）：
+`profile_config` (AI knowledge base description):
 
-| 字段 | 类型 | 默认值 | 说明 |
+| Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `enabled` | bool | false | 开启后，文档新增、删除、移动或摘要更新会自动刷新 `generated_profile` |
-| `model_id` | string | 空 | 为空时使用知识库 `summary_model_id` |
-| `custom_instructions` | string | 空 | 追加到生成提示词的补充要求 |
+| `enabled` | bool | false | When enabled, adding, deleting, or moving documents, or updating their summaries, automatically refreshes `generated_profile` |
+| `model_id` | string | empty | When empty, the knowledge base's `summary_model_id` is used |
+| `custom_instructions` | string | empty | Additional requirements appended to the generation prompt |
 
-`generated_profile` 为只读字段，由系统写入，不覆盖手写 `description`；也可通过下文的 `profile/generate` 立即生成。更新示例：
+`generated_profile` is a read-only field written by the system; it does not overwrite the manually written `description`. It can also be generated immediately via `profile/generate` below. Update example:
 
 ```bash
 curl -X PUT "$BASE/api/v1/knowledge-bases/kb-1" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"产品文档","config":{"auto_tag_config":{"enabled":true,"max_tags":3,"skip_if_tagged":true}}}'
+  -d '{"name":"Product documentation","config":{"auto_tag_config":{"enabled":true,"max_tags":3,"skip_if_tagged":true}}}'
 ```
 
 ### GET /api/v1/knowledge-bases
@@ -192,9 +192,9 @@ curl -X POST $BASE/api/v1/knowledge-bases/kb-1/duplicate -H "Authorization: Bear
 
 ### POST /api/v1/knowledge-bases/:id/profile/generate
 
-用途：立即重新生成知识库的 AI 描述（`generated_profile`），同步执行一次文档画像聚合和一次小模型调用，不修改手写 `description`。权限：与更新知识库相同（创建者/Admin 且 KB write）；API key `manage_kbs`/full。无请求体。仅 document 类型；未配置模型返回 400。
+Purpose: immediately regenerate the knowledge base's AI description (`generated_profile`), synchronously running one document-profile aggregation and one small model call, without modifying the manually written `description`. Permission: same as updating the knowledge base (creator/Admin and KB write); API key `manage_kbs`/full. No request body. Document type only; returns 400 when no model is configured.
 
-响应：200 `{"success":true,"data":{"gist","topics":[...],"typical_questions":[...],"stats":{"document_count",...},"status":"ready","model_id","generated_at"}}`
+Response: 200 `{"success":true,"data":{"gist","topics":[...],"typical_questions":[...],"stats":{"document_count",...},"status":"ready","model_id","generated_at"}}`
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/profile/generate -H "Authorization: Bearer $TOKEN"
@@ -340,21 +340,21 @@ curl "$BASE/api/v1/knowledge-bases/kb-1/knowledge?page=1&parse_status=completed"
 
 ### POST /api/v1/knowledge-bases/:id/knowledge/batch-download
 
-用途：把同一知识库中的多个文档原始文件打包为 ZIP 下载。权限与单文件下载相同：Contributor+ 且 KB write（组织共享 Viewer 不可下载）；API key `retrieve`/full。
+Purpose: package the original files of multiple documents in the same knowledge base into a ZIP download. Permissions are the same as for single-file download: Contributor+ and KB write (organization-shared Viewers cannot download); API key `retrieve`/full.
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `ids` | []string | 是 | 知识 ID 列表，1～200 个 |
+| `ids` | []string | Yes | List of knowledge IDs, 1–200 items |
 
-行为：
+Behavior:
 
-- 原始文件合计不超过 512 MiB，超出返回 400；
-- 没有原始文件的条目（如网页导入）会被跳过；所选条目都没有原始文件时返回 400；
-- ZIP 内保留知识库文件夹结构，重名文件自动加序号；
-- 任一 ID 不存在或不属于该知识库返回 404，读取失败返回 500，不会生成缺文件的压缩包；
-- 同一实例同时最多处理 4 个批量下载，超出返回 429。
+- The original files may total at most 512 MiB; exceeding that returns 400;
+- Entries without an original file (such as web page imports) are skipped; returns 400 when none of the selected entries has an original file;
+- The ZIP preserves the knowledge base folder structure, and files with duplicate names get a sequence number appended automatically;
+- Returns 404 if any ID does not exist or does not belong to the knowledge base, and 500 if reading fails; an archive with missing files is never produced;
+- Each instance processes at most 4 batch downloads concurrently; beyond that it returns 429.
 
-响应：200 `application/zip` 文件流，文件名形如 `knowledge-files-20260923-150405.zip`。
+Response: 200 `application/zip` file stream, with a file name like `knowledge-files-20260923-150405.zip`.
 
 ```bash
 curl -X POST $BASE/api/v1/knowledge-bases/kb-1/knowledge/batch-download \
@@ -659,6 +659,6 @@ curl -X POST $BASE/api/v1/knowledge/move -H "Authorization: Bearer $TOKEN" \
   -d '{"knowledge_ids":["k-1"],"source_kb_id":"kb-1","target_kb_id":"kb-2","mode":"reuse_vectors"}'
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_knowledge.go` 的 `RegisterKnowledgeBaseRoutes`、`RegisterKnowledgeRoutes`。Handler：`internal/handler/knowledgebase.go`、`internal/handler/knowledge.go`。
+Route registration: `RegisterKnowledgeBaseRoutes` and `RegisterKnowledgeRoutes` in `internal/router/routes_knowledge.go`. Handlers: `internal/handler/knowledgebase.go`, `internal/handler/knowledge.go`.

@@ -705,7 +705,7 @@ export interface ResolveModelCatalogParams {
     [extraField: string]: string | ModelSpecOverride | undefined;
 }
 
-// 目录解析结果。Mirrors handler.ResolveModelCatalog response data.
+// Catalog resolution result. Mirrors handler.ResolveModelCatalog response data.
 export interface ResolvedModelCatalog {
     provider: string;
     api: string;
@@ -722,7 +722,7 @@ export interface ResolvedModelCatalog {
     capabilities: ModelCapabilities;
 }
 
-// 解析模型的有效接入配置（协议、思考等级、上下文窗口等），供编辑器实时展示。
+// Resolves the effective access config of a model (protocol, thinking level, context window, etc.) for live display in the editor.
 export function resolveModelCatalog(params: ResolveModelCatalogParams): Promise<ResolvedModelCatalog> {
     return new Promise((resolve, reject) => {
         post(`/api/v1/models/catalog/resolve`, params)

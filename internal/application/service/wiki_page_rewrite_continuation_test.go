@@ -46,14 +46,14 @@ func (m *scriptedTemplateChatModel) GetModelID() string   { return "scripted" }
 
 // certLedgerRows renders a Markdown table row.
 func certLedgerRow(i int) string {
-	return fmt.Sprintf("| %d | 持证人%d | 杭州安恒信息技术股份有限公司 | 2020-01-01 | 2099-01-01 |", i, i)
+	return fmt.Sprintf("| %d | Holder %d | Hangzhou DBAPPSecurity Co., Ltd. | 2020-01-01 | 2099-01-01 |", i, i)
 }
 
 // certLedgerBlock renders the first n rows of a 146-row certificate ledger — the
 // shape of the production page that came back short.
 func certLedgerBlock(first, last int) string {
 	var b strings.Builder
-	b.WriteString("SUMMARY: 持证人台账\n# 持证人台账\n\n| 编号 | 姓名 | 所属公司 | 有效期起 | 有效期止 |\n")
+	b.WriteString("SUMMARY: Certificate holder ledger\n# Certificate Holder Ledger\n\n| No. | Name | Company | Valid from | Valid until |\n")
 	b.WriteString("| --- | --- | --- | --- | --- |\n")
 	for i := first; i <= last; i++ {
 		b.WriteString(certLedgerRow(i))
@@ -77,7 +77,7 @@ func modifyTemplateData() map[string]string {
 	return map[string]string{
 		"HasAdditions":         "1",
 		"PageSlug":             "entity/cisp-pte",
-		"PageTitle":            "CISP-PTE 持证人台账",
+		"PageTitle":            "CISP-PTE Certificate Holder Ledger",
 		"PageType":             "entity",
 		"ExistingContent":      "(New page)",
 		"NewContent":           certLedgerBlock(1, 146),

@@ -195,7 +195,7 @@ func (s *knowledgeTagService) UpdateTag(
 	}
 	tenantID, ok := types.TenantIDFromContext(ctx)
 	if !ok || tenantID == 0 {
-		return nil, werrors.NewForbiddenError("无权修改标签")
+		return nil, werrors.NewForbiddenError("No permission to modify tags")
 	}
 	tag, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
@@ -237,7 +237,7 @@ func (s *knowledgeTagService) DeleteTag(ctx context.Context, id string, force bo
 	}
 	tenantID, ok := types.TenantIDFromContext(ctx)
 	if !ok || tenantID == 0 {
-		return werrors.NewForbiddenError("无权修改标签")
+		return werrors.NewForbiddenError("No permission to modify tags")
 	}
 	tag, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {

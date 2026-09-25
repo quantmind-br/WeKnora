@@ -45,5 +45,5 @@ tmp_dir = "tmp"
   keep_scroll = true
 
 [cmd]
-  # 重启前执行的清理命令
+  # Cleanup command to run before restarting
   stop = "sudo lsof -t -i :18080 | xargs -r sudo kill -9"

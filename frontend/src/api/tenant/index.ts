@@ -235,7 +235,7 @@ export async function createTenantAPIKey(
   }
 }
 
-/** 更新已创建租户 API Key 的授权范围和其他可配置属性。 */
+/** Updates the authorization scope and other configurable attributes of an existing tenant API key. */
 export async function updateTenantAPIKey(
   tenantId: number,
   keyId: number,

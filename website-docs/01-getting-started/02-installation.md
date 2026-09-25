@@ -71,7 +71,7 @@ Once started, open `http://localhost` in your browser to reach the frontend (the
 
 If you already have a deployment and have downloaded a newer release:
 
-> 如果数据库仍为 ParadeDB `v0.22.2-pg17`，先按 [ParadeDB 升级说明](06-paradedb-upgrade.md) 停止写入、备份、保留数据卷更换镜像并完成 `pg_search` 扩展升级，再恢复应用。仅替换镜像不会更新已有数据库的扩展 SQL；迁移 `000099` 会处理 WeKnora 库中符合条件的 `0.22.2–0.22.5`，其他数据库仍需单独检查。
+> If your database is still on ParadeDB `v0.22.2-pg17`, first follow the [ParadeDB upgrade guide](06-paradedb-upgrade.md): stop writes, back up, swap the image while keeping the data volume, and complete the `pg_search` extension upgrade before bringing the application back. Replacing the image alone does not update the extension SQL of an existing database; migration `000099` upgrades eligible `0.22.2–0.22.5` extensions in the WeKnora database, while other databases still need to be checked separately.
 
 ```bash
 # In .env, set WEKNORA_VERSION to the target version (e.g. 0.7.0), or keep it as latest
@@ -211,7 +211,7 @@ secrets:                            # Required fields, or use existingSecret to 
   systemAesKey: ""                  # 32-byte AES-256 master key
 ```
 
-`global.maxFileSizeMB` 与 Compose 的 `MAX_FILE_SIZE_MB` 含义相同，chart 会把它写入 frontend（Nginx 请求体上限）、app（上传限制）与 docreader（gRPC 消息上限）三处。可选的 MinIO 镜像为 `quay.io/minio/minio`。
+`global.maxFileSizeMB` means the same as `MAX_FILE_SIZE_MB` in Compose; the chart writes it to three places: frontend (Nginx request body limit), app (upload limit), and docreader (gRPC message limit). The optional MinIO image is `quay.io/minio/minio`.
 
 ```bash
 helm install weknora ./helm -n weknora --create-namespace \

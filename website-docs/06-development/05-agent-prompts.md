@@ -1,67 +1,67 @@
-# 对话提示词拼装与可编辑范围
+# Conversation Prompt Assembly and Editable Scope
 
-本文供维护提示词、智能体编辑器和模型消息链路的开发者使用。智能体配置与执行流程见[Agent 引擎](../03-features/07-agent.md)。
+This page is for developers who maintain prompts, the agent editor and the model message pipeline. For agent configuration and the execution flow, see [Agent Engine](../03-features/07-agent.md).
 
-## 智能推理的系统段
+## Smart reasoning system sections
 
-唯一拼装入口是 `internal/agent/prompts.go` 中的 `BuildSystemPromptSections`，引擎和字符串兼容接口 `BuildSystemPromptWithOptions` 均使用它。以下按实际拼装顺序列出；空段在输出时省略。
+The single assembly entry point is `BuildSystemPromptSections` in `internal/agent/prompts.go`; both the engine and the string-compatible interface `BuildSystemPromptWithOptions` use it. The sections are listed below in actual assembly order; empty sections are omitted from the output.
 
-| 段名 | 来源与职责 |
+| Section | Source and responsibility |
 | --- | --- |
-| `base` | 显式正文优先；否则无绑定知识库用 `pure` 默认模板，有知识库用 `rag` 默认模板 |
-| `steering` | 如何处理回答过程中用户追加的消息（补充、修改或取消），保留未完成任务；自定义正文同样带上 |
-| `runtime_contract` | 数据与指令边界、当前文档范围、完成条件；已知用户语言时追加默认回答语言 |
-| `sources` | 根据实际注册的工具集合选择来源规则；技能安装模式使用专门的安装验证说明 |
-| `tools` | 通用执行、文件和沙箱约定；具体参数仍在工具定义中 |
-| `output` | 公共输出格式、配图条件和完成检查 |
-| `skills` | 可用技能元数据；仅在非技能安装模式、具有 `read_file` 且存在元数据时追加 |
-| `memory` | 本轮召回的记忆 |
-| `protocol` | 来源句柄与输出引用协议 |
+| `base` | Explicit body text takes precedence; otherwise the `pure` default template is used without bound knowledge bases, and the `rag` default template with knowledge bases |
+| `steering` | How to handle messages the user adds while an answer is in progress (supplement, modify or cancel), keeping unfinished tasks; also included with custom body text |
+| `runtime_contract` | Data and instruction boundaries, the current document scope, completion conditions; appends the default answer language when the user's language is known |
+| `sources` | Selects source rules according to the set of actually registered tools; skill installation mode uses dedicated installation verification instructions |
+| `tools` | General execution, file and sandbox conventions; the specific parameters remain in the tool definitions |
+| `output` | Common output format, image conditions and completion checks |
+| `skills` | Available skill metadata; appended only outside skill installation mode, when `read_file` is available and metadata exists |
+| `memory` | Memories recalled for this turn |
+| `protocol` | Source handle and output citation protocol |
 
-自定义正文只替换 `base`，不移除其他运行时段，也不增加工具权限。分段不是模型 API 的不同权限层级；可调用工具仍由后端注册与执行路径控制。浏览器操作契约保留在 `local_browser` 的工具描述中，接入与操作说明见[本机浏览器](../05-clients/09-local-browser.md)。
+Custom body text only replaces `base`; it does not remove other runtime sections or grant additional tool permissions. Sections are not different permission levels of the model API; callable tools are still controlled by backend registration and the execution path. The browser operation contract stays in the tool description of `local_browser`; for integration and operation, see [Local Browser](../05-clients/09-local-browser.md).
 
-`base` 的占位符由 `renderPromptPlaceholdersWithStatus` 展开：
+Placeholders in `base` are expanded by `renderPromptPlaceholdersWithStatus`:
 
-| 占位符 | 当前行为 |
+| Placeholder | Current behavior |
 | --- | --- |
-| `{{knowledge_bases}}` | 指向用户消息中 `runtime_context` 的知识库目录，不展开全文 |
-| `{{web_search_status}}` | 根据实际 `web_search` 工具是否注册，展开为 `Enabled` / `Disabled` |
-| `{{current_time}}` | `YYYY-MM-DD` 日期 |
-| `{{language}}` | 用户语言名 |
-| `{{skills}}` | 清空；技能元数据由独立段提供 |
+| `{{knowledge_bases}}` | Points to the knowledge base directory in `runtime_context` of the user message; the full text is not expanded |
+| `{{web_search_status}}` | Expands to `Enabled` / `Disabled` depending on whether the `web_search` tool is actually registered |
+| `{{current_time}}` | `YYYY-MM-DD` date |
+| `{{language}}` | The user's language name |
+| `{{skills}}` | Cleared; skill metadata is provided by a separate section |
 
-## 当前轮上下文与消息角色
+## Current-turn context and message roles
 
-`internal/agent/observe.go` 在当前用户消息中加入 `runtime_context`：日期、会话 ID、绑定知识库摘要、固定文档和问题来源等本轮信息；不把它持久化为历史指令。知识库名称与描述限长并转义，FAQ 答案和文档全文需要通过检索工具读取。
+`internal/agent/observe.go` adds `runtime_context` to the current user message: per-turn information such as the date, session ID, bound knowledge base summaries, pinned documents and question source; it is not persisted as a historical instruction. Knowledge base names and descriptions are length-limited and escaped; FAQ answers and full document text must be read through retrieval tools.
 
-`@MCP` / `@Skill` 产生当前轮的 `must_use` 提示。MCP 提及只为已授权服务设置优先提示，不移除其他已配置服务；尚未暴露的服务通过 `discover_mcp_tools` 发现。技能提及提示先读取对应 `SKILL.md`。这些选择不能授权无关操作，仍受用户明确的来源限制和后端权限约束。
+`@MCP` / `@Skill` produce a `must_use` hint for the current turn. An MCP mention only sets a priority hint for authorized services and does not remove other configured services; services not yet exposed are discovered through `discover_mcp_tools`. A skill mention hints to read the corresponding `SKILL.md` first. These selections cannot authorize unrelated operations and remain subject to the user's explicit source restrictions and backend permissions.
 
-回答过程中用户追加并选择立即补充的消息，在下一轮迭代前作为 user 消息接到消息列表末尾：发给模型的内容以 `<steer_message>` 包裹并附 `<continue_task>` 说明（`types.SteerMessageContent`），会话历史和界面保留用户原文；`steering` 段约定模型如何对待这类消息。
+Messages the user adds while an answer is in progress and chooses to supplement immediately are appended to the end of the message list as user messages before the next iteration: the content sent to the model is wrapped in `<steer_message>` with a `<continue_task>` note (`types.SteerMessageContent`), while the session history and the UI keep the user's original text; the `steering` section defines how the model treats such messages.
 
-正常工具结果保留 `tool` 角色与调用 ID；消息修复时无法配对的结果以转义后的 `untrusted_tool_result` 数据块保留，不能提升为系统指令。Agent、普通问答和模型兜底共用来源数据边界规则，但三者并不使用完全相同的提示词拼装流程。
+Normal tool results keep the `tool` role and call ID; during message repair, results that cannot be paired are kept as escaped `untrusted_tool_result` data blocks and must not be promoted to system instructions. The agent, regular Q&A and the model fallback share the source data boundary rules, but the three do not use exactly the same prompt assembly flow.
 
-达到迭代上限或错误收尾时，`internal/agent/finalize.go` 沿用当前消息列表，保留历史、图片及工具调用配对，再追加收尾请求。最后一次调用不提供工具，设置 `tool_choice=none` 并关闭 thinking。
+When the iteration limit is reached or on error wrap-up, `internal/agent/finalize.go` reuses the current message list, keeping history, images and tool call pairing, then appends a wrap-up request. The final call provides no tools, sets `tool_choice=none` and disables thinking.
 
-## 编辑与保存
+## Editing and saving
 
-前端编辑器展示有效正文，`frontend/src/utils/agentPromptTemplates.ts` 在保存时区分模板引用与自定义内容：
+The frontend editor shows the effective body text, and `frontend/src/utils/agentPromptTemplates.ts` distinguishes template references from custom content when saving:
 
-- 正文与已知模板完全相同：保存 `system_prompt_id` / `context_template_id`，正文留空。
-- 正文被实际修改：保存正文，清除旧模板 ID。
-- 改写、兜底字段与当前默认模板一致：保存空值，继承默认值；意图提示词只保存偏离默认值的覆盖项。
+- Body text identical to a known template: save `system_prompt_id` / `context_template_id` and leave the body empty.
+- Body text actually modified: save the body and clear the old template ID.
+- Rewrite and fallback fields identical to the current default template: save empty values to inherit the defaults; intent prompts only save overrides that deviate from the defaults.
 
-例如未修改的 Wiki 模板保存为：
+For example, an unmodified Wiki template is saved as:
 
 ```json
 {"agent_mode":"smart-reasoning","system_prompt_id":"wiki_researcher","system_prompt":""}
 ```
 
-`internal/config/agent_prompts.go` 的 `ResolveCustomAgentPrompts` 在请求时解析引用，显式正文始终优先，引用仅在所属字段与模式的模板集合中查找。解析结果不会写回保存对象；未知引用返回空正文，由调用方使用默认路径。
+`ResolveCustomAgentPrompts` in `internal/config/agent_prompts.go` resolves references at request time; explicit body text always takes precedence, and references are only looked up in the template set for the owning field and mode. The resolved result is not written back to the saved object; an unknown reference returns an empty body, and the caller uses the default path.
 
-默认模板更新不会覆盖已有自定义正文，也不会批量迁移历史默认副本。旧配置需要重新跟随模板时，在编辑器恢复默认后保存。
+Default template updates do not overwrite existing custom body text, nor do they batch-migrate historical copies of defaults. When an old configuration needs to follow the template again, restore the default in the editor and save.
 
-## 维护时检查什么
+## What to check during maintenance
 
-新增规则先确定归属：角色与领域方法放 `base`，来源选择放 `sources`，调用约定放工具定义或 `tools`，输出形态放 `output`，引用编码放 `protocol`。避免同一规则在多处重复维护。
+Decide where a new rule belongs first: role and domain methods go in `base`, source selection in `sources`, calling conventions in the tool definition or `tools`, output shape in `output`, and citation encoding in `protocol`. Avoid maintaining the same rule in multiple places.
 
-`[Agent][Prompt] section=... bytes=...` 日志帮助定位各段体积；验证行为还需检查最终模型消息、实际工具注册表及执行权限，并用任务验证来源选择、失败恢复和输出格式。
+The `[Agent][Prompt] section=... bytes=...` log helps locate the size of each section; verifying behavior also requires checking the final model messages, the actual tool registry and execution permissions, and using tasks to verify source selection, failure recovery and output format.

@@ -1,10 +1,10 @@
 // Product navigation and shared masthead icons.
 export const siteNavigation = [
-  { label: '产品能力', href: '/#capabilities', badge: '' },
+  { label: 'Capabilities', href: '/#capabilities', badge: '' },
   { label: 'v0.8.2', href: '/#release', badge: 'NEW' },
-  { label: '生态集成', href: '/#ecosystem', badge: '' },
-  { label: '企业部署', href: '/#enterprise', badge: '' },
-  { label: '文档', href: '/docs/', badge: '' },
+  { label: 'Integrations', href: '/#ecosystem', badge: '' },
+  { label: 'Enterprise', href: '/#enterprise', badge: '' },
+  { label: 'Docs', href: '/docs/', badge: '' },
 ];
 // The site sits behind an upstream router that forwards only `/` and `/docs/`.
 // Everything else the homepage loads (Next chunks, images) is served from here:

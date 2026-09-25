@@ -10,19 +10,19 @@ Handler: `internal/handler/system.go`. API key: `manage_vector_stores`/full. Res
 
 ### GET /api/v1/system/capabilities
 
-Viewer+；API Key 可读。返回 `{code:0,data:{edition,capabilities}}`，每个 capability 给出 supported/reason。前端据部署版本、实际注册路由和 Docker 开关控制菜单入口；隐藏菜单不代替后端权限校验。
+Viewer+; readable with an API Key. Returns `{code:0,data:{edition,capabilities}}`, where each capability reports supported/reason. The frontend uses the deployment edition, the actually registered routes, and the Docker switch to control menu entries; hiding a menu does not replace backend permission checks.
 
 ```bash
 curl "$BASE/api/v1/system/capabilities" -H "Authorization: Bearer $TOKEN"
 ```
 
-`capabilities` 中的 `settings.sandbox.host` 表示当前部署能否使用本机操作系统沙箱，目前仅 macOS 原生桌面应用可能为 supported。
+`settings.sandbox.host` in `capabilities` indicates whether the current deployment can use the host operating system sandbox; currently only the native macOS desktop app can report supported.
 
 ### POST /api/v1/system/host-project-dir
 
-用途：在运行 WeKnora 的本机弹出系统文件夹选择框，供新会话绑定本机项目目录（v0.8.2 起，仅原生桌面应用）。权限：Viewer+，仅 JWT，API Key 一律拒绝。无请求体。
+Purpose: open the system folder picker on the machine running WeKnora so a new session can bind a local project directory (since v0.8.2, native desktop app only). Permission: Viewer+, JWT only; API Keys are always rejected. No request body.
 
-响应：200 `{"code":0,"msg":"success","data":{"dir":"/Users/me/project"}}`，用户取消选择时 `dir` 为空字符串；非桌面部署返回 404。
+Response: 200 `{"code":0,"msg":"success","data":{"dir":"/Users/me/project"}}`; `dir` is an empty string when the user cancels the selection; non-desktop deployments return 404.
 
 ### GET /api/v1/system/info
 
@@ -125,16 +125,16 @@ curl $BASE/api/v1/system/admin/list -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/system/admin/users/create
 
-仅系统管理员；此接口不开放给 platform API Key。请求字段：username（2–50 字符）、email（合法邮箱）、password（可选或 null 自动生成）。显式空字符串仍要经过密码策略校验，不视为自动生成。
+System administrators only; this endpoint is not available to platform API Keys. Request fields: username (2–50 characters), email (a valid email address), password (optional, or null to auto-generate). An explicit empty string still goes through password policy validation and is not treated as auto-generation.
 
-| HTTP 状态 | 响应与含义 |
+| HTTP status | Response and meaning |
 | --- | --- |
-| 201 | `{user:UserInfo,generated_password?}`，新建；仅自动生成时返回密码 |
-| 200 | `{user:UserInfo}`，已有身份，不修改账号或密码 |
-| 400 | 参数或密码策略不满足 |
-| 409 | 邮箱与用户名对应不同身份 |
+| 201 | `{user:UserInfo,generated_password?}`, created; the password is returned only when auto-generated |
+| 200 | `{user:UserInfo}`, existing identity; the account and password are not modified |
+| 400 | Invalid parameters or password policy not met |
+| 409 | The email and username belong to different identities |
 
-这是原始响应对象，没有 success/data 包装，也没有 idempotent 字段。用 HTTP 状态区分新增与已有账号。空间分配遵循 auth.default_tenant_mode。
+This is the raw response object, with no success/data wrapper and no idempotent field. Use the HTTP status to tell a new account from an existing one. Space assignment follows auth.default_tenant_mode.
 
 ```bash
 curl -i -X POST "$BASE/api/v1/system/admin/users/create" \
@@ -276,27 +276,27 @@ Response: 200 `{"success":true,"data":[AuditLog],"next_cursor":N}`
 curl $BASE/api/v1/system/admin/audit-log -H "Authorization: Bearer $TOKEN"
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/routes_auth_tenant.go` 的 `RegisterSystemAdminRoutes` 与 `RegisterSystemRoutes`。Handler：`internal/handler/system.go`、`internal/handler/audit_log.go`。
+Route registration: `RegisterSystemAdminRoutes` and `RegisterSystemRoutes` in `internal/router/routes_auth_tenant.go`. Handlers: `internal/handler/system.go`, `internal/handler/audit_log.go`.
 
 
-## 模型目录（/api/v1/system/admin/model-catalog）
+## Model Catalog (/api/v1/system/admin/model-catalog)
 
-仅系统管理员用户会话可访问，API Key 不开放此组接口。
+Accessible only from system administrator user sessions; this group of endpoints is not available to API Keys.
 
-| 方法与路径 | 作用 |
+| Method and path | Purpose |
 | --- | --- |
-| `GET /system/admin/model-catalog` | 返回当前 `version`、`baseline`、管理员 `overlay`、最近 20 个历史版本，以及 `builtin` / `deployment` / `effective` 目录 |
-| `POST /system/admin/model-catalog/preview` | 校验覆盖文档并返回候选目录（仅 `effective` 与规范化后的 `overlay`，`history` / `builtin` / `deployment` 为 `null`），不持久化、不发布 |
-| `PUT /system/admin/model-catalog` | 校验、保存新版本并发布；审计仅记录版本元信息 |
+| `GET /system/admin/model-catalog` | Returns the current `version`, `baseline`, the admin `overlay`, the 20 most recent history versions, and the `builtin` / `deployment` / `effective` catalogs |
+| `POST /system/admin/model-catalog/preview` | Validates the overlay document and returns the candidate catalog (only `effective` and the normalized `overlay`; `history` / `builtin` / `deployment` are `null`), without persisting or publishing |
+| `PUT /system/admin/model-catalog` | Validates, saves a new version, and publishes it; the audit log records only version metadata |
 
-预览和发布使用相同请求体：
+Preview and publish use the same request body:
 
 ```json
 {
   "version": 0,
-  "baseline": "GET 返回的部署基线标识",
+  "baseline": "deployment baseline identifier returned by GET",
   "overlay": {
     "providers": {
       "openai": {
@@ -307,4 +307,4 @@ curl $BASE/api/v1/system/admin/audit-log -H "Authorization: Bearer $TOKEN"
 }
 ```
 
-响应为未包装的目录状态对象。每个厂商条目额外带 `model_thinking_levels`（按对话模型 id 列出开启思考后可选的等级，已合并厂商映射与协议能力）和 `vendor_thinking_levels`（未单独配置等级的模型所用的厂商默认等级）。非法文档返回 400；版本过期或请求实例的部署基线不一致返回 409。发布先持久化再切换本实例，其他实例约 5 秒内同步。回滚使用历史 `overlay` 配合当前 `version` / `baseline` 再次发布。完整规则和限制见[模型管理](../03-features/06-models.md#系统管理员维护模型目录)。
+The response is the unwrapped catalog state object. Each provider entry additionally carries `model_thinking_levels` (the levels selectable once thinking is enabled, listed per chat model id, with provider mappings and protocol capabilities already merged) and `vendor_thinking_levels` (the provider's default levels, used by models without their own level configuration). An invalid document returns 400; a stale version or a deployment baseline that does not match the requesting instance returns 409. Publishing persists first and then switches the current instance; other instances sync within about 5 seconds. To roll back, publish a historical `overlay` again together with the current `version` / `baseline`. See [Model Management](../03-features/06-models.md#model-catalog-maintenance-by-system-administrators) for the full rules and limits.

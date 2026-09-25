@@ -14,7 +14,7 @@
 //     older models are taken offline as newer ones land, and only the model
 //     page (the API-Inference panel) is authoritative;
 //   - API-Inference is a free, non-commercial service with dynamic rate limits
-//     and no per-token price: calls are metered in 魔粒 credits
+//     and no per-token price: calls are metered in "Moli" credits
 //     (0.5 / 1 / 2 per call by model tier), which is why the entries below
 //     carry a zero token cost rather than a real one;
 //   - the documented scope is open LLM, multimodal (MLLM) and AIGC

@@ -10,7 +10,7 @@ func TestSanitizeFileName(t *testing.T) {
 	cases := []struct{ name, input, want string }{
 		{"empty", "", "untitled"},
 		{"punctuation", `a/b\c:d*e?f"g<h>i|j`, "a_b_c_d_e_f_g_h_i_j"},
-		{"whitespace retained", " \t标题\n\r ", " \t标题\n\r "},
+		{"whitespace retained", " \tTitle\n\r ", " \tTitle\n\r "},
 		{"dots retained", "..", ".."},
 		{"controls retained", "a\x00b\x1fc", "a\x00b\x1fc"},
 		{"ascii at limit", strings.Repeat("a", 200), strings.Repeat("a", 200)},

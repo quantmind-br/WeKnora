@@ -146,12 +146,12 @@ curl -X POST $BASE/api/v1/mcp-services -H "Authorization: Bearer $TOKEN" \
 
 Purpose: list MCP services. Permission: Viewer+. Response: 200 `{"success":true,"data":[MCPServiceResponse]}`
 
-| 查询参数 | 类型 | 必填 | 说明 |
+| Query parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `agent_id` | string | 否 | 与 `agent_source_tenant_id` 同时传入时，列出该共享智能体可 @ 的 MCP 服务 |
-| `agent_source_tenant_id` | int | 否 | 共享智能体的来源空间 ID，与对话请求的同名参数一致 |
+| `agent_id` | string | No | When passed together with `agent_source_tenant_id`, lists the MCP services that shared agent can @-mention |
+| `agent_source_tenant_id` | int | No | Source space ID of the shared agent, same as the parameter of the same name in chat requests |
 
-两个参数都传时走共享智能体路径：只返回该智能体在来源空间以 `selected` 模式指定且已启用的服务（`all`/`none` 模式返回空列表），且每项只含 ID、名称、说明、使用说明、传输类型、启用状态和工具目录摘要，不含 URL、请求头、认证配置等连接细节；调用者无权使用该智能体时返回 403。只传其一或都不传时，列出调用者自己空间的服务。
+When both parameters are passed, the shared-agent path is used: only services that the agent specifies in `selected` mode in its source space and that are enabled are returned (`all`/`none` mode returns an empty list), and each item contains only the ID, name, description, usage instructions, transport type, enabled state, and tool catalog summary, without connection details such as the URL, request headers, or auth configuration; returns 403 when the caller is not allowed to use the agent. When only one or neither is passed, the services of the caller's own space are listed.
 
 ```bash
 curl $BASE/api/v1/mcp-services -H "Authorization: Bearer $TOKEN"
@@ -180,13 +180,13 @@ curl -X PUT $BASE/api/v1/mcp-services/mcp-1 -H "Authorization: Bearer $TOKEN" \
 
 ### POST /api/v1/mcp-services/:id/usage-instructions/generate
 
-用途：根据已同步、未过期的 MCP 工具目录生成精简使用说明。权限：Admin+；API key 需要 `manage_mcp_services` 或 full。
+Purpose: generate concise usage instructions from the synced, non-stale MCP tool catalog. Permission: Admin+; API key needs `manage_mcp_services` or full.
 
-请求：`{"language":"zh-CN"}`。支持 `zh-CN`、`en-US`、`ja-JP`、`ko-KR`、`ru-RU`，默认中文。
+Request: `{"language":"en-US"}`. Supports `zh-CN`, `en-US`, `ja-JP`, `ko-KR`, `ru-RU`; defaults to Simplified Chinese.
 
-优先使用空间默认的可用对话模型，否则使用首个可用对话模型。输入包括服务名称、服务端说明和已启用工具的名称、描述；OAuth 目录沿用当前用户的授权范围。不会连接 MCP、调用工具或自动保存生成结果。
+Uses the space's default chat model if available, otherwise the first available chat model. The input includes the service name, the server-side description, and the names and descriptions of enabled tools; OAuth catalogs follow the current user's authorization scope. It does not connect to the MCP service, call tools, or save the generated result automatically.
 
-响应：200 `{"success":true,"data":{"usage_instructions":"按模块和时间范围查询远程日志；已有查询 ID 时读取对应日志。"}}`。生成目标为 2–3 句简短说明，最多 500 字符；用户可编辑后通过 PUT 保存。目录未同步、过期、无启用工具或无可用对话模型时返回 400。
+Response: 200 `{"success":true,"data":{"usage_instructions":"Query remote logs by module and time range; read the matching log when a query ID is already known."}}`. The target is a short 2–3 sentence description of at most 500 characters; users can edit it and save it via PUT. Returns 400 when the catalog is not synced or is stale, no tools are enabled, or no chat model is available.
 
 ### DELETE /api/v1/mcp-services/:id
 
@@ -206,9 +206,9 @@ curl -X POST $BASE/api/v1/mcp-services/mcp-1/test -H "Authorization: Bearer $TOK
 
 ### GET /api/v1/mcp-services/:id/metadata
 
-用途：读取持久工具目录，不连接上游。权限：Viewer+；OAuth 目录按当前有效授权主体隔离。
+Purpose: read the persisted tool catalog without connecting upstream. Permission: Viewer+; OAuth catalogs are isolated per currently effective authorization principal.
 
-响应：200 `{"success":true,"data":null}` 表示未同步；已同步时 `data` 为目录快照，包含服务端信息、instructions、tools 和同步时间。连接配置变更后的快照标记 `stale:true`，不能用于加载运行时工具。
+Response: 200 `{"success":true,"data":null}` means not synced; once synced, `data` is the catalog snapshot, containing server info, instructions, tools, and the sync time. After the connection configuration changes, the snapshot is marked `stale:true` and cannot be used to load runtime tools.
 
 ```bash
 curl $BASE/api/v1/mcp-services/mcp-1/metadata -H "Authorization: Bearer $TOKEN"
@@ -216,9 +216,9 @@ curl $BASE/api/v1/mcp-services/mcp-1/metadata -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/mcp-services/:id/metadata/refresh
 
-用途：显式连接上游、完整拉取并原子更新工具目录。静态认证目录需 Admin+；OAuth 用户可同步自己的目录（Viewer+）。API Key 需要 MCP 管理能力。
+Purpose: explicitly connect upstream, fetch the full tool catalog, and update it atomically. Catalogs with static authentication require Admin+; OAuth users can sync their own catalog (Viewer+). An API Key needs the MCP management capability.
 
-响应为更新后的目录快照。失败保留原快照；连接在刷新期间变化返回 409，目录无效/过大或上游同步失败返回 400，元数据存储不可用返回 503。不会覆盖人工使用说明和单工具启用/审批策略。
+The response is the updated catalog snapshot. On failure the previous snapshot is kept; returns 409 if the connection changed during the refresh, 400 if the catalog is invalid/too large or the upstream sync fails, and 503 if metadata storage is unavailable. It does not overwrite manually written usage instructions or per-tool enable/approval policies.
 
 ```bash
 curl -X POST $BASE/api/v1/mcp-services/mcp-1/metadata/refresh -H "Authorization: Bearer $TOKEN"
@@ -409,13 +409,13 @@ curl -X POST $BASE/api/v1/agent/mcp-oauth-resolutions/p-1/cancel -H "Authorizati
 
 ## Skills, Sandbox, and Personal Variables
 
-`GET /api/v1/skills?sandbox_config_id=...` 返回指定配置下可用技能的名称/说明及 skills_available；传 `agent_id` + `agent_source_tenant_id` 时按共享智能体的来源空间和其沙箱配置返回，详见[沙箱与技能 API](02-api-sandbox-skills.md#沙箱内技能)。目录收录、安装、模板、进度、文件与个人变量的完整接口见[沙箱与技能 API](02-api-sandbox-skills.md)。
+`GET /api/v1/skills?sandbox_config_id=...` returns the names/descriptions of skills available under the given configuration, plus skills_available; when `agent_id` + `agent_source_tenant_id` are passed, the result follows the shared agent's source space and its sandbox configuration; see the [Sandbox and Skills API](02-api-sandbox-skills.md#skills-in-sandbox). For the full endpoints covering catalog listing, installation, templates, progress, files, and personal variables, see the [Sandbox and Skills API](02-api-sandbox-skills.md).
 
 The agent config adds `sandbox_config_id`; together with skills_selection_mode and selected_skills, it determines the available skills. Shell/file tools are registered according to backend capabilities; the old read_skill / execute_skill_script are no longer registered.
 
 ## Long-Term Memory
 
-智能体 config 的 `memory_enabled` 为 nil 时继承空间，false 禁用本智能体的记忆读写。个人管理、主题/文档偏好、导出与立即整理见[长期记忆 API](02-api-memory.md)，使用步骤见[跨会话长期记忆](../03-features/23-memory.md)。
+When `memory_enabled` in the agent config is nil, the space setting is inherited; false disables memory reads and writes for this agent. For personal management, topic/document preferences, export, and immediate consolidation, see the [Long-term Memory API](02-api-memory.md); for usage steps, see [Cross-session Long-term Memory](../03-features/23-memory.md).
 
 ## User Favorites (/api/v1/user/favorites)
 
@@ -452,6 +452,6 @@ Response: 200 `{"success":true}`
 curl -X DELETE $BASE/api/v1/user/favorites/kb/kb-1 -H "Authorization: Bearer $TOKEN"
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：由 `internal/router/router.go` 调用，`RegisterCustomAgentRoutes`、`RegisterSkillRoutes`、`RegisterUserFavoriteRoutes` 定义在 `routes_agent.go`，`RegisterMCPServiceRoutes`（含 MCP OAuth 与 `/agent` 运行时交互）在 `routes_infra.go`，`RegisterMCPEndpointRoutes` 与公开的 `/mcp/:endpoint_id` 在 `routes_mcp_endpoint.go`。Handler：`internal/handler/custom_agent.go`、`internal/handler/mcp_service.go`、`internal/handler/mcp_credentials.go`、`internal/handler/mcp_oauth.go`、`internal/handler/mcp_endpoint.go`、`internal/handler/skill_handler.go`、`internal/handler/user_resource_favorite.go`。
+Route registration: called from `internal/router/router.go`; `RegisterCustomAgentRoutes`, `RegisterSkillRoutes`, and `RegisterUserFavoriteRoutes` are defined in `routes_agent.go`, `RegisterMCPServiceRoutes` (including MCP OAuth and the `/agent` runtime interaction) in `routes_infra.go`, and `RegisterMCPEndpointRoutes` and the public `/mcp/:endpoint_id` in `routes_mcp_endpoint.go`. Handlers: `internal/handler/custom_agent.go`, `internal/handler/mcp_service.go`, `internal/handler/mcp_credentials.go`, `internal/handler/mcp_oauth.go`, `internal/handler/mcp_endpoint.go`, `internal/handler/skill_handler.go`, `internal/handler/user_resource_favorite.go`.

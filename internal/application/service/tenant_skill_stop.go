@@ -9,7 +9,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-const skillInstallStoppedMessage = "安装已停止"
+const skillInstallStoppedMessage = "install stopped"
 
 var errSkillInstallStopped = errors.New(skillInstallStoppedMessage)
 

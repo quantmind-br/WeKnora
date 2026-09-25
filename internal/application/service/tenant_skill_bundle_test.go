@@ -276,10 +276,10 @@ Use this skill for .docx files.
 	t.Run("repairs version and description nested under name", func(t *testing.T) {
 		data := zipBundle(t, map[string]string{
 			"SKILL.md": `---
-name: 命理大师
+name: fortune-master
   version: 1.2.6
   description: |
-    全体系命理大师。
+    Fortune-telling master covering every system.
 ---
 Use the scripts in this skill.
 `,
@@ -289,18 +289,18 @@ Use the scripts in this skill.
 
 		require.NoError(t, err)
 		require.True(t, bundle.FrontmatterRepaired)
-		require.Equal(t, "命理大师", bundle.Name)
+		require.Equal(t, "fortune-master", bundle.Name)
 		require.Equal(t, "1.2.6", bundle.Version)
-		require.Contains(t, bundle.Description, "全体系命理大师")
+		require.Contains(t, bundle.Description, "Fortune-telling master covering every system")
 	})
 
 	t.Run("rejects a SkillHub archive whose extra YAML is still invalid after repair", func(t *testing.T) {
 		data := zipBundle(t, map[string]string{
 			"SKILL.md": `---
-name: 命理大师
+name: fortune-master
   version: 1.2.6
   description: |
-    全体系命理大师。
+    Fortune-telling master covering every system.
 metadata:
   openclaw:
     install:

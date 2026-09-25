@@ -129,7 +129,7 @@ graph LR
     APP -->|"GORM (SQL)"| PG
     APP -->|"RESP"| RD
     APP -->|"Docker Engine API"| SBX
-    APP -->|"控制面 / 数据面"| REMOTE
+    APP -->|"control plane / data plane"| REMOTE
     APP -->|"HTTP"| SX
     APP -->|"Bolt"| NEO
     APP -->|"SDK"| VDB

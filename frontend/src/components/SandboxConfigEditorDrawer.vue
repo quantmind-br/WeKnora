@@ -1066,7 +1066,7 @@ const egressRestrictedByPolicy = computed(() => (checkResult.value?.checks || []
   (item) => item.reason === EGRESS_RESTRICTED_REASON,
 ))
 
-// Says which layer the verdict covers, so "检测通过" is not read as "everything
+// Says which layer the verdict covers, so "All checks passed" is not read as "everything
 // works" after a connection-only probe, or after egress was skipped because
 // the config denies outbound access by policy.
 const checkScopeHint = computed(() => {

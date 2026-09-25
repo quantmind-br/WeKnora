@@ -636,7 +636,7 @@ type TenantSandboxConfig struct {
 	// SandboxType is cube, e2b, or docker; disabled is the hidden policy row.
 	SandboxType string `json:"sandbox_type,omitempty"`
 
-	// ── 通用配置（跨后端生效）──────────────────────────────────
+	// ── Common settings (apply to every backend) ──────────────────────
 
 	// DefaultTimeoutSec is the per-execution timeout in seconds. 0 uses the
 	// program's built-in default.
@@ -693,7 +693,7 @@ type TenantSandboxConfig struct {
 	// outbound egress allowed, inbound public access closed.
 	Network *SandboxNetworkPolicy `json:"network,omitempty"`
 
-	// ── 后端专属配置（同一时刻只有一个生效，由 SandboxType 决定）───
+	// ── Backend-specific settings (only one is active, chosen by SandboxType) ──
 
 	Cube   *CubeSandboxConfig   `json:"cube,omitempty"`
 	E2B    *E2BSandboxConfig    `json:"e2b,omitempty"`
@@ -707,7 +707,7 @@ type CubeSandboxConfig struct {
 	APIURL        string `json:"api_url,omitempty"`
 	ProxyURL      string `json:"proxy_url,omitempty"`
 	SandboxDomain string `json:"sandbox_domain,omitempty"`
-	APIKey        string `json:"api_key,omitempty"` // 加密
+	APIKey        string `json:"api_key,omitempty"` // encrypted at rest
 	TemplateID    string `json:"template_id,omitempty"`
 
 	// HTTPTimeoutSec bounds each HTTP call to the sandbox control plane.
@@ -728,7 +728,7 @@ type CubeSandboxConfig struct {
 type E2BSandboxConfig struct {
 	APIURL        string `json:"api_url,omitempty"`
 	SandboxDomain string `json:"sandbox_domain,omitempty"`
-	APIKey        string `json:"api_key,omitempty"` // 加密
+	APIKey        string `json:"api_key,omitempty"` // encrypted at rest
 	TemplateID    string `json:"template_id,omitempty"`
 
 	// ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves

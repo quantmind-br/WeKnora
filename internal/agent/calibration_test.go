@@ -205,12 +205,12 @@ func TestExecuteCalibratesFromPromptCountsWithoutATotal(t *testing.T) {
 // it started from, so the newest turn always carries the latest known scale.
 func TestExecuteCarriesTheStartingScaleForward(t *testing.T) {
 	model := &mockChat{responses: []mockResponse{{chunks: []types.StreamResponse{{
-		ResponseType: types.ResponseTypeAnswer, Content: "你好", Done: true, FinishReason: "stop",
+		ResponseType: types.ResponseTypeAnswer, Content: "Hello", Done: true, FinishReason: "stop",
 	}}}}}
 	engine := newTestEngine(t, model, func(cfg *types.AgentConfig) { cfg.ContextTokenScale = 0.7 })
 	engine.toolRegistry = agenttools.NewToolRegistry()
 
-	state, err := engine.Execute(context.Background(), "session", "message", "你好", nil)
+	state, err := engine.Execute(context.Background(), "session", "message", "Hello", nil)
 	require.NoError(t, err)
 	usage := turnUsage(state)
 	require.NotNil(t, usage)

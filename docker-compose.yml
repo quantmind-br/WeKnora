@@ -48,9 +48,9 @@ services:
       - data-files:/data/files
       - docreader-tmp:/tmp/docreader:ro
       - ./config/config.yaml:/app/config/config.yaml
-      # Docker 沙箱默认关闭（见 WEKNORA_SANDBOX_DOCKER_ENABLED）。需要本机 daemon 时
-      # 同时设 true 并挂载实际 socket——这等同宿主机 root，仅私有化单机。
-      # 入口脚本会按 socket GID 把 appuser 加入对应组（compose group_add 在 gosu 后无效）。
+      # The Docker sandbox is disabled by default (see WEKNORA_SANDBOX_DOCKER_ENABLED). When you need the local daemon,
+      # set it to true and mount the actual socket; this is equivalent to host root, so use it only on a private single host.
+      # The entrypoint script adds appuser to the group matching the socket GID (compose group_add has no effect after gosu).
       # - /var/run/docker.sock:/var/run/docker.sock
       # Optional: declarative built-in models. Copy config/builtin_models.yaml.example
       # to config/builtin_models.yaml, edit it for your deployment, then
@@ -94,7 +94,7 @@ services:
       # Timezone, defaults to Asia/Shanghai
       - TZ=${TZ:-Asia/Shanghai}
       # Document processing language (question/summary generation). Priority: this env var (deployment-level override, effective if non-empty)
-      # > Accept-Language request header > built-in default (zh-CN). Leave empty to follow the requester's Accept-Language.
+      # > Accept-Language request header > built-in default (en-US). Leave empty to follow the requester's Accept-Language.
       - WEKNORA_LANGUAGE=${WEKNORA_LANGUAGE:-}
       # Docker sandbox is disabled by default: the local docker.sock is equivalent to host root.
       # System admins can also enable it under "Settings → System Settings" (takes effect immediately). This variable is read when no value is persisted.
@@ -317,8 +317,8 @@ services:
       # doris-be: Stream Load follows FE→BE redirects that must receive Basic
       # credentials on whitelisted BE hosts.
       - SSRF_WHITELIST_EXTRA=${SSRF_WHITELIST_EXTRA:-searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio}
-      # 仅允许白名单出站（默认关闭）。开启前请把所有需要访问的地址加入白名单，
-      # 见 website-docs/01-getting-started/04-configuration.md「开启 SSRF_DNS_WHITELIST_ONLY 之前」。
+      # Allow only whitelisted outbound traffic (disabled by default). Before enabling it, add every address that must be reachable to the whitelist;
+      # see "Before Enabling SSRF_DNS_WHITELIST_ONLY" in website-docs/01-getting-started/04-configuration.md.
       - SSRF_DNS_WHITELIST_ONLY=${SSRF_DNS_WHITELIST_ONLY:-}
       - CONCURRENCY_POOL_SIZE=${CONCURRENCY_POOL_SIZE:-5}
       - JWT_SECRET=${JWT_SECRET:-}

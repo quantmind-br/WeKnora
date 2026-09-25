@@ -2934,16 +2934,16 @@ func (s *wikiIngestService) awaitWikiPromptWarmup(ctx context.Context, key strin
 // "调用频率（qpm）超限") instead of the standard 429, so the status alone
 // is not enough to classify the failure.
 var rateLimitErrorIndicators = []string{
-	"qpm",        // 网关 qpm 配额（0x04030020）
-	"qps",        // 网关 qps 配额
+	"qpm",        // gateway qpm quota (0x04030020)
+	"qps",        // gateway qps quota
 	"rate limit", // OpenAI-style "rate limit reached"
 	"rate_limit",
 	"too many requests", // RFC 6585 language
 	"throttl",           // "throttled"
-	"调用频率",              // 中文网关常见措辞
+	"调用频率",              // common wording of Chinese gateways ("call frequency")
 	"频率超限",
 	"请求过于频繁",
-	"繁忙", // "服务繁忙，请稍后重试"
+	"繁忙", // "服务繁忙，请稍后重试" ("service busy, please retry later")
 	"try again later",
 	"retry later",
 	"slow down",

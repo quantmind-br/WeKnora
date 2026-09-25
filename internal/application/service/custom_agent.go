@@ -1136,12 +1136,12 @@ func wikiSuggestionFromPage(page *types.WikiPage, locale string) string {
 		if isEnglishLocale(locale) {
 			return "What is " + title + "?"
 		}
-		return "What is" + title + "？"
+		return "什么是" + title + "？"
 	case types.WikiPageTypeEntity, types.WikiPageTypeSummary:
 		if isEnglishLocale(locale) {
 			return "Tell me about " + title
 		}
-		return "Introduce" + title
+		return "介绍一下" + title
 	default:
 		return title
 	}

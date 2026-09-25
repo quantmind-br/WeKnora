@@ -223,7 +223,7 @@ type AgentEngine struct {
 	checkpointSink       types.ContextCheckpointSink // persists compactions that end on a stored turn
 	modelContext         *modelcontext.Registry  // single request-local boundary for every model handle
 	steerSink            types.SteerSink         // lets users append messages into the running turn
-	// ... 其余为估算校准、溢出恢复等运行期状态
+	// ... the rest is runtime state such as estimate calibration and overflow recovery
 }
 ```
 
@@ -466,10 +466,10 @@ var ToolCapabilityRequirements = map[string]ToolRequirement{
 	"thinking":   {},
 	"todo_write": {},
 	"search_knowledge":      {AnyOf: []KBCapability{CapVector, CapKeyword}, ConsumesFiles: true},
-	"read_document":         documentReaderRequirement, // AnyOf vector/keyword/wiki，Auxiliary
+	"read_document":         documentReaderRequirement, // AnyOf vector/keyword/wiki, Auxiliary
 	"query_knowledge_graph": {AllOf: []KBCapability{CapGraph}, ConsumesFiles: true},
 	"list_documents":        documentReaderRequirement,
-	// 旧名保留各自原有的声明（wiki_read_source_doc 同 read_document），以便旧配置在归一化之前也能通过能力校验
+	// Retired names keep their original requirement (wiki_read_source_doc matches read_document), so a stored config that has not been normalized yet still passes the capability check
 	// ...
 	"wiki_search":          {AllOf: []KBCapability{CapWiki}},
 	// ...

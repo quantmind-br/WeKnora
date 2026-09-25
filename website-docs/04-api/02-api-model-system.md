@@ -32,11 +32,11 @@ curl "$BASE/api/v1/models/providers?model_type=chat" -H "Authorization: Bearer $
 
 ### GET|POST /api/v1/models/catalog/resolve
 
-用途：按厂商、模型名、`base_url` 与 `extra_config` 解析有效接入配置（协议、思考等级、上下文），供模型编辑器实时展示。权限：Viewer+。
+Purpose: resolve the effective access configuration (protocol, thinking levels, context) from the provider, model name, `base_url`, and `extra_config`, for live display in the model editor. Permission: Viewer+.
 
-参数（GET 用查询参数，POST 用 JSON 请求体，字段相同）：`provider`（厂商 ID）、`model`、`base_url`、`model_type`（默认 `chat`）、`api`、`thinking_control`、`remote_model_name`，以及该厂商声明的非密钥额外字段（如 Azure 的 `api_version`）。POST 请求体还可带 `spec` 对象（与模型 `parameters.spec` 相同），用于预览单行目录覆盖。密钥类字段一律不接受。
+Parameters (query parameters for GET, JSON request body for POST, with the same fields): `provider` (provider ID), `model`, `base_url`, `model_type` (default `chat`), `api`, `thinking_control`, `remote_model_name`, plus any non-secret extra fields the provider declares (such as Azure's `api_version`). The POST request body can also carry a `spec` object (same as the model's `parameters.spec`) to preview a single-row catalog override. Secret fields are never accepted.
 
-响应：200 `{"success":true,"data":{provider,api,remote_model,cataloged,model,capabilities,base_url,url}}`，其中 `capabilities` 为 `{provider,api,cataloged,reasoning,thinking_levels,thinking_format,input,context_window,max_output_tokens,max_tokens_field}`。`base_url` 与 `url`（实际请求地址，仅自行计算地址的厂商返回，如 Azure）只对 Admin+（或 full-access / `manage_tenant_settings` API key）返回。无法解析时返回 400。同一 `capabilities` 结构也随远程对话/视觉模型的 `ModelResponse.capabilities` 返回。
+Response: 200 `{"success":true,"data":{provider,api,remote_model,cataloged,model,capabilities,base_url,url}}`, where `capabilities` is `{provider,api,cataloged,reasoning,thinking_levels,thinking_format,input,context_window,max_output_tokens,max_tokens_field}`. `base_url` and `url` (the actual request URL, returned only for providers that compute the address themselves, such as Azure) are returned only to Admin+ (or a full-access / `manage_tenant_settings` API key). Returns 400 when the configuration cannot be resolved. The same `capabilities` structure is also returned in `ModelResponse.capabilities` for remote chat/vision models.
 
 ```bash
 curl "$BASE/api/v1/models/catalog/resolve?provider=deepseek&model=deepseek-v4-pro" -H "Authorization: Bearer $TOKEN"
@@ -111,7 +111,7 @@ Purpose: delete a model. Permission: Admin+.
 
 Response: 200 `{"success":true,"message":"Model deleted"}`
 
-仍被当前空间的知识库、智能体或长期记忆引用时，响应为 HTTP 400；兼容 message 保留，同时 `error.code=2300`，`error.details` 给出具体对象和引用位置：
+When the model is still referenced by a knowledge base, agent, or long-term memory in the current space, the response is HTTP 400; the compatibility `message` is kept, along with `error.code=2300`, and `error.details` lists the specific objects and where they reference the model:
 
 ```json
 {
@@ -133,7 +133,7 @@ Response: 200 `{"success":true,"message":"Model deleted"}`
 }
 ```
 
-知识库绑定值：`embedding_model`、`summary_model`、`image_processing_model`、`vlm_model`、`asr_model`、`wiki_synthesis_model`、`auto_tag_model`；智能体绑定值：`chat_model`、`rerank_model`、`vlm_model`、`asr_model`、`query_understand_model`、`follow_up_model`；长期记忆绑定值：`embedding_model`、`extract_model`。详情包含对象 `id`、`name`、合并后的 `bindings`，以及 `knowledge_base_total` / `agent_total`。列表最多各 50 条，删除守卫以总数为准。
+Knowledge base binding values: `embedding_model`, `summary_model`, `image_processing_model`, `vlm_model`, `asr_model`, `wiki_synthesis_model`, `auto_tag_model`; agent binding values: `chat_model`, `rerank_model`, `vlm_model`, `asr_model`, `query_understand_model`, `follow_up_model`; long-term memory binding values: `embedding_model`, `extract_model`. The details include each object's `id`, `name`, and merged `bindings`, plus `knowledge_base_total` / `agent_total`. Each list holds at most 50 entries; the deletion guard is based on the totals.
 
 ```bash
 curl -X DELETE $BASE/api/v1/models/m-1 -H "Authorization: Bearer $TOKEN"
@@ -412,6 +412,6 @@ Response: 200 `{"success":true,"data":{evaluation result}}`
 curl "$BASE/api/v1/evaluation?task_id=task-1" -H "Authorization: Bearer $TOKEN"
 ```
 
-## 实现参考
+## Implementation Reference
 
-路由注册：`internal/router/router.go` 调用 `RegisterModelRoutes`、`RegisterInitializationRoutes`、`RegisterEvaluationRoutes`、`RegisterWeKnoraCloudRoutes`（定义在 `internal/router/routes_infra.go`）。Handler：`internal/handler/model.go`、`internal/handler/model_catalog.go`、`internal/handler/model_credentials.go`、`internal/handler/initialization.go`、`internal/handler/evaluation.go`、`internal/handler/weknoracloud.go`。
+Route registration: `internal/router/router.go` calls `RegisterModelRoutes`, `RegisterInitializationRoutes`, `RegisterEvaluationRoutes`, and `RegisterWeKnoraCloudRoutes` (defined in `internal/router/routes_infra.go`). Handlers: `internal/handler/model.go`, `internal/handler/model_catalog.go`, `internal/handler/model_credentials.go`, `internal/handler/initialization.go`, `internal/handler/evaluation.go`, `internal/handler/weknoracloud.go`.

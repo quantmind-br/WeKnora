@@ -1305,7 +1305,7 @@ interface HeadStat {
 }
 
 // v1 glued five unrelated facts into one dot-separated grey sentence —
-// "处理流水线 · 总耗时 494ms · 当前阶段 1/5 · 第 1 次尝试" — which reads
+// "Processing pipeline · Total 494ms · Current stage 1/5 · Attempt 1" — which reads
 // as a run-on and buries the numbers among the words. Label/value pairs
 // with the numbers in tabular mono scan in one pass instead. The panel's
 // own name moves out of the sentence and onto the overline above the
@@ -2969,7 +2969,7 @@ const processConfigLines = computed<string[]>(() => {
   flex-shrink: 0;
 }
 
-/* Says WHERE it broke ("文档解析阶段失败"), which the raw code never did.
+/* Says WHERE it broke ("Failed at the document parsing stage"), which the raw code never did.
    Deliberately NOT --td-error-color: that tone lands around 3:1 against
    the card's own error tint in both themes. The red bar, glyph and
    border already say "error"; the words just have to be readable. */

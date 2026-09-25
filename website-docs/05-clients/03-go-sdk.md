@@ -267,7 +267,7 @@ Two request field changes since v0.8.2:
 | `ShareAgent` / `ListAgentShares` / `RemoveAgentShare` | Agent sharing |
 | `ListOrgShares` / `ListOrgAgentShares` / `ListSharedKnowledgeBases` / `ListSharedAgents` | Queries for shared resources |
 
-自 v0.8.2 起，服务端邀请候选只按**完整空间 ID** 精确解析（`GET /api/v1/organizations/{id}/search-tenants?q=<空间ID>`），不再按空间名、用户名或邮箱搜索。`SearchUsersForInvite` 调用的是已废弃的 `search-users` 别名，并以 `keyword` 参数传值，服务端读取的是 `q`，因此该方法目前拿不到候选。需要查找候选时，请用 `Raw` 直接调用 `search-tenants`。
+Since v0.8.2, the server resolves invitation candidates only by exact match on the **full space ID** (`GET /api/v1/organizations/{id}/search-tenants?q=<space ID>`) and no longer searches by space name, username, or email. `SearchUsersForInvite` calls the deprecated `search-users` alias and passes the value in the `keyword` parameter, while the server reads `q`, so this method currently returns no candidates. To look up candidates, call `search-tenants` directly with `Raw`.
 
 ### FAQ — `client/faq.go`
 

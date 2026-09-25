@@ -68,84 +68,84 @@ func TestCleanPassageForRerank(t *testing.T) {
 	}{
 		{
 			name:   "plain text unchanged",
-			input:  "这是一段普通的文本内容",
-			expect: "这是一段普通的文本内容",
+			input:  "This is a plain piece of text",
+			expect: "This is a plain piece of text",
 		},
 		{
 			name:   "remove markdown images",
-			input:  "前文 ![图片说明](https:// example.com/img.png) trailing text",
-			expect: "前文  后文",
+			input:  "Before ![image caption](https://example.com/img.png) after",
+			expect: "Before  after",
 		},
 		{
 			name:   "convert markdown links to text",
-			input:  "请参考 [官方文档](https:// docs.example.com) for details",
-			expect: "请参考 官方文档 了解详情",
+			input:  "See [the official docs](https://docs.example.com) for details",
+			expect: "See the official docs for details",
 		},
 		{
 			name:   "remove standalone URLs",
-			input:  "访问 https:// example.com/path?q=1&b=2 for more info",
-			expect: "访问  获取更多信息",
+			input:  "Visit https://example.com/path?q=1&b=2 for more info",
+			expect: "Visit  for more info",
 		},
 		{
 			name:   "unwrap code blocks",
-			input:  "示例代码：\n```python\nprint('hello')\n```\n以上是示例",
-			expect: "示例代码：\nprint('hello')\n以上是示例",
+			input:  "Sample code:\n```python\nprint('hello')\n```\nEnd of sample",
+			expect: "Sample code:\nprint('hello')\nEnd of sample",
 		},
 		{
 			name:   "unwrap LaTeX blocks",
-			input:  "公式如下 $$E=mc^2$$ 其中E是能量",
-			expect: "公式如下 E=mc^2 其中E是能量",
+			input:  "The formula is $$E=mc^2$$ where E is energy",
+			expect: "The formula is E=mc^2 where E is energy",
 		},
 		{
 			name:   "remove table separator rows and convert data rows",
-			input:  "| 名称 | 值 |\n| --- | --- |\n| A | 1 |",
-			expect: "名称, 值\n\nA, 1",
+			input:  "| Name | Value |\n| --- | --- |\n| A | 1 |",
+			expect: "Name, Value\n\nA, 1",
 		},
 		{
 			name:   "strip heading markers",
-			input:  "## 第二章 概述\n### 2.1 背景",
-			expect: "第二章 概述\n2.1 背景",
+			input:  "## Chapter 2 Overview\n### 2.1 Background",
+			expect: "Chapter 2 Overview\n2.1 Background",
 		},
 		{
 			name:   "strip blockquote markers",
-			input:  "> 这是一段引用\n> 第二行引用",
-			expect: "这是一段引用\n第二行引用",
+			input:  "> This is a quote\n> Second quoted line",
+			expect: "This is a quote\nSecond quoted line",
 		},
 		{
 			name:   "unwrap bold and italic",
-			input:  "这是 **加粗** 和 *斜体* 以及 ***粗斜体*** 文本",
-			expect: "这是 加粗 和 斜体 以及 粗斜体 文本",
+			input:  "This is **bold** and *italic* and ***bold italic*** text",
+			expect: "This is bold and italic and bold italic text",
 		},
 		{
 			name:   "strip list markers",
-			input:  "- 项目一\n- 项目二\n1. 有序一\n2. 有序二",
-			expect: "项目一\n项目二\n有序一\n有序二",
+			input:  "- Item one\n- Item two\n1. Ordered one\n2. Ordered two",
+			expect: "Item one\nItem two\nOrdered one\nOrdered two",
 		},
 		{
 			name:   "remove HTML tags",
-			input:  "文本<br>换行<div class=\"test\">内容</div>结尾",
-			expect: "文本换行内容结尾",
+			input:  "Text<br>break<div class=\"test\">content</div>end",
+			expect: "Textbreakcontentend",
 		},
 		{
 			name:   "collapse excessive newlines",
-			input:  "段落一\n\n\n\n\n段落二",
-			expect: "段落一\n\n段落二",
+			input:  "Paragraph one\n\n\n\n\nParagraph two",
+			expect: "Paragraph one\n\nParagraph two",
 		},
 		{
 			name: "combined real-world passage",
-			input: `## 产品介绍
+			input: `## Product Overview
 
-这是一个 **重要的** 产品。详见 [产品页面](https://example.com/product)。
+This is an **important** product. See [the product page](https://example.com/product).
 
-![产品截图](images/product.png)
+![Product screenshot](images/product.png)
 
-> 用户评价：非常好用
+> User review: very easy to use
 
-- 功能一
-- 功能二
+- Feature one
+- Feature two
 
 ` + "```json\n{\"key\": \"value\"}\n```",
-			expect: "产品介绍\n\n这是一个 重要的 产品。详见 产品页面。\n\n用户评价：非常好用\n\n功能一\n功能二\n\n{\"key\": \"value\"}",
+			expect: "Product Overview\n\nThis is an important product. See the product page.\n\nUser review: very easy to use\n\nFeature one\nFeature two\n\n{\"key\": \"value\"}",
 		},
 		{
 			name:   "convert table data rows to plain text",

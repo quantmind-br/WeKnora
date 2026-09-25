@@ -108,7 +108,7 @@ const persistOIDCLoginResponse = async (response: any) => {
 
   await syncOIDCUserContext()
 
-  // OIDC 跳转前暂存的邀请 token：拿到会话后兑换并进入对应空间。
+  // Invitation token stashed before the OIDC redirect: redeem it once a session exists and enter the corresponding space.
   const pendingInviteToken = sessionStorage.getItem('weknora_pending_invite_token')
   if (pendingInviteToken) {
     sessionStorage.removeItem('weknora_pending_invite_token')
@@ -116,7 +116,7 @@ const persistOIDCLoginResponse = async (response: any) => {
     await nextTick()
     if (result.ok) MessagePlugin.success(t('inviteRegister.joined'))
     else MessagePlugin.warning(t('inviteRegister.invalidBody'))
-    // 会话已有效，无论 token 是否兑换成功都进入应用。
+    // The session is already valid, so enter the app whether or not the token was redeemed.
     router.replace('/platform/knowledge-bases')
     return
   }

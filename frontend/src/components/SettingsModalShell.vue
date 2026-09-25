@@ -58,21 +58,21 @@
 
 <script setup lang="ts">
 /**
- * 全屏"设置类"弹窗壳：遮罩 + 1080×780 面板 + 左侧分组导航 + 右侧内容 + 可选底栏。
- * 被 Settings / AgentEditorModal / OrganizationSettingsModal / KnowledgeBaseEditorModal 共用，
- * 关闭行为（Esc / 遮罩 / 未保存守卫）由消费方通过 useModalShell 决定，本组件只发出 `close`。
+ * Full-screen "settings-style" modal shell: overlay + 1080×780 panel + grouped nav on the left + content on the right + optional footer.
+ * Shared by Settings / AgentEditorModal / OrganizationSettingsModal / KnowledgeBaseEditorModal.
+ * Close behavior (Esc / overlay / unsaved-changes guard) is decided by the consumer via useModalShell; this component only emits `close`.
  *
- * 样式为非 scoped、以 `.settings-modal-shell` 为根前缀，这样通过 `nav` 插槽自定义导航的消费方
- * 也能复用 .nav-item / .nav-icon 等基础样式。
+ * Styles are not scoped and are rooted at the `.settings-modal-shell` prefix, so consumers that customize the nav
+ * through the `nav` slot can still reuse base styles such as .nav-item / .nav-icon.
  */
 export interface SettingsModalNavItem {
   key: string
   label: string
   icon?: string
   badge?: number | string | null
-  /** 额外的徽标 class，例如 'nav-badge-count' */
+  /** Extra badge class, e.g. 'nav-badge-count' */
   badgeClass?: string
-  /** 徽标为 0 时是否仍显示 */
+  /** Whether to still show the badge when it is 0 */
   showZeroBadge?: boolean
   [extra: string]: unknown
 }
@@ -87,7 +87,7 @@ withDefaults(
   defineProps<{
     visible: boolean
     title: string
-    /** 当前分区 key（v-model） */
+    /** Current section key (v-model) */
     modelValue?: string
     navGroups?: SettingsModalNavGroup[]
     loading?: boolean
@@ -136,8 +136,8 @@ function showBadge(item: SettingsModalNavItem): boolean {
   .settings-modal {
     position: relative;
     width: 100%;
-    // 1080×780：给成员表 / 系统设置这类多列内容留足空间；外层 20px padding 后 1120，
-    // 1280+ 的笔记本都放得下；更窄的视口由 width: 100% 收缩。
+    // 1080×780: leaves enough room for multi-column content such as the member table / system settings; with the outer 20px padding it is 1120,
+    // which fits any 1280+ laptop; narrower viewports shrink via width: 100%.
     max-width: 1080px;
     height: 780px;
     max-height: calc(100vh - 40px);
@@ -323,8 +323,8 @@ function showBadge(item: SettingsModalNavItem): boolean {
     background-color: var(--td-bg-color-container);
   }
 
-  // 既是滚动容器，也是 flex 列：消费方的 .content-wrapper 想自己滚动时设 flex:1 + overflow:auto，
-  // 想让整块内容随页面滚动时保持自然高度即可。
+  // Both the scroll container and a flex column: a consumer's .content-wrapper sets flex:1 + overflow:auto to scroll on its own,
+  // or keeps its natural height to let the whole block scroll with the page.
   .settings-body {
     flex: 1;
     min-height: 0;

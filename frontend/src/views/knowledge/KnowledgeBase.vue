@@ -494,7 +494,7 @@ const handleBatchDownload = async () => {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    // 延迟释放，给浏览器留出开始保存文件的时间。
+    // Revoke later to give the browser time to start saving the file.
     window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     MessagePlugin.success(t('knowledgeBase.batchDownloadStarted'));
   } catch (error: any) {
@@ -2701,7 +2701,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
   }
 }
 
-// 标签筛选浮层：点击工具栏入口展开，不占文档列表横向空间
+// Tag filter popover: opened from the toolbar entry, so it takes no horizontal space from the document list
 
 .tag-content {
   flex: 1;

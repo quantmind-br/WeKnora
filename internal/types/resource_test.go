@@ -36,10 +36,10 @@ func TestScanResourceReferences(t *testing.T) {
 		text string
 		want []string
 	}{
-		{name: "no references", text: "普通正文，没有引用。", want: nil},
+		{name: "no references", text: "Plain body text with no references.", want: nil},
 		{
 			name: "markdown image and link",
-			text: "![图](" + first + ")\n\n[表格](" + second + ")",
+			text: "![figure](" + first + ")\n\n[table](" + second + ")",
 			want: []string{first, second},
 		},
 		{

@@ -216,8 +216,8 @@ build_sandbox_image() {
 
     cd "$PROJECT_ROOT"
 
-    # 同时打上 main：默认镜像跟的是 main（见 sandbox.go 的 DefaultDockerImage），
-    # 而 Docker 后端只在本地缺失时才去拉，本地不打这个标签就等于白构建。
+    # Also tag main: the default image tracks main (see DefaultDockerImage in sandbox.go),
+    # and the Docker backend only pulls when the image is missing locally, so building without this tag is wasted work.
     docker build \
         --platform $PLATFORM \
         --build-arg TARGETPLATFORM=$PLATFORM \
@@ -228,14 +228,14 @@ build_sandbox_image() {
         .
 
     if [ $? -ne 0 ]; then
-        log_error "沙箱镜像构建失败"
+        log_error "Sandbox image build failed"
         return 1
     fi
 
-    # Cube 从镜像直接构建模板，并以 :49983/health 探活，缺 envd 必然失败，
-    # 因此 Cube 用的是注入了 envd 的变体镜像。详见 website-docs/06-development/04-sandbox-deployment.md。
-    # 固定 linux/amd64：envd 的来源镜像 cubesandbox-base 不发布 arm64。
-    log_info "构建沙箱镜像 Cube 变体 (weknora-sandbox:main-cube)..."
+    # Cube builds templates directly from the image and probes :49983/health, which always fails without envd,
+    # so Cube uses a variant image with envd injected. See website-docs/06-development/04-sandbox-deployment.md.
+    # Pinned to linux/amd64: cubesandbox-base, the image envd comes from, does not publish arm64.
+    log_info "Build sandbox image Cube variant (weknora-sandbox:main-cube)..."
 
     docker build \
         --platform linux/amd64 \
@@ -248,13 +248,13 @@ build_sandbox_image() {
         .
 
     if [ $? -ne 0 ]; then
-        log_error "沙箱镜像 Cube 变体构建失败"
+        log_error "Sandbox image Cube variant build failed"
         return 1
     fi
 
     # Desktop variant: XFCE + x11vnc + websockify. Tagged for E2B template
     # builds; the Docker backend does not consume this image yet.
-    log_info "构建沙箱镜像桌面变体 (weknora-sandbox:main-desktop)..."
+    log_info "Build sandbox image desktop variant (weknora-sandbox:main-desktop)..."
 
     docker build \
         --platform $PLATFORM \
@@ -266,11 +266,11 @@ build_sandbox_image() {
         .
 
     if [ $? -ne 0 ]; then
-        log_error "沙箱镜像桌面变体构建失败"
+        log_error "Sandbox image desktop variant build failed"
         return 1
     fi
 
-    log_info "构建沙箱镜像桌面 Cube 变体 (weknora-sandbox:main-desktop-cube)..."
+    log_info "Build sandbox image desktop Cube variant (weknora-sandbox:main-desktop-cube)..."
 
     docker build \
         --platform linux/amd64 \

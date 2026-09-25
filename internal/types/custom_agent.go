@@ -635,7 +635,7 @@ type SuggestedQuestion struct {
 	Source string `json:"source"`
 	// Source knowledge base ID (only set for faq/document/wiki sources)
 	KnowledgeBaseID string `json:"knowledge_base_id,omitempty"`
-	// 来源文档ID（仅 faq/document 来源时有值）
+	// Source document ID (only set for faq/document sources)
 	KnowledgeID string `json:"knowledge_id,omitempty"`
 }
 

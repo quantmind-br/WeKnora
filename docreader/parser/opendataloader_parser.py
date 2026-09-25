@@ -85,7 +85,7 @@ def _ping_hybrid(
     health_url = f"{base}/health"
     safe, reason = is_ssrf_safe_url(health_url)
     if not safe:
-        return False, f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {reason}"
+        return False, f"OpenDataLoader hybrid URL blocked by SSRF guard: {reason}"
 
     opener = urllib.request.build_opener(_NoRedirectHandler())
     last_err = ""
@@ -294,7 +294,7 @@ def _run_convert(
             safe, reason = is_ssrf_safe_url(hybrid_url)
             if not safe:
                 raise RuntimeError(
-                    f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {reason}"
+                    f"OpenDataLoader hybrid URL blocked by SSRF guard: {reason}"
                 )
             kwargs["hybrid_url"] = hybrid_url
         hybrid_mode = _override_str(overrides, "odl_hybrid_mode", CONFIG.odl_hybrid_mode)

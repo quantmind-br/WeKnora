@@ -1,37 +1,37 @@
-# ParadeDB 存量库升级
+# ParadeDB Upgrade for Existing Databases
 
-仓库的生产与开发 Compose 使用 `paradedb/paradedb:v0.22.6-pg17`。本文处理 **0.22.2 → 0.22.6、PostgreSQL 主版本保持 17** 的升级；不适用于 PostgreSQL 跨主版本升级，也不代表 Helm 中其他旧版本可以直接套用。
+The repository's production and development Compose files use `paradedb/paradedb:v0.22.6-pg17`. This page covers the **0.22.2 → 0.22.6 upgrade with PostgreSQL staying on major version 17**; it does not apply to upgrades across PostgreSQL major versions, nor does it mean other older versions in Helm can follow it as-is.
 
-## 升级步骤
+## Upgrade steps
 
-所有命令在仓库根目录执行。开发环境的数据库命令使用 `docker compose -f docker-compose.dev.yml`，开发后端在宿主机上手动停止；开发 Compose 没有 `app` 服务。保留原数据卷，**不要执行 `down -v`、删除卷或换成 PG18 镜像**。
+Run all commands from the repository root. In the development environment, database commands use `docker compose -f docker-compose.dev.yml`, and the development backend is stopped manually on the host; the development Compose has no `app` service. Keep the original data volume; **do not run `down -v`, delete volumes, or switch to a PG18 image**.
 
-1. 停止 app 和其他数据库写入方；启用了 Langfuse 时也要停止其 web/worker，本地运行的开发后端同样需要停止。
+1. Stop the app and every other database writer; if Langfuse is enabled, also stop its web/worker, and stop any development backend running locally.
 
    ```bash
-   # 标准部署；开发环境请停止宿主机上的后端进程
+   # Standard deployment; in development, stop the backend process on the host
    docker compose stop app
-   # 仅在启用了 Langfuse 时执行
+   # Only when Langfuse is enabled
    docker compose stop langfuse-web langfuse-worker
    ```
 
-2. 备份所有数据库和角色，包括 Langfuse 库，并确认能够恢复。备份存放在数据库数据卷之外。
+2. Back up all databases and roles, including the Langfuse database, and confirm the backup can be restored. Store the backup outside the database data volume.
 
    ```bash
    umask 077
    docker compose exec -T postgres sh -c 'pg_dumpall -U "$POSTGRES_USER"' > paradedb-before-upgrade.sql
    ```
 
-   若旧镜像在当前 CPU 上无法启动，先保存停止状态的数据卷快照，在兼容机器上制作逻辑备份或验证快照可恢复，再改动唯一的数据副本。
+   If the old image cannot start on the current CPU, first save a snapshot of the stopped data volume, then make a logical backup on a compatible machine or verify that the snapshot can be restored, before touching the only copy of the data.
 
-3. 使用更新后的 Compose，只替换数据库容器：
+3. With the updated Compose files, replace only the database container:
 
    ```bash
    docker compose pull postgres
    docker compose up -d --no-deps --wait postgres
    ```
 
-4. 完成扩展的 SQL 升级。仅替换镜像不会更新已有数据库内的 `pg_extension` 版本。
+4. Complete the extension's SQL upgrade. Replacing the image alone does not update the `pg_extension` version inside existing databases.
 
    ```bash
    docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' <<'SQL'
@@ -41,21 +41,21 @@
    SQL
    ```
 
-   在**其他已安装 `pg_search` 的数据库**中同样执行，包括安装过该扩展的 `postgres`、模板库或 Langfuse 库。不要为了升级而向原本不需要的数据库安装扩展。catalog 与 `paradedb.version_info()` 应均报告 0.22.6。
+   Run the same in **every other database where `pg_search` is installed**, including `postgres`, template databases or the Langfuse database if the extension was installed there. Do not install the extension into databases that did not need it just to upgrade. Both the catalog and `paradedb.version_info()` should report 0.22.6.
 
-5. 恢复原先运行的写入服务，确认数据库迁移状态，执行有代表性的关键词与向量检索。这个补丁升级无需专门重建全部索引或重新导入文档；保留备份直到验证完成。
+5. Restart the writer services that were running before, confirm the database migration status, and run representative keyword and vector retrievals. This patch upgrade does not require rebuilding all indexes or re-importing documents; keep the backup until verification is complete.
 
-## 自动迁移的范围
+## Scope of the automatic migration
 
-迁移 `000099` 仅在 WeKnora 数据库内执行扩展升级：已安装版本须为 0.22.2–0.22.5，且服务器提供 0.22.6 扩展包。它遵守 `app.skip_embedding`，不安装缺失的扩展，也不处理其他版本线。
+Migration `000099` upgrades the extension only inside the WeKnora database: the installed version must be 0.22.2–0.22.5, and the server must provide the 0.22.6 extension package. It honors `app.skip_embedding`, does not install a missing extension, and does not handle other version lines.
 
-如果这条迁移在替换数据库镜像**之前**已经执行，安装新镜像后不会自动再跑一次，需要手动执行上面的 SQL。没有 `000099` 的旧应用也需手工升级。其他数据库的扩展不能靠 WeKnora 的迁移代管。
+If this migration already ran **before** the database image was replaced, it will not run again automatically after the new image is installed; run the SQL above manually. Older applications without `000099` also need the manual upgrade. Extensions in other databases cannot be managed by WeKnora's migrations.
 
-## 回滚与复现验证
+## Rollback and reproducible verification
 
-回滚需要将升级前备份/快照恢复到独立数据卷，配合旧镜像使用。仅把镜像标签改回旧版不会撤销扩展 SQL 变更，`000099` 的 down 文件也不会尝试降级扩展。
+Rolling back requires restoring the pre-upgrade backup/snapshot to a separate data volume and using it with the old image. Changing the image tag back to the old version does not undo the extension SQL changes, and the down file of `000099` does not try to downgrade the extension either.
 
-仓库提供隔离验证脚本：
+The repository provides an isolated verification script:
 
 ```bash
 docker pull paradedb/paradedb:v0.22.2-pg17
@@ -63,4 +63,4 @@ docker pull paradedb/paradedb:v0.22.6-pg17
 python3 scripts/test_paradedb_upgrade.py
 ```
 
-脚本使用临时容器和卷，不映射端口；验证同一数据卷升级、表内容、关键词/向量检索、迁移幂等性和重启后结果，并输出备份与日志。该用例验证固定测试数据，部署时仍需检查自己的数据和检索负载。
+The script uses a temporary container and volume without mapping ports; it verifies the in-place upgrade of the same data volume, table contents, keyword/vector retrieval, migration idempotency and results after a restart, and outputs backups and logs. The test case verifies fixed test data; for a deployment you still need to check your own data and retrieval workload.

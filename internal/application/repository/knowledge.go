@@ -196,15 +196,15 @@ func applyKnowledgeListFilter(query *gorm.DB, filter types.KnowledgeListFilter) 
 	return query
 }
 
-// knowledgeListOrderClause 只从固定白名单生成排序语句，避免将请求参数直接拼入 SQL。
+// knowledgeListOrderClause builds the ORDER BY clause only from a fixed whitelist, so request parameters are never spliced into SQL.
 func knowledgeListOrderClause(filter types.KnowledgeListFilter) string {
-	// 零值保留仓储层和公开接口原有的创建时间倒序行为。
+	// The zero value keeps the original newest-created-first order of the repository and the public API.
 	column := "created_at"
 	switch filter.SortBy {
 	case types.KnowledgeListSortByUpdatedAt:
 		column = "updated_at"
 	case types.KnowledgeListSortByFileName:
-		// 与前端展示名称保持一致：文件名为空时依次使用标题和来源。
+		// Match the name the frontend shows: when the file name is empty, fall back to the title, then the source.
 		column = "LOWER(COALESCE(NULLIF(file_name, ''), NULLIF(title, ''), source))"
 	}
 
@@ -239,7 +239,7 @@ func (r *knowledgeRepository) ListPagedKnowledgeByKnowledgeBaseID(
 
 	if err := scope(r.db.WithContext(ctx)).
 		Order(knowledgeListOrderClause(filter)).
-		// 相同排序值使用主键兜底，保证 OFFSET 分页顺序稳定。
+		// Break ties on equal sort values with the primary key so OFFSET pagination order is stable.
 		Order("id ASC").
 		Offset(page.Offset()).
 		Limit(page.Limit()).

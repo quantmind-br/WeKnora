@@ -21,7 +21,7 @@ const qwenASRResponse = `{
         "index": 0,
         "message": {
             "annotations": [{"emotion": "neutral", "language": "zh", "type": "audio_info"}],
-            "content": "欢迎使用阿里云。",
+            "content": "Welcome to Alibaba Cloud.",
             "role": "assistant"
         }
     }],
@@ -33,7 +33,7 @@ const qwenASRResponse = `{
 }`
 
 // withSeconds is a reply carrying the usage.seconds that the reference's
-// schema documents ("音频时长（秒）") but its example omits.
+// schema documents ("audio duration (seconds)") but its example omits.
 const withSeconds = `{"choices":[{"message":{"role":"assistant","content":"x"}}],"usage":{"seconds":3}}`
 
 func newClient(url, model string) *Client {
@@ -118,7 +118,7 @@ func TestDecodesTheDocumentedResponse(t *testing.T) {
 		Transcribe(context.Background(), api.TranscriptionRequest{Audio: []byte("RIFF"), FileName: "a.wav"})
 	require.NoError(t, err)
 	assert.Equal(t, "/compatible-mode/v1/chat/completions", path)
-	assert.Equal(t, &api.Transcription{Text: "欢迎使用阿里云。"}, out)
+	assert.Equal(t, &api.Transcription{Text: "Welcome to Alibaba Cloud."}, out)
 }
 
 // A reply with no assistant content is not silence.

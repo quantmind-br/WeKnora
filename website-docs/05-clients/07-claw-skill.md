@@ -40,7 +40,7 @@ Open "Settings → Publish & Integrations → Claw Skill" to see the setup guide
 
 Both Claw Skill and the MCP Server can be called by external agents; which one to choose depends on the access methods the client supports and the capabilities you need:
 
-| | Claw Skill | MCP Server（内置） |
+| | Claw Skill | MCP Server (built-in) |
 | --- | --- | --- |
 | Aimed at | Agents in the OpenClaw / ClawHub ecosystem | Clients supporting the MCP protocol (Claude Desktop, Cursor, Claude Code, VS Code Copilot, etc.) |
 | Installation | Install the Skill via ClawHub | No extra deployment: create an endpoint under "Settings → Publish & Integrations → MCP Server", and clients connect to `/mcp/<endpoint_id>` |

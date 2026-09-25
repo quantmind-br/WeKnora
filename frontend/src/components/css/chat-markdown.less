@@ -668,7 +668,7 @@
     }
   }
 
-  // 引用对不上任何产物：模型提到了一个并不存在的文件。
+  // The reference matches no artifact: the model mentioned a file that does not exist.
   :deep(.artifact-ref-card--pending) {
     cursor: default;
     opacity: 0.7;
@@ -678,8 +678,9 @@
     }
   }
 
-  // 文件确实生成过，但用户删了它，字节已回收。整体置灰并给文件名加删除线，
-  // 好让它一眼区别于「从来没有过」的 --pending：这条回答当时确实产出了东西。
+  // The file was generated, but the user deleted it and its bytes were reclaimed. Grey it out and
+  // strike through the file name so it is told apart at a glance from the "never existed"
+  // --pending state: this answer really did produce something at the time.
   :deep(.artifact-ref-card--deleted) {
     cursor: default;
 

@@ -1,32 +1,32 @@
-# Docker 沙箱后端可行性 PoC
+# Docker sandbox backend feasibility PoC
 
-当前实现与部署要求见[沙箱部署与排障](../../../website-docs/06-development/04-sandbox-deployment.md)。本 PoC 仅保留历史可行性实验，不代表当前适配器行为。
+For the current implementation and deployment requirements, see [Sandbox deployment and troubleshooting](../../../website-docs/06-development/04-sandbox-deployment.md). This PoC only preserves a historical feasibility experiment and does not reflect the current adapter behavior.
 
-这个程序直接打 Docker Engine API，逐项验证「Docker 能不能承载 WeKnora
-`RemoteSandboxClient` 契约 + E2B 那套 Snapshot 工作流」。它不是产品代码，也不参与主模块构建
-（自带 `go.mod`），只作为调研结论的可复现证据。
+This program talks to the Docker Engine API directly and checks, item by item, "whether Docker can carry the WeKnora
+`RemoteSandboxClient` contract + the E2B-style snapshot workflow". It is not product code and is not part of the main module build
+(it has its own `go.mod`); it only serves as reproducible evidence for the research findings.
 
-每一项都打印 `PASS/FAIL` 和实际观测值。带 `(GAP)` 的步骤断言的是「Docker 做不到什么」，
-它们同样以 PASS 结束——PASS 表示差距被复现了，不是表示能力具备。
+Every item prints `PASS/FAIL` and the actual observed value. Steps marked `(GAP)` assert "what Docker cannot do",
+and they also end in PASS: PASS means the gap was reproduced, not that the capability exists.
 
-## 跑法
+## How to run
 
-需要一个可达的 Docker daemon（尊重 `DOCKER_HOST`），能拉 `python:3.11-slim`：
+You need a reachable Docker daemon (`DOCKER_HOST` is honored) that can pull `python:3.11-slim`:
 
 ```bash
 cd docs/poc/docker-sandbox
-go run .            # daemon 在本机 unix socket 上时可能需要 sudo -E
+go run .            # may need sudo -E when the daemon is on a local unix socket
 ```
 
-程序会自建一个带 uid 1000 `user` 账号的模板镜像（对齐 E2B 模板约定），跑完自行删除它创建的容器。
-留下的 `weknora-poc/*` 镜像用 `docker image rm` 清理。
+The program builds its own template image with a uid 1000 `user` account (matching the E2B template convention) and deletes the containers it created when done.
+Clean up the leftover `weknora-poc/*` images with `docker image rm`.
 
-## 覆盖的内容
+## What it covers
 
-- 生命周期：Create / Connect（换客户端重连）/ List（label 过滤）/ Delete / Pause / Stop+Start
-- 执行：user、workdir、env、stdin、stdout+stderr 分离、退出码、超时
-- 文件面：archive API 读写与 stat、exec 实现的 mkdir/ls/rm
-- 会话语义：`pip install` 与写文件跨 exec 存活
-- Snapshot：commit 成镜像、从快照启新沙箱、v1→v2 增量、按 label 列举、层数与体积
-- 差距复现：客户端取消不杀进程、CapDrop ALL 后 root 越不过权限位、快照不含内存态、
-  daemon 无空闲 TTL、kill `docker run` 会留下还在跑的容器
+- Lifecycle: Create / Connect (reconnect with a new client) / List (label filter) / Delete / Pause / Stop+Start
+- Execution: user, workdir, env, stdin, separate stdout+stderr, exit code, timeout
+- File surface: reads, writes and stat through the archive API; mkdir/ls/rm implemented with exec
+- Session semantics: `pip install` and written files survive across execs
+- Snapshot: commit to an image, start a new sandbox from a snapshot, v1→v2 increments, list by label, layer count and size
+- Gap reproduction: client cancellation does not kill the process, root cannot bypass permission bits after CapDrop ALL, snapshots do not include memory state,
+  the daemon has no idle TTL, killing `docker run` leaves the container running

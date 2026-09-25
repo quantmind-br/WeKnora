@@ -77,8 +77,9 @@ type TenantAPIKeyCreateResult struct {
 	Token  string
 }
 
-// TenantAPIKeyUpdateRequest 修改已创建租户 API Key 的可配置属性。
-// 配置语义与创建接口一致：FullAccess 为 true 时忽略细粒度能力和知识库范围。
+// TenantAPIKeyUpdateRequest updates the configurable attributes of an existing tenant API key.
+// The configuration semantics match the create endpoint: when FullAccess is true, fine-grained
+// capabilities and the knowledge base scope are ignored.
 type TenantAPIKeyUpdateRequest struct {
 	TenantID         uint64
 	APIKeyID         uint64

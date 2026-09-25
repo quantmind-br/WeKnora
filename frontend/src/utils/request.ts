@@ -144,8 +144,8 @@ instance.interceptors.response.use(
       });
     }
 
-    // 文件下载失败时服务端仍返回 JSON；先还原错误信息，避免被 Blob 隐藏。
-    // 不依赖 Content-Type：网关可能把错误改成 text/plain 或空类型。
+    // When a file download fails the server still returns JSON; restore the error message first so it is not hidden inside the Blob.
+    // Do not rely on Content-Type: a gateway may change the error to text/plain or an empty type.
     if (typeof Blob !== 'undefined' && error.response.data instanceof Blob) {
       try {
         const text = (await error.response.data.text()).trim();
@@ -153,7 +153,7 @@ instance.interceptors.response.use(
           error.response.data = JSON.parse(text);
         }
       } catch {
-        // 非法 JSON 继续使用原有错误处理。
+        // Invalid JSON falls through to the existing error handling.
       }
     }
     

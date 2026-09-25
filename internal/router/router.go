@@ -100,7 +100,7 @@ type RouterParams struct {
 func NewRouter(params RouterParams) *gin.Engine {
 	r := gin.New()
 	r.ContextWithFallback = true
-	// 清理 FormFile/MultipartForm 解析产生的 multipart 临时文件，避免容器 /tmp 持续增长。
+	// Remove the multipart temp files left by FormFile/MultipartForm parsing so the container's /tmp does not keep growing.
 	r.Use(middleware.MultipartFormCleanup())
 
 	// Trusted proxies: gin defaults to trusting ALL proxies, which makes

@@ -14,7 +14,7 @@ The Mini Program **does not hard-code the backend address in the code**; all con
   baseUrl: "http://localhost:8080",   // default value written by app.js onLaunch
   apiKey: "",
   selectedKnowledgeBaseId: "",
-  locale: "zh"                        // 界面语言：zh | en
+  locale: "zh"                        // UI language: zh | en
 }
 ```
 

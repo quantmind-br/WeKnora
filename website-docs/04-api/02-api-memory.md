@@ -1,12 +1,12 @@
-# API 参考：长期记忆
+# API Reference: Long-term Memory
 
-管理当前调用者的长期记忆、主题和文档偏好，以及空间级记忆配置。路径使用 `/api/v1` 前缀。
+Manage the current caller's long-term memories, topics and document preferences, as well as the space-level memory configuration. Paths use the `/api/v1` prefix.
 
-个人接口均要求 Viewer+，API Key 必须 full-access。作用域从凭证中确定，不接受任意 `subject_id`。示例中的 `$BASE` 为服务地址，`$TOKEN` 为当前用户的 Bearer token。
+All personal endpoints require Viewer+, and an API Key must be full-access. The scope is determined from the credential; an arbitrary `subject_id` is not accepted. In the examples, `$BASE` is the service address and `$TOKEN` is the current user's Bearer token.
 
-## 空间配置与请求开关
+## Space configuration and request switches
 
-空间配置使用 `GET/PUT /tenants/kv/memory-config`，不使用租户名称/描述的更新接口。读取需 Viewer+，写入需 Admin+，API Key 需 manage_tenant_settings 或 full-access。响应为 `{success,data:MemoryConfig}`，PUT 直接传配置对象；个人 `PUT /memory/settings` 不能替代空间开关。
+Space configuration uses `GET/PUT /tenants/kv/memory-config`, not the tenant name/description update endpoint. Reads require Viewer+, writes require Admin+, and an API Key needs manage_tenant_settings or full-access. The response is `{success,data:MemoryConfig}`, and PUT takes the configuration object directly; the personal `PUT /memory/settings` cannot replace the space switch.
 
 ```bash
 curl -X PUT "$BASE/api/v1/tenants/kv/memory-config" \
@@ -14,18 +14,18 @@ curl -X PUT "$BASE/api/v1/tenants/kv/memory-config" \
   -d '{"enabled":true,"write_mode":"explicit_only","max_items":200}'
 ```
 
-`memory_config` 字段：`enabled`、`write_mode`（explicit_only/auto）、`extract_model_id`、`max_items`、`extract_delay_seconds`、`extract_min_interval_seconds`、`extract_instructions`、`interest_threshold`、`embedding_model_id`、`vector_recall`、`retrieval_conditioning`。语义见[长期记忆](../03-features/23-memory.md)。更新时提交需要保留的完整配置对象。
+`memory_config` fields: `enabled`, `write_mode` (explicit_only/auto), `extract_model_id`, `max_items`, `extract_delay_seconds`, `extract_min_interval_seconds`, `extract_instructions`, `interest_threshold`, `embedding_model_id`, `vector_recall`, `retrieval_conditioning`. For semantics, see [Long-term Memory](../03-features/23-memory.md). When updating, submit the complete configuration object you want to keep.
 
-`CustomAgentConfig.memory_enabled` 省略继承空间，false 禁止本智能体使用记忆；IM/Embed 使用绑定智能体的配置，当前渠道结构没有独立的 memory_enabled 字段。
+When `CustomAgentConfig.memory_enabled` is omitted it inherits the space setting; false forbids this agent from using memory. IM/Embed use the bound agent's configuration; the current channel structure has no separate memory_enabled field.
 
-## 个人设置
+## Personal settings
 
-| 方法 | 路径 | 请求 / 响应 |
+| Method | Path | Request / Response |
 | --- | --- | --- |
 | GET | `/memory/settings` | `{success,data:{workspace_enabled,user_enabled,effective,write_mode,item_count,max_items}}` |
-| PUT | `/memory/settings` | `{"enabled":true}`，enabled 必填；返回更新后的 settings |
+| PUT | `/memory/settings` | `{"enabled":true}`, enabled is required; returns the updated settings |
 
-`effective` 表示空间与个人开关的合并结果；一次聊天还受智能体开关约束。
+`effective` is the combined result of the space and personal switches; a given chat is also constrained by the agent switch.
 
 ```bash
 curl -X PUT "$BASE/api/v1/memory/settings" \
@@ -33,28 +33,28 @@ curl -X PUT "$BASE/api/v1/memory/settings" \
   -d '{"enabled":true}'
 ```
 
-## 条目
+## Items
 
-| 方法 | 路径 | 请求 / 响应 |
+| Method | Path | Request / Response |
 | --- | --- | --- |
-| GET | `/memory/items` | 可选 status、limit、offset；`{success,data:[MemoryItem],total}` |
-| POST | `/memory/items` | `{kind,content,importance}`；200 `{success,data:MemoryItem}` |
-| PUT | `/memory/items/:id` | `{content,importance}`；200 `{success,data:MemoryItem}` |
+| GET | `/memory/items` | Optional status, limit, offset; `{success,data:[MemoryItem],total}` |
+| POST | `/memory/items` | `{kind,content,importance}`; 200 `{success,data:MemoryItem}` |
+| PUT | `/memory/items/:id` | `{content,importance}`; 200 `{success,data:MemoryItem}` |
 | DELETE | `/memory/items/:id` | 200 `{"success":true}` |
-| POST | `/memory/items/:id/confirm` | 200 `{success,data:MemoryItem}`；推断已失效或其依据已被修改时返回 409 |
+| POST | `/memory/items/:id/confirm` | 200 `{success,data:MemoryItem}`; returns 409 when the inference is stale or its basis has been modified |
 | POST | `/memory/items/:id/reject` | 200 `{"success":true}` |
-| DELETE | `/memory/items` | 清空当前身份；200 `{success,removed}` |
+| DELETE | `/memory/items` | Clears the current identity; 200 `{success,removed}` |
 
-`status` 可为 active、pending、superseded、archived，省略不过滤。`limit` 默认 50，合法范围 1–200，越界回落 50；`offset` 默认 0，负值归零。kind 为 profile/preference/fact/task/interest；内容为简短记忆，最长 300 个字符，importance 用于重要度排序。
+`status` can be active, pending, superseded or archived; omit it to skip filtering. `limit` defaults to 50 with a valid range of 1–200, and out-of-range values fall back to 50; `offset` defaults to 0, and negative values become zero. kind is profile/preference/fact/task/interest; content is a short memory of at most 300 characters, and importance is used for importance ranking.
 
-MemoryItem 包括 `id`、`kind`、`content`、`topic`、`importance`、`origin`、`status`、`source_session_id`、`source_message_id`、`expires_at`、`superseded_by` 和创建/修改时间。pending 不参与提示词；编辑后按手工维护处理。
+MemoryItem includes `id`, `kind`, `content`, `topic`, `importance`, `origin`, `status`, `source_session_id`, `source_message_id`, `expires_at`, `superseded_by` and the created/updated timestamps. Pending items are not used in prompts; after an edit, an item is treated as manually maintained.
 
-用于修改已有记忆的 pending 推断，确认前旧条目继续生效；确认会在同一事务中激活推断并替换旧条目。已失效、已到期或所依据内容已被修改/删除的推断不能确认，返回 409，客户端应刷新列表。内容几乎全是凭据等敏感信息时，新增或编辑返回 400。
+For a pending inference that modifies an existing memory, the old item stays in effect until confirmation; confirming activates the inference and replaces the old item in the same transaction. An inference that is stale, expired, or whose underlying content has been modified/deleted cannot be confirmed and returns 409; the client should refresh the list. When the content consists almost entirely of sensitive information such as credentials, adding or editing returns 400.
 
 ```bash
 curl -X POST "$BASE/api/v1/memory/items" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"kind":"preference","content":"回答先给结论，再解释依据","importance":3}'
+  -d '{"kind":"preference","content":"Give the conclusion first, then explain the reasoning","importance":3}'
 
 curl "$BASE/api/v1/memory/items?status=pending&limit=50&offset=0" \
   -H "Authorization: Bearer $TOKEN"
@@ -63,17 +63,17 @@ curl -X POST "$BASE/api/v1/memory/items/item-1/confirm" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## 主题和文档偏好
+## Topics and document preferences
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 | --- | --- | --- |
-| GET | `/memory/topics` | 正在跟踪、尚未提升的主题；limit/offset 同条目，返回 data 与 total |
-| POST | `/memory/topics/:id/promote` | 手动提升为长期关注；返回 `{success,data:MemoryItem}` |
-| DELETE | `/memory/topics/:id` | 停止跟踪该主题；返回 success |
-| GET | `/memory/documents` | 文档偏好；limit/offset 同条目，返回 data 与 total |
-| DELETE | `/memory/documents/:id` | 删除该偏好记录；返回 success，不删除知识库文档 |
+| GET | `/memory/topics` | Topics being tracked but not yet promoted; limit/offset as for items, returns data and total |
+| POST | `/memory/topics/:id/promote` | Manually promote to a long-term interest; returns `{success,data:MemoryItem}` |
+| DELETE | `/memory/topics/:id` | Stop tracking the topic; returns success |
+| GET | `/memory/documents` | Document preferences; limit/offset as for items, returns data and total |
+| DELETE | `/memory/documents/:id` | Delete the preference record; returns success and does not delete the knowledge base document |
 
-Topic 字段包括 id/topic/aliases/hits/threshold/last_seen_at；Document 字段包括 id/knowledge_id/knowledge_base_id/title/hits/last_used_at。删除使用的是偏好记录 id。
+Topic fields include id/topic/aliases/hits/threshold/last_seen_at; Document fields include id/knowledge_id/knowledge_base_id/title/hits/last_used_at. Deletion uses the preference record id.
 
 ```bash
 curl "$BASE/api/v1/memory/topics" -H "Authorization: Bearer $TOKEN"
@@ -83,11 +83,11 @@ curl -X DELETE "$BASE/api/v1/memory/documents/affinity-1" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## 导出与立即整理
+## Export and tidy up now
 
-`GET /memory/export` 返回 `{success,total,truncated,data}`，带下载文件名 `weknora-memories.json`。最多导出 20,000 条，触及上限时检查 truncated。
+`GET /memory/export` returns `{success,total,truncated,data}` with the download file name `weknora-memories.json`. At most 20,000 items are exported; check truncated when the limit is reached.
 
-`POST /memory/consolidate` 返回 `{success,data:{merged,demoted,expired,reviewed,candidates,skipped?}}`，立即合并近义条目、归档到期事项。没有变化时 skipped 说明原因。
+`POST /memory/consolidate` returns `{success,data:{merged,demoted,expired,reviewed,candidates,skipped?}}` and immediately merges near-duplicate items and archives expired tasks. When nothing changes, skipped explains why.
 
 ```bash
 curl "$BASE/api/v1/memory/export" -H "Authorization: Bearer $TOKEN" \
@@ -95,4 +95,4 @@ curl "$BASE/api/v1/memory/export" -H "Authorization: Bearer $TOKEN" \
 curl -X POST "$BASE/api/v1/memory/consolidate" -H "Authorization: Bearer $TOKEN"
 ```
 
-参数无效、内容为敏感信息或记忆未开启时返回 400；找不到当前身份的条目返回 404；确认冲突返回 409；认证/权限不满足返回 401/403。接口没有管理员读取他人记忆的 subject 参数。实现：`internal/handler/memory.go`、`internal/router/routes_memory.go`。
+Invalid parameters, sensitive content or memory not enabled return 400; an item not found for the current identity returns 404; a confirmation conflict returns 409; unmet authentication/permissions return 401/403. The API has no subject parameter for admins to read other people's memories. Implementation: `internal/handler/memory.go`, `internal/router/routes_memory.go`.

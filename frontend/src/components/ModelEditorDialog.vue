@@ -176,9 +176,9 @@
               @change="handleProviderChange"
               :popup-props="{ overlayClassName: 'wk-popover provider-select-popup', overlayInnerStyle: matchTriggerWidth }">
               <!--
-                已选值：图标 + 本地化名称（描述只在下拉里展示，避免输入框过长）。
-                目录里已经没有这个 provider 时（厂商下线 / 旧数据）退回显示原始 id，
-                否则输入框会整个空掉，看起来像"没选厂商"，但保存时仍会带上它。
+                Selected value: icon + localized name (the description is only shown in the dropdown, to keep the input short).
+                When the catalog no longer has this provider (provider retired / legacy data), fall back to the raw id;
+                otherwise the input goes completely blank and looks like "no provider selected", yet saving would still send it.
               -->
               <template #valueDisplay>
                 <span v-if="formData.provider" class="provider-value">
@@ -262,10 +262,10 @@
           <div class="form-item">
             <label class="form-label required">{{ $t('model.modelName') }}</label>
             <!--
-              没有内置目录时用纯输入框：TDesign 的 select 在零选项时会隐藏整个
-              浮层（hideEmptyPopup），连 creatable 的"创建"行也一并藏掉，于是
-              用户能打字、但没有任何方式提交，失焦后输入直接丢失。自定义
-              (OpenAI 兼容接口) 正是这种情况，所以那里根本填不进模型名。
+              Use a plain input when there is no built-in catalog: with zero options TDesign's select hides the whole
+              popup (hideEmptyPopup), including the creatable "Create" row, so the
+              user can type but has no way to submit, and the input is lost on blur. Custom
+              (OpenAI-compatible API) is exactly that case, so a model name could not be entered there at all.
             -->
             <t-input
               v-if="catalogModelOptions.length === 0"
@@ -352,7 +352,7 @@
             <p v-if="secretExtraField.placeholder" class="form-desc">{{ secretExtraField.placeholder }}</p>
           </div>
 
-          <!-- 厂商声明的其余额外字段：按 type 动态渲染，值存入 extra_config[key] -->
+          <!-- Remaining provider-declared extra fields: rendered dynamically by type, values stored in extra_config[key] -->
           <div v-for="field in plainExtraFields" :key="field.key" class="form-item">
             <label class="form-label" :class="{ required: field.required }">{{ extraFieldDisplayLabel(field) }}</label>
             <div v-if="field.type === 'boolean'" class="vision-toggle">
@@ -404,10 +404,10 @@
           </div>
 
           <!--
-            接入诊断：由后端目录实时解析出的有效协议 / 思考格式 / 支持等级 /
-            是否目录内 / 上下文窗口，只读。厂商、模型名、Base URL 变化后 400ms 防抖刷新。
-            仅对话 / VLM 有意义——Embedding、ReRank、ASR 既没有思考等级也没有
-            上下文窗口，展示出来只会让人以为这些值对它们生效。
+            Access diagnostics: the effective protocol / thinking format / supported levels /
+            in-catalog flag / context window resolved live from the backend catalog, read-only. Refreshed with a 400ms debounce when provider, model name or Base URL change.
+            Only meaningful for chat / VLM: Embedding, ReRank and ASR have neither thinking levels nor a
+            context window, and showing them would only suggest these values apply to them.
           -->
           <div v-if="showResolvedPanel" class="form-item">
             <div class="resolved-panel" aria-live="polite">
@@ -417,7 +417,7 @@
                 <t-icon v-if="resolving" name="loading" class="spinning resolved-panel__loading" />
               </div>
               <p v-if="!resolved && !resolving && !resolveFailed" class="form-desc">{{ $t('model.editor.resolved.empty') }}</p>
-              <!-- 后端错误体形态不固定，取不到可读文案时只显示标题，不显示 [object Object] -->
+              <!-- The backend error body shape varies; when no readable text can be extracted, show only the title, never [object Object] -->
               <p v-else-if="resolveFailed" class="form-desc form-desc--warn">
                 {{ $t('model.editor.resolved.failed') }}<template v-if="resolveError">: {{ resolveError }}</template>
               </p>
@@ -539,8 +539,8 @@
         </div>
 
         <!--
-          高级：协议覆盖 / 远端模型名 / 目录 compat 覆盖，以及仅旧数据才显示的
-          thinking_control 兼容选择。默认折叠，绝大多数用户无需触碰。
+          Advanced: protocol override / remote model name / catalog compat override, plus the
+          thinking_control compatibility option shown only for legacy data. Collapsed by default; most users never need it.
         -->
         <template v-if="formData.source === 'remote' && formData.provider !== 'weknoracloud'">
           <button type="button" class="advanced-toggle" :aria-expanded="advancedOpen" @click="advancedOpen = !advancedOpen">
@@ -550,8 +550,8 @@
 
           <template v-if="advancedOpen">
             <!--
-              extra_config.api 只选对话协议。embedding / rerank 行不读它：
-              embedding 的协议覆盖写在下面的 compat JSON 里（"api"），取值是向量协议。
+              extra_config.api only selects the chat protocol. Embedding / rerank rows do not read it:
+              the embedding protocol override goes in the compat JSON below ("api"), and its value is an embedding protocol.
             -->
             <div v-if="isChatLike" class="form-item">
               <label class="form-label">{{ $t('model.editor.advanced.api.label') }}</label>
@@ -571,7 +571,7 @@
               <p class="form-desc">{{ $t('model.editor.advanced.remoteModelName.desc') }}</p>
             </div>
 
-            <!-- 仅旧数据：extra_config.thinking_control 存在时才显示，可清空改走目录默认 -->
+            <!-- Legacy data only: shown only when extra_config.thinking_control exists; can be cleared to fall back to the catalog default -->
             <div v-if="showLegacyThinkingControl" class="form-item">
               <label class="form-label">{{ $t('model.editor.advanced.legacyThinking.label') }}</label>
               <t-select :model-value="formData.thinkingControl || ''"
@@ -671,7 +671,7 @@ interface ModelFormData {
   contextWindow?: number
   /** Concurrency limit for this model in background tasks; 0/undefined means fall back to the global default. Only applies to chat/embedding/vllm. */
   maxConcurrency?: number
-  /** 对话/VLM 单次输出上限（token）。空/0 表示使用目录默认。 */
+  /** Per-response output limit (tokens) for chat/VLM. Empty/0 means use the catalog default. */
   maxOutputTokens?: number
   /**
    * Legacy extra_config.thinking_control (none | enable_thinking | thinking_type
@@ -822,7 +822,7 @@ const apiKeyHint = computed(() => {
   return pickLocalized(label.hints, currentLocale.value, label.hint)
 })
 
-// 厂商额外字段：按当前模型类型过滤；secret 字段走 app_secret 凭证，其余进 extra_config。
+// Provider extra fields: filtered by the current model type; secret fields go to the app_secret credential, the rest into extra_config.
 const visibleExtraFields = computed<ModelProviderExtraField[]>(() =>
   extraFieldsForModelType(selectedProvider.value?.extraFields, activeModelType.value)
     .filter(field => !RESERVED_EXTRA_CONFIG_KEYS.has(field.key)),
@@ -878,7 +878,7 @@ const applyExtraFieldDefaults = () => {
   }
 }
 
-// 内置模型目录 → 模型名下拉候选（可自由输入）
+// Built-in model catalog -> model name dropdown candidates (free input allowed)
 interface CatalogModelOption {
   value: string
   label: string
@@ -903,7 +903,7 @@ const catalogEntries = computed<ModelCatalogEntry[]>(() => {
   }
   // The list is already scoped: providers are fetched per model type, so the
   // backend returned exactly the entries that type can use. Filtering again
-  // here on entry.type was wrong for 视觉 — a VLM entry is a chat model that
+  // here on entry.type was wrong for Vision — a VLM entry is a chat model that
   // accepts images, so it arrives typed "chat" and every one of them was
   // dropped, leaving the picker empty for every vendor.
   return entries
@@ -948,7 +948,7 @@ const vendorDocLink = computed(() => {
  * What applyCatalogEntry filled in for the model currently selected.
  *
  * Switching vendor has to take those values back — a context window from the
- * previous vendor's model is exactly the "填大会导致压缩不触发、上游直接拒绝"
+ * previous vendor's model is exactly the "a larger guess means compaction never fires and the provider rejects the request"
  * case this field warns about — but it must not touch a number the operator
  * typed. Remembering what was filled, and only clearing a field that still
  * holds it, separates the two.
@@ -988,7 +988,7 @@ const handleCatalogModelChange = (value: unknown) => {
   if (entry) applyCatalogEntry(entry)
 }
 
-// 接入诊断（只读）：厂商 / 模型名 / Base URL / 协议覆盖变化后 400ms 防抖调用目录解析
+// Access diagnostics (read-only): call catalog resolution with a 400ms debounce after provider / model name / Base URL / protocol override change
 const resolved = ref<ResolvedModelCatalog | null>(null)
 const resolving = ref(false)
 const resolveFailed = ref(false)
@@ -997,7 +997,7 @@ const resolveError = ref('')
 let resolveTimer: ReturnType<typeof setTimeout> | null = null
 let resolveRevision = 0
 
-/** 目录解析出的协议 / 思考等级 / 上下文窗口只对对话与 VLM 模型有意义。 */
+/** The protocol / thinking level / context window resolved from the catalog are only meaningful for chat and VLM models. */
 const isChatLike = computed(() => activeModelType.value === 'chat' || activeModelType.value === 'vllm')
 
 const showResolvedPanel = computed(() =>
@@ -1068,7 +1068,7 @@ const scheduleResolve = () => {
   }, 400)
 }
 
-// 高级折叠区
+// Advanced collapsible section
 const advancedOpen = ref(false)
 /** Set when the loaded row carried thinking_control, so the select stays visible after clearing it. */
 const legacyThinkingControlLoaded = ref(false)
@@ -1444,8 +1444,8 @@ const selectModelType = async (type: EditorModelType) => {
   if (!supported) {
     formData.value.provider = 'generic'
     formData.value.baseUrl = ''
-    // 只丢厂商相关的 extra_config；协议 / 远端模型名是用户对这次接入的选择，
-    // 与厂商无关，和 handleProviderChange 保持同一套规则。
+    // Only drop provider-specific extra_config; protocol / remote model name are the user's choices for this connection,
+    // independent of the provider, following the same rules as handleProviderChange.
     formData.value.extraConfig = keepVendorNeutralExtraConfig()
     formData.value.appSecret = ''
   } else {
@@ -1859,8 +1859,8 @@ const checkRemoteAPI = async () => {
       ? { modelId: props.modelData.id as string }
       : {}
 
-    // extra_config 与真正保存时完全一致（厂商字段 + 高级覆盖 + 旧 thinking_control），
-    // 使测试连接走与生产调用相同的目录解析路径。
+    // extra_config is exactly what an actual save would send (provider fields + advanced overrides + legacy thinking_control),
+    // so the connection test goes through the same catalog resolution path as production calls.
     const extraConfig = buildExtraConfig()
     const extraPayload = {
       spec: buildSpec(),
@@ -2244,9 +2244,9 @@ const handleCancel = () => {
   gap: 8px;
 }
 
-// 「模型类型」和「模型来源」都是单选，就用同一种按钮。模型来源原本是灰底轨道
-// 的 segmented：#e7e7e7 的轨道在浅色表单里是一整块深灰，白色药丸又浮不起来，
-// 而且紧挨着的模型类型是另一套长相。取消轨道后两组自然成为一族。
+// "Model type" and "Model source" are both single-choice, so they use the same button. Model source used to be a
+// segmented control on a gray track: the #e7e7e7 track is a solid dark-gray block in a light form, the white pills don't stand out,
+// and the model type right next to it looked completely different. Without the track the two groups naturally form one family.
 .model-type-option,
 .source-option {
   display: inline-flex;
@@ -2278,9 +2278,9 @@ const handleCancel = () => {
     color: var(--td-text-color-primary);
   }
 
-  // 选中态与下面的「模型来源」分段一致：白底 + 主题色描边 + 主题色文字。
-  // 原先还铺了一层 10% 的主题色底，五个按钮里那一块是整屏最重的色块，而且
-  // 和下拉里刚去掉的整行绿底是同一个毛病。
+  // Selected state matches the "Model source" segments below: white background + brand-color border + brand-color text.
+  // It used to also have a 10% brand-color fill, which made that one of the five buttons the heaviest color block on the screen,
+  // the same problem as the full-row green background just removed from the dropdown.
   &.is-active {
     border-color: var(--td-brand-color);
     background: var(--td-bg-color-container);
@@ -2297,7 +2297,7 @@ const handleCancel = () => {
 
 
 .source-option {
-  // 外观来自上面那条共用规则；这里只补禁用态（Ollama 未就绪 / rerank 不支持）。
+  // Appearance comes from the shared rule above; this only adds the disabled state (Ollama not ready / rerank unsupported).
   &.is-disabled {
     cursor: not-allowed;
     opacity: 0.45;
@@ -2693,7 +2693,7 @@ const handleCancel = () => {
   }
 }
 
-// 已选厂商：图标 + 名称，嵌在 t-select 的 valueDisplay 里
+// Selected provider: icon + name, embedded in t-select's valueDisplay
 .provider-value {
   display: inline-flex;
   align-items: center;
@@ -2726,7 +2726,7 @@ const handleCancel = () => {
   }
 }
 
-// 目录内 / 推理 / 视觉 等弱化徽标（与卡片上的 chip 同调）
+// Subdued badges such as in-catalog / reasoning / vision (same tone as the chips on the cards)
 .catalog-badge {
   display: inline-flex;
   align-items: center;
@@ -2749,7 +2749,7 @@ const handleCancel = () => {
   }
 }
 
-// 接入诊断面板：只读、浅底，避免与可编辑字段混淆
+// Access diagnostics panel: read-only with a light background, so it is not confused with editable fields
 .resolved-panel {
   padding: 10px 12px;
   border: 1px dashed var(--td-component-stroke);
@@ -2809,7 +2809,7 @@ const handleCancel = () => {
   }
 }
 
-// 高级折叠：与知识库分块设置里的 advanced-toggle 保持同一视觉
+// Advanced toggle: same look as the advanced-toggle in the knowledge base chunking settings
 .advanced-toggle {
   display: inline-flex;
   align-items: center;
@@ -3089,7 +3089,7 @@ const handleCancel = () => {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      // 允许收缩，描述才能在浮层宽度内省略（浮层宽度由 matchTriggerWidth 钉死）。
+      // Allow shrinking so the description can be ellipsized within the popup width (the popup width is pinned by matchTriggerWidth).
       min-width: 0;
       flex: 1;
     }

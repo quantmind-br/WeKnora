@@ -127,7 +127,7 @@ func TestDecodesArkTextResponse(t *testing.T) {
 	defer server.Close()
 
 	c := newClient(server.URL+"/api/v3", api.EmbeddingsSettings{SendEncodingFormat: true}, 0)
-	got, err := c.Embed(context.Background(), []string{"天很蓝", "海很深"}, api.EmbedDocument)
+	got, err := c.Embed(context.Background(), []string{"the sky is blue", "the sea is deep"}, api.EmbedDocument)
 	require.NoError(t, err)
 	assert.Equal(t, [][]float32{{0.11, 0.12}, {0.21, 0.22}}, got)
 	assert.Equal(t, "/api/v3/embeddings", *path)

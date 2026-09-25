@@ -102,7 +102,7 @@ export interface AcceptInvitationResponse {
   message?: string
 }
 
-// AcceptInvitationByTokenResponse：已登录用户用 token 加入空间的响应（tenant_name 供前端展示）。
+// AcceptInvitationByTokenResponse: response when a logged-in user joins a space with a token (tenant_name is for frontend display).
 export interface AcceptInvitationByTokenResponse {
   success: boolean
   data?: {
@@ -211,8 +211,8 @@ export async function acceptInvitation(invId: number): Promise<AcceptInvitationR
 }
 
 /**
- * 已登录用户用共享链接 token 加入空间（需鉴权，不创建新账号）。
- * 用于 invite_only 模式下的邀请链接流程：链接导向登录而非注册，登录后再兑换 token。
+ * A logged-in user joins a space with a shared-link token (requires auth, does not create a new account).
+ * Used by the invite-link flow in invite_only mode: the link leads to login instead of registration, and the token is redeemed after login.
  * Backend: POST /api/v1/me/invitations/accept-by-token (authenticated).
  */
 export async function acceptInvitationByToken(

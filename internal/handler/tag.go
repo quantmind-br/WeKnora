@@ -237,7 +237,7 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 
 	var req DeleteTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !stderrors.Is(err, io.EOF) {
-		_ = c.Error(errors.NewBadRequestError("删除选项不合法"))
+		_ = c.Error(errors.NewBadRequestError("Invalid delete options"))
 		return
 	}
 
@@ -247,7 +247,7 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 		wanted := make(map[int64]bool, len(req.ExcludeIDs))
 		for _, id := range req.ExcludeIDs {
 			if id <= 0 {
-				_ = c.Error(errors.NewBadRequestError("排除条目 ID 必须为正整数"))
+				_ = c.Error(errors.NewBadRequestError("Excluded entry IDs must be positive integers"))
 				return
 			}
 			wanted[id] = true
@@ -263,14 +263,14 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 			}
 			if chunk.TenantID != tenantID || chunk.KnowledgeBaseID != c.Param("id") ||
 				chunk.ChunkType != types.ChunkTypeFAQ {
-				_ = c.Error(errors.NewForbiddenError("排除条目不属于当前知识库"))
+				_ = c.Error(errors.NewForbiddenError("Excluded entries do not belong to this knowledge base"))
 				return
 			}
 			excludeUUIDs = append(excludeUUIDs, chunk.ID)
 			delete(wanted, chunk.SeqID)
 		}
 		if len(wanted) != 0 {
-			_ = c.Error(errors.NewNotFoundError("排除条目不存在"))
+			_ = c.Error(errors.NewNotFoundError("Excluded entries do not exist"))
 			return
 		}
 	}

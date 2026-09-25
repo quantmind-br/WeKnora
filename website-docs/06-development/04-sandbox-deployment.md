@@ -1,118 +1,118 @@
-# 沙箱部署与排障
+# Sandbox Deployment and Troubleshooting
 
-技能使用流程见[技能目录与沙箱](../03-features/22-skills-sandbox.md)，字段定义见[沙箱与技能 API](../04-api/02-api-sandbox-skills.md)。本文补充部署、模板、桌面和后端接入的运维要求。
+For the skill usage flow, see [Skill Catalog & Sandbox](../03-features/22-skills-sandbox.md); for field definitions, see the [Sandbox & Skills API](../04-api/02-api-sandbox-skills.md). This page adds the operational requirements for deployment, templates, desktops and backend integration.
 
-## 后端与模板
+## Backends and templates
 
-空间命名配置可选择 Docker、CubeSandbox、E2B，本文说明这三类后端的部署。Lite 桌面客户端另有依赖操作系统隔离能力的 `host` 后端，不属于服务端命名配置，构建要求见下文 [Lite 本机沙箱](#lite-本机沙箱)；旧 `local` 宿主机进程后端已移除。Docker 直接使用 Engine API；E2B 使用控制面 REST 与 envd 数据面；Cube 保留专用适配器处理模板和网络策略。
+Named space configurations can choose Docker, CubeSandbox or E2B; this page covers deploying these three backends. The Lite desktop client additionally has a `host` backend that relies on operating-system isolation. It is not a server-side named configuration; for its build requirements see [Lite local sandbox](#lite-local-sandbox) below. The old `local` host-process backend has been removed. Docker uses the Engine API directly; E2B uses the control-plane REST API and the envd data plane; Cube keeps a dedicated adapter for templates and network policy.
 
-标准镜像由 `docker/Dockerfile.sandbox` 定义，包含 Python 3.12、Node.js 20、Bash、jq 与 `/workspace`。命令和文件操作默认使用沙箱内 root；保留 UID 1000 的 `user` 供显式按账号执行。跨会话隔离由容器或远端沙箱提供，不能把工作目录约定解释为 root 的文件权限限制。
+The standard image is defined by `docker/Dockerfile.sandbox` and includes Python 3.12, Node.js 20, Bash, jq and `/workspace`. Command and file operations use root inside the sandbox by default; the `user` account with UID 1000 is kept for explicit per-account execution. Cross-session isolation is provided by the container or remote sandbox; the working directory convention must not be interpreted as a file permission restriction on root.
 
-| 构建 target | 镜像标签后缀 | 用途 |
+| Build target | Image tag suffix | Purpose |
 | --- | --- | --- |
-| `sandbox` | 无 | Docker 会话镜像；E2B CLI 模板基础镜像 |
-| `cube` | `-cube` | Cube CLI 模板，含 envd |
-| `desktop` | `-desktop` | E2B 图形桌面模板基础镜像 |
-| `desktop-cube` | `-desktop-cube` | Cube 图形桌面模板，含 envd |
+| `sandbox` | none | Docker session image; base image for the E2B CLI template |
+| `cube` | `-cube` | Cube CLI template, includes envd |
+| `desktop` | `-desktop` | Base image for the E2B graphical desktop template |
+| `desktop-cube` | `-desktop-cube` | Cube graphical desktop template, includes envd |
 
-镜像名为 `wechatopenai/weknora-sandbox:<版本><后缀>`。模板 ID 属于具体集群或账号，不应把其他部署的 ID 直接复制过来。生产模板应对应已验证的应用版本；构建 target 和发布架构以仓库 Dockerfile、发布工作流为准。
+The image name is `wechatopenai/weknora-sandbox:<version><suffix>`. Template IDs belong to a specific cluster or account; do not copy IDs from other deployments directly. Production templates should correspond to a verified application version; for build targets and release architectures, the repository Dockerfile and release workflow are authoritative.
 
-## Docker 部署
+## Docker deployment
 
-Docker 后端默认关闭。系统管理员在「系统设置 → 网络安全」启用；尚未落库时可由 `WEKNORA_SANDBOX_DOCKER_ENABLED=true` 回退。关闭后仍可查看和删除已有配置，但不会新建会话容器。
+The Docker backend is disabled by default. A system admin enables it under "System settings → Network security"; before the setting is persisted, `WEKNORA_SANDBOX_DOCKER_ENABLED=true` can be used as a fallback. When disabled, existing configurations can still be viewed and deleted, but no new session containers are created.
 
-一个配置连接一个 daemon，一个会话使用一个长驻容器。没有跨主机调度；不同 app 副本若连接各自独立的本机 daemon，不能假定会共享容器和技能快照。
+One configuration connects to one daemon, and one session uses one long-running container. There is no cross-host scheduling; if different app replicas connect to their own independent local daemons, you cannot assume they share containers and skill snapshots.
 
-| 配置 | 默认值或要求 |
+| Setting | Default or requirement |
 | --- | --- |
-| daemon 地址 | 留空时检测 `DOCKER_HOST` 或当前 Docker context；远端使用 `tcp://host:2376` |
-| TLS 证书目录 | 远端 TCP 必填，app 可读的目录中包含 `ca.pem`、`cert.pem`、`key.pem` |
-| CPU / 内存 / PID | 默认 2 核 / 2 GiB / 512 进程 |
-| 空闲 TTL | 默认 1800 秒 |
-| 网络模式 | 仅 `bridge` 或 `none`；不接受 `host`、`container:` 或自定义网络名 |
-| OCI runtime | 可选择 daemon 已安装的 runtime，如 `runsc` |
+| daemon address | When empty, `DOCKER_HOST` or the current Docker context is detected; remote uses `tcp://host:2376` |
+| TLS certificate directory | Required for remote TCP; a directory readable by the app containing `ca.pem`, `cert.pem` and `key.pem` |
+| CPU / memory / PIDs | Default 2 cores / 2 GiB / 512 processes |
+| Idle TTL | Default 1800 seconds |
+| Network mode | Only `bridge` or `none`; `host`, `container:` and custom network names are not accepted |
+| OCI runtime | Any runtime installed on the daemon can be selected, such as `runsc` |
 
-app 运行在容器里时，要挂载实际 Docker socket，或改连远端 daemon。socket 授予控制宿主机 Docker 的能力，只应交给可信 app。入口脚本在降权前根据 socket GID 配置 appuser 的组；不要通过 `chmod 666` 放开 socket。若 socket 为 `root:root` 且仅所有者可写，应先在宿主机配置合适的非 root 组权限。
+When the app runs in a container, mount the actual Docker socket or connect to a remote daemon instead. The socket grants control over the host's Docker and should only be given to a trusted app. The entrypoint script configures appuser's groups from the socket GID before dropping privileges; do not open up the socket with `chmod 666`. If the socket is `root:root` and only writable by its owner, first configure suitable non-root group permissions on the host.
 
-优先使用标准镜像。自定义镜像需满足适配器的 root、Bash、GNU `find -printf`、coreutils `timeout` 和可写工作区要求；会话文件检查点与回退还依赖 Git。HTTP 请求取消本身不会终止容器进程，适配器通过容器内 `timeout` 执行命令超时控制。
+Prefer the standard image. Custom images must meet the adapter's requirements for root, Bash, GNU `find -printf`, coreutils `timeout` and a writable workspace; session file checkpoints and rollback also depend on Git. Cancelling the HTTP request alone does not terminate the container process; the adapter enforces command timeouts through `timeout` inside the container.
 
-空闲清扫由 Create/Connect 触发并在后台运行，按容器创建时记录的 TTL 判断；不是 daemon 自带的定时器。当前没有硬寿命上限，能执行命令的脚本可以持续更新活跃标记，部署方需单独监控长期存活容器。
+Idle sweeping is triggered by Create/Connect and runs in the background, judging by the TTL recorded when the container was created; it is not a timer built into the daemon. There is currently no hard lifetime limit, and a script that can execute commands can keep refreshing the activity marker, so deployers need to monitor long-lived containers separately.
 
-### 技能快照与磁盘
+### Skill snapshots and disk
 
-技能安装通过 `docker commit` 生成 `weknora-skill/` 本地镜像，后续会话从安装快照启动。它保存文件系统，不保存内存状态；当前不支持租户共享卷或 Docker 图形桌面。
+Skill installation uses `docker commit` to produce local `weknora-skill/` images, and later sessions start from the installation snapshot. This saves the file system, not memory state; tenant-shared volumes and Docker graphical desktops are not currently supported.
 
-增量快照继承旧镜像层，删除旧 tag 不一定释放磁盘；卸载技能会新增删除标记层，原文件仍可能留在父层。当前流程不自动压平镜像或跨 daemon 分发。监控层数和磁盘，清理前确认会话与快照引用；需要新底模时新建配置并重新安装技能。
+Incremental snapshots inherit the old image layers, so deleting an old tag does not necessarily free disk space; uninstalling a skill adds a deletion marker layer, and the original files may remain in the parent layers. The current flow does not automatically flatten images or distribute them across daemons. Monitor layer count and disk usage, and confirm session and snapshot references before cleaning up; when you need a new base image, create a new configuration and reinstall the skills.
 
-## CubeSandbox / E2B 接入
+## CubeSandbox / E2B integration
 
-1. 先准备可用的控制面、数据面网关和沙箱域名。在空间设置中填写 API、Proxy、domain 与凭据；私网/回环端点需要显式允许私网地址，仍不允许云元数据地址。
-2. 点击「连接并继续」，验证控制面后加载模板目录。连接通过只证明控制面可用。
-3. 缺少标准模板时显式创建；需要桌面时另行创建桌面模板。等待状态为 `READY` 再选择。Cube 应使用带 envd 的 `-cube` 变体；普通 Docker 镜像不提供 `:49983/health`。
-4. 执行「完整验证」，实际创建沙箱、执行探针并销毁，确认数据面和脚本环境也可用。
-5. 保存后在智能体选择该配置，并验证附件读取、命令状态保持和产物下载。
+1. First prepare a working control plane, data-plane gateway and sandbox domain. Fill in the API, Proxy, domain and credentials in the space settings; private-network/loopback endpoints require explicitly allowing private addresses, and cloud metadata addresses are still not allowed.
+2. Click "Connect and continue" to verify the control plane and load the template catalog. A successful connection only proves the control plane is available.
+3. If the standard template is missing, create it explicitly; if you need a desktop, create the desktop template separately. Wait until the status is `READY` before selecting it. Cube should use the `-cube` variant with envd; regular Docker images do not provide `:49983/health`.
+4. Run "Full verification", which actually creates a sandbox, runs probes and destroys it, confirming that the data plane and script environment work too.
+5. After saving, select the configuration in an agent and verify attachment reading, command state persistence and artifact download.
 
-`proxy_url` 用于自托管数据面网关：连接网关时保留沙箱 Host 路由，适合没有泛域名 DNS 的环境。控制面可访问而执行失败时，重点核对 Proxy、sandbox domain、入站凭据和 app 到网关的可达性。
+`proxy_url` is for a self-hosted data-plane gateway: it keeps the sandbox Host routing when connecting to the gateway, which suits environments without wildcard DNS. When the control plane is reachable but execution fails, focus on the Proxy, sandbox domain, inbound credentials and reachability from the app to the gateway.
 
-Cube guest DNS 属于模板配置。更改 DNS/镜像后需重建模板才会进入新环境。已经安装技能的配置不能更换或重建底模，也不能在 CLI/桌面间切换，应新建配置并安装技能，避免让快照与底模不一致。
+Cube guest DNS is part of the template configuration. After changing DNS/images, rebuild the template for the changes to reach new environments. A configuration that already has skills installed cannot change or rebuild its base image, nor switch between CLI/desktop; create a new configuration and install the skills instead, to avoid a mismatch between snapshots and the base image.
 
-多副本必须配置共享 Redis，保存 session→sandbox 绑定和桌面状态。仅单实例开发可使用内存存储。已有沙箱不会自动应用后端配置变更；技能更新的 `next_turn` / `new_session` 策略见[技能目录与沙箱](../03-features/22-skills-sandbox.md)。
+Multiple replicas must configure a shared Redis to store session→sandbox bindings and desktop state. Only single-instance development can use in-memory storage. Existing sandboxes do not automatically apply backend configuration changes; for the `next_turn` / `new_session` skill update strategies, see [Skill Catalog & Sandbox](../03-features/22-skills-sandbox.md).
 
-| 现象 | 排查方向 |
+| Symptom | What to check |
 | --- | --- |
-| 连接验证失败 | API 是否误填 Dashboard 地址；凭据、TLS、私网开关是否正确 |
-| 连接成功但执行失败 | Proxy、sandbox domain、网关路由与入站 token |
-| 模板构建失败 | 查看集群返回的构建错误；镜像是否能拉取、架构是否匹配、Cube 镜像是否带 envd |
-| 沙箱无法出网 | 模板网络策略、guest DNS、集群出站代理；允许私网控制面不等于允许脚本出网 |
-| 安装依赖失败 | 默认拒绝出站时是否放行软件源；技能安装与会话使用同一网络策略 |
-| 重连后状态丢失 | Redis 是否共享、TTL 是否到期、技能更新是否触发重建 |
+| Connection verification fails | Whether the Dashboard address was entered as the API by mistake; whether credentials, TLS and the private-network switch are correct |
+| Connection succeeds but execution fails | Proxy, sandbox domain, gateway routing and inbound token |
+| Template build fails | Check the build error returned by the cluster; whether the image can be pulled, the architecture matches and the Cube image includes envd |
+| Sandbox has no internet access | Template network policy, guest DNS, cluster egress proxy; allowing a private control plane does not mean scripts can reach the internet |
+| Dependency installation fails | Whether package sources are allowed when egress is denied by default; skill installation and sessions use the same network policy |
+| State lost after reconnecting | Whether Redis is shared, whether the TTL expired, whether a skill update triggered a rebuild |
 
-## 交互终端与图形桌面
+## Interactive terminal and graphical desktop {#terminal-and-desktop}
 
-对话侧栏的终端和桌面都通过 WebSocket 连接会话沙箱，仅 Cube/E2B 支持，Docker 后端不提供。浏览器不能在 WebSocket 握手里携带认证头，因此都先用已登录的 POST 换取两分钟有效的短期票据，再把票据放在握手 query 中：
+Both the terminal and the desktop in the conversation sidebar connect to the session sandbox over WebSocket; only Cube/E2B support them, and the Docker backend does not. Browsers cannot send authentication headers in a WebSocket handshake, so both first exchange a signed-in POST for a short-lived ticket valid for two minutes, then put the ticket in the handshake query:
 
-| 能力 | 取票据 | WebSocket |
+| Capability | Get ticket | WebSocket |
 | --- | --- | --- |
-| 终端 | `POST /api/v1/sessions/:session_id/sandbox/terminal-ticket` | `GET /api/v1/sessions/:id/sandbox/terminal?ticket=...` |
-| 桌面 | `POST /api/v1/sessions/:session_id/sandbox/desktop-ticket` | `GET /api/v1/sessions/:id/sandbox/desktop?ticket=...` |
+| Terminal | `POST /api/v1/sessions/:session_id/sandbox/terminal-ticket` | `GET /api/v1/sessions/:id/sandbox/terminal?ticket=...` |
+| Desktop | `POST /api/v1/sessions/:session_id/sandbox/desktop-ticket` | `GET /api/v1/sessions/:id/sandbox/desktop?ticket=...` |
 
-入口代理必须为这两个路径转发 WebSocket Upgrade、放宽读超时，并避免在访问日志中记录 ticket query。标准 frontend Nginx 已为 `^/api/v1/sessions/[^/]+/sandbox/(terminal|desktop)$` 配置不含 query 的日志格式；自定义 Ingress 需自行处理。终端连上后，服务端大约每分钟复核一次登录状态、空间成员和会话归属，退出登录或被移出空间会断开终端。接口参数见[终端 API](../04-api/02-api-sandbox-skills.md#会话交互终端)与[桌面 API](../04-api/02-api-chat.md#sandbox-desktop)。
+The ingress proxy must forward the WebSocket Upgrade for these two paths, relax the read timeout, and avoid recording the ticket query in access logs. The standard frontend Nginx already configures a log format without the query for `^/api/v1/sessions/[^/]+/sandbox/(terminal|desktop)$`; custom Ingresses must handle this themselves. Once a terminal is connected, the server re-checks the login state, space membership and session ownership about once a minute; logging out or being removed from the space disconnects the terminal. For endpoint parameters, see the [Terminal API](../04-api/02-api-sandbox-skills.md#session-terminal) and the [Desktop API](../04-api/02-api-chat.md#sandbox-desktop).
 
-终端和桌面在无操作时按配置的 `terminal_idle_disconnect_sec` 断开（默认 900 秒，最短 60 秒，最长 24 小时），之后沙箱按提供商 TTL 暂停。终端以键盘输入和 PTY 输出计活动，桌面以键鼠计活动。
+The terminal and desktop disconnect after being idle for the configured `terminal_idle_disconnect_sec` (default 900 seconds, minimum 60 seconds, maximum 24 hours), after which the sandbox pauses according to the provider TTL. The terminal counts keyboard input and PTY output as activity; the desktop counts keyboard and mouse input.
 
-### 图形桌面
+### Graphical desktop
 
-仅 Cube/E2B 桌面模板支持对话侧栏桌面。首次打开时由后端启动桌面进程；配置需选择桌面模板并设置 `desktop_enabled`。技能已安装后不能原地切换底模。
+Only Cube/E2B desktop templates support the conversation sidebar desktop. The backend starts the desktop process when it is first opened; the configuration must select a desktop template and set `desktop_enabled`. Once skills are installed, the base image cannot be switched in place.
 
 ```text
-浏览器 noVNC → WeKnora 票据中继 → 提供商网关 → websockify :6080 → 本机 x11vnc :5900
+Browser noVNC → WeKnora ticket relay → provider gateway → websockify :6080 → local x11vnc :5900
 ```
 
-浏览器不持有沙箱 API Key、入站 token 或 websockify 密码。桌面票据仅可消费一次，完整定义见[会话 API](../04-api/02-api-chat.md#sandbox-desktop)。Cube 桌面模板的 `exposedPorts` 只暴露 envd 的 49983，**不要把 6080 加入宿主机 NAT**，桌面必须经过网关与 WeKnora 中继。
+The browser never holds the sandbox API Key, inbound token or websockify password. Desktop tickets can be consumed only once; for the full definition, see the [Session API](../04-api/02-api-chat.md#sandbox-desktop). The `exposedPorts` of the Cube desktop template only exposes envd's 49983; **do not add 6080 to the host NAT**; the desktop must go through the gateway and the WeKnora relay.
 
-每个会话同时只允许一条桌面中继，多副本槽位由 Redis 协调。沙箱重建后以 `SANDBOX_REBUILT` 提醒断开，不能把新桌面当成保留了原临时文件的旧实例。空闲判断使用 RFB 键鼠活动，截图请求不算用户操作。
+Each session allows only one desktop relay at a time, and multi-replica slots are coordinated by Redis. After a sandbox rebuild, `SANDBOX_REBUILT` signals the disconnect; do not treat the new desktop as the old instance with its original temporary files. Idle detection uses RFB keyboard and mouse activity; screenshot requests do not count as user activity.
 
-## Lite 本机沙箱
+## Lite local sandbox
 
-`host` 后端只编译进带 `desktop` 构建标签的 Lite 桌面程序（`cmd/desktop/wails.json` 的 `build:tags`），服务端和单二进制 Lite 不包含。它在未选沙箱配置的会话中运行命令，用法见[技能目录与沙箱](../03-features/22-skills-sandbox.md#lite-host)。
+The `host` backend is only compiled into the Lite desktop program with the `desktop` build tag (`build:tags` in `cmd/desktop/wails.json`); the server and the single-binary Lite do not include it. It runs commands in sessions with no sandbox configuration selected; for usage, see [Skill Catalog & Sandbox](../03-features/22-skills-sandbox.md#lite-host).
 
-| 平台 | 状态 |
+| Platform | Status |
 | --- | --- |
-| macOS | 使用系统 `sandbox-exec`（Seatbelt）执行每条命令；启动时检测不可用则不启用 |
-| Windows | 尚未实现，报告不可用，不会退化为无隔离执行 |
-| Linux | 不支持 |
+| macOS | Uses the system `sandbox-exec` (Seatbelt) to run each command; not enabled if detected as unavailable at startup |
+| Windows | Not yet implemented; reported as unavailable and never falls back to unisolated execution |
+| Linux | Not supported |
 
-每条命令都是新的本机进程，没有会话级实例，因此不写入会话的沙箱绑定，也不做工作区检查点。用户通过系统目录选择框批准的项目目录保存在 `desktop-prefs.json` 的 `project_dirs`；会话只能绑定列表中的目录本身，不能绑定其子目录或手工输入的路径。`approval_mode` 当前只支持 `auto`（在工作区内自由读写、禁止联网），写入其他值会被拒绝。偏好文件位置见[桌面客户端](../05-clients/05-desktop.md#_5-偏好设置存储-cmd-desktop-prefs-go)。
+Every command is a new local process with no session-level instance, so no session sandbox binding is written and no workspace checkpoints are made. Project directories the user approves through the system folder picker are stored in `project_dirs` in `desktop-prefs.json`; a session can only bind a directory in that list itself, not its subdirectories or manually entered paths. `approval_mode` currently only supports `auto` (free read/write within the workspace, network access forbidden), and writing any other value is rejected. For the preferences file location, see [Desktop Client](../05-clients/05-desktop.md#_5-preferences-storage-cmd-desktop-prefs-go).
 
-## 开发验证
+## Development verification
 
-单元测试不需要真实 daemon：
+Unit tests do not need a real daemon:
 
 ```bash
 go test ./internal/sandbox -run 'TestDocker' -count=1
 ```
 
-真实 Docker 验证需要先构建标准镜像，会创建测试容器：
+Real Docker verification requires building the standard image first and creates test containers:
 
 ```bash
 docker build -f docker/Dockerfile.sandbox --target sandbox -t wechatopenai/weknora-sandbox:dev .
@@ -121,4 +121,4 @@ go test -tags=docker_integration ./internal/sandbox \
   -run '^TestDocker.*Integration' -count=1 -v -timeout=15m
 ```
 
-远端接入的一致性测试位于 `internal/sandbox/cube_integration_test.go` 与 `e2b_compatible_integration_test.go`，运行前按文件开头配置测试集群凭据。验证范围应包含会话状态保持、Shell 复用、附件暂存、产物收集和超时，而不能只测 Health。测试结束后确认测试实例已清理。
+Conformance tests for remote integrations live in `internal/sandbox/cube_integration_test.go` and `e2b_compatible_integration_test.go`; configure the test cluster credentials as described at the top of each file before running them. Verification should cover session state persistence, shell reuse, attachment staging, artifact collection and timeouts, not just Health. After the tests finish, confirm the test instances have been cleaned up.

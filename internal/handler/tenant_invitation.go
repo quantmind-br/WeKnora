@@ -577,21 +577,21 @@ func (h *TenantInvitationHandler) AcceptMyInvitation(c *gin.Context) {
 	})
 }
 
-// acceptInvitationByTokenRequest: POST /me/invitations/accept-by-token 的请求体。
-// 已登录用户用 token 加入空间（与 register-by-invite 不同，不创建新账号）。
+// acceptInvitationByTokenRequest is the request body of POST /me/invitations/accept-by-token.
+// A logged-in user joins a workspace with the token (unlike register-by-invite, no new account is created).
 type acceptInvitationByTokenRequest struct {
 	Token string `json:"token" binding:"required"`
 }
 
 // AcceptMyInvitationByToken godoc
-// @Summary      通过共享链接加入空间
-// @Description  已登录用户用共享邀请链接 token 加入空间，不创建新账号；对已是成员的用户幂等。
-// @Tags         我的邀请
+// @Summary      Join workspace via shared link
+// @Description  A logged-in user joins the workspace with a shared invite-link token, without creating a new account; idempotent for users who are already members.
+// @Tags         My Invitations
 // @Accept       json
 // @Produce      json
-// @Param        request  body      acceptInvitationByTokenRequest  true  "邀请 token"
+// @Param        request  body      acceptInvitationByTokenRequest  true  "Invitation token"
 // @Success      200      {object}  map[string]interface{}
-// @Failure      410      {object}  apperrors.AppError  "链接无效或已撤销"
+// @Failure      410      {object}  apperrors.AppError  "Link is invalid or revoked"
 // @Security     Bearer
 // @Router       /me/invitations/accept-by-token [post]
 func (h *TenantInvitationHandler) AcceptMyInvitationByToken(c *gin.Context) {
@@ -617,7 +617,7 @@ func (h *TenantInvitationHandler) AcceptMyInvitationByToken(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvitationTokenInvalid):
-			// 无效/过期/撤销统一返回 410（与 LookupInvitationByToken 一致）。
+			// Invalid, expired and revoked tokens all return 410 (consistent with LookupInvitationByToken).
 			c.Error(&apperrors.AppError{
 				Code:     apperrors.ErrNotFound,
 				Message:  "invitation link is invalid or has been revoked",
@@ -630,7 +630,7 @@ func (h *TenantInvitationHandler) AcceptMyInvitationByToken(c *gin.Context) {
 		return
 	}
 
-	// 无租户用户将首个加入的空间设为默认空间（与 AcceptMyInvitation 同理）。
+	// A user without a tenant gets the first joined workspace as the default (same as AcceptMyInvitation).
 	if user, userErr := h.userService.GetUserByID(ctx, caller); userErr == nil && user != nil && user.TenantID == 0 {
 		user.TenantID = member.TenantID
 		if updateErr := h.userService.UpdateUser(ctx, user); updateErr != nil {
@@ -641,7 +641,7 @@ func (h *TenantInvitationHandler) AcceptMyInvitationByToken(c *gin.Context) {
 		}
 	}
 
-	// 供前端切换空间展示用。
+	// Used by the frontend to display the workspace switch.
 	tenantName := ""
 	if tenant, terr := h.tenantService.GetTenantByID(ctx, member.TenantID); terr == nil && tenant != nil {
 		tenantName = tenant.Name

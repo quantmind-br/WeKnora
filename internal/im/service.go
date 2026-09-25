@@ -38,9 +38,9 @@ import (
 )
 
 const (
-	imNoAnswerFallback  = "抱歉，我暂时无法回答这个问题。"
-	imErrorFallback     = "抱歉，处理您的问题时出现了异常，请稍后再试。"
-	imCancelledFallback = "抱歉，回答已被取消。"
+	imNoAnswerFallback  = "Sorry, I cannot answer this question right now."
+	imErrorFallback     = "Sorry, an error occurred while processing your question. Please try again later."
+	imCancelledFallback = "Sorry, the answer was canceled."
 
 	// dedupTTL is how long processed message IDs are retained.
 	dedupTTL = 5 * time.Minute
@@ -369,12 +369,13 @@ func makeUserKey(channelID, userID, chatID, threadID string) string {
 	return fmt.Sprintf("%s:%s:%s", channelID, userID, chatID)
 }
 
-// nonTextTypeLabel maps a message type to a Chinese label for LLM instructions.
+// nonTextTypeLabel maps a message type to an article-prefixed English label
+// for LLM instructions.
 var nonTextTypeLabel = map[string]string{
-	"image": "Image",
-	"file":  "File",
-	"video": "Video",
-	"voice": "Voice",
+	"image": "an image",
+	"file":  "a file",
+	"video": "a video",
+	"voice": "a voice",
 }
 
 // formatQuotedContext formats a QuotedMessage into a labeled string for LLM context.
@@ -389,9 +390,9 @@ func formatQuotedContext(quote *QuotedMessage) string {
 	if quote.NonTextType != "" {
 		label := nonTextTypeLabel[quote.NonTextType]
 		if label == "" {
-			label = "this type of"
+			label = "a non-text"
 		}
-		return "User quoted a" + label + " message, but you cannot view that content. Tell the user directly that you cannot process it right now" + label + " message; suggest the user describe the question in text. Do not guess the message content."
+		return "The user quoted " + label + " message, but you cannot view its content. Tell the user directly that you cannot process this kind of message right now, and suggest they describe the question in text. Do not guess the message content."
 	}
 	if quote.Content == "" {
 		return ""
@@ -1915,11 +1916,11 @@ func emptyIncomingMessageReply(msg *IncomingMessage) (string, bool) {
 	}
 	switch rawType {
 	case "audio":
-		return "未能识别这条语音中的文字内容。请改用纯文本发送，或再说一遍。", true
+		return "Could not recognize any text in this voice message. Please send plain text instead, or say it again.", true
 	case "video":
-		return "暂不支持视频消息。请改用纯文本发送；图片或文件请单独发送。", true
+		return "Video messages are not supported yet. Please send plain text instead; send images or files separately.", true
 	default:
-		return "未能识别这条消息中的文字内容。请改用纯文本发送；图片或文件请单独发送。", true
+		return "Could not recognize any text in this message. Please send plain text instead; send images or files separately.", true
 	}
 }
 
@@ -1956,7 +1957,7 @@ func (s *Service) executeQARequest(req *qaRequest) {
 	attachments, imageURLs, downloaded, err := s.prepareIMAttachments(ctx, req.msg, req.adapter)
 	if err != nil {
 		logger.Warnf(ctx, "[IM] attachment preparation failed: %v", err)
-		if sendErr := req.adapter.SendReply(ctx, req.msg, &ReplyMessage{Content: "❌ 无法读取此附件，请重试或改用文字描述。", IsFinal: true}); sendErr != nil {
+		if sendErr := req.adapter.SendReply(ctx, req.msg, &ReplyMessage{Content: "❌ Could not read this attachment. Please try again or describe it in text instead.", IsFinal: true}); sendErr != nil {
 			logger.Warnf(ctx, "[IM] Failed to send attachment error reply: %v", sendErr)
 		}
 		return
@@ -3417,7 +3418,7 @@ func fileMessageQAContent(msg *IncomingMessage) string {
 	}
 	fileName := strings.TrimSpace(msg.FileName)
 	if fileName == "" {
-		fileName = "未命名文件"
+		fileName = "unnamed file"
 	}
 	return fmt.Sprintf("I uploaded the file 「%s」. Please confirm you received it and let me know how you can help next.", fileName)
 }

@@ -54,7 +54,7 @@ test('artifact reconciliation replaces completed text without replaying the type
   })
   try {
     app.mount({})
-    answer.value.content = 'PPT 已生成。![比赛文件](sandbox:很长的比赛信息文件名.pptx)'
+    answer.value.content = 'PPT generated. ![Contest file](sandbox:a-very-long-contest-information-file-name.pptx)'
     await nextTick()
     assert.equal(displayed.value, '', 'live content must still animate')
     answer.value.done = true
@@ -67,9 +67,9 @@ test('artifact reconciliation replaces completed text without replaying the type
     }
     assert.equal(displayed.value, answer.value.content)
     for (const content of [
-      'PPT 已生成。![比赛文件](resource://short)',
-      'PPT 已生成。![比赛文件](resource://a-much-longer-persistent-resource-reference)',
-      'PPT 已生成。![比赛文件](resource://a-much-longer-persistent-resource-reference)\n历史版本说明',
+      'PPT generated. ![Contest file](resource://short)',
+      'PPT generated. ![Contest file](resource://a-much-longer-persistent-resource-reference)',
+      'PPT generated. ![Contest file](resource://a-much-longer-persistent-resource-reference)\nNotes on earlier versions',
     ]) {
       applyFinalArtifactContent(message, content)
       await nextTick()

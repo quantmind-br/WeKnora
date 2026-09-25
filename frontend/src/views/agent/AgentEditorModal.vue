@@ -39,7 +39,7 @@
             </div>
           </div>
 
-          <!-- 集成渠道状态（编辑模式，配置在集成中心） -->
+          <!-- Integration channel status (edit mode, configured in Integration Center) -->
           <div v-if="editorMode === 'edit' && editorAgent?.id" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('integrations.agentEditor.label') }}</label>
@@ -60,7 +60,7 @@
             </div>
           </div>
 
-          <!-- 运行模式（首先选择） -->
+          <!-- Run mode (select first) -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.mode') }} <span class="required">*</span></label>
@@ -79,7 +79,7 @@
             </div>
           </div>
 
-          <!-- 智能体类型（仅智能推理模式下显示） -->
+          <!-- Agent type (shown only in intelligent reasoning mode) -->
           <div v-if="isAgentMode && agentTypePresets.length > 0" class="setting-row setting-row--emphasize"
             data-guide="agent-create-agent-type">
             <div class="setting-info">
@@ -102,7 +102,7 @@
             </div>
           </div>
 
-          <!-- 名称 -->
+          <!-- Name -->
           <div class="setting-row" data-guide="agent-create-name">
             <div class="setting-info">
               <label>{{ $t('agent.editor.name') }} <span v-if="!isBuiltinAgent"
@@ -111,11 +111,11 @@
             </div>
             <div class="setting-control">
               <div class="name-input-wrapper">
-                <!-- 内置智能体使用简洁图标 -->
+                <!-- Built-in agents use simple icons -->
                 <div v-if="isBuiltinAgent" class="builtin-avatar" :class="isAgentMode ? 'agent' : 'normal'">
                   <t-icon :name="isAgentMode ? 'control-platform' : 'chat'" size="24px" />
                 </div>
-                <!-- 自定义智能体使用 AgentAvatar -->
+                <!-- Custom agents use AgentAvatar -->
                 <AgentAvatar v-else :name="formData.name || '?'" size="medium" />
                 <t-input v-model="formData.name" :placeholder="$t('agent.editor.namePlaceholder')"
                   class="name-input" :disabled="isBuiltinAgent" />
@@ -123,7 +123,7 @@
             </div>
           </div>
 
-          <!-- 描述 -->
+          <!-- Description -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.description') }}</label>
@@ -136,9 +136,9 @@
             </div>
           </div>
 
-          <!-- 长期记忆。留在基础信息这一组而不是「多轮对话」，是因为它与
-               多轮历史窗口无关，且智能推理恰恰是最需要这个开关的模式。
-               这个开关只能"关"：空间或个人设置关闭时，这里打开也不生效。 -->
+          <!-- Long-term memory. Kept in the basic info group rather than "Multi-turn conversation" because it has
+               nothing to do with the multi-turn history window, and intelligent reasoning is exactly the mode that needs this toggle most.
+               This toggle can only turn memory "off": when the workspace or personal setting is off, turning it on here has no effect. -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.memoryEnabled') }}</label>
@@ -152,7 +152,7 @@
         </div>
       </div>
 
-      <!-- 提示词 -->
+      <!-- Prompt -->
       <div v-show="currentSection === 'prompts'" class="section section--prompts">
         <div class="prompts-panel">
           <div class="prompts-panel__header">
@@ -176,7 +176,7 @@
 
           <div class="prompts-panel__body">
             <div class="settings-group">
-              <!-- 系统提示词 -->
+              <!-- System prompt -->
               <div v-show="activePromptAnchor === 'system'"
                 class="setting-row setting-row-vertical prompts-panel__pane">
             <div class="setting-info">
@@ -197,7 +197,7 @@
               </div>
             </div>
             <div class="setting-control setting-control-full" style="position: relative;">
-              <!-- Agent模式：统一提示词（使用 {{web_search_status}} 占位符动态控制行为） -->
+              <!-- Agent mode: unified prompt (uses the {{web_search_status}} placeholder to dynamically control behavior) -->
               <div v-if="isAgentMode" class="textarea-with-template">
                 <t-textarea ref="promptTextareaRef" v-model="formData.config.system_prompt"
                   :placeholder="systemPromptPlaceholder" :autosize="{ minRows: 10, maxRows: 25 }"
@@ -206,7 +206,7 @@
                   :hasKnowledgeBase="hasKnowledgeBase" @select="handleSystemPromptTemplateSelect"
                   @reset-default="handleAgentSystemPromptResetDefault" />
               </div>
-              <!-- 普通模式：单个提示词 -->
+              <!-- Normal mode: single prompt -->
               <div v-else class="textarea-with-template">
                 <t-textarea ref="promptTextareaRef" v-model="formData.config.system_prompt"
                   :placeholder="systemPromptPlaceholder" :autosize="{ minRows: 10, maxRows: 25 }"
@@ -215,7 +215,7 @@
                   :hasKnowledgeBase="hasKnowledgeBase" @select="handleSystemPromptTemplateSelect"
                   @reset-default="handleSystemPromptTemplateSelect" />
               </div>
-              <!-- 占位符提示下拉框 -->
+              <!-- Placeholder hint dropdown -->
               <Teleport to="body">
                 <div v-if="showPlaceholderPopup && filteredPlaceholders.length > 0"
                   class="placeholder-popup-wrapper" :style="popupStyle">
@@ -235,7 +235,7 @@
             </div>
           </div>
 
-          <!-- 上下文模板（仅普通模式） -->
+          <!-- Context template (normal mode only) -->
           <div v-if="!isAgentMode" v-show="activePromptAnchor === 'context'"
             class="setting-row setting-row-vertical prompts-panel__pane">
             <div class="setting-info">
@@ -263,7 +263,7 @@
                   :hasKnowledgeBase="hasKnowledgeBase" @select="handleContextTemplateSelect"
                   @reset-default="handleContextTemplateSelect" />
               </div>
-              <!-- 上下文模板占位符提示下拉框 -->
+              <!-- Context template placeholder hint dropdown -->
               <Teleport to="body">
                 <div v-if="showContextPlaceholderPopup && filteredContextPlaceholders.length > 0"
                   class="placeholder-popup-wrapper" :style="contextPopupStyle">
@@ -283,7 +283,7 @@
             </div>
           </div>
 
-          <!-- 意图提示词（仅普通模式） -->
+          <!-- Intent prompt (normal mode only) -->
           <div v-if="!isAgentMode" v-show="activePromptAnchor === 'intent'"
             class="setting-row setting-row-vertical prompts-panel__pane">
             <div class="setting-info">
@@ -452,7 +452,7 @@
             </div>
           </template>
 
-          <!-- 检索兜底（普通模式 + 启用知识库） -->
+          <!-- Retrieval fallback (normal mode + knowledge base enabled) -->
           <div v-if="!isAgentMode && hasKnowledgeBase" v-show="activePromptAnchor === 'fallback'"
             class="prompts-panel__pane prompts-panel__pane--stack">
             <div class="setting-row">
@@ -538,7 +538,7 @@
         </div>
       </div>
 
-      <!-- 模型配置 -->
+      <!-- Model configuration -->
       <div v-show="currentSection === 'model'" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.modelConfig') }}</h2>
@@ -546,7 +546,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- 模型选择 -->
+          <!-- Model selection -->
           <div
             class="setting-row"
             data-guide="agent-create-model"
@@ -565,7 +565,7 @@
             </div>
           </div>
 
-          <!-- 温度 -->
+          <!-- Temperature -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.temperature') }}</label>
@@ -579,7 +579,7 @@
             </div>
           </div>
 
-          <!-- 最大生成Token数：0 表示跟随系统默认；自定义后按输入值保存 -->
+          <!-- Max generated tokens: 0 follows the system default; a custom value is saved as entered -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.maxCompletionTokens') }}</label>
@@ -602,7 +602,7 @@
             </div>
           </div>
 
-          <!-- 思考强度：off / auto + 所选对话模型目录上报的等级 -->
+          <!-- Thinking effort: off / auto + the levels the catalog reports for the selected chat model -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.thinking') }}</label>
@@ -628,7 +628,7 @@
             </div>
           </div>
 
-          <!-- 来源引用 -->
+          <!-- Source citations -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.citationEnabled') }}</label>
@@ -639,7 +639,7 @@
             </div>
           </div>
 
-          <!-- ReRank 模型（启用知识库或 search_knowledge 工具时显示） -->
+          <!-- ReRank model (shown when knowledge base or search_knowledge tool is enabled) -->
           <div
             v-if="showRerankModelField"
             class="setting-row"
@@ -669,7 +669,7 @@
             </div>
           </div>
 
-          <!-- 问题理解模型（多轮改写时，留空则复用主对话模型） -->
+          <!-- Query understanding model (for multi-turn rewriting; leave blank to reuse the main chat model) -->
           <div
             v-if="!isAgentMode && formData.config.multi_turn_enabled && formData.config.enable_rewrite"
             class="setting-row">
@@ -687,7 +687,7 @@
             </div>
           </div>
 
-          <!-- 最大迭代次数（Agent 模式）：正数为上限，-1 为不限制 -->
+          <!-- Max iterations (Agent mode): a positive number is the cap, -1 means unlimited -->
           <div v-if="isAgentMode" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.maxIterations') }}</label>
@@ -703,7 +703,7 @@
             </div>
           </div>
 
-          <!-- LLM 调用超时（Agent 模式） -->
+          <!-- LLM call timeout (Agent mode) -->
           <div v-if="isAgentMode" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.llmCallTimeout.label') }}</label>
@@ -719,7 +719,7 @@
         </div>
       </div>
 
-      <!-- 附件上传 -->
+      <!-- Attachment upload -->
       <div v-show="currentSection === 'multimodal'" class="section">
         <div class="section-header">
           <h2>{{ $t('agentEditor.imageUpload.sectionTitle') }}</h2>
@@ -727,7 +727,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- 图片上传 -->
+          <!-- Image upload -->
           <div class="setting-row" data-guide="agent-create-multimodal">
             <div class="setting-info">
               <label>{{ $t('agentEditor.imageUpload.label') }}</label>
@@ -738,7 +738,7 @@
             </div>
           </div>
 
-          <!-- VLM 模型（图片上传启用时） -->
+          <!-- VLM model (enabled when image upload is on) -->
           <div v-if="formData.config.image_upload_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.imageUpload.vlmModel') }} <span class="required">*</span></label>
@@ -753,7 +753,7 @@
             </div>
           </div>
 
-          <!-- 附件图片理解 / 扫描件 OCR（图片上传启用时） -->
+          <!-- Attachment image understanding / scanned document OCR (enabled when image upload is on) -->
           <div v-if="formData.config.image_upload_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.imageUpload.imageUnderstandingLabel') }}</label>
@@ -764,7 +764,7 @@
             </div>
           </div>
 
-          <!-- 扫描件 OCR 最大页数（开启附件图片理解时） -->
+          <!-- Max OCR pages for scanned documents (when attachment image understanding is enabled) -->
           <div v-if="formData.config.image_upload_enabled && formData.config.attachment_image_understanding"
             class="setting-row">
             <div class="setting-info">
@@ -778,7 +778,7 @@
             </div>
           </div>
 
-          <!-- 图片存储 Provider（图片上传启用时） -->
+          <!-- Image storage provider (when image upload is enabled) -->
           <div v-if="formData.config.image_upload_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.imageUpload.storageProvider') }}</label>
@@ -804,7 +804,7 @@
             </div>
           </div>
 
-          <!-- 音频上传开关 -->
+          <!-- Audio upload toggle -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.audioUpload.label') }}</label>
@@ -815,7 +815,7 @@
             </div>
           </div>
 
-          <!-- ASR 模型（音频上传启用时） -->
+          <!-- ASR model (when audio upload is enabled) -->
           <div v-if="formData.config.audio_upload_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.audioUpload.asrModel') }}</label>
@@ -831,7 +831,7 @@
             </div>
           </div>
 
-          <!-- 单轮等待附件解析超时（秒） -->
+          <!-- Single-turn wait timeout for attachment parsing (seconds) -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.chatParser.waitTimeoutLabel') }}</label>
@@ -844,7 +844,7 @@
             </div>
           </div>
 
-          <!-- 聊天附件解析策略 -->
+          <!-- Chat attachment parsing strategy -->
           <div class="parser-policy-block">
             <div class="parser-policy-block__header">
               <label>{{ $t('agentEditor.chatParser.label') }}</label>
@@ -861,9 +861,9 @@
         </div>
       </div>
 
-      <!-- 多轮对话。两种模式都保留本组：Agent 模式在这里说明历史按上下文窗口
-           自动管理，并承载跨轮保留检索结果；开关由 EnsureDefaults 强制开启，
-           故只在普通模式展示。 -->
+      <!-- Multi-turn conversation. Both modes keep this group: in Agent mode it explains that history is managed
+           automatically by the context window, and hosts cross-turn retrieval result retention; the toggle is forced on by EnsureDefaults,
+           so it is only shown in normal mode. -->
       <div v-show="currentSection === 'conversation'" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.conversationSettings') }}</h2>
@@ -871,8 +871,8 @@
         </div>
 
         <div class="settings-group">
-          <!-- 多轮对话开关（仅普通模式：Agent 模式由 EnsureDefaults 强制开启，
-               展示可关闭的开关只会被服务端改回去） -->
+          <!-- Multi-turn conversation toggle (normal mode only: Agent mode is forced on by EnsureDefaults,
+               so a toggle that can be turned off would just be reverted by the server) -->
           <div v-if="!isAgentMode" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.multiTurn') }}</label>
@@ -883,8 +883,8 @@
             </div>
           </div>
 
-          <!-- 保留轮数（仅普通模式：Agent 模式按上下文窗口加载历史、超出时压缩成
-               摘要，见 session_agent_qa.go -> LoadAgentHistory，不读 history_turns） -->
+          <!-- Number of retained turns (normal mode only: Agent mode loads history by context window and compacts it into a
+               summary when it overflows, see session_agent_qa.go -> LoadAgentHistory; history_turns is not read) -->
           <div v-if="!isAgentMode && formData.config.multi_turn_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.historyTurns') }}</label>
@@ -895,8 +895,8 @@
             </div>
           </div>
 
-          <!-- 跨轮保留检索结果。只有 agent 链路读取该值（internal/agent/observe.go），
-               且改写的只是 KB/Wiki 这八个工具的历史结果，所以没有知识库时不展示。 -->
+          <!-- Retain retrieval results across turns. Only the agent pipeline reads this value (internal/agent/observe.go),
+               and it only rewrites the historical results of the eight KB/Wiki tools, so it is hidden when there is no knowledge base. -->
           <div v-if="isAgentMode && hasKnowledgeBase" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.retainRetrievalHistory') }}</label>
@@ -907,7 +907,7 @@
             </div>
           </div>
 
-          <!-- 问题改写（仅多轮对话开启且普通模式时显示） -->
+          <!-- Query rewriting (shown only when multi-turn conversation is enabled and in normal mode) -->
           <div v-if="formData.config.multi_turn_enabled && !isAgentMode" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.enableRewrite') }}</label>
@@ -920,7 +920,7 @@
         </div>
       </div>
 
-      <!-- 对话问题推荐 -->
+      <!-- Conversation question suggestions -->
       <div v-show="currentSection === 'suggestions'" class="section">
         <div class="section-header">
           <h2>{{ $t('agentEditor.questionSuggestions.title') }}</h2>
@@ -1103,14 +1103,14 @@
         </div>
       </div>
 
-      <!-- 工具配置（仅 Agent 模式） -->
+      <!-- Tool configuration (Agent mode only) -->
       <div v-show="currentSection === 'tools' && isAgentMode" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.toolsConfig') }}</h2>
           <p class="section-description">{{ $t('agent.editor.toolsConfigDesc') }}</p>
         </div>
 
-        <!-- 合并面板：能力状态 + 预设切换 -->
+        <!-- Combined panel: capability status + preset switching -->
         <div class="tools-overview">
           <div class="tools-overview-row">
             <div class="tools-status-chip">
@@ -1136,7 +1136,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- 允许的工具（按组渲染，统一网格） -->
+          <!-- Allowed tools (rendered by group, unified grid) -->
           <div
             class="setting-row setting-row-vertical"
             data-agent-field="allowed_tools"
@@ -1182,7 +1182,7 @@
             </div>
           </div>
 
-          <!-- 有效工具预览：所见即所得 -->
+          <!-- Effective tools preview: WYSIWYG -->
           <div class="setting-row setting-row-vertical">
             <div class="setting-info">
               <label>{{ $t('agentEditor.tools.effectiveLabel') }}</label>
@@ -1209,7 +1209,7 @@
         </div>
       </div>
 
-      <!-- MCP 服务配置（仅 Agent 模式） -->
+      <!-- MCP service configuration (Agent mode only) -->
       <div v-show="currentSection === 'mcp' && isAgentMode" class="section">
         <div class="section-header">
           <h2>{{ $t('agentEditor.mcp.label') }}</h2>
@@ -1217,7 +1217,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- MCP 服务选择 -->
+          <!-- MCP service selection -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.mcp.label') }}</label>
@@ -1232,7 +1232,7 @@
             </div>
           </div>
 
-          <!-- 选择指定 MCP 服务 -->
+          <!-- Select specific MCP services -->
           <div v-if="mcpSelectionMode === 'selected' && showMcpServiceSelect" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.mcp.selectLabel') }}</label>
@@ -1247,7 +1247,7 @@
             </div>
           </div>
 
-          <!-- 授权等待超时：对话中触发 OAuth 授权时的等待秒数 -->
+          <!-- Authorization wait timeout: wait time in seconds when OAuth authorization is triggered mid-conversation -->
           <div v-if="mcpSelectionMode !== 'none'" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.mcp.authWaitTimeout') }}</label>
@@ -1261,7 +1261,7 @@
         </div>
       </div>
 
-      <!-- 技能：脚本跑在所选沙箱里，可用列表也来自这份配置 -->
+      <!-- Skills: scripts run in the selected sandbox, and the available list also comes from that config -->
       <div v-show="currentSection === 'skills' && isAgentMode" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.skillsConfig') }}</h2>
@@ -1458,7 +1458,7 @@
         </div>
       </div>
 
-      <!-- 知识库配置 -->
+      <!-- Knowledge base configuration -->
       <div v-show="currentSection === 'knowledge'" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.knowledgeConfig') }}</h2>
@@ -1466,7 +1466,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- 关联知识库 -->
+          <!-- Linked knowledge base -->
           <div class="setting-row" data-guide="agent-create-knowledge">
             <div class="setting-info">
               <label>{{ $t('agent.editor.knowledgeBases') }}</label>
@@ -1482,7 +1482,7 @@
             </div>
           </div>
 
-          <!-- 选择指定知识库（仅在选择"指定知识库"时显示） -->
+          <!-- Select specific knowledge base (shown only when "specific knowledge base" is selected) -->
           <div v-if="kbSelectionMode === 'selected'" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.selectKnowledgeBases') }}</label>
@@ -1528,7 +1528,7 @@
             </div>
           </div>
 
-          <!-- 支持的文件类型（限制用户可选择的文件类型） -->
+          <!-- Supported file types (restricts the file types users can select) -->
           <div v-if="hasKnowledgeBase" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.fileTypes.label') }}</label>
@@ -1543,7 +1543,7 @@
             </div>
           </div>
 
-          <!-- 仅在提及时检索知识库（当配置了知识库时显示） -->
+          <!-- Only retrieve knowledge base when mentioned (shown when a knowledge base is configured) -->
           <div v-if="hasKnowledgeBase" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.retrieveKBOnlyWhenMentioned') }}</label>
@@ -1557,7 +1557,7 @@
         </div>
       </div>
 
-      <!-- 网络搜索配置 -->
+      <!-- Web search configuration -->
       <div v-show="currentSection === 'websearch'" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.webSearchConfig') }}</h2>
@@ -1565,7 +1565,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- 网络搜索 -->
+          <!-- Web search -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.webSearch') }}</label>
@@ -1576,7 +1576,7 @@
             </div>
           </div>
 
-          <!-- 网络搜索最大结果数 -->
+          <!-- Max web search results -->
           <div v-if="formData.config.web_search_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.webSearchProvider') }}</label>
@@ -1595,7 +1595,7 @@
             </div>
           </div>
 
-          <!-- 网络搜索最大结果数 -->
+          <!-- Max web search results -->
           <div v-if="formData.config.web_search_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.webSearchMaxResults') }}</label>
@@ -1609,7 +1609,7 @@
             </div>
           </div>
 
-          <!-- 自动抓取页面内容 -->
+          <!-- Auto-fetch page content -->
           <div v-if="formData.config.web_search_enabled" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.webFetchEnabled') }}</label>
@@ -1620,7 +1620,7 @@
             </div>
           </div>
 
-          <!-- 抓取页面数 -->
+          <!-- Number of pages to fetch -->
           <div v-if="formData.config.web_search_enabled && formData.config.web_fetch_enabled"
             class="setting-row">
             <div class="setting-info">
@@ -1637,7 +1637,7 @@
         </div>
       </div>
 
-      <!-- 检索策略（仅在有知识库能力时显示） -->
+      <!-- Retrieval strategy (shown only when knowledge base capability is present) -->
       <div v-show="currentSection === 'retrieval' && hasKnowledgeBase" class="section">
         <div class="section-header">
           <h2>{{ $t('agent.editor.retrievalStrategy') }}</h2>
@@ -1645,7 +1645,7 @@
         </div>
 
         <div class="settings-group">
-          <!-- 查询扩展（仅普通模式） -->
+          <!-- Query expansion (normal mode only) -->
           <div v-if="!isAgentMode" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.enableQueryExpansion') }}</label>
@@ -1656,7 +1656,7 @@
             </div>
           </div>
 
-          <!-- 向量召回TopK -->
+          <!-- Vector recall TopK -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.embeddingTopK') }}</label>
@@ -1667,7 +1667,7 @@
             </div>
           </div>
 
-          <!-- 关键词阈值 -->
+          <!-- Keyword threshold -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.keywordThreshold') }}</label>
@@ -1681,7 +1681,7 @@
             </div>
           </div>
 
-          <!-- 向量阈值 -->
+          <!-- Vector threshold -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.vectorThreshold') }}</label>
@@ -1695,7 +1695,7 @@
             </div>
           </div>
 
-          <!-- 重排TopK（仅在配置了 Rerank 模型时展示） -->
+          <!-- Rerank TopK (only shown when a Rerank model is configured) -->
           <div v-if="formData.config.rerank_model_id" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.rerankTopK') }}</label>
@@ -1706,7 +1706,7 @@
             </div>
           </div>
 
-          <!-- 重排阈值（仅在配置了 Rerank 模型时展示） -->
+          <!-- Rerank threshold (only shown when a Rerank model is configured) -->
           <div v-if="formData.config.rerank_model_id" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agent.editor.rerankThreshold') }}</label>
@@ -1720,7 +1720,7 @@
             </div>
           </div>
 
-          <!-- FAQ 优先策略（关联 FAQ 类型知识库时显示） -->
+          <!-- FAQ priority strategy (shown when linked to a FAQ-type knowledge base) -->
           <div v-if="hasFaqKnowledgeBase" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.faq.enableLabel') }}</label>
@@ -1759,7 +1759,7 @@
             </div>
           </div>
 
-          <!-- 表格数据分析（仅普通模式，命中 CSV/Excel 时会多一次 LLM 调用生成 SQL） -->
+          <!-- Table data analysis (normal mode only; hitting CSV/Excel triggers an extra LLM call to generate SQL) -->
           <div v-if="!isAgentMode" class="setting-row">
             <div class="setting-info">
               <label>{{ $t('agentEditor.dataAnalysis.enableLabel') }}</label>
@@ -1772,7 +1772,7 @@
         </div>
       </div>
 
-      <!-- 共享管理（仅编辑模式且非内置智能体） -->
+      <!-- Sharing management (edit mode only, and not for built-in agents) -->
       <div v-if="editorMode === 'edit' && editorAgent?.id && !editorAgent?.is_builtin"
         v-show="currentSection === 'share'" class="section">
         <AgentShareSettings :agent-id="editorAgent.id" :agent="editorAgent" />
@@ -1924,7 +1924,7 @@ const props = defineProps<{
   initialSection?: string;
   initialHighlightField?: string;
   // readOnly hides the save button so a Viewer who clicks an agent
-  // card to inspect its config doesn't see a "确定" that 403s on the
+  // card to inspect its config doesn't see a "Confirm" that 403s on the
   // backend update endpoint. Field-level disable is intentionally NOT
   // wired here yet (the modal has 3000+ lines of form inputs); instead
   // we just remove the only mutation surface — the footer button.
@@ -1951,7 +1951,7 @@ const copyAgentId = async () => {
   await copyWithToast(editorAgent.value?.id, 'common.copied');
 };
 
-// 旧入口把技能沙箱拆成独立 tab；合并后仍接受 section=sandbox。
+// The old entry point split the skill sandbox into its own tab; after merging, section=sandbox is still accepted.
 const AGENT_EDITOR_SECTION_ALIASES: Record<string, string> = {
   sandbox: 'skills',
 };
@@ -3002,8 +3002,8 @@ const hasAnyIntentCustomized = computed(() =>
   intentPromptTemplates.value.some((item) => isIntentCustomized(item.id)),
 );
 
-// Agent 模式下本组只剩「保留轮数」（以及有知识库时的检索保留），
-// 默认文案里的「问题改写」并不展示，故按模式分开。
+// In Agent mode this group only has "Retained turns" (plus retrieval retention when there is a knowledge base);
+// the "Query rewriting" mentioned in the default text is not shown, so the description is split by mode.
 const conversationSectionDesc = computed(() =>
   isAgentMode.value
     ? t('agentEditor.desc.conversationSectionAgent')
@@ -3446,12 +3446,12 @@ const reasoningEffortLevel = computed<ReasoningLevel>({
     formData.value.config.thinking = levelEnablesThinking(level);
   },
 });
-// 已存等级可能不在所选模型的可用集合里（换模型，或加载了一个旧智能体）：
-// 夹到可用集合上，并同步 thinking 布尔（由 setter 负责），避免界面显示「关闭」
-// 而后端其实没下发任何开关、模型照样思考。
+// The saved level may not be in the selected model's available set (model changed, or an old agent was loaded):
+// clamp it to the available set and sync the thinking boolean (handled by the setter), so the UI never shows "Off"
+// while the backend actually sends no switch at all and the model keeps thinking.
 //
-// 只在模型真正解析出来之后才夹：模型列表异步加载期间 capabilities 还是 undefined，
-// 此时的通用梯度会把已保存的 max/xhigh 误降级成 auto。
+// Only clamp once the model has actually resolved: while the model list loads asynchronously capabilities is still undefined,
+// and the generic scale would wrongly downgrade a saved max/xhigh to auto.
 const clampReasoningEffortToModel = () => {
   if (editorInitializing.value || !selectedChatModel.value) return;
   const clamped = clampLevel(reasoningEffortLevel.value, reasoningEffortOptions.value);
@@ -3546,9 +3546,9 @@ watch(() => props.visible, async (val) => {
       };
       // Ensure array field exists
       if (!agentData.config.knowledge_bases) agentData.config.knowledge_bases = [];
-      // 旧配置里可能还带着已合并的工具名（knowledge_search / grep_chunks /
-      // list_knowledge_chunks / get_document_info / wiki_read_source_doc），
-      // 映射到新名字并去重，否则复选框对不上 allTools。
+      // Legacy configs may still carry merged tool names (knowledge_search / grep_chunks /
+      // list_knowledge_chunks / get_document_info / wiki_read_source_doc);
+      // map them to the new names and dedupe, otherwise the checkboxes won't match allTools.
       agentData.config.allowed_tools = normalizeLegacyToolNames(agentData.config.allowed_tools);
       if (!agentData.config.mcp_services) agentData.config.mcp_services = [];
       // Authorization wait timeout: default to 600 seconds when legacy data is missing it
@@ -3562,8 +3562,8 @@ watch(() => props.visible, async (val) => {
       if (agentData.config.attachment_ocr_max_pages == null) agentData.config.attachment_ocr_max_pages = 0;
       if (agentData.config.attachment_parse_wait_timeout_sec == null) agentData.config.attachment_parse_wait_timeout_sec = 0;
       if (agentData.config.max_completion_tokens == null) agentData.config.max_completion_tokens = 0;
-      // 长期记忆：后端用 omitempty，跟随空间设置的智能体不带这个字段。
-      // 不补成 true 的话开关会显示为"关"，用户随手一存就真的把记忆关了。
+      // Long-term memory: the backend uses omitempty, so agents that follow the workspace setting omit this field.
+      // Without defaulting it to true the toggle would show "off", and a casual save would actually turn memory off.
       if (agentData.config.memory_enabled == null) agentData.config.memory_enabled = true;
 
       // Backward compatibility: if agent_mode field is missing, infer it from allowed_tools

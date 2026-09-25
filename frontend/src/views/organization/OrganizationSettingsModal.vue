@@ -59,7 +59,7 @@
             </div>
           </div>
 
-          <!-- 空间描述 -->
+          <!-- Space description -->
           <div class="setting-row">
             <div class="setting-info">
               <label>{{ $t('organization.description') }}</label>
@@ -72,7 +72,7 @@
             </div>
           </div>
 
-          <!-- 邀请成员 (仅管理员可见) -->
+          <!-- Invite members (admin only) -->
           <div v-if="isAdmin && orgId" class="setting-row setting-row-vertical">
             <div class="setting-info full-width">
               <label>{{ $t('organization.settings.inviteMembers') }}</label>
@@ -80,7 +80,7 @@
             </div>
             <div class="setting-control full-width">
               <div class="invite-card">
-                <!-- 邀请码 -->
+                <!-- Invite code -->
                 <div class="invite-method">
                   <div class="invite-method-header">
                     <t-icon name="qrcode" class="invite-icon" />
@@ -107,7 +107,7 @@
 
                 <div class="invite-divider"></div>
 
-                <!-- 邀请链接有效期 -->
+                <!-- Invite link expiration -->
                 <div class="invite-method">
                   <div class="invite-method-header">
                     <t-icon name="time" class="invite-icon" />
@@ -122,7 +122,7 @@
 
                 <div class="invite-divider"></div>
 
-                <!-- 邀请链接 -->
+                <!-- Invite link -->
                 <div class="invite-method">
                   <div class="invite-method-header">
                     <t-icon name="link" class="invite-icon" />
@@ -140,7 +140,7 @@
 
                 <div class="invite-divider"></div>
 
-                <!-- 需要审核开关 -->
+                <!-- Review required toggle -->
                 <div class="invite-method">
                   <div class="invite-method-header">
                     <t-icon name="check-circle" class="invite-icon" />
@@ -154,7 +154,7 @@
 
                 <div class="invite-divider"></div>
 
-                <!-- 开放可被搜索 -->
+                <!-- Open to search toggle -->
                 <div class="invite-method">
                   <div class="invite-method-header">
                     <t-icon name="search" class="invite-icon" />
@@ -168,7 +168,7 @@
 
                 <div class="invite-divider"></div>
 
-                <!-- 成员人数上限 -->
+                <!-- Member limit -->
                 <div class="invite-method">
                   <div class="invite-method-header">
                     <t-icon name="user-add" class="invite-icon" />
@@ -194,7 +194,7 @@
         </div>
       </div>
 
-      <!-- 创建空间 - 权限说明 -->
+      <!-- Create space - permission notes -->
       <div v-if="isCreateMode" v-show="currentSection === 'permissions'" class="section">
         <div class="section-header">
           <h2>{{ $t('organization.editor.permissionsTitle') }}</h2>
@@ -231,7 +231,7 @@
         </div>
       </div>
 
-      <!-- 成员管理 -->
+      <!-- Member management -->
       <div v-show="currentSection === 'members'" class="section">
         <div class="section-header">
           <div class="section-header-row">
@@ -437,7 +437,7 @@
         </div>
       </div>
 
-      <!-- 加入申请（待审核） -->
+      <!-- Join requests (pending review) -->
       <div v-show="currentSection === 'joinRequests'" class="section">
         <div class="section-header">
           <h2>{{ $t('organization.settings.joinRequests') }}</h2>
@@ -558,7 +558,7 @@
         </div>
       </div>
 
-      <!-- 共享知识库 -->
+      <!-- Shared knowledge bases -->
       <div v-show="currentSection === 'sharedKb'" class="section">
         <div class="section-header">
           <div class="section-header-row">
@@ -652,7 +652,7 @@
         </div>
       </div>
 
-      <!-- 共享智能体 -->
+      <!-- Shared agents -->
       <div v-show="currentSection === 'sharedAgents'" class="section">
         <div class="section-header">
           <div class="section-header-row">

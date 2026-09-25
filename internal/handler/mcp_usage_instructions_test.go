@@ -106,7 +106,7 @@ func usageHandlerFixture() (*MCPServiceHandler, *usageMCPService, *usageModelSer
 			{ID: "default", Type: types.ModelTypeKnowledgeQA, Status: types.ModelStatusActive, IsDefault: true},
 		},
 		chat: &usageChatModel{result: &types.ChatResponse{
-			Content: "  查询指定模块和时间范围内的日志。  ", FinishReason: "stop",
+			Content: "  Query logs for a given module and time range.  ", FinishReason: "stop",
 		}},
 	}
 	return &MCPServiceHandler{mcpServiceService: svc, modelService: models, mcpToolApprovalService: &usagePolicyService{
@@ -138,7 +138,7 @@ func TestMCPUsageGeneration(t *testing.T) {
 	require.Equal(t, uint64(7), svc.tenant)
 	require.Nil(t, svc.updated, "generation must not persist the result")
 	require.Equal(t, "default", models.selected)
-	require.Contains(t, w.Body.String(), `"usage_instructions":"查询指定模块和时间范围内的日志。"`)
+	require.Contains(t, w.Body.String(), `"usage_instructions":"Query logs for a given module and time range."`)
 	require.Equal(t, "system", models.chat.messages[0].Role)
 	require.Contains(t, models.chat.messages[0].Content, "untrusted reference data")
 	require.Contains(t, models.chat.messages[0].Content, "Output language: English.")
@@ -227,13 +227,13 @@ func TestMCPUsageUpdateRequiresNonBlankString(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, w.Code, body[:min(len(body), 80)])
 		require.Nil(t, svc.updated)
 	}
-	for _, body := range []string{`{"usage_instructions":"  查询日志  "}`, `{"name":"Logs"}`} {
+	for _, body := range []string{`{"usage_instructions":"  Query logs  "}`, `{"name":"Logs"}`} {
 		h, svc, _ := usageHandlerFixture()
 		w := usageRequest(h, http.MethodPut, body)
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		require.NotNil(t, svc.updated)
 		if strings.Contains(body, "usage_instructions") {
-			require.Equal(t, "查询日志", svc.updated.UsageInstructions)
+			require.Equal(t, "Query logs", svc.updated.UsageInstructions)
 		}
 	}
 }

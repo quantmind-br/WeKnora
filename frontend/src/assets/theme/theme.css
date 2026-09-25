@@ -209,7 +209,7 @@ select:-webkit-autofill {
     --app-focus-border: var(--td-brand-color);
 }
 
-/* 应用级强调色：智能体 / 图谱等「非品牌但反复出现」的语义色，透明叠加请用 color-mix */
+/* App-level accent colors: semantic colors that are "off-brand but recurring" (agents / graphs, etc.); use color-mix for translucent overlays */
 :root {
     --app-accent-purple: #7c4dff;
 }
@@ -217,7 +217,7 @@ select:-webkit-autofill {
     --app-accent-purple: #9d7cff;
 }
 
-/* 全局旋转动画：spinner / 刷新图标统一用 `animation: wk-spin 0.8s linear infinite` */
+/* Global spin animation: spinners / refresh icons all use `animation: wk-spin 0.8s linear infinite` */
 @keyframes wk-spin {
     to {
         transform: rotate(360deg);
@@ -225,16 +225,16 @@ select:-webkit-autofill {
 }
 
 /* ============================================================
- * 应用级设计令牌
- * 按代码库的事实刻度整理（圆角 4/6/8/10/12、字号 10~24、4px 间距网格、
- * 150/200ms 动效），值与既有写法一致，目的是让后续调整只改这里。
- * 新代码请引用令牌，样式守卫会统计残留字面量。
+ * App-level design tokens
+ * Organized from the scales the codebase actually uses (radius 4/6/8/10/12, font size 10~24,
+ * 4px spacing grid, 150/200ms motion). Values match existing usage, so future tweaks only touch this file.
+ * New code should reference the tokens; the style guard counts leftover literals.
  * ============================================================ */
 :root {
-    /* 对话标题与右侧面板共用同一条头部分割线。 */
+    /* The chat title and the right-hand panel share the same header divider. */
     --app-chat-header-height: 40px;
 
-    /* 圆角 */
+    /* Border radius */
     --app-radius-xs: 4px;
     --app-radius-sm: 6px;
     --app-radius-md: 8px;
@@ -242,7 +242,7 @@ select:-webkit-autofill {
     --app-radius-xl: 12px;
     --app-radius-pill: 999px;
 
-    /* 字号 */
+    /* Font size */
     --app-text-2xs: 10px;
     --app-text-xs: 11px;
     --app-text-sm: 12px;
@@ -254,7 +254,7 @@ select:-webkit-autofill {
     --app-text-3xl: 20px;
     --app-text-4xl: 24px;
 
-    /* 间距（4px 网格） */
+    /* Spacing (4px grid) */
     --app-space-1: 4px;
     --app-space-2: 8px;
     --app-space-3: 12px;
@@ -264,13 +264,13 @@ select:-webkit-autofill {
     --app-space-8: 32px;
     --app-space-10: 40px;
 
-    /* 动效时长 */
+    /* Motion duration */
     --app-motion-instant: 120ms;
     --app-motion-fast: 150ms;
     --app-motion-base: 200ms;
     --app-motion-slow: 300ms;
 
-    /* 层级：页面内 sticky < 下拉 < 全屏弹窗壳 < TDesign 抽屉/弹窗(2500) < 弹层 < 通知 */
+    /* Layering: in-page sticky < dropdown < full-screen modal shell < TDesign drawer/dialog (2500) < popover < notification */
     --z-sticky: 10;
     --z-dropdown: 1000;
     --z-modal: 1100;

@@ -39,9 +39,9 @@ import {
 
 const props = defineProps<{
     sessionId: string;
-    /** 当前会话选中的 agent：首次连接时后端按其配置自动创建沙箱。 */
+    /** Agent selected in the current session: on first connect the backend creates a sandbox from its config. */
     agentId?: string;
-    /** 共享智能体的来源空间，与聊天请求的 agent_source_tenant_id 一致。 */
+    /** Source space of a shared agent, matching agent_source_tenant_id in chat requests. */
     agentSourceTenantId?: string | number | null;
 }>();
 
@@ -50,9 +50,10 @@ const { t } = useI18n();
 const containerRef = ref<HTMLElement | null>(null);
 const terminalHost = ref<HTMLElement | null>(null);
 
-// 主题必须从 useTheme 的共享 ref 派生，不能读 `theme-mode` DOM 属性：DOM 属性
-// 不是响应式数据源，那样写出来的 computed 没有任何依赖，求值一次就永久缓存，
-// 下面的 watch 永远不会触发，终端配色会一直停在首次挂载时的样子。
+// The theme must derive from useTheme's shared ref, not the `theme-mode` DOM attribute: a
+// DOM attribute is not a reactive source, so a computed written that way has no dependencies
+// and is evaluated once and cached forever. The watch below would never fire, and the terminal
+// colors would stay stuck at how they looked on first mount.
 const { currentTheme } = useTheme();
 const systemPrefersDark = ref(prefersDarkQuery()?.matches === true);
 const isDarkTheme = computed(() =>
@@ -64,8 +65,8 @@ function prefersDarkQuery(): MediaQueryList | null {
     return window.matchMedia('(prefers-color-scheme: dark)');
 }
 
-// `system` 模式下还要跟随操作系统的实时切换；useTheme 的全局监听只写 DOM
-// 属性，不暴露生效后的明暗值，所以这里自己订阅一份。
+// In `system` mode it also has to follow live OS switches. useTheme's global listener only
+// writes the DOM attribute and does not expose the effective light/dark value, so subscribe here.
 const prefersDark = prefersDarkQuery();
 const onSystemThemeChange = (event: MediaQueryListEvent) => {
     systemPrefersDark.value = event.matches;
@@ -118,8 +119,9 @@ function xtermTheme(dark: boolean) {
         };
 }
 
-// toRef 而非 ref(props.x)：后者是快照，切换 agent 后重连仍会沿用旧 agent 的
-// 沙箱配置去创建沙箱。sessionId 由父组件的 :key 重建兜住，agentId 不会。
+// toRef rather than ref(props.x): the latter is a snapshot, so after switching agents a
+// reconnect would still create the sandbox with the old agent's sandbox config. sessionId is
+// covered by the parent's :key rebuild; agentId is not.
 const terminal = useSandboxTerminal(
     toRef(props, 'sessionId'),
     toRef(props, 'agentId'),
@@ -150,8 +152,8 @@ const statusText = computed(() => {
     }
 });
 
-// 覆盖层按钮：暂停用「启动终端」，尚未创建用「创建并启动」。点击才允许
-// 创建或唤醒；打开面板时的 lookup 不会做这两件事。
+// Overlay button: "Start terminal" when paused, "Create and start" when not created yet. Only a
+// click may create or wake the sandbox; the lookup when the panel opens does neither.
 const actionLabel = computed(() => {
     switch (status.value as SandboxTerminalStatus) {
         case 'paused':
@@ -162,8 +164,9 @@ const actionLabel = computed(() => {
         case 'exited':
         case 'idle':
         case 'unauthorized':
-        // no_sandbox 说的是"智能体没配沙箱后端，无处可建"。用户去配好后应该能
-        // 直接重试，而不是只能关掉面板再打开——那是个没有任何操作入口的死角。
+        // no_sandbox means "the agent has no sandbox backend configured, so there is nowhere to create
+        // one". Once the user configures it they should be able to retry directly, instead of having
+        // to close and reopen the panel, which is a dead end with no action available.
         case 'no_sandbox':
             return t('chat.sandbox.retry');
         default:
@@ -171,7 +174,7 @@ const actionLabel = computed(() => {
     }
 });
 
-// xterm 实例只在 ready 后挂载一次；overlay 覆盖在其上展示状态。
+// The xterm instance mounts only once after ready; the overlay sits on top of it to show status.
 let xterm: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let echo: ReturnType<typeof createPtyEchoPredictor> | null = null;
@@ -240,9 +243,9 @@ function unmountTerminal() {
     fitAddon = null;
 }
 
-// 覆盖层上唯一会创建或唤醒沙箱的入口。provision: true 表示这是用户的显式
-// 确认。组件挂载只做 lookup：运行中的沙箱直接连上，暂停或尚未创建才停在
-// 覆盖层等点击。
+// The only entry point on the overlay that creates or wakes a sandbox. provision: true marks the
+// user's explicit confirmation. Mounting the component only does a lookup: a running sandbox
+// connects directly, and only a paused or not-yet-created one waits on the overlay for a click.
 function start() {
     unmountTerminal();
     const { cols, rows } = estimatePtySize();
@@ -262,13 +265,13 @@ watch(isDarkTheme, (dark) => {
     if (xterm) xterm.options.theme = xtermTheme(dark);
 });
 
-// ready 后挂载 xterm；离开非 ready 状态重置实例（重连 = 新 PTY）。
+// Mount xterm after ready; leaving ready resets the instance (reconnect = new PTY).
 watch(status, (next, prev) => {
     if (next === 'ready' && prev !== 'ready') {
         requestAnimationFrame(() => {
-            // 组件可能在 ready 与下一帧之间就被卸载（关面板 / 切会话）。不校验
-            // 就会在已销毁的组件上新建 Terminal 并 observe 一个游离节点，那个
-            // 实例连 watch 都救不回来。
+            // The component may be unmounted between ready and the next frame (panel closed /
+            // session switched). Without this check a Terminal would be created on a destroyed
+            // component and observe a detached node, and not even the watch could recover it.
             if (unmounted) return;
             mountTerminal();
         });
@@ -277,10 +280,11 @@ watch(status, (next, prev) => {
     }
 });
 
-// watch(status) 只覆盖"状态离开 ready"，覆盖不到组件本身被销毁：关面板走
-// SandboxSidePanel 的 v-if、切会话走 :key 重建，两条路径下 status 全程不变，
-// watch 不触发。少了这个钩子，每次开关面板都会漏掉一个 xterm 实例
-// （渲染器 + 5000 行 scrollback）和一个 ResizeObserver。
+// watch(status) only covers "status leaves ready", not the component itself being destroyed:
+// closing the panel goes through SandboxSidePanel's v-if and switching sessions through a :key
+// rebuild, and on both paths status never changes, so the watch does not fire. Without this
+// hook every panel open/close would leak an xterm instance (renderer + 5000 lines of
+// scrollback) and a ResizeObserver.
 onBeforeUnmount(() => {
     unmounted = true;
     prefersDark?.removeEventListener('change', onSystemThemeChange);
@@ -324,8 +328,9 @@ function schedulePromptNudge() {
     }, PTY_PROMPT_NUDGE_DELAY_MS);
 }
 
-// v-show 把终端藏起来时容器是 0×0。FitAddon 仍可能算出 2×1 并送到 PTY，
-// 切回终端 tab 时 bash 还停在那组尺寸上，看起来像没连上。尺寸不够就不动。
+// While v-show hides the terminal the container is 0×0. FitAddon may still compute 2×1 and send
+// it to the PTY; when switching back to the terminal tab bash is still at that size, which looks
+// like it never connected. Do nothing when the size is too small.
 function containerHasPtySize() {
     const el = containerRef.value;
     return !!el && el.clientWidth >= 20 && el.clientHeight >= 20;
@@ -336,7 +341,7 @@ function applyFit() {
     try {
         fitAddon?.fit();
     } catch {
-        // fit 在容器尺寸为 0 时会抛错，忽略即可。
+        // fit throws when the container size is 0; safe to ignore.
         return;
     }
     if (xterm.cols < 2 || xterm.rows < 2) return;
@@ -345,7 +350,7 @@ function applyFit() {
 }
 
 function fitAndFocus() {
-    // v-show 刚打开时 nextTick 里布局可能还没完成，再等两帧再 fit。
+    // Right after v-show opens, layout may not be done by nextTick, so wait two more frames before fitting.
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             if (unmounted) return;
@@ -389,7 +394,7 @@ defineExpose({
     }
 
     :deep(.xterm-helper-textarea) {
-        // xterm 用隐藏 textarea 接收键盘；必须能获得焦点光标才会闪。
+        // xterm receives keyboard input through a hidden textarea; it must be focusable for the cursor to blink.
         pointer-events: auto;
     }
 }

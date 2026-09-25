@@ -90,7 +90,7 @@ test('renderChatMarkdown skips an image with an empty destination', () => {
     invalidImageHtml: () => '<p>invalid</p>',
     isValidImageUrl: (href) => Boolean(href),
   })
-  const html = renderChatMarkdown('![根目录示例文件]()', {
+  const html = renderChatMarkdown('![Root directory sample file]()', {
     renderer,
     escapeMarkdown: (text) => text,
     sanitizeHtml: (value) => value,
@@ -118,15 +118,15 @@ test('normalizeLegacyImageContextMarkup converts copied image XML to Markdown', 
   const input = [
     'before',
     '<image url="resource://AbCdEfGhIjKlMnOpQrStUv">',
-    '<image_caption>目标说话人提取的流程图 [测试]</image_caption>',
-    '<image_ocr>目标说话人提取</image_ocr>',
+    '<image_caption>Target speaker extraction flowchart [test]</image_caption>',
+    '<image_ocr>Target speaker extraction</image_ocr>',
     '</image>',
     'after',
   ].join('\n')
 
   const output = normalizeLegacyImageContextMarkup(input)
   assert.ok(
-    output.includes('![目标说话人提取的流程图 \\[测试\\]](resource://AbCdEfGhIjKlMnOpQrStUv)'),
+    output.includes('![Target speaker extraction flowchart \\[test\\]](resource://AbCdEfGhIjKlMnOpQrStUv)'),
   )
   assert.doesNotMatch(output, /<image|image_caption|image_ocr/)
   assert.match(output, /before[\s\S]*after/)
@@ -136,7 +136,7 @@ test('normalizeLegacyImageContextMarkup keeps original Markdown when present', (
   const input = [
     '<images>',
     '<image url="resource://AbCdEfGhIjKlMnOpQrStUv">',
-    '<image_original>![原图](resource://AbCdEfGhIjKlMnOpQrStUv)</image_original>',
+    '<image_original>![Original image](resource://AbCdEfGhIjKlMnOpQrStUv)</image_original>',
     '<image_caption>description</image_caption>',
     '</image>',
     '</images>',
@@ -144,16 +144,16 @@ test('normalizeLegacyImageContextMarkup keeps original Markdown when present', (
 
   assert.equal(
     normalizeLegacyImageContextMarkup(input).trim(),
-    '![原图](resource://AbCdEfGhIjKlMnOpQrStUv)',
+    '![Original image](resource://AbCdEfGhIjKlMnOpQrStUv)',
   )
 })
 
 test('normalizeLegacyImageContextMarkup hides an unfinished XML block while streaming', () => {
-  const prefix = '测试阶段主要流程\n\n'
+  const prefix = 'Main flow of the test phase\n\n'
   for (const partial of [
     '<ima',
     '<image url="resource://AbCdEfGhIjKlMnOpQrStUv">',
-    '<image url="resource://AbCdEfGhIjKlMnOpQrStUv">\n<image_caption>流程图',
+    '<image url="resource://AbCdEfGhIjKlMnOpQrStUv">\n<image_caption>Flowchart',
   ]) {
     const output = normalizeLegacyImageContextMarkup(prefix + partial, true)
     assert.equal(output, prefix + '<span class="streaming-image-loading"><span class="streaming-image-loading__skeleton"></span></span>')
@@ -174,7 +174,7 @@ test('renderChatMarkdown renders leaked legacy image XML through the safe image 
     isValidImageUrl: (href) => href.startsWith('resource://'),
   })
   const html = renderChatMarkdown(
-    '<image url="resource://AbCdEfGhIjKlMnOpQrStUv"><image_caption>流程图</image_caption></image>',
+    '<image url="resource://AbCdEfGhIjKlMnOpQrStUv"><image_caption>Flowchart</image_caption></image>',
     {
       renderer,
       escapeMarkdown: (text) => text,
@@ -183,7 +183,7 @@ test('renderChatMarkdown renders leaked legacy image XML through the safe image 
     },
   )
 
-  assert.match(html, /<img src="resource:\/\/AbCdEfGhIjKlMnOpQrStUv" alt="流程图">/)
+  assert.match(html, /<img src="resource:\/\/AbCdEfGhIjKlMnOpQrStUv" alt="Flowchart">/)
   assert.doesNotMatch(html, /image_caption|&lt;image/)
 })
 
@@ -217,23 +217,23 @@ test('stripTrailingStreamingHorizontalRule hides an ambiguous trailing rule only
 })
 
 test('closeDanglingStreamingEmphasis closes unfinished inline markers without false positives', () => {
-  assert.equal(closeDanglingStreamingEmphasis('**平台地址：example.com'), '**平台地址：example.com**')
-  assert.equal(closeDanglingStreamingEmphasis('前文 *斜体'), '前文 *斜体*')
-  assert.equal(closeDanglingStreamingEmphasis('前文 ~~删除'), '前文 ~~删除~~')
-  assert.equal(closeDanglingStreamingEmphasis('***又粗又斜'), '***又粗又斜***')
-  assert.equal(closeDanglingStreamingEmphasis('运行 `npm run'), '运行 `npm run`')
+  assert.equal(closeDanglingStreamingEmphasis('**Platform address: example.com'), '**Platform address: example.com**')
+  assert.equal(closeDanglingStreamingEmphasis('Before *italic'), 'Before *italic*')
+  assert.equal(closeDanglingStreamingEmphasis('Before ~~deleted'), 'Before ~~deleted~~')
+  assert.equal(closeDanglingStreamingEmphasis('***bold and italic'), '***bold and italic***')
+  assert.equal(closeDanglingStreamingEmphasis('Run `npm run'), 'Run `npm run`')
 
   // A trailing marker run with no content after it is ambiguous (e.g. the start
   // of the next `**` in a bold list) and is hidden until content arrives, rather
   // than rendered as a literal `*`/`**` that flickers a frame later.
-  assert.equal(closeDanglingStreamingEmphasis('4. **朝阳实验**\n5. *'), '4. **朝阳实验**\n5. ')
+  assert.equal(closeDanglingStreamingEmphasis('4. **Chaoyang Experimental**\n5. *'), '4. **Chaoyang Experimental**\n5. ')
   assert.equal(closeDanglingStreamingEmphasis('5. **'), '5. ')
-  assert.equal(closeDanglingStreamingEmphasis('3. **泳燃游泳*'), '3. **泳燃游泳**')
+  assert.equal(closeDanglingStreamingEmphasis('3. **Swim club*'), '3. **Swim club**')
 
   // No dangling markers / structural markers must be left untouched.
-  assert.equal(closeDanglingStreamingEmphasis('正文 **加粗** 收尾'), '正文 **加粗** 收尾')
-  assert.equal(closeDanglingStreamingEmphasis('* 列表项一'), '* 列表项一')
-  assert.equal(closeDanglingStreamingEmphasis('普通文本没有标记'), '普通文本没有标记')
+  assert.equal(closeDanglingStreamingEmphasis('Body **bold** ending'), 'Body **bold** ending')
+  assert.equal(closeDanglingStreamingEmphasis('* List item one'), '* List item one')
+  assert.equal(closeDanglingStreamingEmphasis('Plain text with no markers'), 'Plain text with no markers')
   // Markers inside an open fenced code block are literal, not emphasis.
   assert.equal(
     closeDanglingStreamingEmphasis('```js\nconst x = **y'),
@@ -248,17 +248,17 @@ test('renderChatMarkdown renders an unfinished bold line as bold immediately whi
     escapeMarkdown: (text: string) => text,
     sanitizeHtml: (html: string) => html,
   }
-  const partial = '**平台访问地址：chatbot.weixin.qq.com'
+  const partial = '**Platform access URL: chatbot.weixin.qq.com'
   // Streaming: optimistically bold so no raw `**` and no late layout jump.
   assert.match(
     stripFadeTail(renderChatMarkdown(partial, { ...options, streaming: true })),
-    /<p class="md-strong-title"><strong>平台访问地址：chatbot\.weixin\.qq\.com<\/strong><\/p>/,
+    /<p class="md-strong-title"><strong>Platform access URL: chatbot\.weixin\.qq\.com<\/strong><\/p>/,
   )
   // Completed: a genuinely unterminated marker stays literal (we never invent
   // content for the final, authoritative render).
   assert.match(
     renderChatMarkdown(partial, { ...options, streaming: false }),
-    /<p>\*\*平台访问地址/,
+    /<p>\*\*Platform access URL/,
   )
 })
 
@@ -310,15 +310,15 @@ test('renderChatMarkdown bolds punctuation-adjacent emphasis both mid-stream and
 
 test('stripTrailingStreamingListMarker hides a content-less trailing list/underline marker', () => {
   assert.equal(stripTrailingStreamingListMarker('1. **AAAAA**\n   - '), '1. **AAAAA**\n')
-  assert.equal(stripTrailingStreamingListMarker('文本\n1. '), '文本\n')
-  assert.equal(stripTrailingStreamingListMarker('标题\n=='), '标题\n')
+  assert.equal(stripTrailingStreamingListMarker('Text\n1. '), 'Text\n')
+  assert.equal(stripTrailingStreamingListMarker('Title\n=='), 'Title\n')
   // A lone trailing number is the start of an ordered marker (no `.` yet).
-  assert.equal(stripTrailingStreamingListMarker('文本\n1'), '文本\n')
+  assert.equal(stripTrailingStreamingListMarker('Text\n1'), 'Text\n')
   // A marker with content after it is a real list item and must stay.
-  assert.equal(stripTrailingStreamingListMarker('- 项目'), '- 项目')
-  assert.equal(stripTrailingStreamingListMarker('1. 内容'), '1. 内容')
+  assert.equal(stripTrailingStreamingListMarker('- Item'), '- Item')
+  assert.equal(stripTrailingStreamingListMarker('1. Content'), '1. Content')
   // An in-sentence number must not be touched.
-  assert.equal(stripTrailingStreamingListMarker('值是 1'), '值是 1')
+  assert.equal(stripTrailingStreamingListMarker('The value is 1'), 'The value is 1')
 })
 
 test('renderChatMarkdown does not flash a setext heading when a nested bullet dash streams in', () => {
@@ -349,24 +349,24 @@ test('renderChatMarkdown streams a bold ordered list without literal-marker flic
     streaming: true,
   }
   // Next item's marker has arrived but its content/closing ** has not.
-  const html = stripFadeTail(renderChatMarkdown('1. **速游**\n2. *', options))
+  const html = stripFadeTail(renderChatMarkdown('1. **Speed swim**\n2. *', options))
   assert.doesNotMatch(html, /<li>\*+<\/li>/)
-  assert.match(html, /<li><strong>速游<\/strong><\/li>/)
+  assert.match(html, /<li><strong>Speed swim<\/strong><\/li>/)
 })
 
 test('markStandaloneStrongParagraphs tags only paragraphs that are entirely one bold run', () => {
-  // A model emitting **小节标题** as a pseudo-heading: should be tagged.
+  // A model emitting **Section title** as a pseudo-heading: should be tagged.
   assert.equal(
-    markStandaloneStrongParagraphs('<p><strong>小节标题：</strong></p>'),
-    '<p class="md-strong-title"><strong>小节标题：</strong></p>',
+    markStandaloneStrongParagraphs('<p><strong>Section title:</strong></p>'),
+    '<p class="md-strong-title"><strong>Section title:</strong></p>',
   )
 
   // Mid-stream body paragraph with one completed bold run plus body text must
   // NOT be tagged (this is the streaming spacing-jump regression).
   for (const html of [
-    '<p>正文 <strong>加粗部分</strong> 与 **</p>',
-    '<p>正文 <strong>A</strong> 与 <strong>B</strong> 收尾</p>',
-    '<p><strong>加粗</strong> 后续文字</p>',
+    '<p>Body <strong>bold part</strong> and **</p>',
+    '<p>Body <strong>A</strong> and <strong>B</strong> ending</p>',
+    '<p><strong>Bold</strong> followed by text</p>',
   ]) {
     assert.equal(markStandaloneStrongParagraphs(html), html)
   }
@@ -387,12 +387,12 @@ test('renderChatMarkdown does not give a text-heavy paragraph the strong-title m
     sanitizeHtml: (html: string) => html,
     streaming: true,
   }
-  const head = '#### **总结与建议**\n\n'
+  const head = '#### **Summary and recommendations**\n\n'
   // One bold run closed inside an otherwise text-heavy body paragraph.
-  const midStream = head + '总体来看，体现在 **"补短板"（高端核心部件）** 与 **'
+  const midStream = head + 'Overall, this shows in **"filling the gaps" (high-end core components)** and **'
   const html = renderChatMarkdown(midStream, options)
-  assert.doesNotMatch(html, /<p class="md-strong-title">总体来看/)
-  assert.match(html, /<h4><strong>总结与建议<\/strong><\/h4>/)
+  assert.doesNotMatch(html, /<p class="md-strong-title">Overall/)
+  assert.match(html, /<h4><strong>Summary and recommendations<\/strong><\/h4>/)
 })
 
 test('renderChatMarkdown preserves citations, math, and sanitized output through one shared pipeline', () => {
@@ -412,7 +412,7 @@ test('renderChatMarkdown preserves citations, math, and sanitized output through
       '| --- | --- |',
       '| 1 | 2 |',
       '',
-      '![ok](https://example.com/a.png "图")',
+      '![ok](https://example.com/a.png "chart")',
       '',
       '![bad](javascript:alert(1))',
     ].join('\n'),
@@ -534,18 +534,18 @@ test('renderChatMarkdown inlines consecutive citation tags across newlines', () 
 })
 
 test('joinCitationTagsToPreviousLine appends an indented citation to the preceding list item', () => {
-  const tag = '<kb doc="阅读之星全国青少年阅读风采展示活动.pdf" chunk_id="chunk-1" />'
+  const tag = '<kb doc="reading-star-national-youth-reading-showcase.pdf" chunk_id="chunk-1" />'
   const input = [
-    '#### 5️⃣ 阅读之星培养基地',
-    '- 每个组别冠亚季军及前十强所在的学校，将获得 **"阅读之星培养基地"** 奖牌',
+    '#### 5️⃣ Reading Star training base',
+    '- Schools of the top three and top ten finishers in each group will receive a **"Reading Star training base"** plaque',
     '',
     `  ${tag}`,
   ].join('\n')
   assert.equal(
     joinCitationTagsToPreviousLine(input),
     [
-      '#### 5️⃣ 阅读之星培养基地',
-      `- 每个组别冠亚季军及前十强所在的学校，将获得 **"阅读之星培养基地"** 奖牌 ${tag}`,
+      '#### 5️⃣ Reading Star training base',
+      `- Schools of the top three and top ten finishers in each group will receive a **"Reading Star training base"** plaque ${tag}`,
     ].join('\n'),
   )
 })
@@ -555,14 +555,14 @@ test('renderChatMarkdown renders a citation after a list item inline in that ite
     imageRenderer: ({ href, text }) => `<img src="${href}" alt="${text}">`,
     isValidImageUrl: () => true,
   })
-  const tag = '<kb doc="阅读之星全国青少年阅读风采展示活动.pdf" chunk_id="chunk-1" />'
-  const html = renderChatMarkdown(`- 培养基地奖牌\n\n  ${tag}`, {
+  const tag = '<kb doc="reading-star-national-youth-reading-showcase.pdf" chunk_id="chunk-1" />'
+  const html = renderChatMarkdown(`- Training base plaque\n\n  ${tag}`, {
     renderer,
     escapeMarkdown: (text) => text,
     sanitizeHtml: (value) => value,
   })
 
-  assert.match(html, /<li>培养基地奖牌 <span class="citation citation-kb"/)
+  assert.match(html, /<li>Training base plaque <span class="citation citation-kb"/)
   assert.doesNotMatch(html, /<\/ul>\s*<p>\s*<span class="citation citation-kb"/)
 })
 
@@ -584,8 +584,8 @@ test('applyStreamingTailFade wraps the trailing text run', () => {
 })
 
 test('applyStreamingTailFade skips whitespace-only runs and fades the last list item', () => {
-  const out = applyStreamingTailFade('<ol>\n<li>第一项</li>\n<li>正在生成的第二项</li>\n</ol>')
-  assert.match(out, /<li><span class="stream-fade-tail">正在生成的第二项<\/span><\/li>/)
+  const out = applyStreamingTailFade('<ol>\n<li>First item</li>\n<li>Second item in progress</li>\n</ol>')
+  assert.match(out, /<li><span class="stream-fade-tail">Second item in progress<\/span><\/li>/)
 })
 
 test('applyStreamingTailFade is a no-op for empty content', () => {
@@ -600,9 +600,9 @@ test('renderChatMarkdown adds the tail fade only while streaming', () => {
     escapeMarkdown: (text: string) => text,
     sanitizeHtml: (html: string) => html,
   }
-  const streamed = renderChatMarkdown('正在生成中的回答内容', { ...opts, streaming: true })
+  const streamed = renderChatMarkdown('Answer content still being generated', { ...opts, streaming: true })
   assert.match(streamed, /stream-fade-tail/)
-  const settled = renderChatMarkdown('正在生成中的回答内容', { ...opts, streaming: false })
+  const settled = renderChatMarkdown('Answer content still being generated', { ...opts, streaming: false })
   assert.doesNotMatch(settled, /stream-fade-tail/)
 })
 
@@ -610,7 +610,7 @@ test('renderChatMarkdown keeps an unlabeled fenced code block closed when a cita
   const renderer = createChatMarkdownRenderer()
   const tag = '<kb doc="guide.pdf" chunk_id="1" />'
   const html = renderChatMarkdown(
-    ['```', 'APR = principal', '```', tag, '', '### 重要性'].join('\n'),
+    ['```', 'APR = principal', '```', tag, '', '### Importance'].join('\n'),
     {
       renderer,
       escapeMarkdown: (text) => text,
@@ -618,8 +618,8 @@ test('renderChatMarkdown keeps an unlabeled fenced code block closed when a cita
     },
   )
 
-  assert.doesNotMatch(html, /### 重要性/)
-  assert.match(html, /<h3>重要性<\/h3>/)
+  assert.doesNotMatch(html, /### Importance/)
+  assert.match(html, /<h3>Importance<\/h3>/)
   assert.equal((html.match(/<pre>/g) || []).length, 1)
 })
 

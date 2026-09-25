@@ -20,8 +20,8 @@ Paths below written as `public/brand/…`, `public/brands/…` and `public/produ
 ## Product screenshots
 
 - Skill catalog and sandbox terminal: copied unchanged from `../public/screenshots/skill-catalog.png` and `sandbox-panel-terminal.png` to `public/product/skill-catalog.png` and `sandbox-terminal.png`, for the skills & sandbox gallery.
-- Sandbox desktop (`public/product/sandbox-desktop.png`): the chat's sandbox panel on the 桌面 tab, showing the XFCE desktop of a desktop template. It shares the 终端与图形桌面 card with the terminal screenshot, switched inside the card.
-- v0.8.2 gallery: `mcp-server-endpoint.png`, `chat-steer-queue.png` and `browser-connection.png` copied unchanged from `../public/screenshots/` to `public/product/`. The local browser card switches between two views of the same capability: 任务 (below) and 连接 (the browser connection page).
+- Sandbox desktop (`public/product/sandbox-desktop.png`): the chat's sandbox panel on the Desktop tab, showing the XFCE desktop of a desktop template. It shares the Desktop and terminal card with the terminal screenshot, switched inside the card.
+- v0.8.2 gallery: `mcp-server-endpoint.png`, `chat-steer-queue.png` and `browser-connection.png` copied unchanged from `../public/screenshots/` to `public/product/`. The local browser card switches between two views of the same capability: Run a task (below) and Connect the extension (the browser connection page).
 - Browser task (`public/product/local-browser-task.png`): the default view of the local browser card, a smart-reasoning chat driving the connected Chrome through BrowserSkill (GitHub release lookup, then filling the httpbin.org sample order form without submitting), with the in-chat task preview and pause / end controls.
 
 - Wiki browser: copied unchanged from `../public/screenshots/wiki-browser.png` to `public/product/wiki-browser.png`. Shows the actual Wiki directory, linked page and source references using sample company policies.

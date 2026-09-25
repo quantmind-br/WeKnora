@@ -318,10 +318,10 @@ export interface ListKnowledgeFilesParams {
   sort_by?: KnowledgeListSortField;
   sort_order?: KnowledgeListSortOrder;
   /**
-   * 当前浏览的目录。空字符串表示知识库根目录；未定义时不按目录筛选。
+   * The folder currently being browsed. An empty string means the knowledge base root; when undefined, no folder filter is applied.
    */
   folder_path?: string;
-  /** 是否同时包含 folder_path 下所有子目录中的文档。 */
+  /** Whether to also include documents in all subfolders under folder_path. */
   folder_recursive?: boolean;
 }
 
@@ -413,7 +413,7 @@ export function downKnowledgeDetails(id: string) {
   return getDown(`/api/v1/knowledge/${id}/download`);
 }
 
-// 使用已有登录和租户请求头下载 ZIP，不将凭据放入下载链接。
+// Download the ZIP with the existing login and tenant request headers, without putting credentials in the download URL.
 export function batchDownloadKnowledge(kbId: string, ids: string[], signal?: AbortSignal): Promise<Blob> {
   return post<Blob>(`/api/v1/knowledge-bases/${encodeURIComponent(kbId)}/knowledge/batch-download`, { ids }, {
     responseType: 'blob',

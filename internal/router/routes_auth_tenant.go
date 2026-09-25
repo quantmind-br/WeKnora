@@ -171,7 +171,8 @@ func RegisterMyInvitationRoutes(r *gin.RouterGroup, invitationHandler *handler.T
 		me.GET("/invitations/pending-count", invitationHandler.CountMyPendingInvitations)
 		me.POST("/invitations/:inv_id/accept", invitationHandler.AcceptMyInvitation)
 		me.POST("/invitations/:inv_id/decline", invitationHandler.DeclineMyInvitation)
-		// 已登录用户用共享链接 token 加入空间（对应 register-by-invite，但不建新账号）。
+		// A logged-in user joins a space with a share-link token (the counterpart of
+		// register-by-invite, without creating a new account).
 		me.POST("/invitations/accept-by-token", invitationHandler.AcceptMyInvitationByToken)
 	}
 }
@@ -220,7 +221,8 @@ func RegisterAuthRoutes(r *gin.RouterGroup, handler *handler.AuthHandler, g *rba
 	r.GET("/auth/oidc/config", handler.GetOIDCConfig)
 	r.GET("/auth/oidc/url", handler.GetOIDCAuthorizationURL)
 	r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)
-	// /auth/oidc/start：直连 302 跳转到 OIDC 提供方，供前端无法走 JS 拉取 URL 的场景直接发起登录
+	// /auth/oidc/start: a direct 302 redirect to the OIDC provider, so login can be
+	// started when the frontend cannot fetch the URL through JS
 	r.GET("/auth/oidc/start", handler.OIDCStart)
 	r.POST("/auth/refresh", handler.RefreshToken)
 	r.GET("/auth/validate", handler.ValidateToken)

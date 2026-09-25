@@ -144,8 +144,8 @@ export default defineConfig({
         target: DEV_PROXY_TARGET,
         changeOrigin: true,
         secure: false,
-        // 沙箱终端等 WebSocket 升级请求也走 /api，必须开启 WS 转发，
-        // 否则浏览器侧握手失败、前端表现为"一直正在连接"。
+        // WebSocket upgrade requests such as the sandbox terminal also go through /api, so WS proxying must be enabled;
+        // otherwise the browser-side handshake fails and the frontend looks stuck "connecting".
         ws: true,
         // Cube fork snapshots pause a live MicroVM; 30s axios/proxy defaults
         // abort the POST and the backend then 500s on a canceled persist.

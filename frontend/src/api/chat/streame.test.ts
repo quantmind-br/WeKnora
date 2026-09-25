@@ -63,7 +63,7 @@ for (const selected of [true, false, undefined]) {
     await renderToString(createSSRApp({ setup() { stream = useStream(); return () => null } }))
     try {
       await stream.startStream({
-        session_id: 'new-session', query: '查一下腾讯股价', method: 'POST', url: '/api/v1/agent-chat',
+        session_id: 'new-session', query: 'look up the Tencent stock price', method: 'POST', url: '/api/v1/agent-chat',
         agent_enabled: true, local_browser_enabled: selected, web_search_enabled: true,
         mcp_service_ids: ['mcp-1'], skill_names: ['report'],
       })

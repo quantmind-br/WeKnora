@@ -327,7 +327,7 @@ func (h *KnowledgeHandler) CreateKnowledgeFromFile(c *gin.Context) {
 	if err != nil {
 		if isRequestBodyTooLarge(err) {
 			logger.Error(ctx, "File size too large")
-			c.Error(errors.NewBadRequestError(fmt.Sprintf("文件大小不能超过%dMB", maxSizeMB)))
+			c.Error(errors.NewBadRequestError(fmt.Sprintf("File size cannot exceed %dMB", maxSizeMB)))
 			return
 		}
 		logger.Error(ctx, "File upload failed", err)

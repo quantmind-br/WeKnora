@@ -1479,7 +1479,7 @@ async function createScopedAPIKey() {
   }
 }
 
-// 打开编辑器时复制服务端配置，取消操作不会污染列表中的原始数据。
+// Copy the server config when opening the editor, so cancelling cannot pollute the original data in the list.
 function openEditAPIKeyScope(key: TenantAPIKey) {
   editingAPIKey.value = key
   editingAPIKeyForm.name = key.name
@@ -1497,7 +1497,7 @@ function openEditAPIKeyScope(key: TenantAPIKey) {
   void loadKnowledgeBaseOptions()
 }
 
-// 保存完整配置后刷新列表，确保鉴权范围与界面立即一致。
+// Refresh the list after saving the full config, so the authorization scope and the UI agree immediately.
 async function saveAPIKeyConfiguration() {
   const key = editingAPIKey.value
   if (!key) return

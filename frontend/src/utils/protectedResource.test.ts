@@ -33,7 +33,7 @@ function imageRoot(source: string) {
   const root: any = { replacement: null, removed: false, querySelectorAll: () => root.replacement || root.removed ? [] : [img] }
   const attrs: Record<string, string> = { src: source }
   const img: any = {
-    alt: '比赛 PPT', dataset: {}, style: { display: '' },
+    alt: 'Contest PPT', dataset: {}, style: { display: '' },
     get src() { return attrs.src },
     set src(value: string) { attrs.src = value },
     getAttribute: (key: string) => attrs[key] || '',
@@ -66,7 +66,7 @@ test('cross-turn files hydrate as downloadable preview cards; images remain imag
       await hydrateProtectedFileImages(root, { mode: 'message', sessionId: 's', messageId: 'm2' })
       assert.equal(root.replacement.tag, 'a')
       assert.equal(root.replacement.download, 'deck.pptx')
-      assert.equal(root.replacement.textContent, '比赛 PPT')
+      assert.equal(root.replacement.textContent, 'Contest PPT')
       assert.match(root.replacement.href, /^blob:/)
     }
     assert.notEqual(old.root.replacement.href, current.root.replacement.href)
@@ -82,7 +82,7 @@ test('cross-turn files hydrate as downloadable preview cards; images remain imag
     const rerenderSource = 'resource://rerender-pptx'
     const first = imageRoot(rerenderSource)
     await hydrateProtectedFileImages(first.root, { mode: 'message', sessionId: 's', messageId: 'm2' })
-    const rewritten = protectProviderImageSrcInHTML(`<img alt="比赛 PPT" src="${rerenderSource}">`)
+    const rewritten = protectProviderImageSrcInHTML(`<img alt="Contest PPT" src="${rerenderSource}">`)
     assert.match(rewritten, /protected-resource-card/)
     assert.match(rewritten, /download=/)
     assert.match(rewritten, /href="blob:/)

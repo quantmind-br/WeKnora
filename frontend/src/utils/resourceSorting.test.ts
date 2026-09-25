@@ -30,7 +30,7 @@ const items: Item[] = [
   { id: 'middle-a', group: 'mine', name: 'Alpha 11', created_at: '2024-01-15', updated_at: '2024-03-15' },
 ]
 
-test('资源排序默认使用更新时间倒序并提供三组共六个选项', () => {
+test('resource sorting defaults to newest update first and offers six options in three groups', () => {
   assert.equal(DEFAULT_RESOURCE_SORT, 'updated_desc')
   assert.deepEqual(
     RESOURCE_SORT_OPTIONS.map(({ value, sortBy, sortOrder }) => [value, sortBy, sortOrder]),
@@ -49,11 +49,11 @@ test('资源排序默认使用更新时间倒序并提供三组共六个选项',
   )
 })
 
-test('未知资源排序值会安全回退到默认选项', () => {
+test('an unknown resource sort value safely falls back to the default option', () => {
   assert.equal(getResourceSortOption('invalid' as never).value, DEFAULT_RESOURCE_SORT)
 })
 
-test('资源排序支持创建时间和名称的双向排序', () => {
+test('resource sorting supports both directions for creation time and name', () => {
   assert.deepEqual(
     sortResourceItems(items, 'created_asc', accessors).map(item => item.id),
     ['old-z', 'middle-a', 'new-a'],
@@ -68,7 +68,7 @@ test('资源排序支持创建时间和名称的双向排序', () => {
   )
 })
 
-test('排序保留固定分组顺序，只调整组内条目', () => {
+test('sorting keeps the fixed group order and only reorders items within each group', () => {
   const mixed: Item[] = [
     { ...items[0], group: 'shared' },
     { ...items[1], group: 'mine' },
@@ -81,7 +81,7 @@ test('排序保留固定分组顺序，只调整组内条目', () => {
   )
 })
 
-test('缺少排序字段的旧数据始终排在末尾，值相同时保持原顺序', () => {
+test('legacy items missing the sort field always sort last, and ties keep their original order', () => {
   const legacy: Item[] = [
     { id: 'first', group: 'mine', name: 'Same', updated_at: '2024-01-01' },
     { id: 'missing', group: 'mine' },

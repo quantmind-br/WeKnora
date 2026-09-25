@@ -4230,7 +4230,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "启用状态筛选；不传时返回全部",
+                        "description": "Filter by enabled state; returns all when omitted",
                         "name": "is_enabled",
                         "in": "query"
                     }
@@ -4942,7 +4942,7 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "default": "handle",
-                        "description": "文件引用形式，public 返回可加载直链",
+                        "description": "File reference form; public returns directly loadable links",
                         "name": "resource_urls",
                         "in": "query"
                     }
@@ -5007,7 +5007,7 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "default": "handle",
-                        "description": "文件引用形式，public 返回可加载直链",
+                        "description": "File reference form; public returns directly loadable links",
                         "name": "resource_urls",
                         "in": "query"
                     }
@@ -8347,12 +8347,12 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "获取 MCP 端点列表",
+                "summary": "List MCP endpoints",
                 "responses": {
                     "200": {
-                        "description": "端点列表",
+                        "description": "Endpoint list",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -8369,7 +8369,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "为当前工作空间发布一个 MCP 端点，响应中的 token 只返回一次",
+                "description": "Publishes an MCP endpoint for the current workspace; the token in the response is returned only once",
                 "consumes": [
                     "application/json"
                 ],
@@ -8377,12 +8377,12 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "创建 MCP 端点",
+                "summary": "Create an MCP endpoint",
                 "parameters": [
                     {
-                        "description": "端点配置：name、description、enabled、knowledge_base_ids、tools 等",
+                        "description": "Endpoint config: name, description, enabled, knowledge_base_ids, tools, etc.",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -8393,14 +8393,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "创建的端点，含一次性 token",
+                        "description": "Created endpoint, including the one-time token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "请求参数错误",
+                        "description": "Invalid request parameters",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -8419,17 +8419,17 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "返回工作空间 MCP 端点可勾选的工具清单、分组和默认勾选项",
+                "description": "Returns the tools that can be selected for a workspace MCP endpoint, their groups, and the default selection",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "获取 MCP 端点工具目录",
+                "summary": "Get the MCP endpoint tool catalog",
                 "responses": {
                     "200": {
-                        "description": "工具目录",
+                        "description": "Tool catalog",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -8452,13 +8452,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "获取 MCP 端点详情",
+                "summary": "Get MCP endpoint details",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "端点 ID",
+                        "description": "Endpoint ID",
                         "name": "endpoint_id",
                         "in": "path",
                         "required": true
@@ -8466,14 +8466,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "端点详情",
+                        "description": "Endpoint details",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "端点不存在",
+                        "description": "Endpoint does not exist",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -8497,19 +8497,19 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "更新 MCP 端点",
+                "summary": "Update an MCP endpoint",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "端点 ID",
+                        "description": "Endpoint ID",
                         "name": "endpoint_id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "要更新的字段，未提供的字段保持不变",
+                        "description": "Fields to update; fields not provided stay unchanged",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -8520,21 +8520,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "更新后的端点",
+                        "description": "Updated endpoint",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "请求参数错误",
+                        "description": "Invalid request parameters",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "端点不存在",
+                        "description": "Endpoint does not exist",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -8555,13 +8555,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "删除 MCP 端点",
+                "summary": "Delete an MCP endpoint",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "端点 ID",
+                        "description": "Endpoint ID",
                         "name": "endpoint_id",
                         "in": "path",
                         "required": true
@@ -8569,14 +8569,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "删除成功",
+                        "description": "Deleted successfully",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "端点不存在",
+                        "description": "Endpoint does not exist",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -8595,18 +8595,18 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "生成新令牌并立即作废旧令牌，响应中的 token 只返回一次",
+                "description": "Generates a new token and immediately revokes the old one; the token in the response is returned only once",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "MCP端点"
+                    "MCP Endpoints"
                 ],
-                "summary": "轮换 MCP 端点令牌",
+                "summary": "Rotate the MCP endpoint token",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "端点 ID",
+                        "description": "Endpoint ID",
                         "name": "endpoint_id",
                         "in": "path",
                         "required": true
@@ -8614,14 +8614,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "含新 token 的端点",
+                        "description": "Endpoint including the new token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "404": {
-                        "description": "端点不存在",
+                        "description": "Endpoint does not exist",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -10946,7 +10946,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "模型仍被知识库、智能体或长期记忆引用",
+                        "description": "Model is still referenced by a knowledge base, agent, or long-term memory",
                         "schema": {
                             "$ref": "#/definitions/github_com_Tencent_WeKnora_internal_errors.AppError"
                         }
@@ -15651,17 +15651,17 @@ const docTemplate = `{
         },
         "/system/capabilities": {
             "get": {
-                "description": "返回当前部署版本及实际注册的后端路由所对应的功能能力；仅 supported=false 表示入口应隐藏",
+                "description": "Returns the current deployment edition and the feature capabilities backed by the backend routes actually registered; only supported=false means the entry point should be hidden",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "系统"
+                    "System"
                 ],
-                "summary": "获取部署能力清单",
+                "summary": "Get deployment capabilities",
                 "responses": {
                     "200": {
-                        "description": "标准 code/msg/data 包装，data 为 DeploymentCapabilitiesData",
+                        "description": "Standard code/msg/data envelope; data is DeploymentCapabilitiesData",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -18865,7 +18865,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_key": {
-                    "description": "加密",
+                    "description": "encrypted at rest",
                     "type": "string"
                 },
                 "api_url": {
@@ -19343,7 +19343,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_key": {
-                    "description": "加密",
+                    "description": "encrypted at rest",
                     "type": "string"
                 },
                 "api_url": {
@@ -20701,7 +20701,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "vector_recall": {
-                    "description": "VectorRecall adds semantic similarity to memory recall. Nil means on\nwhen an embedding model is reachable.\n\nLexical matching alone cannot find a memory the user has re-worded, which\nis most of them: \"回答直接给结论\" and \"别铺垫那么多\" share no tokens. The\ncost is one embedding call per turn, bounded and degraded to lexical on\nfailure, so the feature never becomes a reason a chat is slow.",
+                    "description": "VectorRecall adds semantic similarity to memory recall. Nil means on\nwhen an embedding model is reachable.\n\nLexical matching alone cannot find a memory the user has re-worded, which\nis most of them: \"lead with the conclusion\" and \"skip the long preamble\"\nshare no tokens. The cost is one embedding call per turn, bounded and\ndegraded to lexical on failure, so the feature never becomes a reason a\nchat is slow.",
                     "type": "boolean"
                 },
                 "write_mode": {

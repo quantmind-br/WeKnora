@@ -298,25 +298,25 @@ sequenceDiagram
     H-->>P: SearchResult (truncated to matchCount)
 ```
 
-## 实现参考
+## Implementation Reference
 
-| 环节 | 源码位置 |
+| Stage | Source location |
 |------|----------|
-| 引擎注册（env + DB store） | `internal/container/container.go`（`initRetrieveEngineRegistry`）、`engine_factory.go` |
-| 注册表 / 组合引擎 / 工厂 | `internal/application/service/retriever/`（`registry.go`、`composite.go`、`factory.go`、`normalizer.go`） |
-| 各引擎实现 | `internal/application/repository/retriever/{postgres,sqlite,elasticsearch,opensearch,qdrant,milvus,weaviate,doris,tencentvectordb,neo4j}` |
-| 混合检索调度与融合 | `internal/application/service/knowledgebase_search*.go` |
-| 引擎类型常量 | `internal/types/retriever.go` |
-| 租户默认引擎 | `internal/types/tenant.go`（`GetDefaultRetrieverEngines`） |
-| 环境变量清单 | `.env.example`（C1 节）、`docker-compose.yml` |
+| Engine registration (env + DB store) | `internal/container/container.go` (`initRetrieveEngineRegistry`), `engine_factory.go` |
+| Registry / composite engine / factory | `internal/application/service/retriever/` (`registry.go`, `composite.go`, `factory.go`, `normalizer.go`) |
+| Engine implementations | `internal/application/repository/retriever/{postgres,sqlite,elasticsearch,opensearch,qdrant,milvus,weaviate,doris,tencentvectordb,neo4j}` |
+| Hybrid retrieval dispatch and fusion | `internal/application/service/knowledgebase_search*.go` |
+| Engine type constants | `internal/types/retriever.go` |
+| Tenant default engines | `internal/types/tenant.go` (`GetDefaultRetrieverEngines`) |
+| Environment variable list | `.env.example` (section C1), `docker-compose.yml` |
 
-## 本地验证与升级
+## Local Testing and Upgrades
 
-- [ParadeDB 存量库升级](../01-getting-started/06-paradedb-upgrade.md)：保留数据卷、扩展 SQL 升级与恢复。
+- [ParadeDB upgrade for existing databases](../01-getting-started/06-paradedb-upgrade.md): keeping the data volume, upgrading the extension SQL, and recovery.
 
-### OpenSearch 本地联调 {#opensearch-local-testing}
+### OpenSearch Local Testing {#opensearch-local-testing}
 
-在仓库根目录启动开发集群：
+Start the development cluster from the repository root:
 
 ```bash
 docker compose -f docker-compose.dev.yml --profile opensearch up -d opensearch
@@ -324,9 +324,9 @@ curl -fsS 'http://localhost:9200/'
 curl -fsS 'http://localhost:9200/_cat/plugins?format=json'
 ```
 
-确认版本和 `opensearch-knn` 插件。默认端口为 9200，修改过 `OPENSEARCH_PORT` 时同步调整地址。此 profile 关闭安全插件，仅用于隔离的本地测试；可选 Dashboards 使用 `--profile opensearch-ui up -d opensearch-dashboards` 启动。
+Confirm the version and the `opensearch-knn` plugin. The default port is 9200; if you changed `OPENSEARCH_PORT`, adjust the address to match. This profile disables the security plugin and is meant only for isolated local testing; the optional Dashboards can be started with `--profile opensearch-ui up -d opensearch-dashboards`.
 
-宿主机后端在 `.env` 中设置并重新启动：
+For a backend running on the host, set the following in `.env` and restart it:
 
 ```dotenv
 RETRIEVE_DRIVER=opensearch
@@ -334,16 +334,16 @@ OPENSEARCH_ADDR=http://localhost:9200
 SSRF_WHITELIST=localhost
 ```
 
-也可通过管理界面/API 注册 `engine_type: opensearch` 的存储，`connection_config.addr` 使用该地址。容器内后端要使用可达的服务地址；生产连接另需 TLS、认证和按实际目标配置的 SSRF 规则。配置方式见[基础设施 API](../04-api/02-api-infra.md)。
+You can also register a store with `engine_type: opensearch` through the admin UI/API, using this address for `connection_config.addr`. A backend running inside a container must use a service address it can reach; production connections additionally need TLS, authentication, and SSRF rules configured for the actual target. See the [Infrastructure API](../04-api/02-api-infra.md) for configuration details.
 
-**单节点副本限制**：当前驱动默认 1 个副本，`index_config.number_of_replicas: 0` 也会回退为 1（`opensearch/config.go` 的零值处理）。因此不能用填写 0 来保证集群变为 Green。主分片正常、副本无法分配时可呈 Yellow；结合 `/_cluster/health` 和 `/_cat/shards?v` 检查具体原因，再验证实际读写。
+**Single-node replica limitation**: the driver currently defaults to 1 replica, and `index_config.number_of_replicas: 0` also falls back to 1 (zero-value handling in `opensearch/config.go`). So setting 0 cannot guarantee the cluster turns Green. When primary shards are healthy but replicas cannot be allocated, the cluster may show Yellow; check `/_cluster/health` and `/_cat/shards?v` for the actual cause, then verify real reads and writes.
 
-创建测试知识库并绑定该存储，上传少量文档，等待解析完成后验证向量与关键词检索。检查 `/_cat/indices?v` 与 `/_cat/aliases?v`，再验证修改、停用、重新启用和删除条目的检索结果；若测试知识库复制，还应检查目标库内容。索引按需创建，不应要求保存存储配置时就出现全部索引。
+Create a test knowledge base bound to this store, upload a few documents, and once parsing completes, verify vector and keyword retrieval. Check `/_cat/indices?v` and `/_cat/aliases?v`, then verify retrieval results after editing, disabling, re-enabling, and deleting entries; if you test knowledge base copying, also check the target knowledge base's content. Indexes are created on demand, so do not expect all of them to exist as soon as the store configuration is saved.
 
-结束后仅停止本次使用的服务，保留开发数据：
+When you are done, stop only the services used for this test and keep the development data:
 
 ```bash
 docker compose -f docker-compose.dev.yml --profile opensearch stop opensearch
-# 若启动过 Dashboards
+# If you started Dashboards
 docker compose -f docker-compose.dev.yml --profile opensearch-ui stop opensearch-dashboards
 ```
