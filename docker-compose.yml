@@ -384,6 +384,11 @@ services:
         condition: service_healthy
       docreader:
         condition: service_healthy
+      # Only enforced when the garage profile is active: waits for the S3 key
+      # and bucket so STORAGE_TYPE=s3 does not fail its startup bucket check.
+      garage-init:
+        condition: service_completed_successfully
+        required: false
     networks:
       - WeKnora-network
     restart: unless-stopped
