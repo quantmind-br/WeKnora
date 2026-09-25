@@ -179,7 +179,7 @@ const renderStreamMarkdown = (raw: string): string => {
 
 // --- Test Data ---
 
-This is a plain text paragraph with **bold**, *italic*, ***bold italic***, ~~strikethrough~~, and inline `code`.
+const basicTextSample = `This is a plain text paragraph with **bold**, *italic*, ***bold italic***, ~~strikethrough~~, and inline \`code\`.
 
 Keyboard shortcuts are also supported: <kbd>⌘</kbd> + <kbd>K</kbd>.
 
