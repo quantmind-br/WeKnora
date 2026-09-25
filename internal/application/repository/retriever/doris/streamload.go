@@ -458,8 +458,8 @@ type rowLocation struct {
 }
 
 // lookupChunkRowKeys looks up the physical location of the given chunkIDs across all <base>_<dim> tables:
-//   - key：chunk_id
-// value: [(table, id), ...], since the same chunk may have copies in tables across multiple dimensions.
+//   - key: chunk_id
+//   - value: [(table, id), ...], since the same chunk may have copies in tables across multiple dimensions.
 //
 // Cross-table queries use all matching tables listed by listEmbeddingTables; each table is queried once
 // SELECT id, chunk_id FROM <table> WHERE chunk_id IN (?, ?, ...)。

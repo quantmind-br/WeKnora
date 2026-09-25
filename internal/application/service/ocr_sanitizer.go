@@ -14,14 +14,19 @@ var (
 	htmlDocPattern    = regexp.MustCompile(`(?i)^\s*(<\!DOCTYPE|<html|<body|<div|<p[\s>]|<table|<h[1-6][\s>])`)
 	multipleNewlines  = regexp.MustCompile(`\n{3,}`)
 	knownEmptyReplies = []string{
-		"No text content",
-		"Unable to recognize",
+		// Functional matchers: VLMs reply in Chinese or English regardless of
+		// UI locale, so both languages must stay in this list.
+		"无文字内容",
+		"无法识别",
+		"图片中没有文字",
+		"图片中没有可识别的文字",
 		"no text",
 		"no text content",
 		"no content",
 		"empty",
-		"No text in the image",
-		"No recognizable text in the image",
+		"unable to recognize",
+		"no text in the image",
+		"no recognizable text in the image",
 	}
 )
 

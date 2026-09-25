@@ -220,10 +220,10 @@ func TestGolden_RichDocxAllCapabilities(t *testing.T) {
 		"| 苹果 | 3 |",  // embedded sheet row
 		"| 任务 | 状态 |", // embedded bitable header
 		"| 写码 | 完成 |", // embedded bitable row
-		"![图片]()",     // token-free image placeholder
-		"📎 附件：手册.pdf",
-		"📎 附件：logo.png",
-		"📎 附件：small.pdf",
+		"![image]()",  // token-free image placeholder
+		"📎 Attachment: 手册.pdf",
+		"📎 Attachment: logo.png",
+		"📎 Attachment: small.pdf",
 	}
 	for _, f := range fragments {
 		if !strings.Contains(md, f) {
@@ -232,7 +232,7 @@ func TestGolden_RichDocxAllCapabilities(t *testing.T) {
 	}
 
 	// ── document order preserved (heading before table before attachments) ──
-	order := []string{"# 季度报告", "## 关键指标", "| 列A | 列B |", "| 名称 | 数量 |", "| 任务 | 状态 |", "📎 附件：手册.pdf"}
+	order := []string{"# 季度报告", "## 关键指标", "| 列A | 列B |", "| 名称 | 数量 |", "| 任务 | 状态 |", "📎 Attachment: 手册.pdf"}
 	last := -1
 	for _, f := range order {
 		idx := strings.Index(md, f)

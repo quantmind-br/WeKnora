@@ -44,7 +44,7 @@ func TestBlocksToMarkdown_EmbeddedSheetAndFile(t *testing.T) {
 	if !strings.Contains(string(md), "| 名称 | 数量 |") || !strings.Contains(string(md), "| 苹果 | 3 |") {
 		t.Errorf("sheet not inlined:\n%s", md)
 	}
-	if !strings.Contains(string(md), "![图片]()") {
+	if !strings.Contains(string(md), "![image]()") {
 		t.Errorf("image placeholder missing:\n%s", md)
 	}
 	if strings.Contains(string(md), "feishu-media") {
@@ -53,7 +53,7 @@ func TestBlocksToMarkdown_EmbeddedSheetAndFile(t *testing.T) {
 	if len(atts) != 1 || atts[0].FileToken != "file_t" || atts[0].Name != "报表.pdf" {
 		t.Errorf("attachments = %+v", atts)
 	}
-	if !strings.Contains(string(md), "📎 附件：报表.pdf") {
+	if !strings.Contains(string(md), "📎 Attachment: 报表.pdf") {
 		t.Errorf("attachment inline reference missing:\n%s", md)
 	}
 }
@@ -68,7 +68,7 @@ func TestBlocksToMarkdown_SheetTruncatedNote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	if !strings.Contains(string(md), "表格已截断") {
+	if !strings.Contains(string(md), "Table truncated") {
 		t.Errorf("want truncation note, got:\n%s", md)
 	}
 }
@@ -83,7 +83,7 @@ func TestBlocksToMarkdown_SheetPermissionDegrades(t *testing.T) {
 	if err != nil {
 		t.Fatalf("should not fail on permission error, got %v", err)
 	}
-	if !strings.Contains(string(md), "无法读取内嵌电子表格") {
+	if !strings.Contains(string(md), "Unable to read embedded spreadsheet") {
 		t.Errorf("want degraded placeholder, got:\n%s", md)
 	}
 }
@@ -107,7 +107,7 @@ func TestBlocksToMarkdown_BitableInlinedAndDegrades(t *testing.T) {
 	}
 
 	degraded := mk(fakeReader{bitableErr: fmt.Errorf("code=99991672 permission denied")})
-	if !strings.Contains(degraded, "无法读取内嵌多维表格") {
+	if !strings.Contains(degraded, "Unable to read embedded multi-dimensional table") {
 		t.Errorf("want bitable degradation note, got:\n%s", degraded)
 	}
 }

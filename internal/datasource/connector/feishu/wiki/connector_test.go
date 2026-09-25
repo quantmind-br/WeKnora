@@ -1786,7 +1786,7 @@ func TestFetchDocxWithBlocks_NonWhitelistedExtNotPromoted(t *testing.T) {
 		t.Fatalf("want 1 item (main doc only, .png not promoted), got %d: %+v", len(items), items)
 	}
 	mainContent := string(items[0].Content)
-	if !strings.Contains(mainContent, "📎 附件：icon.png") {
+	if !strings.Contains(mainContent, "📎 Attachment: icon.png") {
 		t.Errorf("main doc missing inline reference for icon.png; got:\n%s", mainContent)
 	}
 }
@@ -1826,7 +1826,7 @@ func TestFetchDocxWithBlocks_WhitelistedTinyAttachmentNotPromoted(t *testing.T) 
 		t.Fatalf("want 1 item (main doc only, tiny .pdf not promoted), got %d: %+v", len(items), items)
 	}
 	mainContent := string(items[0].Content)
-	if !strings.Contains(mainContent, "📎 附件：tiny.pdf") {
+	if !strings.Contains(mainContent, "📎 Attachment: tiny.pdf") {
 		t.Errorf("main doc missing inline reference for tiny.pdf; got:\n%s", mainContent)
 	}
 }

@@ -57,7 +57,7 @@ func TestStreamDisplayPipeline_agentScenario_redGreen(t *testing.T) {
 	// Simulates the agent IM stream lifecycle aligned with Web:
 	// 1) intermediate updates show styled thinking + tools
 	// 2) final replace shows answer only (no collapsed think header)
-	rawIntermediate := "<think>\n分析 Civilization VI 问题\n正在调用 搜索关键词...\n搜索关键词\n</think>\n\n"
+	rawIntermediate := "<think>\n分析 Civilization VI 问题\nCalling Search keywords...\nSearch keywords\n</think>\n\n"
 
 	rec := &recordingStreamSender{}
 	ctx := context.Background()
@@ -128,10 +128,10 @@ func TestStreamDisplayPipeline_quickQA_redGreen(t *testing.T) {
 	if intermediate == "" {
 		t.Fatal("quick QA should show pipeline progress while streaming")
 	}
-	if !strings.Contains(intermediate, "问题理解") {
+	if !strings.Contains(intermediate, "understanding the question") {
 		t.Fatalf("quick QA pipeline should show query_understand step, got: %q", intermediate)
 	}
-	if strings.Contains(intermediate, "思考过程") {
+	if strings.Contains(intermediate, "Thinking process") {
 		t.Fatalf("quick QA pipeline should not use agent think header, got: %q", intermediate)
 	}
 
